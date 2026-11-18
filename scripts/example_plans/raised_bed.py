@@ -11,6 +11,7 @@ from . import authoring as a
 from .i18n import text
 
 SLUG = "raised-bed"
+IDS = "serial"
 
 META = {
     "name_en": "Raised-bed polyculture - 4 x 2 m", "name_de": "Hochbeet-Mischkultur - 4 x 2 m",
@@ -20,6 +21,7 @@ META = {
     "description_de": "164 Pflanzen im 4 x 2 m Beet: 16 Salate, 60 Möhren und 88 Radieschen. Herbstbestand, Nachfolgeplan 2027, fiktive Bodenprobe und fiktives Erntebuch. Öffnet am 21. September 2026 bei Tageslicht; Referenz Berlin. Die Beispieldaten sind Kalenderdaten, keine lokale Frostprognose.",
     "description_es": "164 plantas en un bancal de 4 x 2 m: 16 lechugas, 60 zanahorias y 88 rábanos. Sucesión de 2027, muestra de suelo y cosechas ficticias. Se abre el 21 de septiembre de 2026 con luz de día; referencia Berlín. Las fechas son ejemplos de calendario, no una previsión local de heladas.",
     "description_ru": "164 культуры на грядке 4 x 2 м: 16 салатов, 60 морковей и 88 редисов. Осенние посадки, севооборот на 2027 год, условные образец почвы и журнал урожая. Открывается на 21 сентября 2026 года при дневном свете; координаты Берлина. Указаны примерные календарные даты, а не прогноз местных заморозков.",
+    "order": 12,
     "tags": ["raised-bed", "polyculture", "succession"],
     "showcase_date": a.TEACHING_DATE, "showcase_utc_time": a.SHOWCASE_UTC_TIME,
 }
@@ -65,7 +67,7 @@ def build():
     a.note(scene, 80, 145, text(
         "21 Sep 2026 · 1  16 lettuces + 60 carrots + 88 radishes; sow radish sections in batches.\n2  Right-click the bed: Succession Plan (2027), then Soil Test (fictional sample).\n3  Plan & Sun: 21 Sep, 17:30 → shed shade on the bed. Berlin / frost: demo data.",
         "21.09.2026 · 1  16 Salate + 60 Möhren + 88 Radieschen; Radieschen abschnittsweise säen.\n2  Rechtsklick aufs Beet: Nachfolgeplanung (2027), dann Bodentest (fiktive Probe).\n3  Plan & Sonne: 21.09., 17:30 Uhr → Beetschatten. Berlin / Frost: Beispieldaten.",
-        "21 sep 2026 · 1  16 lechugas + 60 zanahorias + 88 rábanos; siembre rábanos por tandas.\n2  Clic derecho en bancal: sucesión (2027), después análisis de suelo (muestra ficticia).\n3  Plan y sol: 21 sep, 17:30 → sombra sobre el bancal. Berlín / heladas: ejemplo."), 0.47, a.NOTE_ON_LAWN, bold=True)
+        "21 sep 2026 · 1  16 lechugas + 60 zanahorias + 88 rábanos; siembre rábanos por tandas.\n2  Clic derecho en bancal: sucesión (2027), después análisis de suelo (muestra ficticia).\n3  Plan y sol: 21 sep, 17:30 → sombra sobre el bancal. Berlín / heladas: ejemplo."), 0.47, a.NOTE_ON_LAWN, bold=True, layer=a.hint_layer(scene, SLUG))
     # The bed stays fully planted on 21 September: what was taken so far are leaves and
     # thinnings, and the border's perennial chives have a season behind them.
     for key, entries in (

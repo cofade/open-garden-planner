@@ -12,6 +12,7 @@ from . import authoring as a
 from .i18n import text
 
 SLUG = "balcony"
+IDS = "serial"
 
 META = {
     "name_en": "Balcony herb containers", "name_de": "Balkon mit Kräutergefäßen",
@@ -21,6 +22,7 @@ META = {
     "description_de": "Ein möblierter 5 x 3 m Balkon: 4 Basilikum-, 6 Petersilien- und 4 Thymianpflanzen, drei Geländerseiten, Nordwand und Schirm. Bodentest- und Schattenübung; Referenz Freiburg. Öffnet am Übungsdatum, dem 21. September 2026, bei Tageslicht. Beispielentwurf; Licht und Tragfähigkeit vor Ort prüfen.",
     "description_es": "Un balcón amueblado de 5 x 3 m: 4 albahacas, 6 perejiles y 4 tomillos, tres barandillas, pared norte y sombrilla. Tutorial de suelo y sombras; referencia Friburgo. Se abre en su fecha didáctica, el 21 de septiembre de 2026, con luz de día. Diseño ilustrativo; compruebe la luz y la capacidad de carga del lugar.",
     "description_ru": "Обустроенный балкон 5 x 3 м: 4 базилика, 6 петрушек и 4 тимьяна, три ограждения, северная стена и зонт. Обучение анализу почвы и теням; координаты Фрайбурга. Открывается на учебную дату, 21 сентября 2026 года, при дневном свете. Пример планировки; проверьте освещенность и допустимую нагрузку на месте.",
+    "order": 13,
     "tags": ["balcony", "containers", "herbs"],
     "showcase_date": a.TEACHING_DATE, "showcase_utc_time": a.SHOWCASE_UTC_TIME,
 }
@@ -69,7 +71,7 @@ def build():
     a.note(scene, 20, 196, text(
         "21 Sep 2026 · 4 basil / 6 parsley / 4 thyme.\nWater separately. Basil trough → Soil Test: fictional sample.\nFreiburg / frost: demo data. Plan & Sun → 21 June, 15:00.\nCompare wall, rails and parasol shadows.",
         "21.09.2026 · 4 Basilikum / 6 Petersilien / 4 Thymiane.\nGetrennt gießen. Basilikumtrog → Bodentest: Übungsprobe.\nFreiburg / Frost: fiktiv. Plan & Sonne → 21. Juni, 15 Uhr.\nWand, Geländer und Schirm vergleichen.",
-        "21 sep 2026 · 4 albahacas / 6 perejiles / 4 tomillos.\nRiego separado. Albahaca → Análisis de suelo: ficticio.\nFriburgo / heladas: ejemplo. Plan y sol → 21 junio, 15:00.\nComparar pared, barandilla y sombrilla."), 0.24)
+        "21 sep 2026 · 4 albahacas / 6 perejiles / 4 tomillos.\nRiego separado. Albahaca → Análisis de suelo: ficticio.\nFriburgo / heladas: ejemplo. Plan y sol → 21 junio, 15:00.\nComparar pared, barandilla y sombrilla."), 0.24, layer=a.hint_layer(scene, SLUG))
     for key, entries in (
         ("ocimum basilicum", [("2026-06-28", 1, "bunch", a.FIRST_PICK), ("2026-07-19", 2, "bunch", a.AROMATIC),
                               ("2026-08-15", 2, "bunch"), ("2026-09-06", 1, "bunch")]),

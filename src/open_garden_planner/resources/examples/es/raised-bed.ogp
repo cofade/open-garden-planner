@@ -16,6 +16,15 @@
       "opacity": 1.0,
       "z_order": 0,
       "permaculture_layer": null
+    },
+    {
+      "id": "34d995bd-1be7-58fe-8143-abbd8757712a",
+      "name": "Indicaciones",
+      "visible": true,
+      "locked": false,
+      "opacity": 1.0,
+      "z_order": 1,
+      "permaculture_layer": null
     }
   ],
   "objects": [
@@ -12220,8 +12229,8 @@
       "bold": true,
       "italic": false,
       "text_color": "#fffdfbee",
-      "layer_id": "5b3dfb84-40e6-5447-bdb2-16a232955f6d",
-      "stack_order": 186368
+      "layer_id": "34d995bd-1be7-58fe-8143-abbd8757712a",
+      "stack_order": 1024
     }
   ],
   "location": {
@@ -12394,5 +12403,30 @@
       "species_key": "calendula officinalis",
       "species_name": "Cal\u00e9ndula"
     }
-  }
+  },
+  "camera_tours": [
+    {
+      "name": "Vuelo alrededor del jard\u00edn",
+      "motion": "orbit",
+      "orbit": {
+        "target": [
+          450.0,
+          325.0
+        ],
+        "distance_cm": 1131.0,
+        "yaw_deg": 320.2,
+        "pitch_deg": 18.0,
+        "fov_deg": 40.0,
+        "turns": 1,
+        "clockwise": true,
+        "ease": true
+      },
+      "duration_s": 30.0,
+      "fps": 30,
+      "size": [
+        1920,
+        1080
+      ]
+    }
+  ]
 }

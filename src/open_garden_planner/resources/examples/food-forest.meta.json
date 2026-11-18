@@ -7,6 +7,7 @@
   "description_de": "Alte Bäume, eine Apfelgilde in Pflanzgruppen, gemulchte Beete mit Erntewegen und ein sonniger essbarer Saum. Öffnet am 21. September 2026 bei Tageslicht; Referenzkoordinaten Bonn, fiktive Frostdaten und fiktives Erntebuch. Beispielentwurf; Arten und Abstände an den Standort anpassen.",
   "description_es": "Árboles establecidos, un gremio de manzano en grupos y bancales acolchados con acceso. Se abre el 21 de septiembre de 2026 con luz de día; coordenadas de referencia de Bonn, heladas y cosechas ficticias. Diseño ilustrativo; adapte especies y distancias al lugar.",
   "description_ru": "Взрослые деревья, гильдия яблони в группах посадки, мульчированные грядки с проходами и солнечная съедобная опушка. Открывается на 21 сентября 2026 года при дневном свете; координаты Бонна, условные даты заморозков и условный журнал урожая. Пример планировки; адаптируйте виды и расстояния под ваш участок.",
+  "order": 10,
   "tags": [
     "food-forest",
     "guild",

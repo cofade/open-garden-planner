@@ -25,32 +25,58 @@ if __name__ == "__main__":
     script_isolation.isolate_profile()
 
 from example_plans import PLANS
+from example_plans.authoring import hint_layer_id
 from example_plans.i18n import localized_plan
 from example_plans.thumbnails import thumbnail
+from example_plans.tours import orbit_pose, orbit_tour
 from PyQt6.QtWidgets import QApplication
 
+from open_garden_planner.core.camera_tours import load_tours
 from open_garden_planner.core.plan_io import write_plan
 from open_garden_planner.core.project import ProjectManager
 from open_garden_planner.services.example_library import BUNDLED_EXAMPLES
 from open_garden_planner.ui.canvas.canvas_scene import CanvasScene
 
 
-def _stable_ids(value, slug, identities=None):
+def _stable_ids(value, slug, identities=None, keep=lambda _id: False):
+    """``value`` with every id replaced by one numbered in the order the ids appear.
+    An id ``keep`` says yes to stays: it is one the plan gave itself."""
     identities = {} if identities is None else identities
     if isinstance(value, str):
         try:
             UUID(value)
         except ValueError:
             return value
+        if keep(value):
+            return value
         if value not in identities:
             identities[value] = str(uuid5(NAMESPACE_URL, f"ogp-example/{slug}/{len(identities)}"))
         return identities[value]
     if isinstance(value, dict):
-        return {_stable_ids(k, slug, identities): _stable_ids(v, slug, identities)
+        return {_stable_ids(k, slug, identities, keep): _stable_ids(v, slug, identities, keep)
                 for k, v in value.items()}
     if isinstance(value, list):
-        return [_stable_ids(v, slug, identities) for v in value]
+        return [_stable_ids(v, slug, identities, keep) for v in value]
     return value
+
+
+def _own_ids(raw, slug, ids):
+    """The plan with ids that are the same on every run. How, is the plan module's ``IDS``:
+
+    - ``"keyed"`` (the default): every item id is made from what the item is and where it
+      stands, so adding an item changes no other id; a plant's sprite turn and 3D shape
+      are seeded by its id. Only ids the app made at random are numbered.
+    - ``"serial"``: the three first plans. Every id is numbered in the order it appears,
+      except the hint layer's own, so that giving a plan that layer renumbered nothing.
+    - ``"bench"``: the showcase keeps the bench plan's ids, which are fixed by its seed.
+    """
+    if ids == "bench":
+        return raw
+    if ids == "serial":
+        hints = str(hint_layer_id(slug))
+        return _stable_ids(raw, slug, keep=lambda value: value == hints)
+    assert ids == "keyed", ids
+    return _stable_ids(raw, slug + "/made", keep=lambda value: UUID(value).version == 5)
 
 
 AUTHORS = {slug: plan.build for slug, plan in PLANS.items()}
@@ -73,18 +99,25 @@ def example_content(slug):
     place the shipped files come from: ``main`` writes it, ``--check`` and
     ``tests/unit/test_example_content.py`` compare the shipped files with it.
     """
+    module = PLANS[slug]
     scene, manager = AUTHORS[slug]()
     for item in scene.items():
         if hasattr(item, "label_visible"):
             item.label_visible = False
+    pose = orbit_pose(scene, manager, module.META)
+    manager.set_camera_tours([orbit_tour(pose), *getattr(module, "more_tours", lambda _pose: [])(pose)])
     raw = manager._build_project_data(scene).to_dict()
     raw["metadata"] = {"modified": "2026-10-26T00:00:00+00:00"}
     scene.clear()
-    # the showcase keeps the bench plan's ids: they seed its plants' shapes
-    plan = raw if slug == "family-garden" else _stable_ids(raw, slug)
+    plan = _own_ids(raw, slug, getattr(module, "IDS", "keyed"))
     content = {slug + ".ogp": plan, slug + ".meta.json": METADATA[slug] | ATTRIBUTION}
     for language in LANGUAGES:
         content[f"{language}/{slug}.ogp"] = localized_plan(plan, language, slug)
+    for name, copy in content.items():
+        if name.endswith(".ogp"):
+            # a name over 60 characters or one used twice would be dropped on load, silently
+            tours, skipped = load_tours(copy["camera_tours"])
+            assert not skipped and len(tours) == len(copy["camera_tours"]), (name, skipped)
     return content
 
 
@@ -129,11 +162,16 @@ def main(argv=None):
                 write_plan(path, content)
             else:
                 path.write_text(json.dumps(content, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
-        # Render the saved content itself, including its stable sprite seed IDs.
-        for folder in ("", *LANGUAGES):
-            path = BUNDLED_EXAMPLES / folder / (slug + ".ogp")
-            manager.load(scene, path, as_template=True)
-            thumbnail(scene, path.with_suffix(".png"))
+        # Render the saved content itself, including its stable sprite seed IDs. One
+        # picture serves every language: the hint layer, the only text in a plan, is hidden.
+        path = BUNDLED_EXAMPLES / (slug + ".ogp")
+        manager.load(scene, path, as_template=True)
+        for layer in scene.layers:
+            if layer.id == hint_layer_id(slug):
+                scene.update_layer_visibility(layer.id, False)
+        thumbnail(scene, path.with_suffix(".png"))
+        for language in LANGUAGES:
+            (BUNDLED_EXAMPLES / language / (slug + ".png")).unlink(missing_ok=True)
         scene.clear()
     app.processEvents()
     return 0

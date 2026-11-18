@@ -12,6 +12,7 @@ from open_garden_planner.core.fill_patterns import FillPattern, create_pattern_b
 from open_garden_planner.core.item_look import restore_stored_look
 from open_garden_planner.core.object_types import ObjectType, PathFenceStyle
 from open_garden_planner.models.harvest_log import HarvestHistory, HarvestRecord
+from open_garden_planner.models.layer import Layer
 from open_garden_planner.models.plant_data import species_key
 from open_garden_planner.models.soil_test import SoilTestHistory, SoilTestRecord
 from open_garden_planner.services.bundled_species_db import get_species_db
@@ -69,9 +70,26 @@ def line(scene, points, kind, name, height_cm, preset=PathFenceStyle.NONE):
 NOTE_ON_PALE, NOTE_ON_LAWN = "#243528", "#fdfbee"
 
 
-def note(scene, x, y, content, size=0.42, ink=NOTE_ON_PALE, bold=False):
+#: The layer an example's hint text lies on, alone and on top: hide it and the plan is
+#: ready for a picture. Its id is its own, so that giving a plan the layer changes no
+#: other id (the ids of the three first plans are numbered in the order they appear).
+HINTS = text("Hints", "Hinweise", "Indicaciones")
+
+
+def hint_layer_id(slug):
+    return uuid5(NAMESPACE_URL, f"ogp-example/{slug}/layer:hints")
+
+
+def hint_layer(scene, slug):
+    layer = Layer(id=hint_layer_id(slug), name=HINTS,
+                  z_order=max(existing.z_order for existing in scene.layers) + 1)
+    scene.add_layer(layer)
+    return layer
+
+
+def note(scene, x, y, content, size=0.42, ink=NOTE_ON_PALE, bold=False, layer=None):
     item = TextItem(x, y, content=content, font_size=size, bold=bold,
-                    text_color=QColor(ink), layer_id=scene.active_layer.id)
+                    text_color=QColor(ink), layer_id=(layer or scene.active_layer).id)
     scene.addItem(item)
     return item
 

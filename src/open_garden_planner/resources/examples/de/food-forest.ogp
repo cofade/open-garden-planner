@@ -70,6 +70,15 @@
       "opacity": 1.0,
       "z_order": 6,
       "permaculture_layer": "vine"
+    },
+    {
+      "id": "1cd2c11b-5339-5562-bd64-f5d648c2640c",
+      "name": "Hinweise",
+      "visible": true,
+      "locked": false,
+      "opacity": 1.0,
+      "z_order": 7,
+      "permaculture_layer": null
     }
   ],
   "objects": [
@@ -426,20 +435,6 @@
       "fill_pattern": "SOLID",
       "stroke_style": "SOLID",
       "stack_order": 8192
-    },
-    {
-      "type": "text",
-      "item_id": "508dfd00-c7ae-55a0-9db6-b846b20c2132",
-      "x": 70.0,
-      "y": 95.0,
-      "content": "21.09.2026 \u00b7 1  Apfelgilde: Apfelbaum \u2192 Gilden; Pflanzgruppen und die unbesetzte Stickstoffbinder-Rolle pr\u00fcfen.\n2  Plan & Sonne: 2014\u20132026 durchgehen; alte B\u00e4ume pr\u00fcfen (gepflanzt 2014 / 2016).\n3  Sonnenstunden: S\u00fcdsaum mit Baumschatten vergleichen. Referenz Bonn; Frostdaten sind fiktiv.",
-      "font_family": "Arial",
-      "font_size": 0.65,
-      "bold": true,
-      "italic": false,
-      "text_color": "#fffdfbee",
-      "layer_id": "2c66bece-43c4-53e7-8bd0-2186edf3e470",
-      "stack_order": 9216
     },
     {
       "type": "circle",
@@ -8293,6 +8288,20 @@
       "plant_species": "Runner Bean",
       "parent_bed_id": "4b2a152c-0a88-5e89-98de-c1e20faec883",
       "stack_order": 3072
+    },
+    {
+      "type": "text",
+      "item_id": "508dfd00-c7ae-55a0-9db6-b846b20c2132",
+      "x": 70.0,
+      "y": 95.0,
+      "content": "21.09.2026 \u00b7 1  Apfelgilde: Apfelbaum \u2192 Gilden; Pflanzgruppen und die unbesetzte Stickstoffbinder-Rolle pr\u00fcfen.\n2  Plan & Sonne: 2014\u20132026 durchgehen; alte B\u00e4ume pr\u00fcfen (gepflanzt 2014 / 2016).\n3  Sonnenstunden: S\u00fcdsaum mit Baumschatten vergleichen. Referenz Bonn; Frostdaten sind fiktiv.",
+      "font_family": "Arial",
+      "font_size": 0.65,
+      "bold": true,
+      "italic": false,
+      "text_color": "#fffdfbee",
+      "layer_id": "1cd2c11b-5339-5562-bd64-f5d648c2640c",
+      "stack_order": 1024
     }
   ],
   "location": {
@@ -8502,5 +8511,30 @@
       "species_key": "daucus carota",
       "species_name": "M\u00f6hre"
     }
-  }
+  },
+  "camera_tours": [
+    {
+      "name": "Rundflug",
+      "motion": "orbit",
+      "orbit": {
+        "target": [
+          1000.0,
+          500.0
+        ],
+        "distance_cm": 2543.0,
+        "yaw_deg": 312.0,
+        "pitch_deg": 18.0,
+        "fov_deg": 40.0,
+        "turns": 1,
+        "clockwise": true,
+        "ease": true
+      },
+      "duration_s": 30.0,
+      "fps": 30,
+      "size": [
+        1920,
+        1080
+      ]
+    }
+  ]
 }
