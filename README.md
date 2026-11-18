@@ -2,6 +2,8 @@
 
 # Open Garden Planner
 
+<a href="https://github.com/cofade/open-garden-planner/releases/download/v1.40.7/OpenGardenPlanner-v1.40.7-Setup.exe"><img src="docs/images/readme/download-windows.svg" alt="Download the latest Windows installer" height="56"></a>
+
 [![Latest Release](https://img.shields.io/github/v/release/cofade/open-garden-planner?label=Latest%20Release)](https://github.com/cofade/open-garden-planner/releases/latest)
 [![License: GPL v3](https://img.shields.io/badge/License-GPLv3-blue.svg)](LICENSE)
 
