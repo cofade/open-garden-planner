@@ -457,6 +457,8 @@ class Workspace(QWidget):
         #: The session's one camera: created with the workspace, so its pose survives
         #: hide / show, mode switches and an engine that had to be started again.
         self._camera = OrbitCamera()
+        #: The (yaw, pitch) the open document is first framed from; None: the default side.
+        self._opening_side: tuple[float, float] | None = None
         self._camera_stepped_at = 0.0
         self._first_frame_seen = False
         self._qml_warnings_seen = 0
@@ -1156,9 +1158,21 @@ class Workspace(QWidget):
         controller = self._controller
         if controller is None:
             return
-        self._camera.frame(controller.plan_bounds(), self._aspect(), snap=True)
+        self._camera.frame(controller.plan_bounds(), self._aspect(), snap=True,
+                           side=self._opening_side)
         self._apply_camera()
         self._capture.document_shown()  # the new camera gives photo mode's blur its point
+
+    def open_from(self, side: tuple[float, float] | None) -> None:
+        """The (yaw, pitch) the open document is first seen from in 3D, or None for the
+        default side. Said by the window after it opened a bundled example: the default
+        side looks into a late sun, and over a garden wall sees the wall (#940). It
+        holds until the next document; "Reset 3D View" still goes to the default side.
+
+        Only remembered here: the document's first pass through the engine frames it
+        (``_on_document_shown``), and that pass comes after the window has opened the
+        file, whether 3D is shown now or first shown later."""
+        self._opening_side = side
 
     # ── the pipeline's reports ───────────────────────────────────────────────
 
@@ -1175,6 +1189,7 @@ class Workspace(QWidget):
         validation never gets here: the view, its camera and what it remembers of
         the plan stay as they were."""
         self._living.document_changed()  # L5: the forecast was the old document's place
+        self._opening_side = None  # the old document's; an example says its own after it opened
         controller = self._controller
         if controller is None:
             return

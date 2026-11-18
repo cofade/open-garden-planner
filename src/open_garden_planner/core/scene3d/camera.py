@@ -296,9 +296,12 @@ class OrbitCamera:
         self.pan(-dx_px * cm_per_px, dy_px * cm_per_px / steepness)
 
     def frame(self, bounds: Bounds, aspect: float, *, fov_deg: float = FOV_DEG,
-              snap: bool = False) -> None:
+              snap: bool = False, side: tuple[float, float] | None = None) -> None:
         """Head for the pose that shows the whole plan from the default side, and
         take ``bounds`` as the pan limits. ``snap``: be there at once (first open).
+        ``side``: a (yaw, pitch) to see the plan from instead of the default side - a
+        bundled example opens on the side its stored orbit starts from (#940). The
+        distance is still this view's own: the plan fits whatever shape the pane has.
 
         The default side is reached by the SHORTEST turn. Yaw is free while
         orbiting — six turns of the mouse are a yaw of 2,160 degrees more — and
@@ -306,7 +309,10 @@ class OrbitCamera:
         2,477.5 degrees back to 317.5, six full spins). The goal is the equivalent
         angle nearest to where the camera is; a snap lands on the default itself."""
         self._bounds = bounds
-        goal = frame_pose(bounds, aspect, fov_deg=fov_deg)
+        if side is None:
+            goal = frame_pose(bounds, aspect, fov_deg=fov_deg)
+        else:
+            goal = frame_pose(bounds, aspect, fov_deg=fov_deg, yaw_deg=side[0], pitch_deg=side[1])
         if not snap:
             goal = CameraPose(goal.target, goal.distance_cm,
                               _nearest_turn(goal.yaw_deg, self._pose.yaw_deg), goal.pitch_deg)

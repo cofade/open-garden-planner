@@ -635,3 +635,19 @@ def test_a_tour_command_touches_no_canvas_item() -> None:
     """The two O(items) restack scans are skipped for it (#592, #629)."""
     for command in (SaveCameraTourCommand, RenameCameraTourCommand, DeleteCameraTourCommand):
         assert command.changes_ground_band is False and command.changes_containment is False
+
+
+def test_the_opening_side_is_the_first_stored_orbits_start():
+    """#940: a bundled example's 3D view opens where its orbit starts; a plan whose
+    tours hold no orbit has no side of its own."""
+    from open_garden_planner.core.camera_path import CameraKey, DroneOrbit
+    from open_garden_planner.core.camera_tours import SavedTour, opening_side
+    from open_garden_planner.core.scene3d.camera import CameraPose
+
+    held = SavedTour(name="held", motion="hold", held=CameraKey((0.0, -900.0, 400.0), (0.0, 0.0, 0.0)),
+                     time_range=(time(6, 0), time(21, 0)))
+    orbit = SavedTour(name="orbit", motion="orbit",
+                      orbit=DroneOrbit(CameraPose((600.0, 500.0), 2400.0, 212.5, 34.0)))
+    assert opening_side(()) is None
+    assert opening_side((held,)) is None
+    assert opening_side((held, orbit)) == (212.5, 34.0)

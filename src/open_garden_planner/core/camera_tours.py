@@ -19,7 +19,7 @@ from __future__ import annotations
 
 import logging
 import math
-from collections.abc import Iterable
+from collections.abc import Iterable, Sequence
 from dataclasses import dataclass
 from datetime import date, time
 from typing import Any, Final
@@ -322,6 +322,17 @@ def checked_tours(tours: Iterable[SavedTour]) -> tuple[SavedTour, ...]:
     if len({tour.name.casefold() for tour in kept}) != len(kept):
         raise ValueError("Two tours of a plan have the same name")
     return kept
+
+
+def opening_side(tours: Sequence[SavedTour]) -> tuple[float, float] | None:
+    """The (yaw, pitch) the first stored orbit starts from, or None without one.
+
+    A bundled example's orbit is authored for the plan's showcase light and over its
+    walls and hedges; the 3D view opens on that side (#940)."""
+    for tour in tours:
+        if tour.orbit is not None:
+            return tour.orbit.pose.yaw_deg, tour.orbit.pose.pitch_deg
+    return None
 
 
 def load_tours(raw: Any) -> tuple[tuple[SavedTour, ...], int]:

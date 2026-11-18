@@ -143,3 +143,59 @@ def test_the_cottage_garden_is_drawn_to_measure(window):
             points.append(point)
         measured = ((points[0].x() - points[1].x()) ** 2 + (points[0].y() - points[1].y()) ** 2) ** 0.5
         assert measured == pytest.approx(constraint.target_distance, abs=0.1)
+
+
+def _in_3d(window, qtbot):
+    """The window's 3D pane in Split, the engine replaced at the workspace's seam."""
+    from open_garden_planner.core.scene3d import RecordingSink
+    from open_garden_planner.ui.view3d.workspace import WorkspaceMode
+    from tests.integration.test_view3d_workspace_widget import FakeHost, wait_for_pipeline
+
+    workspace = window._workspace
+    workspace.engine_factory = lambda prefer_software: (FakeHost(prefer_software), RecordingSink())
+    workspace.set_mode(WorkspaceMode.SPLIT)
+    qtbot.waitUntil(lambda: workspace.controller is not None
+                    and workspace.controller.apply_count >= 1, timeout=5000)
+    wait_for_pipeline(workspace, qtbot)
+    return workspace
+
+
+@pytest.mark.parametrize("slug", ["mediterranean-courtyard", "terraced-house-garden"])
+def test_an_example_is_first_seen_in_3d_from_where_its_stored_orbit_starts(window, qtbot, slug):
+    """The default side looks into a late sun and, over a garden wall, at the wall (the
+    3D review of #940): an example opens on its orbit's side, at this pane's own distance."""
+    from open_garden_planner.core.scene3d.camera import DEFAULT_PITCH_DEG, DEFAULT_YAW_DEG
+    from tests.integration.test_view3d_workspace_widget import wait_for_pipeline
+
+    workspace = _in_3d(window, qtbot)
+    assert workspace.camera.pose.yaw_deg == DEFAULT_YAW_DEG, "an empty plan: the default side"
+    open_example(window, slug)
+    wait_for_pipeline(workspace, qtbot)
+
+    start = next(tour.orbit.pose for tour in window._project_manager.camera_tours if tour.orbit)
+    pose = workspace.camera.pose
+    assert (pose.yaw_deg, pose.pitch_deg) == (start.yaw_deg, start.pitch_deg)
+    assert start.pitch_deg > 30.0, "steeper than the dialog's default: over the wall"
+    assert not workspace.camera.moving, "it is there at once"
+
+    workspace.reset_view()
+    assert workspace.camera.goal.pitch_deg == DEFAULT_PITCH_DEG, "Reset 3D View: the default side"
+
+
+def test_a_plan_of_ones_own_opens_in_3d_from_the_default_side(window, qtbot, tmp_path):
+    """Only a bundled example says where it is seen from: a saved copy of one, opened
+    as the user's own file, keeps its tours and opens like any other plan."""
+    from open_garden_planner.core.scene3d.camera import DEFAULT_PITCH_DEG, DEFAULT_YAW_DEG
+    from tests.integration.test_view3d_workspace_widget import wait_for_pipeline
+
+    workspace = _in_3d(window, qtbot)
+    open_example(window, "mediterranean-courtyard")
+    wait_for_pipeline(workspace, qtbot)
+    own = tmp_path / "courtyard.ogp"
+    window._project_manager.save(window.canvas_scene, own)
+    window._open_project_file(str(own))
+    wait_for_pipeline(workspace, qtbot)
+
+    assert window._project_manager.camera_tours, "the copy kept its tours"
+    pose = workspace.camera.pose
+    assert (pose.yaw_deg, pose.pitch_deg) == (DEFAULT_YAW_DEG, DEFAULT_PITCH_DEG)

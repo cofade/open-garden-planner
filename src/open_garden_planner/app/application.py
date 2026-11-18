@@ -3478,10 +3478,14 @@ class GardenPlannerApp(QMainWindow):
         # back (#795, ADR-066 addendum). Session state only: the moment is never
         # saved. LAST, after the document is rewired: the clock re-raises a
         # listener's error (ADR-053), and nothing above may be skipped by it.
+        from open_garden_planner.core.camera_tours import opening_side
         from open_garden_planner.core.templates import example_showcase_moment
 
-        self._showcase_moment.document_opened(
-            example_showcase_moment(Path(file_path)) if as_template else None)
+        moment = example_showcase_moment(Path(file_path)) if as_template else None
+        # ... and its 3D view opens on the side its stored orbit starts from (#940)
+        self._workspace.open_from(
+            opening_side(self._project_manager.camera_tours) if moment is not None else None)
+        self._showcase_moment.document_opened(moment)
 
     def _reset_compare_overlay_after_failed_load(self) -> None:
         """#337: a failed load can leave the compare-overlay action state
