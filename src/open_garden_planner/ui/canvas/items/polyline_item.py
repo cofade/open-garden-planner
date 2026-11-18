@@ -88,6 +88,7 @@ class PolylineItem(PolylineVertexEditMixin, RotationHandleMixin, GardenItemMixin
     _path_fence_style: PathFenceStyle = PathFenceStyle.NONE
     _cached_bounding_rect: QRectF | None = None
     _cached_bounding_rect_key: tuple[Any, ...] | None = None
+    _cached_shadow_footprint: tuple[Any, ...] | None = None
 
     def __init__(
         self,

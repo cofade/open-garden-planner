@@ -1160,7 +1160,6 @@ class SunShadowController(QObject):
         cached = self._caster_cache
         if (
             from_clock
-            and scrubbing
             and paint_rev is not None
             and cached is not None
             and cached[0] == paint_rev

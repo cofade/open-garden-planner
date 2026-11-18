@@ -154,3 +154,112 @@ def test_the_recovery_prompt_comes_first_and_only_a_recovery_skips_the_welcome(
     assert names[0] == "question"
     assert (names.count("load"), names.count("delete")) == (loaded, deleted)
     assert len(startup.shown) == welcome
+
+
+def test_real_entrypoint_shows_modal_welcome_dialog_without_stubs(tmp_path: Path) -> None:
+    """Exercise ``main()`` end-to-end with zero dialog/window stubs.
+
+    Unlike the in-process fixture above, this runs the real application entry
+    point from scratch with an empty isolated settings store and verifies that a
+    real visible, modal ``WelcomeDialog`` actually opens and closes cleanly on
+    first startup.
+    """
+    import os
+    import subprocess
+    import sys
+
+    probe = tmp_path / "verify_startup_welcome.py"
+    probe.write_text(
+        """import atexit
+import os
+import sys
+import tempfile
+from pathlib import Path
+
+from PyQt6.QtCore import QStandardPaths, QTimer
+from PyQt6.QtWidgets import QApplication
+
+# Isolate settings + Qt user locations without mutating show_welcome_on_startup.
+from open_garden_planner.config import settings
+
+settings.ORGANIZATION_NAME = "cofade_test"
+settings.APPLICATION_NAME = f"Open Garden Planner Real Startup {os.getpid()}"
+QStandardPaths.setTestModeEnabled(True)
+
+from open_garden_planner import main as app_main
+from open_garden_planner.app.application import GardenPlannerApp
+from open_garden_planner.app.settings import AppSettings, create_qsettings
+from open_garden_planner.services import AutoSaveManager
+from open_garden_planner.ui.dialogs import WelcomeDialog
+
+# Clear only this throwaway test key after startup finishes.
+def _cleanup() -> None:
+    s = create_qsettings()
+    s.clear()
+    s.sync()
+
+atexit.register(_cleanup)
+create_qsettings().clear()
+AutoSaveManager.find_recovery_files = classmethod(lambda _cls: [])
+
+seen: dict[str, object] = {}
+orig_init = GardenPlannerApp.__init__
+
+def _observe_window(self: GardenPlannerApp, *args: object, **kwargs: object) -> None:
+    orig_init(self, *args, **kwargs)
+    seen["window"] = self
+    deadline_ms = [6000]
+
+    def _poll_modal() -> None:
+        modal = QApplication.activeModalWidget()
+        if isinstance(modal, WelcomeDialog) and modal.isVisible():
+            seen["dialog_visible"] = modal.isVisible()
+            seen["dialog_modal"] = modal.isModal()
+            seen["checkbox_checked"] = modal._show_on_startup_checkbox.isChecked()
+            modal.reject()
+            QTimer.singleShot(50, _verify_after_close)
+            return
+        deadline_ms[0] -= 25
+        if deadline_ms[0] <= 0:
+            seen["timeout"] = True
+            QApplication.exit(2)
+            return
+        QTimer.singleShot(25, _poll_modal)
+
+    def _verify_after_close() -> None:
+        win = seen["window"]
+        seen["window_visible_after_close"] = win.isVisible()
+        seen["still_modal"] = QApplication.activeModalWidget() is not None
+        win.close()
+        QApplication.exit(0)
+
+    QTimer.singleShot(50, _poll_modal)
+
+GardenPlannerApp.__init__ = _observe_window  # type: ignore[method-assign]
+sys.argv = ["open-garden-planner"]
+rc = app_main.main()
+assert rc == 0, f"main() exited with {rc}, seen={seen}"
+assert seen.get("dialog_visible") is True, f"WelcomeDialog never became visible: {seen}"
+assert seen.get("dialog_modal") is True, f"WelcomeDialog was not modal: {seen}"
+assert seen.get("checkbox_checked") is True, f"Checkbox not checked by default: {seen}"
+assert seen.get("window_visible_after_close") is True, f"Main window hidden after close: {seen}"
+assert seen.get("still_modal") is False, f"Unexpected modal remained open: {seen}"
+print("REAL_STARTUP_WELCOME_OK")
+""",
+        encoding="utf-8",
+    )
+    env = os.environ.copy()
+    profile_root = tmp_path / "profile"
+    profile_root.mkdir()
+    for var in ("USERPROFILE", "HOME", "APPDATA", "LOCALAPPDATA"):
+        env[var] = str(profile_root)
+    result = subprocess.run(
+        [sys.executable, str(probe)],
+        env=env,
+        capture_output=True,
+        text=True,
+        timeout=30,
+    )
+    assert result.returncode == 0, f"stdout={result.stdout!r}\nstderr={result.stderr!r}"
+    assert "REAL_STARTUP_WELCOME_OK" in result.stdout
+
