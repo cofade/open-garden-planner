@@ -107,7 +107,7 @@ def build():
         "2  Horas de sol: el arriate este recibe el sol de la tarde, el oeste poco.\n"
         "3  Vista 3D → Recorrido de cámara: «Sombras a lo largo del día».\n"
         "Colonia; heladas y cosechas ficticias."),
-        size=0.3, ink=a.NOTE_ON_LAWN, bold=True)
+        size=0.4, ink=a.NOTE_ON_LAWN, bold=True)
 
     for key, entries in (
         ("lactuca sativa", [("2026-06-03", 220, "g", a.OUTER_LEAVES), ("2026-06-16", 300, "g", a.CRISP)]),

@@ -105,7 +105,7 @@ def build():
         "18 abr 2026 · 1  Abra la vista 3D: bulbos, magnolio y frutales florecen hoy.\n"
         "2  Plan y sol: mueva la fecha. En junio quedan hojas, en noviembre los árboles están desnudos.\n"
         "3  Vista 3D → Recorrido de cámara: «Un año en el jardín». Heidelberg; registros ficticios."),
-        size=0.28)
+        size=0.4)
 
     for key, entries in (
         ("allium schoenoprasum", [("2025-05-03", 2, "bunch"), ("2025-08-16", 1, "bunch"),

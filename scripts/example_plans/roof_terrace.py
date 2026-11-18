@@ -96,7 +96,7 @@ def build():
         "12 jul 2026 · 1  Arrastre una planta fuera de su jardinera: deja el recipiente. Suéltela dentro y vuelve a pertenecer.\n"
         "2  Clic derecho en el bancal → Análisis de suelo: un recipiente tiene su propia tierra (muestra ficticia).\n"
         "3  Plan y sol: lleve el reloj a la tarde y los faroles se encienden en 3D. Viena; registros ficticios."),
-        size=0.3)
+        size=0.34)
 
     for key, entries in (
         ("fragaria ananassa", [("2025-06-18", 0.5, "kg"), ("2026-06-12", 0.7, "kg", a.SWEET),

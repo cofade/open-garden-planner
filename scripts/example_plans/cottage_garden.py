@@ -129,7 +129,7 @@ def build():
         "20 jun 2026 · 1  Las dos guías son los ejes del jardín: arrastre una esquina y se ajusta a ellas.\n"
         "2  Panel de restricciones: tres distancias fijan el ancho del camino; mueva un borde de boj y el otro lo sigue.\n"
         "3  Seleccione dos plantas: la comprobación de asociación indica buenos vecinos. Bamberg; registros ficticios."),
-        size=0.36, ink=a.NOTE_ON_LAWN, bold=True)
+        size=0.5, ink=a.NOTE_ON_LAWN, bold=True)
 
     for key, entries in (
         ("lactuca sativa", [("2026-06-06", 280, "g", a.OUTER_LEAVES), ("2026-06-15", 340, "g", a.CRISP)]),

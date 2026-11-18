@@ -9324,7 +9324,7 @@
       "y": 128.0,
       "content": "20 jun 2026 \u00b7 1  Las dos gu\u00edas son los ejes del jard\u00edn: arrastre una esquina y se ajusta a ellas.\n2  Panel de restricciones: tres distancias fijan el ancho del camino; mueva un borde de boj y el otro lo sigue.\n3  Seleccione dos plantas: la comprobaci\u00f3n de asociaci\u00f3n indica buenos vecinos. Bamberg; registros ficticios.",
       "font_family": "Arial",
-      "font_size": 0.36,
+      "font_size": 0.5,
       "bold": true,
       "italic": false,
       "text_color": "#fffdfbee",

@@ -9324,7 +9324,7 @@
       "y": 128.0,
       "content": "20 Jun 2026 \u00b7 1  The two guide lines are the garden's axes: drag a bed corner and it snaps to them.\n2  Constraints panel: three distances hold the path width; move a box edging and the other follows.\n3  Select two plants: the companion check tells you which neighbours suit. Bamberg; records are fictional.",
       "font_family": "Arial",
-      "font_size": 0.36,
+      "font_size": 0.5,
       "bold": true,
       "italic": false,
       "text_color": "#fffdfbee",
