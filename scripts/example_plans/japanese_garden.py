@@ -36,7 +36,7 @@ def build():
     plan.rect(0, 0, 1200, 1000, T.LAWN, text("Moss lawn", "Moosrasen", "Césped de musgo"))
     plan.line([(8, 8), (8, 992), (1192, 992), (1192, 8), (660, 8)], T.FENCE,
               text("Timber fence", "Holzzaun", "Valla de madera"), style=PathFenceStyle.WOODEN_FENCE, tall=190)
-    plan.line([(8, 8), (540, 8)], T.FENCE, "Timber fence", style=PathFenceStyle.WOODEN_FENCE, tall=190)
+    plan.line([(540, 8), (8, 8)], T.FENCE, "Timber fence", style=PathFenceStyle.WOODEN_FENCE, tall=190)
 
     # ── the sand court with its islands
     plan.rect(90, 90, 620, 420, T.TERRACE_PATIO, text("Raked sand", "Geharkter Sand", "Arena rastrillada"),
@@ -57,7 +57,7 @@ def build():
     plan.rect(110, 630, 280, 90, T.TERRACE_PATIO, text("Veranda", "Veranda", "Galería"),
               fill=FillPattern.DECKING)
     plan.rect(390, 560, 70, 380, T.TERRACE_PATIO, text("Slate walk", "Schieferweg", "Paseo de pizarra"),
-              fill=FillPattern.SLATE)
+              fill=FillPattern.SLATE, color="#7b8088")
     plan.line([(600, 30), (600, 90)], T.PATH, text("Gate path", "Torweg", "Camino de la puerta"),
               style=PathFenceStyle.PAVED_PATH, wide=90)
     plan.line([(700, 300), (790, 380), (780, 480), (700, 540), (560, 560), (460, 590)], T.PATH,
@@ -70,18 +70,18 @@ def build():
     plan.line([(620, 740), (760, 730), (900, 735), (1060, 725), (1150, 730)], T.PATH,
               text("Plank bridge", "Bohlenbrücke", "Puente de tablones"),
               style=PathFenceStyle.WOODEN_BOARDWALK, wide=80)
-    plan.rect(1010, 60, 150, 400, T.TERRACE_PATIO, text("Pebble strip", "Kieselstreifen", "Franja de guijarros"),
+    plan.rect(90, 25, 430, 55, T.TERRACE_PATIO, text("Pebble strip", "Kieselstreifen", "Franja de guijarros"),
               fill=FillPattern.PEBBLES)
 
     # ── the plants: red and yellow for October, the rest evergreen
-    plan.plant("acer palmatum", 610, 660, planted=SET, size=(330, 310))
-    plan.plant("acer palmatum", 470, 830, planted=SET, size=(240, 230))
-    plan.plant("betula pendula", 1085, 170, planted=SET, size=(700, 300))
-    plan.plant("pinus sylvestris", 880, 300, planted=SET, size=(420, 300))
+    plan.plant("acer palmatum", 600, 690, planted=SET, size=(250, 230))
+    plan.plant("acer palmatum", 800, 170, planted=SET, size=(190, 180))
+    plan.plant("betula pendula", 1085, 190, planted=SET, size=(700, 280))
+    plan.plant("pinus sylvestris", 930, 400, planted=SET, size=(300, 220))
     plan.row("fargesia murielae", (520, 950), (1130, 950), 8, planted=SET, size=(330, 85))
     for x, y in ((1130, 560), (1150, 880), (640, 890)):
         plan.plant("rhododendron ponticum", x, y, planted=SET, size=(120, 130))
-    for x, y in ((120, 560), (60, 470), (760, 180), (830, 110)):
+    for x, y in ((120, 560), (60, 470), (560, 880), (930, 150)):
         plan.plant("buxus sempervirens", x, y, planted=SET, size=(70, 85))
     plan.row("miscanthus sinensis", (760, 500), (950, 500), 3, planted=SET, size=(150, 90))
     for x, y in ((690, 600), (820, 540), (980, 545), (1105, 610), (1140, 780), (960, 915)):

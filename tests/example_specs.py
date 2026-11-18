@@ -74,6 +74,12 @@ SPECS: dict[str, ExampleSpec] = {
     "spring-garden": ExampleSpec(7, "2026-04-18", "day", (49.3988, 8.6724), plants=191,
                                  woody_harvests=1, more_tours=("A year in the garden",)),
     "wildlife-garden": ExampleSpec(3, "2026-06-14", "morning", (53.2464, 10.4115), plants=118),
+    "mediterranean-courtyard": ExampleSpec(2, "2026-06-21", "golden", (39.4699, -0.3763), plants=23,
+                                           paths=False),
+    "modern-garden": ExampleSpec(5, "2026-08-15", "golden", (48.1351, 11.582), plants=22,
+                                 harvests=(0, 0), more_tours=("Evening into night",)),
+    "japanese-garden": ExampleSpec(4, "2026-10-20", "afternoon", (51.2277, 6.7735), plants=30,
+                                   harvests=(0, 0)),
 }
 
 #: The first three plans: teaching plans with a dated tutorial note, pinned in detail by

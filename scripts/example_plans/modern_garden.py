@@ -50,7 +50,7 @@ def build():
     plan.house([(0, 820), (900, 820), (900, 1200), (0, 1200)], text("Bungalow", "Bungalow", "Bungaló"),
                tall=320, roof="flat", ridge=False, fill=FillPattern.CONCRETE, color="#c9c7c1")
     plan.rect(0, 520, 900, 300, T.TERRACE_PATIO, text("Slate terrace", "Schieferterrasse", "Terraza de pizarra"),
-              fill=FillPattern.SLATE)
+              fill=FillPattern.SLATE, color="#7b8088")
     plan.rect(680, 560, 190, 190, T.HOT_TUB, text("Hot tub", "Whirlpool", "Bañera de hidromasaje"), tall=85)
     lounger = text("Lounger", "Liege", "Tumbona")
     plan.rect(70, 560, 65, 190, T.LOUNGER, lounger)

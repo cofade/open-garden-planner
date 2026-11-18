@@ -65,6 +65,10 @@ SPECIES_NAMES |= {
     "Viburnum": ("Schneeball", "Viburno"), "Walnut Tree": ("Walnussbaum", "Nogal"),
     "Watermelon": ("Wassermelone", "Sandía"), "Willow": ("Weide", "Sauce"),
     "Winter Squash": ("Winterkürbis", "Calabaza de invierno"), "Wisteria": ("Glyzinie", "Glicinia"),
+    # the five species added with the example plans (#940)
+    "Japanese Maple": ("Fächerahorn", "Arce japonés"), "Bamboo": ("Bambus", "Bambú"),
+    "Miscanthus": ("Chinaschilf", "Eulalia"), "Windmill Palm": ("Hanfpalme", "Palmera de Fortune"),
+    "Grape Vine": ("Weinrebe", "Vid"),
 }
 for _en, (_de, _es) in SPECIES_NAMES.items():
     text(_en, _de, _es)
