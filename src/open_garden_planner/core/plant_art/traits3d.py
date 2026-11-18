@@ -557,6 +557,16 @@ _TREE_OVERRIDES: Final[dict[str, tuple[CrownTraits, BranchingTraits, str, str]]]
 }
 
 
+#: Grass recipes that are a clump of woody culms, not a tuft of basal blades (#940).
+#: Their crown is a ``vase`` — what ``plant_forge.herbaceous.build_forged_grass``
+#: builds as culms with leaf sprays: the lowest fifth of each culm bare, arching over
+#: at the top under its leaves.
+_CULM_CLUMP_STEMS: Final[frozenset[str]] = frozenset({"bamboo"})
+_CULM_CLUMP_CROWN: Final[CrownTraits] = CrownTraits(
+    "vase", trunk_share=0.20, taper=-0.30, droop=0.45, aspect_xy=1.0,
+)
+
+
 def _blossom_spec_for(stem: str, recipe: Recipe) -> str | None:
     flowers = recipe.get("flowers")
     if isinstance(flowers, dict) and isinstance(flowers.get("spec"), str):
@@ -691,7 +701,8 @@ def _build_traits(group: str, stem: str, recipe: Recipe) -> Traits3D:
         )
 
     if archetype in ("grass", "allium"):
-        crown = CrownTraits("upright", trunk_share=0.0, taper=-0.20, droop=0.35, aspect_xy=1.0)
+        crown = (_CULM_CLUMP_CROWN if stem in _CULM_CLUMP_STEMS
+                 else CrownTraits("upright", trunk_share=0.0, taper=-0.20, droop=0.35, aspect_xy=1.0))
         branching = BranchingTraits(0, 2.2, 0.010, 0.35, 0.03, BARK_STEM, 1.0)
         leaf = LeafTraits("strap", round(18.0 * leaf_scale, 2), 0.18, leaf_scale, frilly, narrow)
         return Traits3D(

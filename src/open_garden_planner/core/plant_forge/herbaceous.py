@@ -19,7 +19,15 @@ from ..plant_art.traits3d import Traits3D
 from ..scene3d.color import srgb_to_linear
 from ..scene3d.mesh import MeshPart
 from .assemble import fit_forged_parts
-from .foliage import RawGeo, concat_geo, empty_geo, micro_leaves, normalize_vec, palette_leaf_colors
+from .foliage import (
+    RawGeo,
+    concat_geo,
+    crown_leaf_budget,
+    empty_geo,
+    micro_leaves,
+    normalize_vec,
+    palette_leaf_colors,
+)
 from .lod import LOD0, LOD1, validate_lod
 from .trees import bark_linear_rgba
 from .tube import frustum_tubes
@@ -226,8 +234,14 @@ def build_forged_grass(
     lod: int = LOD0,
     accents: RawGeo | None = None,
 ) -> tuple[MeshPart, ...]:
-    """Forge an arching fountain grass / cereal clump (`"grass"` archetype)."""
+    """Forge an arching fountain grass / cereal clump (`"grass"` archetype).
+
+    A grass whose crown is a ``vase`` is a clump of woody culms (bamboo, #940):
+    ``_forged_culm_clump`` builds it instead of basal blades.
+    """
     validate_lod(lod)
+    if traits.crown.shape == "vase":
+        return _forged_culm_clump(traits, height_cm, radius_cm, seed, lod=lod, accents=accents)
     rng = _seed_rng(seed, 0x612A5501)
 
     if lod == LOD0:
@@ -318,6 +332,100 @@ def build_forged_grass(
     plumes = micro_leaves(plume_pts, plume_out, p_len, p_len * 0.22, plume_cols, rng, center=center, spherize=0.65, droop=0.25)
 
     foliage = concat_geo([blades, plumes])
+    accent_geo = accents if accents is not None else empty_geo()
+    return fit_forged_parts(wood, foliage, accent_geo, height_cm, radius_cm)
+
+
+#: Per LOD: culms, segments per culm, tube sides, the most leaves.
+_CULM_LODS: dict[int, tuple[int, int, int, int]] = {
+    LOD0: (40, 6, 5, 4500),
+    LOD1: (18, 4, 4, 1800),
+}
+_CULM_LOD2: tuple[int, int, int, int] = (8, 3, 3, 250)
+
+
+def _forged_culm_clump(
+    traits: Traits3D,
+    height_cm: float,
+    radius_cm: float,
+    seed: int,
+    *,
+    lod: int = LOD0,
+    accents: RawGeo | None = None,
+) -> tuple[MeshPart, ...]:
+    """A clump of slender woody culms that arch outward at the top, leafy in their
+    upper part (bamboo, #940) — the grass archetype at 3-4 m.
+
+    The basal-blade fountain of ``build_forged_grass`` stretched to that height is a
+    pampas grass of 4 m strap leaves. Here the culms rise from a tight rhizome clump
+    (``trunk_share`` of the height bare), lean out and bend over under their leaves
+    (``droop``); the leaves are small sprays along the culms, counted by the crown's
+    surface (coverage 1.6, ``crown_leaf_budget``). Everything is one vectorised pass.
+    """
+    rng = _seed_rng(seed, 0x0BA3B000)
+    n_culms, segs, sides, max_leaves = _CULM_LODS.get(lod, _CULM_LOD2)
+
+    # Culm feet in the clump, dense toward its middle; each culm leans out along
+    # its own azimuth and bends over at the top.
+    foot_az = rng.uniform(0.0, 2.0 * math.pi, size=n_culms)
+    foot_r = radius_cm * 0.30 * np.sqrt(rng.uniform(0.0, 1.0, size=n_culms))
+    lean_az = foot_az + rng.uniform(-0.45, 0.45, size=n_culms)
+    tall = rng.uniform(0.62, 1.0, size=n_culms)
+    tall[int(rng.integers(0, n_culms))] = 1.0
+    # Angle from the vertical along the culm: nearly upright below, arching above.
+    lean0 = np.radians(rng.uniform(2.0, 12.0, size=n_culms)) * (0.4 + foot_r / max(radius_cm * 0.3, 1e-6))
+    bend = np.radians(rng.uniform(45.0, 80.0, size=n_culms)) * (0.6 + float(traits.crown.droop))
+    t = np.linspace(0.0, 1.0, segs + 1)[None, :]
+    theta = lean0[:, None] + bend[:, None] * t**2.2
+    step = 1.0 / segs
+    rise = np.cumsum(np.cos(theta[:, :-1]) * step, axis=1)
+    out = np.cumsum(np.sin(theta[:, :-1]) * step, axis=1)
+    rise = np.concatenate([np.zeros((n_culms, 1)), rise], axis=1)
+    out = np.concatenate([np.zeros((n_culms, 1)), out], axis=1)
+    # Scale each culm so its highest point is its own share of the height.
+    length = tall * height_cm / np.maximum(rise.max(axis=1), 1e-6)
+    z = rise * length[:, None]
+    reach = out * length[:, None]
+    cx = np.cos(foot_az)[:, None] * foot_r[:, None] + np.cos(lean_az)[:, None] * reach
+    cy = np.sin(foot_az)[:, None] * foot_r[:, None] + np.sin(lean_az)[:, None] * reach
+    nodes = np.stack([cx, cy, z], axis=-1)                       # (culms, segs + 1, 3)
+
+    culm_r = max(height_cm * 0.0028, 0.4) * rng.uniform(0.8, 1.15, size=n_culms)
+    taper = 1.0 - 0.6 * t[0]
+    r_nodes = culm_r[:, None] * taper[None, :]
+    wood = frustum_tubes(
+        nodes[:, :-1].reshape(-1, 3), nodes[:, 1:].reshape(-1, 3),
+        r_nodes[:, :-1].reshape(-1), r_nodes[:, 1:].reshape(-1),
+        sides=sides, color_rgba=bark_linear_rgba(traits.branching),
+    )
+
+    # Leaves on the culms' upper part, as many as cover the crown's surface.
+    bare = float(traits.crown.trunk_share)
+    base_len = max(traits.leaf.length_cm * max(height_cm / 320.0, 0.35), 2.0)
+    total, leaf_len = crown_leaf_budget(height_cm, radius_cm, bare, base_len,
+                                        traits.leaf.width_ratio, max_leaves)
+    which = rng.integers(0, n_culms, size=total)
+    along = bare + (1.0 - bare) * rng.uniform(0.0, 1.0, size=total) ** 0.7
+    pos_f = along * segs
+    seg_i = np.minimum(pos_f.astype(np.int64), segs - 1)
+    frac = (pos_f - seg_i)[:, None]
+    anchor = nodes[which, seg_i] * (1.0 - frac) + nodes[which, seg_i + 1] * frac
+    spray = leaf_len * 0.9
+    jitter = rng.normal(0.0, 1.0, size=(total, 3))
+    jitter[:, 2] = -np.abs(jitter[:, 2]) * 0.6                   # sprays hang
+    leaf_pts = anchor + normalize_vec(jitter) * (spray * rng.uniform(0.2, 1.0, size=(total, 1)))
+    leaf_pts[:, 2] = np.clip(leaf_pts[:, 2], height_cm * bare * 0.8, height_cm)
+
+    center = np.array([0.0, 0.0, height_cm * 0.55], dtype=np.float64)
+    radial = leaf_pts - np.array([0.0, 0.0, 1.0]) * leaf_pts[:, 2:3]
+    outward = normalize_vec(0.55 * normalize_vec(radial + 1e-6) + 0.45 * normalize_vec(leaf_pts - center))
+    colors = palette_leaf_colors(
+        traits.palette, traits.sprite, leaf_pts[:, 2] / max(height_cm, 1.0),
+        np.hypot(leaf_pts[:, 0], leaf_pts[:, 1]) / max(radius_cm, 1.0), rng,
+    )
+    lengths = leaf_len * rng.uniform(0.8, 1.2, size=total)
+    foliage = micro_leaves(leaf_pts, outward, lengths, lengths * traits.leaf.width_ratio, colors, rng,
+                           center=center, spherize=0.62, droop=float(traits.crown.droop), cup=0.04)
     accent_geo = accents if accents is not None else empty_geo()
     return fit_forged_parts(wood, foliage, accent_geo, height_cm, radius_cm)
 
