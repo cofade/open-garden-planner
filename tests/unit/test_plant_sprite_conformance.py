@@ -56,7 +56,7 @@ _GEN = _load_generator()
 
 class TestFileCoverage:
     def test_species_count(self) -> None:
-        assert len(list(SPECIES_DIR.glob("*.svg"))) == 108
+        assert len(list(SPECIES_DIR.glob("*.svg"))) == 111
 
     def test_category_count(self) -> None:
         assert len(list(CATEGORIES_DIR.glob("*.svg"))) == 15

@@ -5,7 +5,7 @@ the 2D sprites and the 3D plants (Phase 17 L1.7, #385; ADR-059 addendum, §8.22,
 Two modules, standard library only (no Qt, no numpy — pinned by an AST scan):
 
 - ``recipes`` — ``PALETTES``, ``FRUITS``, ``FLOWERS``, ``SPECIES``, ``CATEGORIES``:
-  what a plant looks like. ``scripts/generate_plant_sprites.py`` draws the 123
+  what a plant looks like. ``scripts/generate_plant_sprites.py`` draws the 126
   SVGs from them; ``core/scene3d/builders/plants.py`` builds 3D silhouettes from
   them.
 - ``resolve`` — ``resolve_sprite`` / ``resolve_recipe``: which recipe a plant

@@ -424,3 +424,88 @@ def test_one_latitude_reader_for_the_3d_view(location: object, expected: float) 
     latitude of a valid ``plan_place`` — both coordinates real, finite, in range — else
     the default (so a location without a longitude is no place either)."""
     assert plan_latitude(location) == expected
+
+
+# ── #940: a hardy plant flowers by its own months, a tender one after the last frost ──
+
+#: Frost dates of a cool temperate garden (the plan's ``location["frost_dates"]``).
+_FROST_0515_1015 = {"last_spring_frost": "05-15", "first_fall_frost": "10-15"}
+
+
+def _bloom(stem: str, day: datetime.date, group: str = "species") -> float:
+    return evaluate_phenology(SpriteRef(group, stem), day, latitude_deg=52.5,
+                              frost_dates=_FROST_0515_1015).bloom
+
+
+@pytest.mark.parametrize(("stem", "day"), [
+    ("crocus", datetime.date(2026, 3, 15)),
+    ("daffodil", datetime.date(2026, 4, 1)),
+    ("tulip", datetime.date(2026, 4, 18)),
+    ("apple_tree", datetime.date(2026, 4, 18)),
+    ("magnolia", datetime.date(2026, 4, 18)),
+    ("forsythia", datetime.date(2026, 3, 20)),
+    ("chrysanthemum", datetime.date(2026, 11, 2)),
+    ("aster", datetime.date(2026, 10, 20)),
+])
+def test_a_hardy_plant_flowers_outside_the_frost_free_season(stem: str, day: datetime.date) -> None:
+    """Before the last frost (05-15) and after the first (10-15) a hardy plant still
+    flowers in its own months: the gate that zeroed every bloom outside the season
+    left a garden with no crocus, no daffodil and nothing in flower in April."""
+    assert traits_for(SpriteRef("species", stem)).frost_hardy_bloom is True
+    assert _bloom(stem, day) == 1.0
+
+
+def test_a_tender_plant_waits_for_the_last_frost() -> None:
+    """A tomato is planted out after the last frost: in its own bloom months (May-July)
+    it shows no flowers until the frost-free season starts, then it does."""
+    assert traits_for(SpriteRef("species", "tomato")).frost_hardy_bloom is False
+    assert _bloom("tomato", datetime.date(2026, 4, 18)) == 0.0
+    assert _bloom("tomato", datetime.date(2026, 5, 10)) == 0.0   # in its months, before the frost
+    assert _bloom("tomato", datetime.date(2026, 6, 1)) == 1.0
+    assert _bloom("dahlia", datetime.date(2026, 10, 20)) == 0.0  # in its months, after the frost
+
+
+def test_a_category_fallback_stays_gated() -> None:
+    """A category says nothing about hardiness: its flowers keep the frost-free season."""
+    assert all(not traits_for(SpriteRef("categories", stem)).frost_hardy_bloom for stem in CATEGORIES)
+    assert _bloom("flowering_perennial", datetime.date(2026, 5, 10), "categories") == 0.0
+    assert _bloom("flowering_perennial", datetime.date(2026, 6, 10), "categories") == 1.0
+
+
+def test_nothing_flowers_in_december() -> None:
+    december = datetime.date(2026, 12, 15)
+    in_flower = [f"{group}/{stem}" for group, table in (("species", SPECIES), ("categories", CATEGORIES))
+                 for stem in table if _bloom(stem, december, group) > 0.0]
+    assert in_flower == []
+
+
+def test_without_frost_dates_the_bloom_months_alone_decide() -> None:
+    """No frost dates, no seasonal claim: a tomato flowers in May like a crocus in March."""
+    tomato = evaluate_phenology(SpriteRef("species", "tomato"), datetime.date(2026, 5, 10),
+                                latitude_deg=52.5)
+    assert tomato.bloom == 1.0
+
+
+def test_the_hardy_set_never_names_a_tender_bundled_species() -> None:
+    """Drift guard against the species file: every bundled record that draws one of
+    the hardy stems (as a gallery drop names it) is hardy or half-hardy, never tender,
+    and every hardy stem is a species recipe that has bloom months to keep."""
+    import json
+
+    from open_garden_planner.core.plant_art.resolve import resolve_sprite
+
+    plants = json.loads((REPO_ROOT / "src/open_garden_planner/resources/data/plant_species.json")
+                        .read_text(encoding="utf-8"))["plants"]
+    hardy = {stem for stem in SPECIES if traits_for(SpriteRef("species", stem)).frost_hardy_bloom}
+    assert hardy, "the hardy set is empty"
+    for stem in hardy:
+        assert traits_for(SpriteRef("species", stem)).bloom_months, stem
+    tolerance_of: dict[str, set[str]] = {}
+    for record in plants:
+        sprite = resolve_sprite("PERENNIAL", record["common_name"])
+        if sprite is not None and sprite.group == "species":
+            tolerance_of.setdefault(sprite.name, set()).add(record["frost_tolerance"])
+    tender = sorted(stem for stem in hardy if "tender" in tolerance_of.get(stem, set()))
+    assert tender == []
+    # and the guard can fail: tomatoes are tender
+    assert "tender" in tolerance_of["tomato"]

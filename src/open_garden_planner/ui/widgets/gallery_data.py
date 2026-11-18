@@ -24,8 +24,8 @@ from open_garden_planner.core.object_types import OBJECT_STYLES, ObjectType
 from open_garden_planner.core.plant_renderer import (
     _CATEGORIES_DIR,
     _CATEGORY_FILES,
-    _SPECIES_DIR,
     PlantCategory,
+    _resolve_svg_path,
 )
 from open_garden_planner.core.tools import ToolType
 from open_garden_planner.ui.icons import get_pixmap
@@ -92,6 +92,13 @@ class GalleryCategory:
 
 def _tr(text: str) -> str:
     return QCoreApplication.translate("GalleryData", text)
+
+
+def _species_thumbnail(object_type: ObjectType, species: str) -> QPixmap | None:
+    """The thumbnail of a gallery species: the sprite the canvas draws for it — its own,
+    or its category's for a species that has none (Miscanthus, Windmill Palm: #940)."""
+    path = _resolve_svg_path(object_type, species)
+    return None if path is None else render_svg_thumbnail(path)
 
 
 def render_svg_thumbnail(svg_path: Path, size: int = THUMB_SIZE) -> QPixmap | None:
@@ -269,15 +276,15 @@ def _tree_items() -> list[GalleryItem]:
         ("Peach Tree", "peach_tree"), ("Fig Tree", "fig_tree"),
         ("Olive Tree", "olive_tree"), ("Lemon Tree", "lemon_tree"),
         ("Orange Tree", "orange_tree"), ("Walnut Tree", "walnut_tree"),
-        ("Oak", "oak"), ("Maple", "maple"), ("Birch", "birch"),
-        ("Willow", "willow"), ("Magnolia", "magnolia"),
-        ("Pine", "pine"), ("Spruce", "spruce"),
+        ("Oak", "oak"), ("Maple", "maple"), ("Japanese Maple", "japanese_maple"),
+        ("Birch", "birch"), ("Willow", "willow"), ("Magnolia", "magnolia"),
+        ("Pine", "pine"), ("Spruce", "spruce"), ("Windmill Palm", "windmill_palm"),
     ]
     for species_name, svg_file in species:
-        thumb = render_svg_thumbnail(_SPECIES_DIR / f"{svg_file}.svg")
+        species_text = svg_file.replace("_", " ")
         items.append(GalleryItem(
             name=_tr(species_name), tool_type=ToolType.TREE, object_type=ObjectType.TREE,
-            thumbnail=thumb, species=svg_file.replace("_", " "),
+            thumbnail=_species_thumbnail(ObjectType.TREE, species_text), species=species_text,
         ))
     return items
 
@@ -297,18 +304,18 @@ def _shrub_items() -> list[GalleryItem]:
         ("Boxwood", "boxwood"), ("Rhododendron", "rhododendron"),
         ("Blueberry", "blueberry"), ("Raspberry", "raspberry"),
         ("Blackberry", "blackberry"), ("Gooseberry", "gooseberry"),
-        ("Currant", "currant"), ("Holly", "holly"),
+        ("Currant", "currant"), ("Grape Vine", "grape_vine"), ("Holly", "holly"),
         ("Juniper", "juniper"), ("Forsythia", "forsythia"),
         ("Lilac", "lilac"), ("Elderberry", "elderberry"),
         ("Privet", "privet"), ("Viburnum", "viburnum"),
         ("Barberry", "barberry"), ("Camellia", "camellia"),
-        ("Spirea", "spirea"),
+        ("Spirea", "spirea"), ("Bamboo", "bamboo"),
     ]
     for species_name, svg_file in species:
-        thumb = render_svg_thumbnail(_SPECIES_DIR / f"{svg_file}.svg")
+        species_text = svg_file.replace("_", " ")
         items.append(GalleryItem(
             name=_tr(species_name), tool_type=ToolType.SHRUB, object_type=ObjectType.SHRUB,
-            thumbnail=thumb, species=svg_file.replace("_", " "),
+            thumbnail=_species_thumbnail(ObjectType.SHRUB, species_text), species=species_text,
         ))
     hedge_style = OBJECT_STYLES[ObjectType.HEDGE_POLYGON]
     items.append(GalleryItem(
@@ -341,12 +348,13 @@ def _flower_items() -> list[GalleryItem]:
         ("Hydrangea", "hydrangea"), ("Clematis", "clematis"),
         ("Wisteria", "wisteria"), ("Jasmine", "jasmine"),
         ("Hibiscus", "hibiscus"), ("Crocus", "crocus"),
+        ("Miscanthus", "miscanthus"),
     ]
     for species_name, svg_file in species:
-        thumb = render_svg_thumbnail(_SPECIES_DIR / f"{svg_file}.svg")
+        species_text = svg_file.replace("_", " ")
         items.append(GalleryItem(
             name=_tr(species_name), tool_type=ToolType.PERENNIAL, object_type=ObjectType.PERENNIAL,
-            thumbnail=thumb, species=svg_file.replace("_", " "),
+            thumbnail=_species_thumbnail(ObjectType.PERENNIAL, species_text), species=species_text,
         ))
     return items
 
@@ -375,10 +383,10 @@ def _veggie_items() -> list[GalleryItem]:
         ("Chives", "chives"), ("Oregano", "oregano"),
     ]
     for species_name, svg_file in species:
-        thumb = render_svg_thumbnail(_SPECIES_DIR / f"{svg_file}.svg")
+        species_text = svg_file.replace("_", " ")
         items.append(GalleryItem(
             name=_tr(species_name), tool_type=ToolType.PERENNIAL, object_type=ObjectType.PERENNIAL,
-            thumbnail=thumb, species=svg_file.replace("_", " "),
+            thumbnail=_species_thumbnail(ObjectType.PERENNIAL, species_text), species=species_text,
         ))
     return items
 

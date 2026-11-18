@@ -1,6 +1,6 @@
 # Plant sprites — style contract (binding)
 
-All SVGs in `species/` (108) and `categories/` (15) are **generated** by
+All SVGs in `species/` (111) and `categories/` (15) are **generated** by
 `scripts/generate_plant_sprites.py`. **Do not hand-edit** — edit the recipe
 table and regenerate; `--check` (and the unit gate
 `tests/unit/test_plant_sprite_conformance.py`) fails on any drift.

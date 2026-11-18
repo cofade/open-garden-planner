@@ -223,10 +223,17 @@ def build_fruit_accents(
     )
 
     items_per_cluster = max(1, int(round(per_mean))) if not is_ground_vine else 1
+    # A grape bunch hangs: berries stacked down a cone that narrows to its tip (#940)
+    hanging_bunch = kind == "grape"
     centers_list: list[np.ndarray] = []
     for a_pt in anchors:
         for k in range(items_per_cluster):
-            offset = rng.normal(0.0, fruit_r * 0.65, size=3) if k > 0 else np.zeros(3)
+            if hanging_bunch:
+                depth = k / max(items_per_cluster - 1, 1)
+                offset = rng.normal(0.0, fruit_r * 0.8 * (1.0 - 0.65 * depth), size=3)
+                offset[2] = -fruit_r * 3.4 * depth
+            else:
+                offset = rng.normal(0.0, fruit_r * 0.65, size=3) if k > 0 else np.zeros(3)
             # Hang slightly below twig/foliage node
             offset[2] -= fruit_r * 0.55
             centers_list.append(a_pt + offset)
