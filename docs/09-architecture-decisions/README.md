@@ -9395,8 +9395,10 @@ and `index/01b-canvas-rendering.md` holds PF-CAN-49 onwards (the body file
 `01b-canvas-rendering.md`). Both are `CAN` in `AREA_INDEX_MAP`, both are linked from the
 §11.4 navigation row, and every row keeps its five columns and its rebased
 `../01b-canvas-rendering.md#pf-can-…` link. 18 existing rows were moved byte-identically;
-no rule, pin or status changed to fit. The split is also the mechanism for the next area
-that reaches its budget (`04-ui-panels-dialogs.md`, 63,440 of 64,000, is next).
+no rule, pin or status changed to fit. This is the remedy for an **index** that reaches
+`INDEX_MAX_BYTES`; a **body** file that reaches `PITFALL_MAX_BYTES` is split as the
+catalogue already does. The next file in line is a body file, `04-ui-panels-dialogs.md`
+(63,544 of 64,000), whose remedy is that body split (`04`/`04b`), not a second index.
 
 ## ADR-062: Plant lifetimes on the shared plan date (US-F4, #315)
 
