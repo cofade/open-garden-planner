@@ -19,7 +19,7 @@ from unittest.mock import MagicMock
 import pytest
 from PyQt6.QtCore import QPoint, QPointF, QRectF, Qt
 from PyQt6.QtGui import QImage, QPainter
-from PyQt6.QtWidgets import QGraphicsSceneContextMenuEvent, QMenu
+from PyQt6.QtWidgets import QComboBox, QGraphicsSceneContextMenuEvent, QMenu
 
 from open_garden_planner.agent_api.render import render_canvas_image
 from open_garden_planner.core.commands import ChangeObjectTypeCommand
@@ -58,6 +58,15 @@ def _house_rect(scene: CanvasScene) -> RectangleItem:
     )
     scene.addItem(rect)
     return rect
+
+
+def _roof_picture(scene: CanvasScene) -> QImage:
+    image = QImage(420, 220, QImage.Format.Format_ARGB32)
+    image.fill(Qt.GlobalColor.white)
+    painter = QPainter(image)
+    scene.render(painter, QRectF(0, 0, 420, 220), QRectF(90, 40, 420, 220))
+    painter.end()
+    return image
 
 
 def _ridge_of(item) -> PolylineItem | None:
@@ -106,41 +115,65 @@ def test_roof_style_changes_the_plan_picture_and_undo_restores_it(qtbot, shape, 
     panel = PropertiesPanel(command_manager=view.command_manager)
     panel._on_property_changed(item, "object_type", kind)
 
-    def picture() -> QImage:
-        image = QImage(420, 220, QImage.Format.Format_ARGB32)
-        image.fill(Qt.GlobalColor.white)
-        painter = QPainter(image)
-        scene.render(painter, QRectF(0, 0, 420, 220), QRectF(90, 40, 420, 220))
-        painter.end()
-        return image
-
-    automatic = picture()
+    automatic = _roof_picture(scene)
     if kind == ObjectType.GARAGE_SHED:
         assert item.fill_pattern == FillPattern.ROOF_TILES
         assert automatic.pixelColor(210, 110) == item.pen().color(), (
             "automatic sheds have a roof seam across the tile planes"
         )
         panel._on_property_changed(item, "fill_pattern", FillPattern.CONCRETE)
-        assert picture() != automatic, "an explicit concrete fill keeps its own texture"
+        assert _roof_picture(scene) != automatic, "an explicit concrete fill keeps its own texture"
         view.command_manager.undo()
-        assert picture() == automatic
+        assert _roof_picture(scene) == automatic
     styles = []
     for style in ("hip", "shed", "flat"):
         panel._on_roof_style_changed(item, style)
         ridge = linked_ridge(item)
         if ridge is not None:
             assert not ridge.isVisible(), "inactive roof cap must not intercept clicks"
-        styles.append(picture())
+        styles.append(_roof_picture(scene))
         assert styles[-1] != automatic, style
         view.command_manager.undo()
         if ridge is not None:
             assert ridge.isVisible()
-        assert picture() == automatic, style
+        assert _roof_picture(scene) == automatic, style
         view.command_manager.redo()
-        assert picture() == styles[-1], style
+        assert _roof_picture(scene) == styles[-1], style
         view.command_manager.undo()
     assert styles[0] != styles[1]
     assert (linked_ridge(item) is not None) == (kind == ObjectType.HOUSE)
+
+
+@pytest.mark.parametrize("style", ("gable", "hip", "shed", "flat"))
+def test_tool_shed_explicit_roof_paints_the_fill_on_edit_and_load(qtbot, tmp_path, style) -> None:
+    scene, view = _scene_view(qtbot)
+    scene.set_shadows_enabled(False)
+    shed = RectangleItem(100, 50, 400, 200, object_type=ObjectType.TOOL_SHED,
+                         layer_id=scene.active_layer.id)
+    scene.addItem(shed)
+    panel = PropertiesPanel(command_manager=view.command_manager)
+    qtbot.addWidget(panel)
+    panel.set_selected_items([shed])
+    roof = next(combo for combo in panel.findChildren(QComboBox) if combo.findData(style) >= 0)
+
+    automatic = _roof_picture(scene)
+    assert automatic.pixelColor(110, 110) != Qt.GlobalColor.white
+    roof.setCurrentIndex(roof.findData(style))
+    assert shed.metadata["roof_style"] == style
+    explicit = _roof_picture(scene)
+    interior = explicit.pixelColor(110, 110)
+    # The material is warm wood. Empty fills and the slope's neutral shade fail this check.
+    assert interior.red() > interior.blue() + 20
+    assert explicit != automatic
+    view.command_manager.undo()
+    assert _roof_picture(scene) == automatic
+    view.command_manager.redo()
+    assert _roof_picture(scene) == explicit
+
+    plan = tmp_path / "tool-shed.ogp"
+    ProjectManager().save(scene, plan)
+    ProjectManager().load(scene, plan)
+    assert _roof_picture(scene).pixelColor(110, 110) == interior
 
 
 def test_legacy_one_way_ridge_does_not_snap_or_select_when_roof_is_flat(qtbot, tmp_path) -> None:

@@ -13703,10 +13703,11 @@ refresh the same derived visibility rule. A layer-filtered image can reveal
 a hidden layer while keeping an inactive cap out of the picture.
 New garage/shed objects default to gray
 roof tiles. Existing fill choices are read from the saved item. Flat roofs
-use a single surface with the selected fill. The tool
-shed's automatic sprite keeps its roof, and an explicit choice uses the
-shared painter. `test_house_roof_ridge.py` checks the property edit and undo
-against actual scene pixels.
+use a single surface with the selected fill. An automatic tool shed uses its
+sprite. An explicit roof style uses the shared painter with the shed's stored
+fill and outline. The properties command refreshes those styles on edits and
+history steps. `test_house_roof_ridge.py` checks scene pixels after edits,
+undo and redo, and reloads a plan for every explicit tool-shed roof style.
 
 An explicitly selected flat roof has a separate 3D top surface with plan UVs.
 The shared fill pipeline supplies its texture and tint. A fill edit updates

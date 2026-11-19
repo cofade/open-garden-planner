@@ -1914,6 +1914,8 @@ class PropertiesPanel(QWidget):
                     refresh_ridge_visibility,
                 )
 
+                if isinstance(itm, RectangleItem) and itm.object_type == ObjectType.TOOL_SHED:
+                    itm._setup_styling()
                 itm.update()
                 refresh_ridge_visibility(linked_ridge(itm))
 

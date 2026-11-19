@@ -30,6 +30,7 @@ from open_garden_planner.core.object_types import (
     is_bed_type,
     is_ridge_bearing_type,
 )
+from open_garden_planner.core.roof_style import roof_style
 from open_garden_planner.ui.canvas.roof_ridge_link import (
     linked_ridge,
     outline_polygon,
@@ -200,8 +201,11 @@ class RectangleItem(RectVertexEditMixin, RotationHandleMixin, ResizeHandlesMixin
         """Configure visual appearance based on object type."""
         style = get_style(self.object_type) if self.object_type else get_style(ObjectType.GENERIC_RECTANGLE)
 
-        # Furniture types use SVG rendering — hide pen and brush
-        if self.paints_sprite:
+        # An explicit tool-shed roof uses the stored fill and outline.
+        explicit_tool_shed = (
+            self.object_type == ObjectType.TOOL_SHED and roof_style(self.metadata) is not None
+        )
+        if self.paints_sprite and not explicit_tool_shed:
             self.setPen(QPen(Qt.PenStyle.NoPen))
             self.setBrush(QBrush())
             return
