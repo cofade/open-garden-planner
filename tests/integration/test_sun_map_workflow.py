@@ -45,8 +45,9 @@ def window(qtbot, monkeypatch):
     win = GardenPlannerApp()
     qtbot.addWidget(win)
     monkeypatch.setattr(win, "_confirm_discard_changes", lambda: True)
+    # Leave first-launch maximization so the virtual screen cannot cap this fixture.
+    win.showNormal()
     win.resize(1500, 950)
-    win.show()
     qtbot.waitExposed(win)
     win._load_project_file(str(REFERENCE))
     win._sim_clock.set_date(DAY)
@@ -112,8 +113,7 @@ def test_hours_of_sun_from_the_button_to_the_export_and_back(window, qtbot, tmp_
     assert key is not None and key.day == DAY
     rect = view.sun_legend_rect()
     assert not rect.isEmpty() and view.viewport().rect().contains(rect)
-    # in the scale bar's strip, or one strip higher where the canvas is narrow
-    # (the suite's window leaves it a third of a screen) — never on the scale bar
+    # In the scale bar's strip or one strip higher, clear of the scale bar.
     assert rect.bottom() >= view.viewport().height() - 2 * view.SCALE_BAR_RESERVED_PX
     assert not QRectF(rect).intersects(view._scale_bar_rect())
     strip = (slice(rect.top(), rect.bottom()), slice(rect.left(), rect.right()))

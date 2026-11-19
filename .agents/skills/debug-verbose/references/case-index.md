@@ -269,3 +269,4 @@
 | Case study: an unbounded category popup clipped matches (#951) | [Read](269-category-popup-overflow-951.md) |
 | Case study: System theme changes never reached the running palette (#861) | [Read](270-system-theme-and-calendar-861.md) |
 | Case study: a repaint comparison crossed a minimap refresh (#879) | [Read](271-native-repaint-minimap-879.md) |
+| Case study: first-launch maximization capped a headless test window (PR #978) | [Read](272-sun-legend-headless-window.md) |

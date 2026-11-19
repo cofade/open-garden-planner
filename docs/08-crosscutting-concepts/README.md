@@ -3200,6 +3200,13 @@ readiness. A controlled run found nine badge pixels changing between captures;
 the exact image-equality assertion remains unchanged. Pinned by
 `tests/integration/test_sun_map_workflow.py::test_hours_of_sun_from_the_button_to_the_export_and_back`.
 
+**Restore the test window before setting its size.** On a fresh settings store,
+`GardenPlannerApp` starts maximized. In the Hours of Sun workflow, the Linux
+offscreen platform capped the nominal 1500 × 950 window at 796 × 796. The
+resulting 329 px viewport had no slot for the legend alongside the scale bar
+or minimap. Calling `showNormal()` before `resize()` gives the workflow its
+intended viewport. The focused legend tests separately cover narrow layouts.
+
 ### 8.10.18 Expected failures and portable raster assertions (#897, #921, #922)
 
 An `xfail` names the expected exception: the remaining memory-slope tripwires and

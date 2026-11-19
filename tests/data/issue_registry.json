@@ -1558,5 +1558,10 @@
     "is_pr": false,
     "state": "OPEN",
     "title": "Selecting plants - View changes and unable to find and use desired plant."
+  },
+  "978": {
+    "is_pr": true,
+    "state": "OPEN",
+    "title": "fix: restore plant browsing and improve 2D plan reliability"
   }
 }
