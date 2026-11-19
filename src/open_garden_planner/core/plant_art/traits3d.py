@@ -153,7 +153,13 @@ class FlowerTraits:
     how far the petals rise (0 a flat star, ~1 a goblet); ``face_up`` turns the flower
     from straight out of the crown (0) to the sky (1). ``disc_radius`` / ``disc_depth``:
     its centre (stamens, a daisy's eye, a daffodil's trumpet) as shares of ``radius_cm``
-    across and along its facing; 0: no visible centre.
+    across and along its facing; 0: no visible centre. ``tip_light``: how far a petal's
+    tip turns toward the 2D light colour (the sprite's 0.45). ``shade``: a scalar on the
+    petal's linear colour, hue kept (as ``WHITE_BARK_SHADE`` keeps white from clipping): a
+    bright purple goblet facing the sun went magenta under the filmic curve - a crocus read
+    pale lilac, its hue rising from 268 to 280 degrees with its brightness (review 2).
+    ``wedge``: one triangle a petal at every LOD - a mass of small flowers (a fruit tree's
+    spurs, a forsythia) buys twice the flowers within its triangle budget.
     """
 
     habit: str = "crown"
@@ -165,6 +171,9 @@ class FlowerTraits:
     disc_radius: float = 0.26
     disc_depth: float = 0.16
     cover: float = 0.10
+    tip_light: float = 0.45
+    shade: float = 1.0
+    wedge: bool = False
 
 
 @dataclass(frozen=True, slots=True)
@@ -461,10 +470,10 @@ _BLOOM_COVER: Final[dict[str, float]] = {
 #: one spur's cluster of three to five flowers on a tree, single small flowers on a shrub.
 _TREE_SPUR_BLOSSOM: Final[FlowerTraits] = FlowerTraits(
     radius_cm=3.5, petals=5, cup=0.35, face_up=0.45, disc_radius=0.0,
-    cover=_BLOOM_COVER["canopy"],
+    cover=_BLOOM_COVER["canopy"], wedge=True,
 )
 _SHRUB_SPUR_BLOSSOM: Final[FlowerTraits] = FlowerTraits(
-    radius_cm=1.5, petals=5, cup=0.30, face_up=0.45, disc_radius=0.0, cover=0.08,
+    radius_cm=1.5, petals=5, cup=0.30, face_up=0.45, disc_radius=0.0, cover=0.08, wedge=True,
 )
 #: A bulb's flowers cover this share of its clump's ground seen from above (#940): five
 #: tulips on a clump of 10 cm radius, two crocuses on one of 5 cm.
@@ -480,7 +489,8 @@ _FLOWER_OVERRIDES: Final[dict[str, dict[str, float | int | bool]]] = {
     "olive_tree": {"radius_cm": 1.5, "cover": 0.06},
     "lemon_tree": {"cover": 0.10},
     "orange_tree": {"cover": 0.10},
-    "forsythia": {"petals": 4, "cup": 0.2, "face_up": 0.2, "disc_radius": 0.0, "cover": 0.45},
+    "forsythia": {"petals": 4, "cup": 0.2, "face_up": 0.2, "disc_radius": 0.0, "cover": 0.45,
+                  "wedge": True},
     "spirea": {"disc_radius": 0.0, "cover": 0.30},
     "rose": {"cup": 0.55, "cover": 0.18},
     "peony": {"cup": 0.6, "cover": 0.06},
@@ -493,7 +503,7 @@ _FLOWER_OVERRIDES: Final[dict[str, dict[str, float | int | bool]]] = {
     "thyme": {"cover": 0.20},
     "chamomile": {"cover": 0.20},
     "tulip": {"cup": 1.15, "disc_radius": 0.2},
-    "crocus": {"cup": 1.0},
+    "crocus": {"cup": 1.0, "tip_light": 0.25, "shade": 0.5},
     "daffodil": {"cup": 0.12, "face_up": 0.15, "disc_radius": 0.34, "disc_depth": 0.55},
     "iris": {"cup": 0.7, "face_up": 0.6},
     "lily": {"cup": 0.45, "face_up": 0.25},

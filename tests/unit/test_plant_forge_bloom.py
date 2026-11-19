@@ -123,6 +123,102 @@ def test_a_blossom_tree_carries_hundreds_of_flowers() -> None:
     assert _flower_count(SpriteRef("species", "magnolia"), 324.0, 148.0) >= 150
 
 
+def _nearest_wood_cm(parts, bark: np.ndarray) -> np.ndarray:
+    """Per petal vertex, the distance (cm) to the nearest point sampled on the wood - the
+    wood part and the twigs (``bark``-coloured) a shrub's flowers part carries."""
+    wood = _part(parts, PART_WOOD)
+    flowers_mesh = _part(parts, FLOWER_PART)
+    is_twig = np.abs(flowers_mesh.colors[:, :3] - bark[None, :]).max(axis=1) < 1e-4
+    twig_tri = flowers_mesh.indices[is_twig[flowers_mesh.indices].all(axis=1)]
+    tri = np.concatenate([wood.positions.astype(np.float64)[wood.indices],
+                          flowers_mesh.positions.astype(np.float64)[twig_tri]])
+    rng = np.random.default_rng(0)
+    uv = rng.random((len(tri), 6, 2))
+    uv = np.where(uv.sum(axis=-1, keepdims=True) > 1.0, 1.0 - uv, uv)
+    samples = (tri[:, None, 0] + uv[..., :1] * (tri[:, None, 1] - tri[:, None, 0])
+               + uv[..., 1:] * (tri[:, None, 2] - tri[:, None, 0])).reshape(-1, 3)
+    samples = np.concatenate([samples, wood.positions.astype(np.float64)])
+    flowers = flowers_mesh.positions.astype(np.float64)[~is_twig]
+    out = np.empty(len(flowers))
+    for i in range(0, len(flowers), 2000):
+        chunk = flowers[i:i + 2000]
+        d2 = ((chunk[:, None, :] - samples[None, :, :]) ** 2).sum(axis=-1)
+        out[i:i + 2000] = np.sqrt(d2.min(axis=1))
+    return out
+
+
+@pytest.mark.parametrize(("species", "height", "radius"), [
+    ("cherry_tree", 528.9, 195.3), ("magnolia", 324.0, 147.7), ("plum_tree", 352.5, 142.9),
+    ("forsythia", 174.0, 76.5),
+])
+def test_a_precocious_bloomers_flowers_sit_on_its_wood(species: str, height: float, radius: float) -> None:
+    """Its leaves are screen-doored down to 6-18 % in bloom, so its flowers stand on its
+    twigs, not on leaves that are gone: a cherry's flowers floated a median 26.9 cm from
+    any wood, 42.6 % over 30 cm (review 2). A tree's flowers sit on its outer twigs; a
+    shrub's (a forsythia's seven stems) each on a twig of its own from its nearest wood."""
+    sprite = SpriteRef("species", species)
+    parts = forge_plant(sprite, height, radius, seed=7, lod=LOD0, cache=None)
+    bark = np.asarray(bark_linear_rgba(traits_for(sprite).branching)[:3], dtype=np.float32)
+    distance = _nearest_wood_cm(parts, bark)
+    assert float(np.median(distance)) < 5.0
+    assert float(np.percentile(distance, 90)) < 15.0
+    assert float(np.mean(distance > 30.0)) == 0.0
+
+
+@pytest.mark.parametrize(("species", "height", "radius"), [
+    ("lilac", 243.0, 88.2), ("rhododendron", 123.9, 62.0), ("hydrangea", 150.0, 70.0),
+    ("geranium", 40.0, 20.0),
+])
+def test_a_crowns_flower_clusters_follow_its_surface(species: str, height: float, radius: float) -> None:
+    """A lilac's panicles, a rhododendron's trusses: as many as cover 0.15 of the crown's
+    surface, 0.6 of their recipe radius - not a fixed 10 at a plant-scaled size, which
+    left every truss hidden in a green crown (review 2)."""
+    sprite = SpriteRef("species", species)
+
+    def clusters(h: float, r: float) -> float:
+        parts = forge_plant(sprite, h, r, seed=7, lod=LOD0, cache=None)
+        assert sum(p.mesh.triangle_count for p in parts) <= triangle_budget_for_lod(LOD0)
+        return _part(parts, FLOWER_PART).triangle_count / (7 * 4 * 5)
+
+    assert clusters(height, radius) >= 12          # the plan's size: a crown in flower
+    small, large = (height * 0.3, radius * 0.3), (height * 0.45, radius * 0.45)   # under the cap
+    trunk = traits_for(sprite).crown.trunk_share
+    want = clusters(*small) * crown_surface_cm2(*large, trunk) / crown_surface_cm2(*small, trunk)
+    assert abs(clusters(*large) - want) <= max(1.0, 0.06 * want)   # the count rounds up
+
+
+@pytest.mark.parametrize(("species", "corners"), [("magnolia", 4), ("cherry_tree", 3)])
+def test_petals_are_lit_alike_on_both_faces_and_both_halves(species: str, corners: int) -> None:
+    """An open petal's back takes its front's normal (a thin petal lit like one sheet: no
+    dark violet undersides) and the normal bends only along the petal (no pinwheel): a
+    quad petal (magnolia) and a wedge (a cherry's spur blossom)."""
+    flower = replace(traits_for(SpriteRef("species", species)).flower, disc_radius=0.0)
+    geo = flowers_geo(flower, "pink", np.zeros((3, 3)), np.tile([0.0, 0.0, 1.0], (3, 1)),
+                      np.full(3, 4.0), np.random.default_rng(2), lod=LOD0)
+    half = len(geo.pos) // 2
+    np.testing.assert_allclose(geo.nrm[:half], geo.nrm[half:])
+    assert float(geo.nrm[:, 2].min()) > 0.0           # every petal leans to the sky
+    petals = geo.nrm[:half].reshape(-1, corners, 3)
+    np.testing.assert_allclose(petals[:, 1], petals[:, 2], atol=1e-6)   # the tip's corners
+    if corners == 4:
+        np.testing.assert_allclose(petals[:, 0], petals[:, 3], atol=1e-6)   # the base's
+
+
+def test_a_bulbs_goblet_keeps_its_outside_normal_and_the_crocus_its_purple() -> None:
+    """A bulb's goblet stands to the sky and is seen from its side: its outside keeps its
+    own normal; the crocus's petals are shaded so the filmic curve keeps them purple."""
+    crocus = traits_for(SpriteRef("species", "crocus")).flower
+    assert crocus.habit == "scape" and crocus.shade < 1.0 and crocus.tip_light < 0.45
+    geo = flowers_geo(replace(crocus, disc_radius=0.0), "purple", np.zeros((2, 3)),
+                      np.tile([0.0, 0.0, 1.0], (2, 1)), np.full(2, 2.5),
+                      np.random.default_rng(3), lod=LOD0)
+    half = len(geo.pos) // 2
+    assert not np.allclose(geo.nrm[:half], geo.nrm[half:])
+    light = np.array([int(FLOWERS["purple"][1][i:i + 2], 16) / 255.0 for i in (1, 3, 5)])
+    lin = np.where(light <= 0.04045, light / 12.92, ((light + 0.055) / 1.055) ** 2.4)
+    assert float(geo.col[:, :3].max()) <= float(lin.max()) * crocus.shade * 1.01
+
+
 def test_crown_flowers_anchor_on_the_outer_shell() -> None:
     rng = np.random.default_rng(3)
     dirs = rng.normal(size=(8000, 3))
