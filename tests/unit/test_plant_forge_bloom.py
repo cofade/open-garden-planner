@@ -24,6 +24,7 @@ from open_garden_planner.core.plant_art import (
     SpriteRef,
     traits_for,
 )
+from open_garden_planner.core.plant_art.traits3d import FLOWER_HABITS
 from open_garden_planner.core.plant_forge import (
     LOD0,
     LOD1,
@@ -64,6 +65,19 @@ def _flower_count(sprite: SpriteRef, height: float, radius: float, lod: int = LO
     flower = traits_for(sprite).flower
     assert flower is not None
     return _part(parts, FLOWER_PART).triangle_count / flower_triangles(flower, lod)
+
+
+def test_every_flower_has_a_habit_its_archetype_builds() -> None:
+    """A bulb (grass) stands on scapes, a stemmed flower carries heads, every other
+    flowering plant spreads its flowers on its crown; clusters, puffs and umbels have none."""
+    habit_of = {"grass": "scape", "flower": "head"}
+    for sprite in FLOWERING:
+        traits = traits_for(sprite)
+        assert traits.flower is not None and traits.flower.habit in FLOWER_HABITS
+        assert traits.flower.habit == habit_of.get(traits.archetype, "crown"), sprite
+        assert traits.flower.radius_cm > 0.0 and 0.0 < traits.flower.cover <= 0.5, sprite
+    for name in ("lilac", "lavender", "dill", "rhododendron"):
+        assert traits_for(SpriteRef("species", name)).flower is None
 
 
 def test_blossom_count_is_the_crown_surface_over_one_flower() -> None:
