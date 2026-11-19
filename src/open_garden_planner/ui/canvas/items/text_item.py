@@ -1,7 +1,7 @@
 """Text annotation item for the garden canvas."""
 
 import uuid
-from typing import Any
+from typing import Any, Final
 
 from PyQt6.QtCore import QCoreApplication, QRectF, Qt, pyqtSignal
 from PyQt6.QtGui import (
@@ -24,6 +24,7 @@ from PyQt6.QtWidgets import (
 )
 
 from open_garden_planner.core.object_types import ObjectType
+from open_garden_planner.core.plain_text import ELLIPSIS
 from open_garden_planner.ui.canvas.layout_font import (
     PLAN_TEXT_DPI,
     layout_pixel_size,
@@ -33,6 +34,18 @@ from open_garden_planner.ui.canvas.layout_font import (
 from .garden_item import GardenItemMixin
 from .halo_text import note_label_changed
 from .resize_handle import RotationHandleMixin
+
+#: Maximum characters loaded into a canvas text item's Qt QTextDocument (#873).
+#: Larger notes (e.g. hostile 1M-char strings) keep full ``_content`` for
+#: serialization/properties while bounding Qt's layout and selected-paint cost.
+MAX_DISPLAY_TEXT_CHARS: Final = 2_000
+
+
+def bound_display_text(text: str) -> str:
+    """Return *text* capped to ``MAX_DISPLAY_TEXT_CHARS`` for Qt text layout (#873)."""
+    if len(text) <= MAX_DISPLAY_TEXT_CHARS:
+        return text
+    return text[:MAX_DISPLAY_TEXT_CHARS] + ELLIPSIS
 
 
 class TextItem(RotationHandleMixin, GardenItemMixin, QGraphicsTextItem):
@@ -113,6 +126,7 @@ class TextItem(RotationHandleMixin, GardenItemMixin, QGraphicsTextItem):
         self._italic = italic
         self._text_color = text_color
         self._editing = False
+        self._edit_initial_display_text: str | None = None
 
         # Counter-transform for the canvas Y-flip (view applies scale(zoom, -zoom)).
         # Flipping Y locally makes the text appear right-side-up on screen.
@@ -120,7 +134,7 @@ class TextItem(RotationHandleMixin, GardenItemMixin, QGraphicsTextItem):
 
         self.setPos(x, y)
         self._apply_font()
-        self.setPlainText(content)
+        self.setPlainText(bound_display_text(content))
 
         self.setFlag(QGraphicsItem.GraphicsItemFlag.ItemIsSelectable, True)
         self.setFlag(QGraphicsItem.GraphicsItemFlag.ItemIsMovable, True)
@@ -145,7 +159,7 @@ class TextItem(RotationHandleMixin, GardenItemMixin, QGraphicsTextItem):
     @content.setter
     def content(self, value: str) -> None:
         self._content = value
-        self.setPlainText(value)
+        self.setPlainText(bound_display_text(value))
 
     @property
     def font_family(self) -> str:
@@ -247,6 +261,7 @@ class TextItem(RotationHandleMixin, GardenItemMixin, QGraphicsTextItem):
     def start_editing(self) -> None:
         """Enter inline text editing mode."""
         self._editing = True
+        self._edit_initial_display_text = self.toPlainText()
         self.setTextInteractionFlags(Qt.TextInteractionFlag.TextEditorInteraction)
         self.setFocus(Qt.FocusReason.MouseFocusReason)
         cursor = self.textCursor()
@@ -264,7 +279,15 @@ class TextItem(RotationHandleMixin, GardenItemMixin, QGraphicsTextItem):
         if not self._editing:
             return
         self._editing = False
-        self._content = self.toPlainText()
+        edited = self.toPlainText()
+        if (
+            self._edit_initial_display_text is None
+            or edited != self._edit_initial_display_text
+        ):
+            self._content = edited
+            if len(edited) > MAX_DISPLAY_TEXT_CHARS:
+                self.setPlainText(bound_display_text(edited))
+        self._edit_initial_display_text = None
         self.setTextInteractionFlags(Qt.TextInteractionFlag.NoTextInteraction)
         # Clear selection
         cursor = self.textCursor()
@@ -365,11 +388,15 @@ class TextItem(RotationHandleMixin, GardenItemMixin, QGraphicsTextItem):
     ) -> None:
         """Paint with selection indicator when selected."""
         from PyQt6.QtWidgets import QStyle
-        # Remove focus box drawn by Qt (we draw our own selection box)
-        option.state &= ~QStyle.StateFlag.State_HasFocus
+
+        is_selected = bool(option.state & QStyle.StateFlag.State_Selected)
+        # Remove focus and selection boxes drawn by Qt (we draw our own cosmetic selection box)
+        option.state &= ~(
+            QStyle.StateFlag.State_HasFocus | QStyle.StateFlag.State_Selected
+        )
 
         # Draw a thin dashed selection border when selected and not editing
-        if (option.state & QStyle.StateFlag.State_Selected) and not self._editing:
+        if is_selected and not self._editing:
             painter.save()
             pen = QPen(QColor(0, 100, 255), 1, Qt.PenStyle.DashLine)
             pen.setCosmetic(True)

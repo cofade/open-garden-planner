@@ -167,3 +167,131 @@ def test_a_picture_of_the_plan_paints_the_bounded_label(qtbot, ui_font_family) -
         render_scene_region(scene, painter, QRectF(0, 0, 900, 600), scene.canvas_rect, y_flip=True)
     finally:
         painter.end()
+
+
+def test_inline_label_editor_bounds_huge_name_and_preserves_untouched_name(qtbot, ui_font_family) -> None:
+    """Double-clicking / starting inline label edit on an object with a huge name
+    loads the bounded single-line display copy and preserves the full stored
+    ``item.name`` if committed unchanged; editing it commits the new name (#873)."""
+    scene = CanvasScene(5000, 3000)
+    bed = _bed(scene, HUGE)
+    view = _shown(scene, qtbot)
+    QApplication.processEvents()
+
+    bed.start_label_edit()
+    editor = bed._edit_label_item
+    assert editor is not None
+    assert editor.toPlainText() == clip_line(HUGE)
+    assert len(editor.toPlainText()) <= NAME_MAX_CHARS + len(ELLIPSIS)
+    assert editor.boundingRect().width() < MAX_LABEL_WIDTH_PX
+
+    # Committing without editing must NOT overwrite the full underlying name
+    bed._finish_label_edit()
+    assert bed.name == HUGE
+
+    # Actually editing the text in the inline editor commits the new name
+    bed.start_label_edit()
+    editor = bed._edit_label_item
+    assert editor is not None
+    editor.setPlainText("Renamed Herb Bed")
+    bed._finish_label_edit()
+    assert bed.name == "Renamed Herb Bed"
+    assert bed._label_item.text() == "Renamed Herb Bed"
+    view.viewport().repaint()
+
+
+def test_huge_text_item_bounds_display_and_selection_paint(qtbot, ui_font_family) -> None:
+    """A 1M-char TextItem keeps full ``content`` for serialization while bounding
+    its Qt document and using a cosmetic selection border (#873)."""
+    from open_garden_planner.ui.canvas.items.text_item import MAX_DISPLAY_TEXT_CHARS, TextItem
+
+    huge_note = "a" * 1_000_000
+    scene = CanvasScene(5000, 3000)
+    item = TextItem(200, 200, huge_note)
+    scene.addItem(item)
+
+    assert item.content == huge_note
+    assert len(item.toPlainText()) == MAX_DISPLAY_TEXT_CHARS + len(ELLIPSIS)
+    assert item.boundingRect().width() < 100_000.0
+
+    view = _shown(scene, qtbot)
+    view.centerOn(item)
+    item.setSelected(True)
+    QApplication.processEvents()
+    view.viewport().repaint()
+    view.viewport().repaint()
+
+    # Verify the custom cosmetic dashed selection border is actually painted when
+    # selected (without leaking State_Selected to QGraphicsTextItem.paint).
+    from PyQt6.QtWidgets import QStyle, QStyleOptionGraphicsItem
+
+    def _paint_border_blue_pixels(selected: bool) -> int:
+        img = QImage(320, 80, QImage.Format.Format_ARGB32)
+        img.fill(QColor("white"))
+        p = QPainter(img)
+        try:
+            p.translate(10, 10)
+            opt = QStyleOptionGraphicsItem()
+            if selected:
+                opt.state |= QStyle.StateFlag.State_Selected
+            item.paint(p, opt)
+            assert not (opt.state & QStyle.StateFlag.State_Selected)
+        finally:
+            p.end()
+        return sum(
+            1
+            for y in range(img.height())
+            for x in range(img.width())
+            if (c := img.pixelColor(x, y)).blue() > 180 and c.red() < 80
+        )
+
+    assert _paint_border_blue_pixels(False) == 0
+    assert _paint_border_blue_pixels(True) > 0
+
+    # Untouched edit commit keeps full 1M-char content; real edit replaces it
+    item.start_editing()
+    item.finish_editing()
+    assert item.content == huge_note
+
+    item.start_editing()
+    item.setPlainText("Short Note")
+    item.finish_editing()
+    assert item.content == "Short Note"
+    assert item.toPlainText() == "Short Note"
+
+
+def test_huge_callout_item_bounds_display_and_selection_paint(qtbot, ui_font_family) -> None:
+    """A 1M-char CalloutItem keeps full ``content`` while bounding its child
+    ``QTextDocument`` so selection repaints stay bounded (#873)."""
+    from PyQt6.QtCore import QPointF
+
+    from open_garden_planner.ui.canvas.items.callout_item import CalloutItem
+    from open_garden_planner.ui.canvas.items.text_item import MAX_DISPLAY_TEXT_CHARS
+
+    huge_callout = "b" * 1_000_000
+    scene = CanvasScene(5000, 3000)
+    item = CalloutItem(QPointF(300, 300), QPointF(80, -60), huge_callout)
+    scene.addItem(item)
+
+    assert item.content == huge_callout
+    assert item.to_dict()["content"] == huge_callout
+    assert len(item._text_child.toPlainText()) == MAX_DISPLAY_TEXT_CHARS + len(ELLIPSIS)
+    assert item.boundingRect().width() < 100_000.0
+
+    view = _shown(scene, qtbot)
+    view.centerOn(item)
+    item.setSelected(True)
+    QApplication.processEvents()
+    view.viewport().repaint()
+    view.viewport().repaint()
+
+    # Untouched edit commit keeps full 1M-char content; real edit replaces it
+    item.start_editing()
+    item.finish_editing()
+    assert item.content == huge_callout
+
+    item.start_editing()
+    item._text_child.setPlainText("North corner")
+    item.finish_editing()
+    assert item.content == "North corner"
+    assert item._text_child.toPlainText() == "North corner"

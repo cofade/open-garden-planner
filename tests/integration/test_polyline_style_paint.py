@@ -273,3 +273,209 @@ def test_a_dirt_path_is_the_sprites_light_soil() -> None:
 
     colour = get_path_fence_style_info(PathFenceStyle.DIRT_PATH).stroke_color
     assert (colour.red(), colour.green(), colour.blue()) == palette.SOIL_LIGHT.srgb
+
+
+def _dense_fence_points(count: int = 16_000) -> list[QPointF]:
+    """16k-point fence alternating tightly between y=100 and y=400 over 300 cm (#928)."""
+    return [
+        QPointF(i * 300.0 / count, 100.0 if i % 2 == 0 else 400.0)
+        for i in range(count)
+    ]
+
+
+def test_sparse_and_dense_polylines_bounded_geometry_contract(qtbot: Any) -> None:
+    """Sparse lines (<= MAX_FULL_DETAIL_VERTICES) stay exact; dense lines bound
+    their stroked path without mutating ``item.points`` or ``item.path()`` (#928)."""
+    from open_garden_planner.ui.canvas.items.polygon_item import MAX_FULL_DETAIL_VERTICES
+
+    sparse_pts = [QPointF(i * 2.0, 100.0 if i % 2 == 0 else 200.0) for i in range(MAX_FULL_DETAIL_VERTICES)]
+    sparse = PolylineItem(sparse_pts, object_type=ObjectType.FENCE)
+    s_pts, s_path = sparse._bounded_stroke_geometry()
+    assert len(s_pts) == MAX_FULL_DETAIL_VERTICES
+    assert s_path == sparse.path()
+
+    dense_pts = _dense_fence_points(16_000)
+    dense = PolylineItem(dense_pts, object_type=ObjectType.FENCE)
+    d_pts, d_path = dense._bounded_stroke_geometry()
+    assert dense.point_count == 16_000
+    assert len(dense.points) == 16_000
+    assert dense.path().elementCount() == 16_000
+    assert len(d_pts) <= 64
+    assert d_path.elementCount() <= 64
+    assert dense.shape().elementCount() < 2_000
+    # Envelope preserved across [0..300] x [100..400]
+    rect = d_path.boundingRect()
+    assert rect.left() == pytest.approx(0.0, abs=1.0)
+    assert rect.right() >= 299.0
+    assert rect.top() == pytest.approx(100.0)
+    assert rect.bottom() == pytest.approx(400.0)
+
+
+@pytest.mark.parametrize(
+    "style",
+    [PathFenceStyle.NONE, PathFenceStyle.WOODEN_FENCE, PathFenceStyle.GRAVEL_PATH, PathFenceStyle.PAVED_PATH],
+    ids=lambda s: s.name,
+)
+def test_selected_dense_polyline_bounds_shadow_stroke_and_selection(
+    qtbot: Any, monkeypatch: pytest.MonkeyPatch, style: PathFenceStyle
+) -> None:
+    """Selected 16k-point polylines keep stored width/style, bound shadow/body/selection
+    strokes, reuse the zoom-keyed raster cache across repaints, and invalidate cleanly (#928)."""
+    from PyQt6.QtWidgets import QApplication
+
+    from open_garden_planner.core.item_look import adopt_pen
+    from open_garden_planner.ui.canvas.canvas_scene import CanvasScene
+    from open_garden_planner.ui.canvas.canvas_view import CanvasView
+
+    pts = _dense_fence_points(16_000)
+    item = PolylineItem(pts, object_type=ObjectType.FENCE, path_fence_style=style)
+    pen = QPen(item.pen())
+    pen.setWidthF(12.0)
+    adopt_pen(item, pen)
+    item.shadows_enabled = True
+
+    scene = CanvasScene(600, 600)
+    scene.addItem(item)
+    view = CanvasView(scene)
+    qtbot.addWidget(view)
+    view.resize(600, 600)
+    view.show()
+    view.fit_in_view()
+    qtbot.waitExposed(view)
+    QApplication.processEvents()
+
+    drawn: list[tuple[int, float, bool]] = []
+    real_draw_path = QPainter.drawPath
+
+    def spy_draw_path(self_painter: QPainter, path: Any) -> None:
+        p = self_painter.pen()
+        drawn.append((path.elementCount(), p.widthF(), p.isCosmetic()))
+        real_draw_path(self_painter, path)
+
+    monkeypatch.setattr(QPainter, "drawPath", spy_draw_path)
+
+    body_calls = 0
+    real_body = PolylineItem._paint_dense_body
+
+    def spy_body(self_item: PolylineItem, *args: Any, **kwargs: Any) -> None:
+        nonlocal body_calls
+        body_calls += 1
+        real_body(self_item, *args, **kwargs)
+
+    monkeypatch.setattr(PolylineItem, "_paint_dense_body", spy_body)
+
+    item.setSelected(True)
+    QApplication.processEvents()
+    item.update()
+    view.viewport().repaint()
+    first_body_calls = body_calls
+    assert first_body_calls >= 1
+    assert item._dense_selected_cache is not None
+    # Every stroked path during cold selected paint (shadow + body) is bounded
+    # (including stroked texture outlines, which were 361k+ elements before #928)
+    assert all(count <= 1_000 for count, _w, _cos in drawn), drawn
+    # Stored non-cosmetic width is preserved (not downgraded to 1px cosmetic)
+    assert any((not cos) and w >= 12.0 for _c, w, cos in drawn), drawn
+
+    # Repeated selected repaint hits the raster cache without rebuilding
+    drawn.clear()
+    body_calls = 0
+    item.update()
+    view.viewport().repaint()
+    assert body_calls == 0
+
+    # Zoom change invalidates the zoom-keyed raster cache and rebuilds once
+    body_calls = 0
+    view.set_zoom(2.0)
+    view.centerOn(150.0, 250.0)
+    QApplication.processEvents()
+    item.update()
+    view.viewport().repaint()
+    assert body_calls == 1
+    body_calls = 0
+    item.update()
+    view.viewport().repaint()
+    assert body_calls == 0
+
+    # Pen edit and deselection clear the cached raster
+    new_pen = QPen(item.pen())
+    new_pen.setWidthF(16.0)
+    adopt_pen(item, new_pen)
+    assert item._dense_selected_cache is None
+    item.setSelected(False)
+    assert item._dense_selected_cache is None
+    assert item.point_count == 16_000
+
+
+@pytest.mark.parametrize("style", [PathFenceStyle.NONE, PathFenceStyle.WOODEN_FENCE], ids=lambda s: s.name)
+def test_dense_polyline_exports_preserve_width_and_bound_paths(
+    qtbot: Any, tmp_path: Any, style: PathFenceStyle
+) -> None:
+    """PNG and SVG exports of a 16k-point dense polyline preserve stored width/style
+    and bound stroked path elements without mutating ``item.points`` (#928)."""
+    from open_garden_planner.core.item_look import adopt_pen
+    from open_garden_planner.services.export_service import ExportService
+    from open_garden_planner.ui.canvas.canvas_scene import CanvasScene
+
+    pts = _dense_fence_points(16_000)
+    item = PolylineItem(pts, object_type=ObjectType.FENCE, path_fence_style=style)
+    adopt_pen(item, QPen(QColor(255, 0, 255), 20.0))
+
+    scene = CanvasScene(600.0, 600.0)
+    scene.set_shadows_enabled(False)
+    scene.addItem(item)
+
+    png_path = tmp_path / f"dense_{style.name}.png"
+    ExportService.export_to_png(scene, png_path, dpi=72)
+    img = QImage(str(png_path))
+    px = _array(img)
+    magenta = (px[:, :, 0] > 200) & (px[:, :, 1] < 80) & (px[:, :, 2] > 200)
+    assert int(magenta.sum()) > 1_000
+
+    svg_path = tmp_path / f"dense_{style.name}.svg"
+    ExportService.export_to_svg(scene, svg_path)
+    svg_text = svg_path.read_text(encoding="utf-8")
+    assert "<path" in svg_text
+    # Bounded stroke path rather than 16,000 raw line segments in SVG
+    assert svg_text.count(" L ") < 500
+    assert item.point_count == 16_000
+
+
+def test_selected_dense_polyline_partial_exposed_rect_does_not_poison_cache(qtbot: Any) -> None:
+    """Painting a selected dense polyline with a partial ``option.exposedRect``
+    must cache the whole polyline, not clip segments outside the first expose (#928)."""
+    from PyQt6.QtWidgets import QStyle, QStyleOptionGraphicsItem
+
+    from open_garden_planner.core.item_look import adopt_pen
+
+    pts = _dense_fence_points(16_000)
+    item = PolylineItem(pts, object_type=ObjectType.FENCE, path_fence_style=PathFenceStyle.WOODEN_FENCE)
+    adopt_pen(item, QPen(QColor(255, 0, 255), 14.0))
+    item.shadows_enabled = False
+    item.setSelected(True)
+
+    opt_left = QStyleOptionGraphicsItem()
+    opt_left.state = QStyle.StateFlag.State_Selected
+    opt_left.exposedRect = QRectF(0.0, 90.0, 80.0, 330.0)
+    img_left = QImage(420, 440, QImage.Format.Format_RGBA8888_Premultiplied)
+    img_left.fill(BACKGROUND)
+    p1 = QPainter(img_left)
+    try:
+        item._paint_dense_selected_cached(p1, opt_left, None)
+    finally:
+        p1.end()
+
+    opt_full = QStyleOptionGraphicsItem()
+    opt_full.state = QStyle.StateFlag.State_Selected
+    opt_full.exposedRect = QRectF(0.0, 90.0, 320.0, 330.0)
+    img_full = QImage(420, 440, QImage.Format.Format_RGBA8888_Premultiplied)
+    img_full.fill(BACKGROUND)
+    p2 = QPainter(img_full)
+    try:
+        item._paint_dense_selected_cached(p2, opt_full, None)
+    finally:
+        p2.end()
+
+    px = _array(img_full)
+    right_half = px[:, 200:310, :]
+    assert np.any(right_half != 255), "partial exposedRect poisoned the whole-item selected cache"

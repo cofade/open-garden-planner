@@ -777,6 +777,19 @@ class CanvasView(QGraphicsView):
         # Set default tool
         self._tool_manager.set_active_tool(ToolType.SELECT)
 
+    @property
+    def is_interacting(self) -> bool:
+        """True while a pointer drag, handle drag, or pan is actively in progress."""
+        buttons = QApplication.mouseButtons()
+        if self._panning and bool(buttons & Qt.MouseButton.MiddleButton):
+            return True
+        return bool(buttons & Qt.MouseButton.LeftButton) and bool(
+            self._drag_start_positions
+            or self._drill_drag_item is not None
+            or self._active_drag_handle is not None
+            or self._panning
+        )
+
     def _setup_view(self) -> None:
         """Configure view properties."""
         # Rendering quality
@@ -1640,6 +1653,10 @@ class CanvasView(QGraphicsView):
 
     def _on_soil_debounce_tick(self) -> None:
         """Run by the 500 ms debounce timer; refreshes mismatch borders + badges."""
+        if self.is_interacting:
+            with contextlib.suppress(RuntimeError):
+                self._soil_mismatch_timer.start()
+            return
         self._update_soil_mismatches()
         self._update_soil_badges()
 
@@ -1653,6 +1670,12 @@ class CanvasView(QGraphicsView):
         from open_garden_planner.ui.canvas.items import GardenItemMixin
 
         all_items = list(self._canvas_scene.items())
+        present_by_id = {
+            str(iid): it
+            for it in all_items
+            if (iid := getattr(it, "item_id", None)) is not None
+            and self._canvas_scene.is_present(it)
+        }
         for item in all_items:
             if not isinstance(item, GardenItemMixin):
                 continue
@@ -1662,10 +1685,9 @@ class CanvasView(QGraphicsView):
             record = self._soil_service.get_effective_record(bed_id)
             child_ids = {str(c) for c in getattr(item, "_child_item_ids", [])}
             specs: list[PlantSpeciesData] = []
-            for child in all_items:
-                if not self._canvas_scene.is_present(child):
-                    continue
-                if str(getattr(child, "item_id", "")) not in child_ids:
+            for cid in child_ids:
+                child = present_by_id.get(cid)
+                if child is None:
                     continue
                 ps_dict = getattr(child, "metadata", {}).get("plant_species")
                 if ps_dict and isinstance(ps_dict, dict):
@@ -2607,13 +2629,21 @@ class CanvasView(QGraphicsView):
         return snapped
 
     def _set_current_snap(self, candidate: SnapCandidate | None) -> None:
-        """Update the current snap candidate; trigger redraw on change."""
+        """Update the current snap candidate; trigger dirty-rect redraw on change."""
         previous = self._current_snap
         self._current_snap = candidate
-        if previous is None and candidate is None:
+        if previous == candidate:
             return
-        # Repainting the viewport draws (or clears) the indicator glyph.
-        self.viewport().update()
+        viewport = self.viewport()
+        if viewport is None:
+            return
+        from PyQt6.QtCore import QRect
+
+        pad = 12
+        for snap in (previous, candidate):
+            if snap is not None:
+                vp = self.mapFromScene(snap.point)
+                viewport.update(QRect(vp.x() - pad, vp.y() - pad, pad * 2 + 1, pad * 2 + 1))
 
     # Drag-and-drop from gallery panel and plant lists panel
 
@@ -3495,10 +3525,16 @@ class CanvasView(QGraphicsView):
             self._deferring_vertex_undo = False
             self._enforce_after_vertex_drag()
 
+        any_dragged = any(
+            item.pos() != pos for item, pos in self._drag_start_positions.items()
+        )
         # Check if items were dragged and create undo command
         if event.button() == Qt.MouseButton.LeftButton and self._drag_start_positions:
             self._finalize_drag_move()
         self._thaw_fixed_drag_items()
+        finish_drill = getattr(tool, "finish_pending_drill_down", None)
+        if callable(finish_drill):
+            finish_drill(event, any_dragged)
 
     def _enforce_after_vertex_drag(self) -> None:
         return self._drag_constraints._enforce_after_vertex_drag()

@@ -387,10 +387,31 @@ def _replay_fill(painter: QPainter, state: _State, path: QPainterPath) -> None:
     painter.drawPath(inverse.map(outline))
 
 
-def _replay_stroke(painter: QPainter, state: _State, path: QPainterPath) -> None:
+def _cosmetic_to_device_pen(pen: QPen, cosmetic_scale: float) -> QPen:
+    """Convert a screen-pixel cosmetic pen to a non-cosmetic SVG-unit pen (#851)."""
+    device_pen = QPen(pen)
+    device_pen.setCosmetic(False)
+    width_px = pen.widthF() if pen.widthF() > 0.0 else 1.0
+    device_pen.setWidthF(width_px * cosmetic_scale)
+    return device_pen
+
+
+def _replay_stroke(
+    painter: QPainter,
+    state: _State,
+    path: QPainterPath,
+    *,
+    cosmetic_scale: float = 1.0,
+) -> None:
     pen, clip = state.pen, state.clip
     centre_line = state.transform.mapRect(path.controlPointRect())
     if clip is None or clip.contains(centre_line):
+        if pen.isCosmetic():
+            painter.setWorldTransform(QTransform())
+            painter.setPen(_cosmetic_to_device_pen(pen, cosmetic_scale))
+            painter.setBrush(Qt.BrushStyle.NoBrush)
+            painter.drawPath(state.transform.map(path))
+            return
         painter.setWorldTransform(state.transform)
         painter.setPen(pen)
         painter.setBrush(Qt.BrushStyle.NoBrush)
@@ -398,9 +419,7 @@ def _replay_stroke(painter: QPainter, state: _State, path: QPainterPath) -> None
         return
     # A clipped stroke: its outline, cut to the clip, as a fill.
     if pen.isCosmetic():
-        device_pen = QPen(pen)
-        device_pen.setCosmetic(False)
-        device_pen.setWidthF(max(1.0, pen.widthF()))
+        device_pen = _cosmetic_to_device_pen(pen, cosmetic_scale)
         outline = QPainterPathStroker(device_pen).createStroke(state.transform.map(path))
     else:
         outline = state.transform.map(QPainterPathStroker(pen).createStroke(path))
@@ -446,7 +465,12 @@ def _with_clip(painter: QPainter, state: _State, bounds: QRectF) -> bool:
     return True
 
 
-def _replay(ops: list[_ShapeOp | _PixmapOp | _TextOp], painter: QPainter) -> None:
+def _replay(
+    ops: list[_ShapeOp | _PixmapOp | _TextOp],
+    painter: QPainter,
+    *,
+    cosmetic_scale: float = 1.0,
+) -> None:
     for op in ops:
         state = op.state
         painter.setOpacity(state.opacity)
@@ -455,6 +479,7 @@ def _replay(ops: list[_ShapeOp | _PixmapOp | _TextOp], painter: QPainter) -> Non
             strokes = state.pen.style() != Qt.PenStyle.NoPen
             plain = (
                 not _has_own_frame(state.brush, state.brush_origin)
+                and not state.pen.isCosmetic()
                 and (state.clip is None
                      or state.clip.contains(state.transform.mapRect(op.path.boundingRect())))
             )
@@ -468,7 +493,7 @@ def _replay(ops: list[_ShapeOp | _PixmapOp | _TextOp], painter: QPainter) -> Non
             if fills:
                 _replay_fill(painter, state, op.path)
             if strokes:
-                _replay_stroke(painter, state, op.path)
+                _replay_stroke(painter, state, op.path, cosmetic_scale=cosmetic_scale)
         elif isinstance(op, _PixmapOp):
             clipped = _with_clip(painter, state, op.target)
             painter.setWorldTransform(state.transform)
@@ -571,7 +596,7 @@ def write_svg(
     if not painter.begin(generator):
         raise ValueError(f"Failed to write SVG to {file_path}")
     try:
-        _replay(ops, painter)
+        _replay(ops, painter, cosmetic_scale=units_per_inch / logical_dpi())
     finally:
         painter.end()
     _finish_svg(file_path, width / units_per_inch * 25.4, height / units_per_inch * 25.4)

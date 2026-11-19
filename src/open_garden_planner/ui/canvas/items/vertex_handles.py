@@ -433,9 +433,6 @@ class AnnotationLabel(EditDecorationMixin, QGraphicsItem):
 
     def __init__(self, parent: QGraphicsItem) -> None:
         """Initialize the annotation label."""
-        super().__init__(parent)
-        self.setFlag(QGraphicsItem.GraphicsItemFlag.ItemIgnoresTransformations)
-
         self._text = ""
         self._font = QFont("Segoe UI", ANNOTATION_FONT_SIZE)
         self._text_color = ANNOTATION_TEXT_COLOR
@@ -446,6 +443,8 @@ class AnnotationLabel(EditDecorationMixin, QGraphicsItem):
         # several labels of one item be laid out beside each other at every
         # zoom (the anchor is in plan units, the label is not).
         self._screen_offset = QPointF(0.0, 0.0)
+        super().__init__(parent)
+        self.setFlag(QGraphicsItem.GraphicsItemFlag.ItemIgnoresTransformations)
 
     def set_text(self, text: str) -> None:
         """Update the displayed text."""

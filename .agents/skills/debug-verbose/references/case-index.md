@@ -261,5 +261,8 @@
 | Case study: Saved-plan recovery was never discovered (#797) | [Read](261-recovery-discovery-and-ownership-797.md) |
 | Case study: A nested pytest guard started another worker pool (#921) | [Read](262-nested-guard-worker-pool-921.md) |
 | Case study: object frames and device pixels leaked into each other (#840, #841, #843, #844, #853, #867, #872, #874) | [Read](263-canvas-editing-precision.md) |
+| Case study: untransformable label child poisoned Qt's BSP tree (#919) | [Read](264-case-study-untransformable-label-bsp-poisoning-919.md) |
+| Case study: lighter hairline along sun-shadow outlines from DestinationOut + SourceOver (#854) | [Read](265-case-study-shadow-feather-outline-hairline-854.md) |
+| Case study: selected dense polyline blocked for 5–10 s in QPainterPathStroker (#928) | [Read](266-case-study-selected-dense-polyline-stroker-928.md) |
 | Case study: the 3D truth probes measured ground they did not ask for (#885, #886) | [Read](267-3d-truth-probe-ground.md) |
 | Case study: the foliage driver published success before its window was gone (#893) | [Read](268-foliage-driver-deferred-window-delete.md) |

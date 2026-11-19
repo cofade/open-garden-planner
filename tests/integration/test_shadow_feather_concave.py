@@ -276,3 +276,83 @@ class TestWhereTheClampIs:
         # beside the light region alone, out of the solid one's reach
         assert float(tone[20:29, 52:58].max()) <= 0.4 + 1e-3
         assert float(tone[20:29, 52:58].min()) >= 0.4 - 1e-2
+
+
+def _coverage_mask(shade: QPainterPath, window: QRectF, scale: float) -> np.ndarray:
+    """Anti-aliased pixel coverage (0..255) of ``shade`` over ``window``."""
+    image = QImage(
+        max(1, round(window.width() * scale)),
+        max(1, round(window.height() * scale)),
+        QImage.Format.Format_ARGB32_Premultiplied,
+    )
+    image.fill(0)
+    painter = QPainter(image)
+    painter.setRenderHint(QPainter.RenderHint.Antialiasing)
+    painter.scale(scale, scale)
+    painter.translate(-window.left(), -window.top())
+    painter.fillPath(shade, Qt.GlobalColor.black)
+    painter.end()
+    bits = image.constBits()
+    bits.setsize(image.sizeInBytes())
+    return np.frombuffer(bits, dtype=np.uint8).reshape(
+        image.height(), image.bytesPerLine() // 4, 4
+    )[:, : image.width(), 3].copy()
+
+
+@pytest.mark.parametrize("scale", [0.56, 1.0, 4.0])
+def test_no_lighter_hairline_along_any_outline(qtbot, scale: float) -> None:
+    """#854: cutting ``shade`` out with antialiased DestinationOut and then
+    painting ``shade`` with SourceOver left a 9–11 level lighter hairline on
+    every non-pixel-aligned edge (diagonals, discs, subpixel edges, and any
+    shape at non-integer zoom like fit). An outline pixel must never dip below
+    both opposite neighbours."""
+    diag = QPainterPath()
+    diag.moveTo(100.0, 100.0)
+    diag.lineTo(200.0, 200.0)
+    diag.lineTo(100.0, 200.0)
+    diag.closeSubpath()
+
+    cases: list[tuple[str, QPainterPath, QRectF, float | None]] = [
+        *[(name, shade, win, None) for name, (shade, win, _inside) in SHAPES.items()],
+        ("diagonal 45 deg", diag, QRectF(120.0, 120.0, 60.0, 60.0), None),
+        ("round disc", _disc(100.0, 100.0, 100.0), QRectF(170.0, 110.0, 35.0, 40.0), None),
+        ("subpixel rect", _rect(100.0, 100.0, 100.5, 100.0), QRectF(192.0, 140.0, 20.0, 20.0), None),
+        ("weighted 0.5 diagonal", diag, QRectF(120.0, 120.0, 60.0, 60.0), 0.5),
+    ]
+    for name, shade, win, occlusion in cases:
+        overlay = _overlay(shade)
+        if occlusion is not None:
+            poly = [(100.0, 100.0), (200.0, 200.0), (100.0, 200.0)]
+            overlay.set_weighted_regions([WeightedShadowRegion([poly], occlusion=occlusion)])
+        picture = _paint(overlay, win, scale)
+        cov = _coverage_mask(shade, win, scale)
+        outline = cov[1:-1, 1:-1] > 0
+        hdip = np.minimum(picture[1:-1, :-2], picture[1:-1, 2:]) - picture[1:-1, 1:-1]
+        vdip = np.minimum(picture[:-2, 1:-1], picture[2:, 1:-1]) - picture[1:-1, 1:-1]
+        max_dip = max(
+            int(hdip[outline].max()) if outline.any() else 0,
+            int(vdip[outline].max()) if outline.any() else 0,
+        )
+        assert max_dip <= 2, (
+            f"{name} at {scale:.2f} px/cm has a {max_dip}-level lighter hairline along outline"
+        )
+
+
+def test_diagonal_and_curved_edge_transition_monotonically(qtbot) -> None:
+    """#854: stepping across a 45-degree edge or disc at 400 % drops smoothly
+    from interior tone to exterior without a boundary notch."""
+    diag = QPainterPath()
+    diag.moveTo(100.0, 100.0)
+    diag.lineTo(200.0, 200.0)
+    diag.lineTo(100.0, 200.0)
+    diag.closeSubpath()
+
+    for shade, window in (
+        (diag, QRectF(145.0, 148.0, 12.0, 4.0)),
+        (_disc(100.0, 100.0, 100.0), QRectF(180.0, 118.0, 15.0, 4.0)),
+    ):
+        picture = _paint(_overlay(shade), window, 4.0)
+        row = picture[picture.shape[0] // 2]
+        # Moving right goes strictly from inside the shade to outside: never
+        # rebounds upward by more than 1 LSB of 8-bit rounding.
+        assert (np.diff(row) <= 1).all(), row.tolist()

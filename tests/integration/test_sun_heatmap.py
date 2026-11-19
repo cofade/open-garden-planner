@@ -399,6 +399,55 @@ class TestContours:
                     f"two labels only {dist:.0f} cm apart"
                 )
 
+    def test_300_dpi_export_scales_contour_strokes_above_hairline(
+        self, qtbot, wall_scene, tmp_path
+    ) -> None:
+        """#851: 300-dpi PNG contour lines must scale with export DPI rather
+        than collapsing into 0.7/1.6 device-pixel hairlines."""
+        from PyQt6.QtWidgets import QGraphicsPathItem
+
+        from open_garden_planner.services.export_service import ExportService
+
+        controller = SunHeatmapController(wall_scene, lambda: BERLIN)
+        _run_and_wait(qtbot, controller, SUMMER)
+
+        # Hide labels and raster overlay so only the contour path strokes paint.
+        for item in controller._contour_items:
+            if not isinstance(item, QGraphicsPathItem):
+                item.setVisible(False)
+        overlay = controller._alive_overlay()
+        assert overlay is not None
+        overlay.setVisible(False)
+
+        png_300 = tmp_path / "contours_300.png"
+        png_96 = tmp_path / "contours_96.png"
+        ExportService.export_to_png(wall_scene, png_300, dpi=300, output_width_cm=30.0)
+        ExportService.export_to_png(wall_scene, png_96, dpi=96, output_width_cm=30.0)
+
+        def _ink_mass(path) -> tuple[float, int]:
+            img = QImage(str(path)).convertToFormat(QImage.Format.Format_RGBA8888)
+            bits = img.constBits()
+            bits.setsize(img.sizeInBytes())
+            arr = np.frombuffer(bits, dtype=np.uint8).reshape(
+                img.height(), img.bytesPerLine() // 4, 4
+            )[:, : img.width(), :3].astype(np.float32)
+            bg = arr[0, 0]
+            # Total integrated ink mass above canvas background (subpixel-accurate)
+            diff = np.abs(arr - bg).max(axis=2)
+            return float(diff[diff > 10].sum()), img.width()
+
+        ink_300, w_300 = _ink_mass(png_300)
+        ink_96, w_96 = _ink_mass(png_96)
+        assert ink_96 > 0 and ink_300 > 0
+        # Physical stroke width scales with DPI: area scales with (w_300/w_96)^2,
+        # whereas a cosmetic hairline would only scale linearly (~3.125x).
+        area_ratio = ink_300 / ink_96
+        linear_ratio = w_300 / w_96
+        assert area_ratio > 1.8 * linear_ratio, (
+            f"300-dpi contour area ratio {area_ratio:.2f} looks like a hairline "
+            f"(linear_ratio={linear_ratio:.2f})"
+        )
+
 
 class TestAppGlue:
     def test_date_change_clears_heatmap_but_time_change_keeps_it(

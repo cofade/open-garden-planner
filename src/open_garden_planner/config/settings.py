@@ -44,6 +44,9 @@ ALLOW_PRODUCTION_ENV = "OGP_ALLOW_PRODUCTION_SETTINGS"
 #: Deliberately exact: ``CODEX_API_KEY`` or ``GEMINI_API_KEY`` must not trigger
 #: the guard — only a session marker does.
 TOOLING_ENV_MARKERS = frozenset({
+    "ANTIGRAVITY_AGENT",
+    "ANTIGRAVITY_CONVERSATION_ID",
+    "ANTIGRAVITY_TRAJECTORY_ID",
     "CLAUDECODE",
     "CLAUDE_CODE",
     "CLAUDE_CODE_ENTRYPOINT",

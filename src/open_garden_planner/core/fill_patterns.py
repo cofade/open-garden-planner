@@ -3,27 +3,28 @@
 Loads tileable PNG textures from resources/textures/ and recolours each one to
 the item's fill colour to create QBrush objects for rendering garden items.
 
-A pattern's tile exists at two LEVELS (#785), in texture pixels per cm:
+A pattern's tile exists at five LEVELS (#785, #849), in texture pixels per cm:
 
+- **0.125 / 0.25 / 0.5** — zoomed-out anti-moire mip tiles (32, 64, 128 px)
+  prefiltered periodically to Nyquist and contrast-preserved around the tile's
+  mean luminance, eliminating brick/roof-tile moire at 15–30 % zoom while
+  keeping texture contrast intact (#503).
 - **1** — the 256-px tile every brush is made with (``create_pattern_brush``),
-  and what a fill is painted with at 100 % zoom and below: unchanged, pixel for
-  pixel.
+  and what a fill is painted with at 50–100 % zoom: unchanged, pixel for pixel.
 - **2** — the detail tile ``textures/x2/<name>.png``: the generator's own 512-px
   canvas before the box downsample that makes the 256-px tile. Used above
   100 %, where the 256-px tile is an upscaled bitmap.
 
 ``brush_for_painter`` swaps a brush's tile for the level its painter shows it
-at — ``core.raster_resolution``'s rule, the one the sprites follow — and scales
-the brush transform to match, so the pattern's size, phase and ``FillTransform``
-are exactly what they were. (Coarser tiles for a zoomed-out view were measured
-and left out: ``raster_resolution.MIN_LEVEL``.)
+at and scales the brush transform to match, so the pattern's size, phase and
+``FillTransform`` are exactly what they were.
 """
 
 import math
 from dataclasses import dataclass
 from enum import Enum, auto
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 
 import numpy as np
 from PyQt6.QtCore import Qt
@@ -44,9 +45,13 @@ _tinted_cache: dict[tuple["FillPattern", int], QPixmap] = {}
 # Maximum number of tinted texture cache entries before clearing
 _TINTED_CACHE_MAX = 200
 
-# The detail tiles (#785): the same texture at DETAIL_LEVEL texture px per cm,
-# emitted by scripts/generate_asset_forge_textures.py beside the 256-px tile.
+# The detail tiles (#785) and zoomed-out anti-moire mip tiles (#849):
+# textures/x2/<name>.png at DETAIL_LEVEL (2 px/cm), and contrast-preserving
+# band-limited coarse tiles at 0.5, 0.25, and 0.125 px/cm.
 DETAIL_LEVEL = 2.0
+COARSE_LEVELS: tuple[float, ...] = (0.5, 0.25, 0.125)
+_COARSE_FILTER_SIGMA = 0.70
+_COARSE_MAX_CONTRAST_GAIN = 2.8
 _DETAIL_DIR = _TEXTURES_DIR / "x2"
 
 # Which (pattern, colour) a tinted 256-px tile is, by its pixmap cache key: how
@@ -57,10 +62,12 @@ _DETAIL_DIR = _TEXTURES_DIR / "x2"
 _brush_tiles: dict[int, tuple["FillPattern", int]] = {}
 _BRUSH_TILES_MAX = 4096
 
-# Untinted detail tiles (pattern -> QImage or None if the file is missing) and
-# the tinted detail tiles ((pattern, rgba, level) -> QPixmap), least recently
-# used first. A level-2 tile is 1 MB.
+# Untinted detail tiles (pattern -> QImage or None if the file is missing),
+# untinted coarse luminance tiles ((pattern, level) -> (lum_array, base_mean_lum)),
+# and the tinted level tiles ((pattern, rgba, level) -> QPixmap), least recently
+# used first. A level-2 tile is 1 MB; coarse tiles are 4–64 KB.
 _detail_cache: dict["FillPattern", QImage | None] = {}
+_coarse_cache: dict[tuple["FillPattern", float], tuple[np.ndarray, float] | None] = {}
 LEVEL_TILE_CACHE_MAX_BYTES = 48 * 1024 * 1024
 _level_tiles = PixmapLru(LEVEL_TILE_CACHE_MAX_BYTES, 512)
 
@@ -319,11 +326,8 @@ def _mean_luminance(image: QImage) -> float:
     return max(float(_luminance(image).mean()), 1.0)
 
 
-def _tint_image(image: QImage, color: QColor, mean_lum: float) -> QPixmap:
-    """``image`` recoloured to ``color`` by its luminance relative to
-    ``mean_lum`` (``_tint_texture``'s map). A detail tile is tinted with the
-    256-px tile's mean, so the two levels are the same picture."""
-    lum = _luminance(image)
+def _tint_luminance(lum: np.ndarray, color: QColor, mean_lum: float) -> QPixmap:
+    """Recolour a ``lum`` array to ``color`` relative to ``mean_lum``."""
     height, width = lum.shape
     scale = lum / mean_lum
 
@@ -342,6 +346,46 @@ def _tint_image(image: QImage, color: QColor, mean_lum: float) -> QPixmap:
     return QPixmap.fromImage(
         QImage(out.tobytes(), width, height, width * 4, QImage.Format.Format_ARGB32).copy()
     )
+
+
+def _tint_image(image: QImage, color: QColor, mean_lum: float) -> QPixmap:
+    """``image`` recoloured to ``color`` by its luminance relative to
+    ``mean_lum`` (``_tint_texture``'s map). A detail tile is tinted with the
+    256-px tile's mean, so the two levels are the same picture."""
+    return _tint_luminance(_luminance(image), color, mean_lum)
+
+
+def _periodic_gaussian_blur(arr: np.ndarray, sigma: float) -> np.ndarray:
+    """Zero-phase periodic Gaussian prefilter via 2D FFT (exact wrap-around)."""
+    height, width = arr.shape
+    fy = np.fft.fftfreq(height)[:, None]
+    fx = np.fft.fftfreq(width)[None, :]
+    kernel = np.exp(-2.0 * (math.pi**2) * (sigma**2) * (fx**2 + fy**2))
+    blurred: np.ndarray = np.fft.ifft2(np.fft.fft2(arr) * kernel).real
+    return blurred
+
+
+def _coarse_luminance(lum_256: np.ndarray, factor: int) -> np.ndarray | None:
+    """Band-limited, contrast-preserved downsample of ``lum_256`` by ``factor`` (#849).
+
+    Box-averaging alone washes out thin mortar/ridge lines and fails the #503
+    contrast floor. Filtering periodically in frequency space removes aliases
+    above the coarse Nyquist limit, and rescaling AC deviations around the tile
+    mean preserves texture contrast without shifting average brightness.
+    """
+    height, width = lum_256.shape
+    if height % factor != 0 or width % factor != 0:
+        return None
+    blurred = _periodic_gaussian_blur(lum_256, sigma=_COARSE_FILTER_SIGMA * factor)
+    new_h, new_w = height // factor, width // factor
+    coarse = blurred.reshape(new_h, factor, new_w, factor).mean(axis=(1, 3))
+    mu = float(lum_256.mean())
+    sigma_base = float(lum_256.std())
+    sigma_coarse = float(coarse.std())
+    if sigma_coarse > 1e-3:
+        gain = min(sigma_base / sigma_coarse, _COARSE_MAX_CONTRAST_GAIN)
+        coarse = np.clip(mu + (coarse - mu) * gain, 1.0, 255.0)
+    return cast(np.ndarray, coarse.astype(np.float32))
 
 
 def create_pattern_brush(
@@ -414,10 +458,45 @@ def _load_detail(pattern: FillPattern) -> QImage | None:
     return image
 
 
+def _load_coarse(pattern: FillPattern, level: float) -> tuple[np.ndarray, float] | None:
+    """Cached untinted coarse luminance array + base mean luminance for ``level``."""
+    cache_key = (pattern, level)
+    if cache_key in _coarse_cache:
+        return _coarse_cache[cache_key]
+    texture = _load_texture(pattern)
+    if texture is None:
+        _coarse_cache[cache_key] = None
+        return None
+    base_img = texture.toImage()
+    lum_256 = _luminance(base_img)
+    mean_lum = max(float(lum_256.mean()), 1.0)
+    factor = round(1.0 / level)
+    coarse = _coarse_luminance(lum_256, factor)
+    result = (coarse, mean_lum) if coarse is not None else None
+    _coarse_cache[cache_key] = result
+    return result
+
+
 def tile_level(scale: float) -> float:
-    """The tile level for a fill shown at ``scale`` device pixels per texture
-    cm: ``raster_level`` within the levels a tile has."""
-    return min(raster_level(scale), DETAIL_LEVEL)
+    """The tile level for a fill shown at ``scale`` device pixels per texture cm.
+
+    - Above 100 % (``scale > 1.01``): ``DETAIL_LEVEL`` (2.0, 512 px).
+    - 50–100 % (``0.49 < scale <= 1.01``): 1.0 (256 px, unchanged).
+    - Below 50 % (``scale <= 0.49``): nearest power-of-two coarse mip level in
+      ``(0.5, 0.25, 0.125)`` so Qt's bilinear sampler never minifies more than
+      ~1.4x and cannot produce moire (#849).
+    """
+    if not _is_finite(scale) or scale <= 0.0:
+        return 1.0
+    if scale > 1.0:
+        return min(raster_level(scale), DETAIL_LEVEL)
+    if scale >= 0.49:
+        return 1.0
+    if scale > 0.25 * math.sqrt(2.0):
+        return 0.5
+    if scale > 0.125 * math.sqrt(2.0):
+        return 0.25
+    return 0.125
 
 
 def level_tile(pattern: FillPattern, color: QColor, level: float) -> QPixmap | None:
@@ -430,12 +509,21 @@ def level_tile(pattern: FillPattern, color: QColor, level: float) -> QPixmap | N
     cached = _level_tiles.get(key)
     if cached is not None:
         return cached
-    texture = _load_texture(pattern)
-    detail = _load_detail(pattern) if level == DETAIL_LEVEL else None
-    if texture is None or detail is None:
+    if level == DETAIL_LEVEL:
+        texture = _load_texture(pattern)
+        detail = _load_detail(pattern)
+        if texture is None or detail is None:
+            return None
+        # normalised with the 256-px tile's mean: the same picture, finer
+        tile = _tint_image(detail, color, _mean_luminance(texture.toImage()))
+    elif level in COARSE_LEVELS:
+        loaded = _load_coarse(pattern, level)
+        if loaded is None:
+            return None
+        coarse_lum, mean_lum = loaded
+        tile = _tint_luminance(coarse_lum, color, mean_lum)
+    else:
         return None
-    # normalised with the 256-px tile's mean: the same picture, finer
-    tile = _tint_image(detail, color, _mean_luminance(texture.toImage()))
     _level_tiles.put(key, tile)
     return tile
 
@@ -453,7 +541,7 @@ def brush_for_painter(brush: QBrush, painter: QPainter) -> QBrush | None:
     brush's own transform included — rounded up to a power of two.
 
     None for a solid brush, a tile this module did not make, and level 1: at
-    100 % and below a fill is painted with exactly the brush it has.
+    50–100 % zoom a fill is painted with exactly the brush it has.
     """
     if brush.style() != Qt.BrushStyle.TexturePattern:
         return None
@@ -480,6 +568,7 @@ def clear_texture_cache() -> None:
     _tinted_cache.clear()
     _brush_tiles.clear()
     _detail_cache.clear()
+    _coarse_cache.clear()
     _level_tiles.clear()
 
 

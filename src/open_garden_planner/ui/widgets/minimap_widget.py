@@ -226,6 +226,10 @@ class MinimapWidget(QWidget):
         # reporter wasn't sure whether they had left the minimap on or off.
         if not self._enabled:
             return
+        if getattr(self._canvas_view, "is_interacting", False):
+            with contextlib.suppress(RuntimeError):
+                self._update_timer.start()
+            return
 
         canvas_rect = self._canvas_scene.canvas_rect
         if canvas_rect.isEmpty():
@@ -259,12 +263,19 @@ class MinimapWidget(QWidget):
         hidden: list[QGraphicsItem] = []
         ignore_flag = QGraphicsItem.GraphicsItemFlag.ItemIgnoresTransformations
         painter = QPainter()
+        had_suppress = hasattr(self._canvas_scene, "_suppress_label_pass")
+        prev_suppress = getattr(self._canvas_scene, "_suppress_label_pass", False)
+        if had_suppress:
+            self._canvas_scene._suppress_label_pass = True
         try:
             self._hide_overlay_items(hidden)
             self._self_dirty_rects = [
                 item.sceneBoundingRect().adjusted(-1, -1, 1, 1)
                 for item in hidden
-                if not (item.flags() & ignore_flag)
+                if not (
+                    getattr(item, "_ignores_transformations", False)
+                    or (item.flags() & ignore_flag)
+                )
             ]
             painter.begin(pixmap)
             painter.setRenderHint(QPainter.RenderHint.Antialiasing)
@@ -280,6 +291,8 @@ class MinimapWidget(QWidget):
         finally:
             # Whatever the render did: no live painter on the pixmap, and no
             # item left suppressed or transparent.
+            if had_suppress:
+                self._canvas_scene._suppress_label_pass = prev_suppress
             if painter.isActive():
                 painter.end()
             self._restore_overlay_items(hidden)
@@ -322,13 +335,21 @@ class MinimapWidget(QWidget):
         selectable = QGraphicsItem.GraphicsItemFlag.ItemIsSelectable
         # Never suppress the scene's current focus item — it may be an active
         # inline text editor (EditableLabel). Doing so would close the editor.
+        from open_garden_planner.ui.canvas.items.halo_text import PlanLabelItem
+
+        paints_plan_labels = getattr(self._canvas_scene, "paints_plan_labels", False)
         focus_item = self._canvas_scene.focusItem()
         for item in self._canvas_scene.items():
             if item is focus_item:
                 continue
+            if paints_plan_labels and isinstance(item, PlanLabelItem):
+                # Painted only by LabelPass (suppressed in _do_update); leaving its
+                # ItemHasNoContents flag untouched avoids scene.changed loops (#919).
+                continue
             flags = item.flags()
+            ignores = getattr(item, "_ignores_transformations", False) or bool(flags & ignore_flag)
             if item.isVisible() and not (flags & no_contents) and (
-                bool(flags & ignore_flag) or item.zValue() >= _OVERLAY_Z_MIN
+                ignores or item.zValue() >= _OVERLAY_Z_MIN
             ):
                 if not (flags & selectable) and item.isSelected():
                     opacity = item.opacity()

@@ -159,17 +159,40 @@ class _Run:
         cosine = float(np.clip(np.dot(self.along[incoming], self.along[vertex]), -1.0, 1.0))
         return math.degrees(math.acos(cosine))
 
+    def arc_spans(self) -> tuple[npt.NDArray[np.intp], F64, F64]:
+        """Contiguous segment lengths/directions and each smooth arc's segment count."""
+        if self.count == 0:
+            return np.zeros(0, dtype=np.intp), np.zeros(0), np.zeros((0, 2))
+        prev_along = np.roll(self.along, 1, axis=0)
+        dots = np.einsum("ij,ij->i", prev_along, self.along)
+        turns = np.degrees(np.arccos(np.clip(dots, -1.0, 1.0)))
+        if not self.closed:
+            corners = np.flatnonzero(turns[1:] >= CORNER_DEG) + 1
+            breaks = np.concatenate([[0], corners, [self.count]])
+            return np.diff(breaks), self.length, self.along
+        corners = np.flatnonzero(turns >= CORNER_DEG)
+        if len(corners) == 0:
+            return np.array([self.count], dtype=np.intp), self.length, self.along
+        shift = int(corners[0])
+        shifted_corners = (corners - shift) % self.count
+        breaks = np.concatenate([shifted_corners, [self.count]])
+        lengths = np.roll(self.length, -shift) if shift else self.length
+        along = np.roll(self.along, -shift, axis=0) if shift else self.along
+        return np.diff(breaks), lengths, along
+
     def arcs(self) -> list[_Arc]:
         """The smooth spans between real corners, in line order."""
         if self.count == 0:
             return []
+        prev_along = np.roll(self.along, 1, axis=0)
+        dots = np.einsum("ij,ij->i", prev_along, self.along)
+        turns = np.degrees(np.arccos(np.clip(dots, -1.0, 1.0)))
         if not self.closed:
-            corners = [index for index in range(1, self.count)
-                       if self._turn(index) >= CORNER_DEG]
+            corners = [int(i) for i in np.flatnonzero(turns[1:] >= CORNER_DEG) + 1]
             breaks = [0, *corners, self.count]
             return [self._arc(breaks[index], breaks[index + 1] - breaks[index], False)
                     for index in range(len(breaks) - 1)]
-        corners = [index for index in range(self.count) if self._turn(index) >= CORNER_DEG]
+        corners = [int(i) for i in np.flatnonzero(turns >= CORNER_DEG)]
         if not corners:
             return [self._arc(0, self.count, True)]
         arcs: list[_Arc] = []
@@ -420,6 +443,63 @@ def triangle_budget(line: F64, closed: bool, segments: int, style: str) -> int:
 POROUS_FENCE_STYLES: Final = frozenset({"WOODEN_FENCE", "METAL_FENCE", "CHAIN_LINK"})
 
 
+def _occlusion_for_segments(
+    style: str,
+    height_cm: float,
+    stroke_cm: float,
+    elevation_deg: float,
+    c_perp: F64,
+    c_par: F64,
+    run_len_cm: F64,
+    *,
+    shared_start_post: bool = False,
+    post_count: F64 | None = None,
+) -> F64:
+    """Vectorized fence segment occlusion over NumPy arrays (shared formula)."""
+    k = _scale(height_cm)
+    tan_a = math.tan(math.radians(max(elevation_deg, 1.0))) if elevation_deg > 0.0 else 0.0
+    cp = np.maximum(np.abs(c_perp), 1e-6)
+    cl = np.abs(c_par)
+    run = np.maximum(run_len_cm, 1.0)
+
+    if style == "WOODEN_FENCE":
+        post_w = max(POST_CM, stroke_cm)
+        spacing = POST_SPACING_CM
+        rail_h = min(RAIL_TALL_CM, 0.2 * height_cm)
+        o_rail = np.minimum(1.0, 2.0 * (rail_h + RAIL_ACROSS_CM * tan_a * cp) / height_cm)
+        h_infill = max(0.0, height_cm - 4.15 * k) / height_cm
+        w_infill = np.minimum(1.0, (PICKET_WIDE_CM * cp + PICKET_THICK_CM * cl) / (PICKET_PITCH_CM * cp))
+        o_infill = h_infill * w_infill
+    elif style == "METAL_FENCE":
+        post_w = max(METAL_POST_CM, stroke_cm)
+        spacing = POST_SPACING_CM
+        o_rail = np.minimum(1.0, 2.0 * (METAL_RAIL_CM * k + METAL_RAIL_CM * tan_a * cp) / height_cm)
+        h_infill = max(0.0, height_cm - 12.0 * k) / height_cm
+        w_infill = np.minimum(1.0, (METAL_BAR_CM * cp + METAL_BAR_CM * cl) / (METAL_BAR_PITCH_CM * cp))
+        o_infill = h_infill * w_infill
+    else:  # CHAIN_LINK
+        post_w = max(CHAIN_POST_CM, stroke_cm)
+        spacing = CHAIN_POST_SPACING_CM
+        o_rail = np.minimum(1.0, (CHAIN_RAIL_CM * k + CHAIN_RAIL_CM * tan_a * cp) / height_cm)
+        h_infill = max(0.0, height_cm - 8.0 * k) / height_cm
+        d_eff = (
+            1.5
+            * (CHAIN_WIRE_RADIUS_CM * k)
+            * np.sqrt(1.0 + 0.5 * (tan_a * cp) ** 2 + 0.5 * (cl / cp) ** 2)
+        )
+        p_single = np.minimum(1.0, math.sqrt(2.0) * d_eff / CHAIN_WIRE_PITCH_CM)
+        o_infill = h_infill * (1.0 - (1.0 - p_single) ** 2)
+
+    if post_count is not None:
+        n_posts = post_count
+    else:
+        per_seg = np.maximum(2.0, np.ceil(run / spacing) + 1.0)
+        n_posts = per_seg - (1.0 if shared_start_post else 0.0)
+    o_post = np.minimum(1.0, (n_posts * (post_w * cp + post_w * cl)) / (run * cp))
+    transmittance = (1.0 - o_post) * (1.0 - o_rail) * (1.0 - o_infill)
+    return np.asarray(np.clip(1.0 - transmittance, 0.0, 1.0), dtype=np.float64)
+
+
 def fence_segment_occlusion(
     style: str,
     height_cm: float = 150.0,
@@ -451,53 +531,18 @@ def fence_segment_occlusion(
     """
     if style not in POROUS_FENCE_STYLES or height_cm <= 0.0:
         return 1.0
-    k = _scale(height_cm)
-    tan_a = math.tan(math.radians(max(elevation_deg, 1.0))) if elevation_deg > 0.0 else 0.0
-    cp = max(abs(c_perp), 1e-6)
-    cl = abs(c_par)
-    run = max(run_len_cm, 1.0)
-
-    if style == "WOODEN_FENCE":
-        post_w = max(POST_CM, stroke_cm)
-        per_seg = max(2.0, math.ceil(run / POST_SPACING_CM) + 1.0)
-        n_posts = (post_count if post_count is not None
-                   else per_seg - (1.0 if shared_start_post else 0.0))
-        o_post = min(1.0, (n_posts * (post_w * cp + post_w * cl)) / (run * cp))
-        rail_h = min(RAIL_TALL_CM, 0.2 * height_cm)
-        o_rail = min(1.0, 2.0 * (rail_h + RAIL_ACROSS_CM * tan_a * cp) / height_cm)
-        h_picket = max(0.0, height_cm - 4.15 * k) / height_cm
-        w_picket = min(1.0, (PICKET_WIDE_CM * cp + PICKET_THICK_CM * cl) / (PICKET_PITCH_CM * cp))
-        o_infill = h_picket * w_picket
-    elif style == "METAL_FENCE":
-        post_w = max(METAL_POST_CM, stroke_cm)
-        per_seg = max(2.0, math.ceil(run / POST_SPACING_CM) + 1.0)
-        n_posts = (post_count if post_count is not None
-                   else per_seg - (1.0 if shared_start_post else 0.0))
-        o_post = min(1.0, (n_posts * (post_w * cp + post_w * cl)) / (run * cp))
-        o_rail = min(1.0, 2.0 * (METAL_RAIL_CM * k + METAL_RAIL_CM * tan_a * cp) / height_cm)
-        h_bar = max(0.0, height_cm - 12.0 * k) / height_cm
-        w_bar = min(1.0, (METAL_BAR_CM * cp + METAL_BAR_CM * cl) / (METAL_BAR_PITCH_CM * cp))
-        o_infill = h_bar * w_bar
-    else:  # CHAIN_LINK
-        post_w = max(CHAIN_POST_CM, stroke_cm)
-        per_seg = max(2.0, math.ceil(run / CHAIN_POST_SPACING_CM) + 1.0)
-        n_posts = (post_count if post_count is not None
-                   else per_seg - (1.0 if shared_start_post else 0.0))
-        o_post = min(1.0, (n_posts * (post_w * cp + post_w * cl)) / (run * cp))
-        o_rail = min(1.0, (CHAIN_RAIL_CM * k + CHAIN_RAIL_CM * tan_a * cp) / height_cm)
-        h_wire = max(0.0, height_cm - 8.0 * k) / height_cm
-        # 3-sided tube prism (``primitives.tubes(..., sides=3)``) of circumradius R has mean
-        # projected width 1.5 * R across horizontal/sloped rays; two 45-degree wire families.
-        d_eff = (
-            1.5
-            * (CHAIN_WIRE_RADIUS_CM * k)
-            * math.sqrt(1.0 + 0.5 * (tan_a * cp) ** 2 + 0.5 * (cl / cp) ** 2)
-        )
-        p_single = min(1.0, math.sqrt(2.0) * d_eff / CHAIN_WIRE_PITCH_CM)
-        o_infill = h_wire * (1.0 - (1.0 - p_single) ** 2)
-
-    transmittance = (1.0 - o_post) * (1.0 - o_rail) * (1.0 - o_infill)
-    return float(min(1.0, max(0.0, 1.0 - transmittance)))
+    occ = _occlusion_for_segments(
+        style,
+        height_cm,
+        stroke_cm,
+        elevation_deg,
+        np.array([c_perp], dtype=np.float64),
+        np.array([c_par], dtype=np.float64),
+        np.array([run_len_cm], dtype=np.float64),
+        shared_start_post=shared_start_post,
+        post_count=np.array([post_count], dtype=np.float64) if post_count is not None else None,
+    )
+    return float(occ[0])
 
 
 def fence_transmittance(
@@ -532,47 +577,58 @@ def fence_transmittance(
                "METAL_FENCE": POST_SPACING_CM,
                "CHAIN_LINK": CHAIN_POST_SPACING_CM}[style]
 
-    weighted_occ = 0.0
-    total_weight = 0.0
     line = np.asarray(points[:-1] if closed else points, dtype=np.float64)
-    for arc_index, arc in enumerate(_Run(line, closed).arcs()):
-        span_len = arc.total
-        if span_len <= 1e-6:
-            continue
-        # The posts the 3D builder stands on this smooth span (``_Run.posts``): every
-        # ``spacing`` cm at most, a shared corner only once. A dense sampled curve must
-        # not read a post per 2 cm chord (#675's shadow side).
-        per_span = max(2.0, math.ceil(span_len / spacing - 1e-9) + 1.0)
-        shared_start = closed or arc_index > 0
-        n_posts = per_span - (1.0 if shared_start else 0.0)
-        for segment in range(len(arc.length)):
-            seg_len = float(arc.length[segment])
-            if seg_len <= 1e-6:
-                continue
-            ax, ay = arc.points[segment]
-            bx, by = arc.points[segment + 1]
-            ux = (bx - ax) / seg_len
-            uy = (by - ay) / seg_len
-            c_par = abs(ux * dx + uy * dy)
-            c_perp = abs(ux * dy - uy * dx)
-            occ = fence_segment_occlusion(
-                style,
-                height_cm,
-                stroke_cm,
-                elevation_deg,
-                c_perp=c_perp,
-                c_par=c_par,
-                run_len_cm=seg_len,
-                post_count=n_posts * seg_len / span_len,
-            )
-            weight = seg_len * max(c_perp, 0.05)
-            weighted_occ += weight * occ
-            total_weight += weight
+    arc_counts, lengths, along = _Run(line, closed).arc_spans()
+    if len(arc_counts) == 0:
+        return 1.0 - fence_segment_occlusion(
+            style, height_cm, stroke_cm, elevation_deg, c_perp=1.0, c_par=0.0
+        )
 
+    starts = np.concatenate([[0], np.cumsum(arc_counts[:-1])])
+    span_lens = np.add.reduceat(lengths, starts)
+    valid_arcs = span_lens > 1e-6
+    if not np.any(valid_arcs):
+        return 1.0 - fence_segment_occlusion(
+            style, height_cm, stroke_cm, elevation_deg, c_perp=1.0, c_par=0.0
+        )
+
+    # The posts the 3D builder stands on each smooth span (``_Run.posts``): every
+    # ``spacing`` cm at most, a shared corner only once.
+    safe_spans = np.where(valid_arcs, span_lens, 1.0)
+    per_span = np.maximum(2.0, np.ceil(safe_spans / spacing - 1e-9) + 1.0)
+    shared = np.ones(len(arc_counts), dtype=np.float64)
+    if not closed:
+        shared[0] = 0.0
+    n_posts_per_seg = np.repeat(np.where(valid_arcs, (per_span - shared) / safe_spans, 0.0), arc_counts)
+
+    mask = (lengths > 1e-6) & np.repeat(valid_arcs, arc_counts)
+    if not np.any(mask):
+        return 1.0 - fence_segment_occlusion(
+            style, height_cm, stroke_cm, elevation_deg, c_perp=1.0, c_par=0.0
+        )
+
+    seg_lens = lengths[mask]
+    ux = along[mask, 0]
+    uy = along[mask, 1]
+    c_par = np.abs(ux * dx + uy * dy)
+    c_perp = np.abs(ux * dy - uy * dx)
+    occ = _occlusion_for_segments(
+        style,
+        height_cm,
+        stroke_cm,
+        elevation_deg,
+        c_perp,
+        c_par,
+        seg_lens,
+        post_count=n_posts_per_seg[mask] * seg_lens,
+    )
+    weights = seg_lens * np.maximum(c_perp, 0.05)
+    total_weight = float(np.sum(weights))
     if total_weight <= 0.0:
         return 1.0 - fence_segment_occlusion(
             style, height_cm, stroke_cm, elevation_deg, c_perp=1.0, c_par=0.0
         )
+    weighted_occ = float(np.dot(weights, occ))
     return float(min(1.0, max(0.0, 1.0 - (weighted_occ / total_weight))))
 
 

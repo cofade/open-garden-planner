@@ -354,3 +354,54 @@ def test_text_stays_text_and_names_a_generic_fallback_family(qtbot, tmp_path: Pa
     by_text = {text.strip(): attributes for attributes, text in notes}
     assert "'Arial', sans-serif" in by_text["Plan note"]
     assert "'Courier New', monospace" in by_text["Courier note"]
+
+
+def test_cosmetic_one_pixel_pen_scales_to_svg_units_without_non_scaling_stroke(
+    qtbot, tmp_path: Path
+) -> None:
+    """#851: cosmetic 1-px pens convert from screen pixels to SVG user units
+    (300/96 = 3.125 units) instead of writing 1/300-in hairlines or
+    vector-effect='non-scaling-stroke'."""
+    from PyQt6.QtWidgets import QGraphicsPathItem
+
+    from open_garden_planner.services.svg_export import logical_dpi
+
+    scene = CanvasScene(width_cm=1000, height_cm=1000)
+    diag = QPainterPath()
+    diag.moveTo(100, 100)
+    diag.lineTo(900, 900)
+    item = QGraphicsPathItem(diag)
+    pen = QPen(QColor("#181e36"))
+    pen.setCosmetic(True)
+    pen.setWidthF(1.0)
+    item.setPen(pen)
+    scene.addItem(item)
+
+    svg_path = tmp_path / "cosmetic.svg"
+    ExportService.export_to_svg(scene, svg_path, output_width_cm=30.0)
+    svg = svg_path.read_text(encoding="utf-8")
+
+    assert "non-scaling-stroke" not in svg
+    expected_width = UNITS_PER_INCH / logical_dpi()
+    widths = [float(w) for w in re.findall(r'stroke="#181e36"[^>]*stroke-width="([0-9.]+)"', svg)]
+    assert widths and widths[0] == pytest.approx(expected_width, rel=1e-3), widths
+
+
+def test_sun_heatmap_contours_export_consistently_in_300_dpi_png_and_svg(
+    qtbot, tmp_path: Path
+) -> None:
+    """#851: family-garden with the hours-of-sun heatmap exports contours at the
+    same scaled weight in 300-dpi PNG and SVG (no non-scaling-stroke bloat)."""
+    from open_garden_planner.ui.canvas.sun_heatmap import SunHeatmapController
+
+    scene = CanvasScene()
+    ProjectManager().load(scene, BUNDLED_EXAMPLES / "family-garden.ogp", as_template=True)
+    controller = SunHeatmapController(scene, lambda: {"latitude": 52.52, "longitude": 13.405})
+    with qtbot.waitSignal(controller.finished, timeout=60000) as blocker:
+        assert controller.run_for_day(datetime(2026, 6, 21, tzinfo=UTC).date())
+    assert blocker.args == [True]
+
+    reference, raster, svg = _export_both(scene, tmp_path, width_cm=30.0)
+    assert "non-scaling-stroke" not in svg
+    mean, share = _difference(reference, raster)
+    assert mean < MAX_MEAN_DIFFERENCE and share < MAX_SHARE_OFF, (mean, share)
