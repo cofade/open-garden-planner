@@ -5045,6 +5045,7 @@ Use 0.1 for DXF in mm, 100 for DXF in metres.</source>
         </message>
         <message>
             <location filename="../../resources/data/plant_species.json" line="1" />
+            <location filename="../../ui/widgets/gallery_data.py" line="345" />
             <source>Pot Marigold</source>
             <translation>Ringelblume</translation>
         </message>
@@ -12876,9 +12877,9 @@ angehakt = immer schützen, nicht angehakt = nie schützen, unbestimmt = Standar
             <translation>Ganz nach hinten</translation>
         </message>
         <message>
-            <location filename="../../ui/panels/properties_panel.py" line="1830" />
-            <source>Shapes the roof in the 3D view. The 2D plan and its sun study are unchanged.</source>
-            <translation>Formt das Dach in der 3D-Ansicht. Der 2D-Plan und seine Sonnenstudie bleiben unverändert.</translation>
+            <location filename="../../ui/panels/properties_panel.py" line="1846" />
+            <source>Roof shape in the 2D plan, sun study, and 3D view.</source>
+            <translation>Dachform im 2D-Plan, in der Sonnenstudie und in der 3D-Ansicht.</translation>
         </message>
         <message>
             <location filename="../../ui/panels/properties_panel.py" line="1404" />

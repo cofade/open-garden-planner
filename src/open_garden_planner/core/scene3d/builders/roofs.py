@@ -49,7 +49,7 @@ import numpy as np
 from numpy.typing import ArrayLike
 
 from ..mesh import Mesh
-from ..record import ParamValue
+from ..record import PATTERN_TILE_CM, ParamValue
 from .palette import TINT, PaletteColor
 from .primitives import (
     F64,
@@ -114,6 +114,8 @@ class GableRoof:
     #: underside where it meets them — what a window or a door must stay under
     #: (L4.1 facade). Every roof style sets it.
     wall_top: Callable[[F64], F64] | None = None
+    #: An explicitly selected flat roof's top, painted in the item's own fill.
+    fill_cap: Mesh | None = None
 
 
 def _crossings(ring: F64, origin: F64, along: F64, normal: F64) -> list[float]:
@@ -352,16 +354,16 @@ def _fascia(outline: F64, top_at: Callable[[F64], F64], slab: float, color: Arra
                      outward=np.repeat(out, 2, axis=0))
 
 
-def _slab(triangles: F64, top_at: Callable[[F64], F64], slab: float, tile: ArrayLike,
-          under: ArrayLike, uvs: F64 | None = None) -> Mesh:
+def _slab_faces(triangles: F64, top_at: Callable[[F64], F64], slab: float, tile: ArrayLike,
+                under: ArrayLike, uvs: F64 | None = None) -> tuple[Mesh, Mesh]:
     """Plan triangles (t, 3, 2) lifted onto the roof's top (``tile``, facing up, with the
     tiles' ``uvs`` (t, 3, 2) when given) and, ``slab`` lower, onto its underside
     (``under``, facing down)."""
     flat = np.asarray(triangles, dtype=np.float64).reshape(-1, 2)
     top = np.concatenate([flat, top_at(flat)[:, None]], axis=1).reshape(-1, 3, 3)
     bottom = top - np.array([0.0, 0.0, slab])
-    return Mesh.merge([flat_mesh(top, tile, outward=(0.0, 0.0, 1.0), vertex_uvs=uvs),
-                       flat_mesh(bottom, under, outward=(0.0, 0.0, -1.0))])
+    return (flat_mesh(top, tile, outward=(0.0, 0.0, 1.0), vertex_uvs=uvs),
+            flat_mesh(bottom, under, outward=(0.0, 0.0, -1.0)))
 
 
 def face_tile_uvs(points: F64, eave_direction: F64, origin: F64, top_distance: float,
@@ -487,8 +489,8 @@ def hip_roof(footprint: ArrayLike, top_cm: float, style: RoofStyle) -> GableRoof
     # each face's tiles run along its own eave and lap down its own slope (#801)
     uvs = np.concatenate([face_tile_uvs(tris, edge[i], centre, reach, inward[i], offsets[i])
                           for (i, _face), tris in zip(faces, per_face, strict=True)])
-    roof = Mesh.merge([_slab(triangles, top_at, style.slab_cm, style.tile.linear, style.timber.linear,
-                             uvs),
+    roof = Mesh.merge([*_slab_faces(triangles, top_at, style.slab_cm, style.tile.linear,
+                                    style.timber.linear, uvs),
                        _fascia(outline, top_at, style.slab_cm, style.timber.linear)])
     wall_z = eave + slope * style.overhang_cm - style.slab_cm
 
@@ -528,14 +530,17 @@ def shed_roof(footprint: ArrayLike, top_cm: float, style: RoofStyle,
     # one face, falling away from ``high``: its eave runs square to it (#801)
     low = float((outline @ up).min())
     uvs = face_tile_uvs(plane, np.array([up[1], -up[0]]), outline.mean(axis=0), peak - low, up, low)
-    roof = Mesh.merge([_slab(plane, top_at, style.slab_cm, style.tile.linear, style.timber.linear, uvs),
+    roof = Mesh.merge([*_slab_faces(plane, top_at, style.slab_cm, style.tile.linear,
+                                    style.timber.linear, uvs),
                        _fascia(outline, top_at, style.slab_cm, style.timber.linear)])
     return GableRoof(_walls_under(ring, wall_top), roof, (), slope, top_cm - slope * span, wall_top)
 
 
-def flat_roof(footprint: ArrayLike, top_cm: float, style: RoofStyle) -> GableRoof | None:
+def flat_roof(footprint: ArrayLike, top_cm: float, style: RoofStyle, *,
+              fill_uv_origin: tuple[float, float] | None = None) -> GableRoof | None:
     """Walls and a flat roof slab whose top is ``top_cm``, overhanging by the style's
-    overhang."""
+    overhang. With a fill UV origin, keep the top as a separate cap for the plan's
+    fill. Its fascia and underside keep the slab's finish."""
     ring = ccw_ring(footprint)
     slab = min(style.slab_cm, 0.3 * top_cm)
     if len(ring) < 3 or top_cm - slab <= 1.0:
@@ -550,7 +555,11 @@ def flat_roof(footprint: ArrayLike, top_cm: float, style: RoofStyle) -> GableRoo
         heights: F64 = np.full(np.asarray(points).shape[:-1], top_cm - slab)
         return heights
 
-    roof = Mesh.merge([_slab(polygon_triangles(outline), top_at, slab, style.tile.linear,
-                             style.timber.linear),
-                       _fascia(outline, top_at, slab, style.timber.linear)])
-    return GableRoof(_walls_under(ring, wall_top), roof, (), 0.0, top_cm - slab, wall_top)
+    triangles = polygon_triangles(outline)
+    uvs = None if fill_uv_origin is None else (triangles + fill_uv_origin) / PATTERN_TILE_CM
+    colour = style.tile.linear if uvs is None else TINT
+    top, underside = _slab_faces(triangles, top_at, slab, colour, style.timber.linear, uvs)
+    fascia = _fascia(outline, top_at, slab, style.timber.linear)
+    fill_cap = top if uvs is not None and top.triangle_count else None
+    roof = Mesh.merge([top, underside, fascia] if fill_cap is None else [underside, fascia])
+    return GableRoof(_walls_under(ring, wall_top), roof, (), 0.0, top_cm - slab, wall_top, fill_cap)

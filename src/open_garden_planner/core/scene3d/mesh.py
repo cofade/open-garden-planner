@@ -45,7 +45,7 @@ MATERIAL_KINDS: Final[frozenset[str]] = frozenset(
 )
 #: Kinds whose material takes the item's fill picture (#628 follow-up): ``vc`` as
 #: its base colour map, ``water`` as the raised pool's own water (``uFill``).
-FILL_TEXTURE_KINDS: Final[frozenset[str]] = frozenset({"vc", "water"})
+FILL_TEXTURE_KINDS: Final[frozenset[str]] = frozenset({"vc", "roof", "water"})
 #: Kinds shaded with bent (spherized) normals by design — exempt from the
 #: "a flat face stores its winding normal" rule (``ogp-lush-cinematic`` §2).
 BENT_NORMAL_KINDS: Final[frozenset[str]] = frozenset({"foliage", "grass"})
@@ -274,7 +274,7 @@ class MeshPart:
     sink supplies the picture from ``core.fill_patterns`` and never bakes it into
     the mesh, so a recolour or a pattern change is a material update. Not
     ``tinted`` (the picture already carries the colour) and only for the parts
-    whose material takes a picture: ``"vc"`` (``baseColorMap``) and ``"water"``
+    whose material takes a picture: ``"vc"`` and ``"roof"`` (``baseColorMap``), and ``"water"``
     (``uFill``: a raised pool keeps the plan's water, #627's manual pass).
 
     ``surface`` (#803): what the part is MADE of — a key of

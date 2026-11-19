@@ -4993,6 +4993,7 @@ Use 0.1 for DXF in mm, 100 for DXF in metres.</translation>
         </message>
         <message>
             <location filename="../../resources/data/plant_species.json" line="1" />
+            <location filename="../../ui/widgets/gallery_data.py" line="345" />
             <source>Pot Marigold</source>
             <translation>Pot Marigold</translation>
         </message>
@@ -12668,9 +12669,9 @@ checked = always protect, unchecked = never protect, indeterminate = use the pla
             <translation>Send to Back</translation>
         </message>
         <message>
-            <location filename="../../ui/panels/properties_panel.py" line="1830" />
-            <source>Shapes the roof in the 3D view. The 2D plan and its sun study are unchanged.</source>
-            <translation>Shapes the roof in the 3D view. The 2D plan and its sun study are unchanged.</translation>
+            <location filename="../../ui/panels/properties_panel.py" line="1846" />
+            <source>Roof shape in the 2D plan, sun study, and 3D view.</source>
+            <translation>Roof shape in the 2D plan, sun study, and 3D view.</translation>
         </message>
         <message>
             <location filename="../../ui/panels/properties_panel.py" line="1404" />

@@ -4953,6 +4953,7 @@ Use 0.1 for DXF in mm, 100 for DXF in metres.</source>
         </message>
         <message>
             <location filename="../../resources/data/plant_species.json" line="1" />
+            <location filename="../../ui/widgets/gallery_data.py" line="345" />
             <source>Pot Marigold</source>
             <translation>Календула</translation>
         </message>
@@ -12600,9 +12601,9 @@ checked = always protect, unchecked = never protect, indeterminate = use the pla
             <translation>На задний план</translation>
         </message>
         <message>
-            <location filename="../../ui/panels/properties_panel.py" line="1830" />
-            <source>Shapes the roof in the 3D view. The 2D plan and its sun study are unchanged.</source>
-            <translation>Формирует крышу в 3D-виде. 2D-план и анализ инсоляции остаются без изменений.</translation>
+            <location filename="../../ui/panels/properties_panel.py" line="1846" />
+            <source>Roof shape in the 2D plan, sun study, and 3D view.</source>
+            <translation>????? ????? ?? 2D-?????, ? ??????? ????????? ? ? 3D-????.</translation>
         </message>
         <message>
             <location filename="../../ui/panels/properties_panel.py" line="1404" />

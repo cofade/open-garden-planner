@@ -557,6 +557,26 @@ def scenario_fill(ctx: Context) -> dict[str, Any]:
     return {"top": top, "faded": faded, "lifetime": lifetime}
 
 
+def scenario_flat_roof_fill(ctx: Context) -> dict[str, Any]:
+    """Render two explicit flat roofs in the same tint, one tiled and one solid."""
+    from open_garden_planner.core.roof_style import FLAT, STYLE_KEY
+    from open_garden_planner.core.scene3d.builders import production_registry
+
+    kind = "GARAGE_SHED"
+    records = {
+        pattern: Record(
+            item_id=pattern, kind=kind, shape="rectangle", footprints=(FILL_SQUARE,),
+            transform=Transform(east_cm=east), height_cm=250.0,
+            material=Material(kind, fill_rgba=(165, 165, 165, 255), pattern=pattern),
+            params=Params({STYLE_KEY: FLAT}),
+        )
+        for pattern, east in (("ROOF_TILES", -400.0), ("SOLID", 400.0))
+    }
+    top = ctx.offscreen("flat_roof_fill", records, shot=TopDownShot((0.0, 0.0), 0.5),
+                        sun=HIGH_SUN, size=(1000, 400), registry=production_registry())
+    return {"top": top}
+
+
 def scenario_materials(ctx: Context) -> dict[str, Any]:
     """G9 (clean run): every material kind — every shader — rendered, top-down and in
     perspective, hidden. A shader that does not compile raises in ``render_records``."""
@@ -1133,6 +1153,7 @@ SCENARIOS: dict[str, Callable[[Context], dict[str, Any]]] = {
     "truth": scenario_truth,
     "materials": scenario_materials,
     "fill": scenario_fill,
+    "flat_roof_fill": scenario_flat_roof_fill,
     "pond": scenario_pond,
     "sun": scenario_sun,
     "edits": scenario_edits,

@@ -1554,6 +1554,11 @@
     "state": "OPEN",
     "title": "Ship 13 bundled example plans as showcase material (nine new, food forest enlarged)"
   },
+  "950": {
+    "is_pr": false,
+    "state": "OPEN",
+    "title": "Plant gallery: Marigold (Tagetes) and Geranium (Pelargonium) carry another plant's name in German and Spanish"
+  },
   "951": {
     "is_pr": false,
     "state": "OPEN",

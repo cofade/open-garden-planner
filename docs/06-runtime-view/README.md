@@ -580,6 +580,7 @@ sequenceDiagram
     Note over K: the snapshot ends with with_context(records):<br/>door wall, lawn cut-outs and blade share (L4)
     K->>Y: apply(records, sun, ground)
     Y->>E: begin · the minimal calls · commit
+    Note over Y,E: A fill-only edit on an explicit flat roof updates its cap material.<br/>The roof geometry stays in the sink.
     K-->>K: applied(TickReport: diff, times, retired)
     Note over E: Qt draws the next frame on its render thread
 ```

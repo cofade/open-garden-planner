@@ -13,9 +13,10 @@ made the house one terracotta block.
 picks it — ``gable`` (two planes through a ridge line), ``hip`` (every eave
 slopes; a convex footprint only, else a gable), ``shed`` (one plane, rising
 toward the item's own +y: an unrotated building's roof falls to the south) or
-``flat`` (a concrete slab with a dark edge). Without a style the roof is AUTOMATIC:
-a gable along the plan's ridge where there is one, a flat roof on a house
-without one. ``params["roof_pitch_deg"]`` / ``["roof_overhang_cm"]`` replace the
+``flat`` (a slab with the plan's fill on top and a dark edge). Without a style
+the roof is AUTOMATIC: a gable along the plan's ridge where there is one, a
+concrete slab on a house without one. ``params["roof_pitch_deg"]`` /
+``["roof_overhang_cm"]`` replace the
 style's own pitch and overhang. In EVERY style the roof's top is the building's
 height (ADR-037: the height is the ridge's).
 
@@ -54,7 +55,7 @@ from ...roof_style import (
     roof_pitch_deg,
     roof_style,
 )
-from ..build import BuilderRegistry, cap_mesh
+from ..build import BuilderRegistry, cap_mesh, uv_origin_of
 from ..mesh import Mesh, MeshPart
 from ..record import (
     PARAM_DOOR_WALL,
@@ -166,10 +167,11 @@ def _roof(record: Record, height_cm: float, base: RoofStyle) -> GableRoof | None
     style = style_for(record, base)
     chosen = chosen_style(record)
     has_ridge = record.kind != "HOUSE" or ridge_of(record.params.get(PARAM_RIDGE)) is not None
+    if chosen == FLAT or (chosen is None and not has_ridge):
+        return flat_roof(footprint, height_cm, style_for(record, FLAT_ROOF),
+                         fill_uv_origin=uv_origin_of(record) if chosen == FLAT else None)
     if chosen is None:
-        chosen = GABLE if has_ridge else FLAT
-    if chosen == FLAT:
-        return flat_roof(footprint, height_cm, style_for(record, FLAT_ROOF))
+        chosen = GABLE
     built = _kept_up(record, chosen, height_cm, style)
     if built is None and chosen == HIP:
         built = _kept_up(record, GABLE, height_cm, style)  # not convex: the gable, along its ridge
@@ -286,8 +288,12 @@ def _building(record: Record, height_cm: float, base: RoofStyle,
         return _block(record, height_cm)
     front = facade(record.kind, footprint_of(record), built.wall_top, door_wall_of(record))
     floor = _floor(record)
+    roof = (MeshPart(built.roof, "roof", name="roof"),) if built.fill_cap is None else (
+        MeshPart(built.fill_cap, "roof", name="roof", fill_texture=True, surface="concrete"),
+        MeshPart(built.roof, "roof", name="roof_trim"),
+    )
     return (MeshPart(built.walls, "vc", tinted=True, name="walls", surface=walls_surface),
-            MeshPart(built.roof, "roof", name="roof"),
+            *roof,
             MeshPart(front, "vc", name="facade"),
             MeshPart(floor, "vc", tinted=False, name="floor"))
 

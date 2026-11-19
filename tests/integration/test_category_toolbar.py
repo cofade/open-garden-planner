@@ -11,7 +11,9 @@ import pytest
 from PyQt6.QtCore import QPoint, QRect, Qt
 from PyQt6.QtWidgets import QApplication
 
+from open_garden_planner.core.i18n import load_translator
 from open_garden_planner.core.tools import ToolType
+from open_garden_planner.services.bundled_species_db import lookup_species
 from open_garden_planner.ui.theme import ThemeMode, generate_stylesheet
 from open_garden_planner.ui.widgets.category_dropdown import CategoryDropdown
 from open_garden_planner.ui.widgets.category_toolbar import CategoryToolbar
@@ -57,6 +59,32 @@ class TestCategoryToolbarStructure:
 
 class TestCategoryDropdownFlow:
     """Clicking a category item activates its tool and emits the toolbar signal."""
+
+    def test_german_flower_search_selects_distinct_species(self, qtbot, qapp) -> None:
+        assert load_translator(qapp, "de")
+        try:
+            toolbar = CategoryToolbar()
+            qtbot.addWidget(toolbar)
+            toolbar.show()
+            index = next(i for i, category in enumerate(toolbar._categories)
+                         if category.icon_name == "flower")
+            anchor = toolbar._category_buttons[index]
+            dropdown = toolbar._category_dropdowns[index]
+            for name, scientific in (("Ringelblume", "Calendula officinalis"),
+                                     ("Studentenblume", "Tagetes erecta"),
+                                     ("Geranie", "Pelargonium x hortorum")):
+                qtbot.mouseClick(anchor, Qt.MouseButton.LeftButton)
+                dropdown._search_box.setText(name)
+                matches = [button for button in dropdown._buttons if button.isVisible()]
+                assert [button.item.name for button in matches] == [name]
+                [button] = matches
+                assert button.item.thumbnail is not None
+                with qtbot.waitSignal(toolbar.item_selected) as selected:
+                    qtbot.mouseClick(button, Qt.MouseButton.LeftButton)
+                record = lookup_species(selected.args[0].species)
+                assert record is not None and record["scientific_name"] == scientific
+        finally:
+            load_translator(qapp, "en")
 
     def test_dropdown_click_emits_tool_selected(self, qtbot: object) -> None:
         tb = CategoryToolbar()

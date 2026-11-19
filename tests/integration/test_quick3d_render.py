@@ -735,6 +735,19 @@ def test_a_raised_solid_shows_the_items_own_fill(run: Run) -> None:
     assert abs(grass.mean() - solid.mean()) < 4.0, "the picture's mean must be the fill colour"
 
 
+def test_explicit_flat_roof_shows_the_items_own_fill(tmp_path: Path) -> None:
+    proc, result = run_driver(tmp_path, "flat_roof_fill")
+    assert proc.returncode == 0 and result.get("status") == "ok", failure_report(proc, tmp_path)
+    frame = result["scenarios"]["flat_roof_fill"]["top"]
+    assert frame["build_failures"] == {}
+    rgb, dpr = _frame((result, tmp_path), frame)
+    luma = _fill_luma(rgb)
+    tiles = luma[_fill_box(rgb, dpr, -400.0)]
+    solid = luma[_fill_box(rgb, dpr, 400.0)]
+    assert tiles.std() > 5.0, "roof material must sample the stored tile pattern"
+    assert solid.std() < 0.5, "the solid control cap must have a uniform finish"
+
+
 def test_a_faded_raised_lawn_ghosts_in_its_colour_not_white(run: Run) -> None:
     """X-ray fades a solid to a screen door of its COLOUR (FR-3D-BUILT-09). The door
     samples no picture, so the fade's tint must be the fill colour: left white, the

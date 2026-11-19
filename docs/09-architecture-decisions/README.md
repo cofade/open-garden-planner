@@ -13707,3 +13707,8 @@ use a single surface with the selected fill. The tool
 shed's automatic sprite keeps its roof, and an explicit choice uses the
 shared painter. `test_house_roof_ridge.py` checks the property edit and undo
 against actual scene pixels.
+
+An explicitly selected flat roof has a separate 3D top surface with plan UVs.
+The shared fill pipeline supplies its texture and tint. A fill edit updates
+the material. The slab's sides and underside use their own finish, and an
+automatic concrete slab keeps its legacy finish.

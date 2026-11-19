@@ -326,6 +326,8 @@ Pre-defined object types for common property elements:
 - Drag from thumbnail to canvas for direct placement
 - Category popups fit the screen work area and scroll their results. Name
   and plant trait filters pack matches at the top and clear on reopening.
+- Flowers & Perennials offers separate localized entries for *Tagetes erecta*,
+  *Calendula officinalis* and *Pelargonium × hortorum* (#950).
 
 ### FR-10.4 Accessibility
 - **FR-UI-20**: Keyboard navigation for all functions (Deferred / partial; see ACCESSIBILITY.md for current keyboard shortcut coverage and navigation boundaries)
@@ -935,8 +937,10 @@ The built world complete (L4, #388, ADR-065).
   fall from the high eave, and flat roofs show one surface. Automatic
   garage/shed roofs use the long axis of the footprint. New garage/shed
   objects default to gray roof tiles. Saved fill choices also apply to the
-  roof on the plan. The roof-aware sun study uses the 3D roof geometry
-  including pitch and overhang (FR-SUN-03).
+  roof on the plan. In 3D an explicitly selected Flat roof uses the item's
+  fill on its top face and keeps the slab finish on its edges and underside.
+  An automatic flat house roof keeps the concrete slab finish. The roof-aware
+  sun study uses the 3D roof geometry including pitch and overhang (FR-SUN-03).
 - **FR-3D-BUILT-03** (L4.1): A building has windows on its walls and a door on the
   wall that faces the nearest path (a garage: the nearest driveway, then path).
   On the door's wall the windows are spaced on each side of the door, so a long

@@ -4858,6 +4858,7 @@ Use 0,1 para DXF en mm, 100 para DXF en metros.</translation>
         </message>
         <message>
             <location filename="../../resources/data/plant_species.json" line="1" />
+            <location filename="../../ui/widgets/gallery_data.py" line="345" />
             <source>Pot Marigold</source>
             <translation>Maravilla (caléndula)</translation>
         </message>
@@ -12445,9 +12446,9 @@ marcado = proteger siempre, desmarcado = no proteger nunca, indeterminado = usar
             <translation>Enviar al fondo</translation>
         </message>
         <message>
-            <location filename="../../ui/panels/properties_panel.py" line="1830" />
-            <source>Shapes the roof in the 3D view. The 2D plan and its sun study are unchanged.</source>
-            <translation>Da forma al tejado en la vista 3D. El plano 2D y su estudio solar no cambian.</translation>
+            <location filename="../../ui/panels/properties_panel.py" line="1846" />
+            <source>Roof shape in the 2D plan, sun study, and 3D view.</source>
+            <translation>Forma del tejado en el plano 2D, el estudio solar y la vista 3D.</translation>
         </message>
         <message>
             <location filename="../../ui/panels/properties_panel.py" line="1404" />
