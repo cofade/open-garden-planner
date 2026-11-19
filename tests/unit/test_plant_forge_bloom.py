@@ -16,7 +16,7 @@ from dataclasses import replace
 import numpy as np
 import pytest
 
-from open_garden_planner.core.phenology import evaluate_phenology
+from open_garden_planner.core.phenology import BLOOM_RAMP_DAYS, evaluate_phenology, seasonal_month
 from open_garden_planner.core.plant_art import (
     CATEGORY_TRAITS,
     FLOWERS,
@@ -219,24 +219,48 @@ def test_a_precocious_bloomer_carries_fewer_leaves_in_bloom(species: str) -> Non
 
 @pytest.mark.parametrize("species", PRECOCIOUS)
 @pytest.mark.parametrize("latitude", [50.0, -35.0])
-def test_outside_its_bloom_a_precocious_bloomer_keeps_its_usual_leaves(
+def test_a_precocious_bloomer_holds_its_leaves_until_it_has_flowered(
     species: str, latitude: float,
 ) -> None:
-    """The rule never touches a day out of bloom, and the leaves have unfolded by the
-    bloom window's last day: no jump when the flowers go. Oak: the same deciduous year."""
+    """From budburst until its window opens its leaves stay at its bloom share, through
+    the window too until they unfold over its last quarter; after it, the season's own
+    (the oak's: the same deciduous year). No day jumps: a cherry's leaves fell from 0.54
+    on 31 March to 0.18 on 1 April when the hold began with the window (review 2)."""
     sprite = SpriteRef("species", species)
     oak = SpriteRef("species", "oak")
+    traits = traits_for(sprite)
+    previous = None
     for day in _days():
         state = evaluate_phenology(sprite, day, latitude_deg=latitude)
         usual = evaluate_phenology(oak, day, latitude_deg=latitude).leaf_density
-        if state.bloom == 0.0:
-            assert state.leaf_density == usual, day
-        else:
+        month = seasonal_month(day, latitude)
+        if month < traits.bloom_months[0]:
+            assert state.leaf_density == min(usual, traits.bloom_leaf_density), day
+        elif month in traits.bloom_months:
             assert state.leaf_density <= usual, day
-            following = evaluate_phenology(sprite, day + datetime.timedelta(days=1),
-                                           latitude_deg=latitude)
-            if following.bloom == 0.0:   # the window's last day
-                assert state.leaf_density == pytest.approx(usual, abs=0.02), day
+        else:
+            assert state.leaf_density == usual, day
+        if previous is not None:
+            assert abs(state.leaf_density - previous) <= 0.1, day
+        previous = state.leaf_density
+
+
+@pytest.mark.parametrize("sprite", [s for s in FLOWERING if traits_for(s).bloom_months]
+                         + [SpriteRef("species", n) for n in ("lilac", "lavender", "dill")],
+                         ids=lambda s: s.name)
+def test_flowers_open_and_fade_over_days_not_overnight(sprite: SpriteRef) -> None:
+    """A bloom window's months are whole; a plant's flowering is not. Bloom opens over the
+    window's first ``BLOOM_RAMP_DAYS`` and fades over its last, in both hemispheres - a
+    whole tree no longer pops in or out of flower on the 1st (review 2)."""
+    step = 1.5 / BLOOM_RAMP_DAYS + 1e-6     # a smoothstep's steepest slope
+    for latitude in (50.0, -35.0):
+        previous = None
+        for day in _days():
+            bloom = evaluate_phenology(sprite, day, latitude_deg=latitude).bloom
+            if previous is not None:
+                assert abs(bloom - previous) <= step, (latitude, day)
+            previous = bloom
+        assert previous is not None
 
 
 @pytest.mark.parametrize("species", ["apple_tree", "pear_tree", "lilac", "oak"])

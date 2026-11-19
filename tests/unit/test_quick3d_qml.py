@@ -209,9 +209,11 @@ def test_a_faded_or_cut_part_is_a_screen_door_not_a_blend() -> None:
     # #801: a detail picture first (its shader carries the snow); #800: a plant's wood sways
     # while the wind blows; #687: snow swaps in only where no screen door is drawn
     # (test_snow_lies_on_the_built_tops...)
-    assert ("materials: fade < 1.0 ? [vcScreen] : detailMap ? [vcDetail] : swayFrame.x > 0.0 "
+    assert ("materials: fade < 1.0 || seasonOpacity < 1.0 ? [vcScreen] : detailMap ? [vcDetail] : swayFrame.x > 0.0 "
             "&& root.windBlowing ? [vcSway] : root.builtSnow > 0.0 && partName !== \"floor\" "
             "? [vcSnow] : [vcLook]") in " ".join(blocks["vcPart"].split())
+    # #940: a plant's flowers open and fade with their bloom through the same door
+    assert "property real uOpacity: fade * seasonOpacity" in blocks["vcPart"]
     for name, door in (("waterPart", "waterDoor"), ("foliagePart", "foliageDoor"),
                        ("grassPart", "grassDoor")):
         assert f"materials: fade < 1.0 ? [{door}] : [" in blocks[name], name
@@ -862,7 +864,7 @@ def test_snow_lies_on_the_built_tops_through_one_shader_only_while_it_snows() ->
     vc, roof = blocks["vcPart"], blocks["roofPart"]
     # #801: a part with a detail picture (a roof's tiles, a wall) shades by built_detail.frag,
     # which lays the SAME snow (below) - so the snowy look is the rest's
-    assert ("materials: fade < 1.0 ? [vcScreen] : detailMap ? [vcDetail] : swayFrame.x > 0.0 "
+    assert ("materials: fade < 1.0 || seasonOpacity < 1.0 ? [vcScreen] : detailMap ? [vcDetail] : swayFrame.x > 0.0 "
             "&& root.windBlowing ? [vcSway] : root.builtSnow > 0.0 && partName !== \"floor\" "
             "? [vcSnow] : [vcLook]") in " ".join(vc.split())
     assert ("materials: root.roofsHidden || fade < 1.0 ? [roofScreen] : detailMap ? [roofDetail] "

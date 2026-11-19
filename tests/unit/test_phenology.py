@@ -514,8 +514,9 @@ def test_nothing_flowers_in_december() -> None:
 
 
 def test_without_frost_dates_the_bloom_months_alone_decide() -> None:
-    """No frost dates, no seasonal claim: a tomato flowers in May like a crocus in March."""
-    tomato = evaluate_phenology(SpriteRef("species", "tomato"), datetime.date(2026, 5, 10),
+    """No frost dates, no seasonal claim: a tomato flowers in May like a crocus in March
+    (from the 20th: its flowers open over the window's first ten days, #940)."""
+    tomato = evaluate_phenology(SpriteRef("species", "tomato"), datetime.date(2026, 5, 20),
                                 latitude_deg=52.5)
     assert tomato.bloom == 1.0
 
