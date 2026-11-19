@@ -36,6 +36,23 @@ from .tube import frustum_tubes
 GOLDEN_ANGLE: float = math.pi * (3.0 - math.sqrt(5.0))
 
 
+#: How far a pinned leaf may turn off its plan axis (rad): within it the leaf's tip stays
+#: inside REACH_MAX once the fit has scaled the box to the canopy (cos 0.15 = 0.989).
+_AXIS_PIN_JITTER: float = 0.15
+
+
+def _pin_spread_to_axes(azimuths: np.ndarray, reaches: np.ndarray, rng: np.random.Generator) -> None:
+    """Turn the last four leaves (the outermost) onto the plan's four axes at the
+    clump's longest reach, in place (#940). The fit scales the clump's BOX to the canopy
+    diameter and then pulls every vertex beyond ``REACH_MAX`` back onto the circle: with
+    a few leaves the box's extremes sit on diagonals, the pull takes them in, and the
+    clump came out at 0.87 of its spread (a daffodil at LOD2). Leaves along the axes
+    hold the box's extremes where the pull never reaches."""
+    k = min(4, len(azimuths))
+    azimuths[-k:] = np.arange(k) * (math.pi / 2.0) + rng.uniform(-_AXIS_PIN_JITTER, _AXIS_PIN_JITTER, size=k)
+    reaches[-k:] = float(reaches.max())
+
+
 def _seed_rng(seed: int, salt: int) -> np.random.Generator:
     mixed = ((int(seed) * 2654435761) ^ salt) & 0xFFFFFFFFFFFFFFFF
     return np.random.default_rng(mixed)
@@ -399,6 +416,7 @@ def _forged_flowering_bulb(
     frac = idx / max(n_blades - 1, 1)
     b_az = float(rng.uniform(0.0, 2.0 * math.pi)) + idx * GOLDEN_ANGLE + rng.uniform(-0.22, 0.22, size=n_blades)
     reaches = radius_cm * (0.35 + 0.65 * (frac ** 0.7)) * rng.uniform(0.80, 1.10, size=n_blades)
+    _pin_spread_to_axes(b_az, reaches, rng)
     leaf_top = BULB_LEAF_TOP * height_cm
     peak_z = leaf_top * (1.0 - 0.35 * frac) * rng.uniform(0.80, 1.0, size=n_blades)
     blade_tip_z = leaf_top * (0.75 - 0.55 * frac) * rng.uniform(0.70, 1.0, size=n_blades)
@@ -649,6 +667,7 @@ def build_forged_allium(
     az = float(rng.uniform(0.0, 2.0 * math.pi)) + idx * GOLDEN_ANGLE + rng.uniform(-0.20, 0.20, size=n_blades)
     asym = 1.0 + 0.32 * np.cos(az - dom_az)
     reaches = radius_cm * (0.25 + 0.75 * (frac**0.8)) * asym * rng.uniform(0.82, 1.15, size=n_blades)
+    _pin_spread_to_axes(az, reaches, rng)
     peak_z = height_cm * (0.98 - 0.32 * frac) * rng.uniform(0.82, 1.04, size=n_blades)
     tip_z = height_cm * (0.90 - 0.48 * frac) * rng.uniform(0.75, 1.04, size=n_blades)
     widths = max(radius_cm * 0.095, 0.9) * rng.uniform(0.8, 1.2, size=n_blades)

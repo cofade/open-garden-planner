@@ -240,6 +240,22 @@ def test_a_plant_that_flowers_among_its_leaves_keeps_them(species: str) -> None:
                 == evaluate_phenology(oak, day).leaf_density), day
 
 
+@pytest.mark.parametrize("species", ["tulip", "daffodil", "crocus", "iris", "lily",
+                                     "onion", "garlic", "leek", "chives", "corn"])
+def test_a_clump_of_blades_keeps_its_spread_on_every_seed(species: str) -> None:
+    """A bulb's or an allium's few leaves set its box; the fit's pull onto REACH_MAX took
+    a diagonal tip in (a daffodil at LOD2: 0.868 of its spread, an onion 0.847). Four
+    leaves along the plan's axes hold it at 2 r on every seed and LOD (#940)."""
+    sprite = SpriteRef("species", species)
+    for height, radius in ((15.0, 5.0), (50.0, 10.0), (60.0, 7.5)):
+        for lod in (LOD0, LOD1, LOD2):
+            for seed in range(64):
+                parts = forge_plant(sprite, height, radius, seed=seed, lod=lod, cache=None)
+                pos = np.concatenate([p.mesh.positions for p in parts]).astype(np.float64)
+                span = max(np.ptp(pos[:, 0]), np.ptp(pos[:, 1]))
+                assert abs(span - 2.0 * radius) <= 0.10 * 2.0 * radius, (height, lod, seed, span)
+
+
 @pytest.mark.parametrize("sprite", FLOWERING, ids=lambda s: f"{s.group}/{s.name}")
 def test_every_flowering_species_holds_the_truth_gates_at_every_lod(sprite: SpriteRef) -> None:
     for height, radius in ((420.0, 180.0), (90.0, 30.0)):
