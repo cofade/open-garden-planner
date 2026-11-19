@@ -29,6 +29,7 @@ import numpy as np
 import pytest
 from PyQt6.QtCore import QMimeData, QPointF, Qt
 from PyQt6.QtGui import QDropEvent
+from PyQt6.QtWidgets import QComboBox
 
 from open_garden_planner.core import ProjectManager
 from open_garden_planner.core.commands import (
@@ -36,6 +37,7 @@ from open_garden_planner.core.commands import (
     CreateItemCommand,
     MoveItemsCommand,
 )
+from open_garden_planner.core.fill_patterns import FillPattern
 from open_garden_planner.core.object_height import METADATA_KEY, effective_height_cm
 from open_garden_planner.core.object_types import ObjectType, PathFenceStyle
 from open_garden_planner.core.plant_art import PLANT_KINDS
@@ -75,6 +77,7 @@ from open_garden_planner.ui.canvas.items.polygon_item import PolygonItem
 from open_garden_planner.ui.canvas.items.polyline_item import PolylineItem
 from open_garden_planner.ui.canvas.items.rectangle_item import RectangleItem
 from open_garden_planner.ui.canvas.sun_shadow_controller import collect_shadow_casters
+from open_garden_planner.ui.panels.properties_panel import PropertiesPanel
 from open_garden_planner.ui.view3d.snapshot import SkippedItem, snapshot_records
 
 BEGIN, COMMIT = ("begin", None), ("commit", None)
@@ -216,6 +219,56 @@ def without(calls: list[tuple[str, str | None]], item_id: str) -> list[tuple[str
 @pytest.fixture
 def garden(canvas: CanvasView, mouse_event: Any) -> Garden:
     return Garden(canvas, mouse_event)
+
+
+@pytest.mark.parametrize("kind", (ObjectType.HOUSE, ObjectType.GARAGE_SHED))
+def test_flat_roof_uses_the_plan_fill_and_recolour_keeps_its_mesh(
+    garden: Garden, qtbot: Any, kind: ObjectType,
+) -> None:
+    if kind == ObjectType.HOUSE:
+        item = garden.house
+    else:
+        item = RectangleItem(3200.0, 1000.0, 300.0, 240.0, object_type=kind,
+                             layer_id=garden.scene.active_layer.id)
+        garden.commands.execute(CreateItemCommand(garden.scene, item, "garage"))
+    item_id = Garden.id(item)
+    panel = PropertiesPanel(command_manager=garden.commands)
+    qtbot.addWidget(panel)
+    panel.set_selected_items([item])
+    pipeline = Pipeline(garden.scene)
+    pipeline.tick()
+    height = pipeline.top(item_id)
+    before = pipeline.sink.item(item_id).parts
+    assert not any(part.fill_texture for part in before if part.material_kind == "roof")
+
+    def choose(value: object) -> None:
+        combo = next(combo for combo in panel.findChildren(QComboBox) if combo.findData(value) >= 0)
+        combo.setCurrentIndex(combo.findData(value))
+
+    choose("flat")
+    pipeline.tick()
+    held = pipeline.sink.item(item_id)
+    cap, trim = (part for part in held.parts if part.material_kind == "roof")
+    assert cap.name == "roof" and cap.fill_texture and cap.casts_shadow
+    assert trim.name == "roof_trim" and not trim.fill_texture and trim.casts_shadow
+    assert np.all(cap.mesh.positions[:, 2] == pytest.approx(height))
+    assert not trim.mesh.uvs.any()
+    assert np.all(np.ptp(cap.mesh.uvs, axis=0) > 0.5)
+    assert held.material.pattern == FillPattern.ROOF_TILES.name
+
+    choose(FillPattern.CONCRETE)
+    result, calls, built = pipeline.tick()
+    assert item_id in result.material and item_id not in result.geometry
+    assert ("update_material", item_id) in calls and item_id not in built
+    assert pipeline.sink.item(item_id).parts == held.parts
+    assert pipeline.sink.item(item_id).material.pattern == FillPattern.CONCRETE.name
+
+    garden.commands.undo()
+    pipeline.tick()
+    assert pipeline.sink.item(item_id).material.pattern == FillPattern.ROOF_TILES.name
+    garden.commands.undo()
+    pipeline.tick()
+    assert pipeline.sink.item(item_id).parts == before
 
 
 def test_kinds_builders_heights_and_bases(garden: Garden) -> None:

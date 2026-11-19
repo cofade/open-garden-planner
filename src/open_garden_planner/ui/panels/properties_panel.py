@@ -1815,8 +1815,8 @@ class PropertiesPanel(QWidget):
     def _add_roof_properties(self, item: QGraphicsItem) -> None:
         """Add a building's roof style, pitch and overhang (Phase 17 L4.1, #388).
 
-        Three optional metadata keys (``core/roof_style``) the 3D view builds the
-        roof from; the 2D plan, its ridge line and its sun study do not read them.
+        The 3D view and sun study use the three optional ``core/roof_style`` keys.
+        The 2D plan uses the style to draw the roof within the building outline.
         "Automatic" (style) and "Auto" (pitch, overhang) remove the key, so the
         building falls back to the style's own value. Each edit is one
         ``ChangePropertyCommand`` (#530: ``_commit_edit``).
@@ -1827,7 +1827,9 @@ class PropertiesPanel(QWidget):
         if object_type is None or object_type.name not in rs.BUILDING_KINDS or not hasattr(item, "metadata"):
             return
         building: Any = item  # a building item: its ``metadata`` dict is the roof's home
-        hint = self.tr("Shapes the roof in the 3D view. The 2D plan and its sun study are unchanged.")
+        hint = self.tr(
+            "The 2D plan draws the roof style. The sun study and 3D view also use pitch and overhang."
+        )
 
         style_combo = QComboBox()
         _style_combo(style_combo)
@@ -1906,6 +1908,16 @@ class PropertiesPanel(QWidget):
                 itm.metadata.pop(key, None)
             else:
                 itm.metadata[key] = value
+            if key == "roof_style":
+                from open_garden_planner.ui.canvas.roof_ridge_link import (
+                    linked_ridge,
+                    refresh_ridge_visibility,
+                )
+
+                if isinstance(itm, RectangleItem) and itm.object_type == ObjectType.TOOL_SHED:
+                    itm._setup_styling()
+                itm.update()
+                refresh_ridge_visibility(linked_ridge(itm))
 
         return apply
 

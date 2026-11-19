@@ -35,6 +35,7 @@ from open_garden_planner.core.object_types import (
     ObjectType,
     PathFenceStyle,
     get_style,
+    is_ridge_bearing_type,
 )
 from open_garden_planner.core.string_lights import Layout
 
@@ -249,17 +250,32 @@ class PolylineItem(PolylineVertexEditMixin, RotationHandleMixin, GardenItemMixin
         self.enable_device_coordinate_cache()
 
     def _find_owner_polygon(self) -> "QGraphicsItem | None":
-        """Look up the HOUSE polygon that owns this ridge via metadata."""
+        """Look up the building that owns this ridge via metadata."""
         pid = self.get_metadata("owner_polygon_id") if hasattr(self, "get_metadata") else None
-        if not pid:
-            return None
         scene = self.scene()
         if scene is None:
             return None
-        for item in scene.items():
-            if hasattr(item, "item_id") and str(item.item_id) == pid:
-                return item
-        return None
+
+        if pid:
+            finder = getattr(scene, "find_item_by_id", None)
+            if callable(finder):
+                try:
+                    found = finder(uuid.UUID(str(pid)))
+                except ValueError:
+                    return None
+                return found if isinstance(found, QGraphicsItem) else None
+            return next((item for item in scene.items()
+                         if str(getattr(item, "item_id", None)) == str(pid)), None)
+
+        # Older plans can carry only the building-to-ridge link.
+        ridge_id = str(self.item_id)
+        owners = [
+            item for item in scene.items()
+            if isinstance(item, GardenItemMixin)
+            and is_ridge_bearing_type(item.object_type)
+            and str(item.get_metadata("ridge_item_id")) == ridge_id
+        ]
+        return owners[0] if len(owners) == 1 else None
 
     def _move_vertex_to(self, index: int, pos: QPointF) -> None:
         """Move a vertex, constraining ROOF_RIDGE endpoints to the polygon boundary."""

@@ -253,7 +253,7 @@ Full how-to (step-by-step, `.ts` format, recompile command): see `docs/08-crossc
 - The issue tracker is the only work list. Read the issue and the roadmap's
   "Current work" section, then `git status` and `git log --oneline -20`.
 - Current release: **v1.40.9** (2026-11-19). No roadmap phase is active.
-  The next work is in the open issues.
+  The plant gallery and 2D plan package is in review. Other work is in the open issues.
 - Live decisions that constrain the next change:
   - Measurement units (#673, ADR-078): geometry and Agent API units stay cm;
     display/input use the global preference and shared unit formatters.

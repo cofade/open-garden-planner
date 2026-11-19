@@ -17,11 +17,15 @@ import uuid
 from unittest.mock import MagicMock
 
 import pytest
-from PyQt6.QtCore import QPoint, QPointF
-from PyQt6.QtWidgets import QGraphicsSceneContextMenuEvent, QMenu
+from PyQt6.QtCore import QPoint, QPointF, QRectF, Qt
+from PyQt6.QtGui import QImage, QPainter
+from PyQt6.QtWidgets import QComboBox, QGraphicsSceneContextMenuEvent, QMenu
 
+from open_garden_planner.agent_api.render import render_canvas_image
 from open_garden_planner.core.commands import ChangeObjectTypeCommand
+from open_garden_planner.core.fill_patterns import FillPattern
 from open_garden_planner.core.object_types import ObjectType
+from open_garden_planner.core.project import ProjectManager
 from open_garden_planner.core.roof_ridge import compute_roof_ridge_endpoints
 from open_garden_planner.ui.canvas.canvas_scene import CanvasScene
 from open_garden_planner.ui.canvas.canvas_view import CanvasView
@@ -56,6 +60,15 @@ def _house_rect(scene: CanvasScene) -> RectangleItem:
     return rect
 
 
+def _roof_picture(scene: CanvasScene) -> QImage:
+    image = QImage(420, 220, QImage.Format.Format_ARGB32)
+    image.fill(Qt.GlobalColor.white)
+    painter = QPainter(image)
+    scene.render(painter, QRectF(0, 0, 420, 220), QRectF(90, 40, 420, 220))
+    painter.end()
+    return image
+
+
 def _ridge_of(item) -> PolylineItem | None:
     ridge = linked_ridge(item)
     assert ridge is None or isinstance(ridge, PolylineItem)
@@ -86,6 +99,144 @@ def test_properties_panel_conversion_creates_the_linked_ridge(qtbot) -> None:
 
     p1, p2 = _expected_ridge_endpoints(rect)
     assert ridge.points[0] == p1 and ridge.points[-1] == p2
+
+
+@pytest.mark.parametrize("shape", ("rectangle", "polygon"))
+@pytest.mark.parametrize("kind", (ObjectType.HOUSE, ObjectType.GARAGE_SHED))
+def test_roof_style_changes_the_plan_picture_and_undo_restores_it(qtbot, shape, kind) -> None:
+    scene, view = _scene_view(qtbot)
+    scene.set_shadows_enabled(False)
+    if shape == "rectangle":
+        item = _house_rect(scene)
+    else:
+        item = PolygonItem([QPointF(100, 50), QPointF(500, 50),
+                            QPointF(500, 250), QPointF(100, 250)])
+        scene.addItem(item)
+    panel = PropertiesPanel(command_manager=view.command_manager)
+    panel._on_property_changed(item, "object_type", kind)
+
+    automatic = _roof_picture(scene)
+    if kind == ObjectType.GARAGE_SHED:
+        assert item.fill_pattern == FillPattern.ROOF_TILES
+        assert automatic.pixelColor(210, 110) == item.pen().color(), (
+            "automatic sheds have a roof seam across the tile planes"
+        )
+        panel._on_property_changed(item, "fill_pattern", FillPattern.CONCRETE)
+        assert _roof_picture(scene) != automatic, "an explicit concrete fill keeps its own texture"
+        view.command_manager.undo()
+        assert _roof_picture(scene) == automatic
+    styles = []
+    for style in ("hip", "shed", "flat"):
+        panel._on_roof_style_changed(item, style)
+        ridge = linked_ridge(item)
+        if ridge is not None:
+            assert not ridge.isVisible(), "inactive roof cap must not intercept clicks"
+        styles.append(_roof_picture(scene))
+        assert styles[-1] != automatic, style
+        view.command_manager.undo()
+        if ridge is not None:
+            assert ridge.isVisible()
+        assert _roof_picture(scene) == automatic, style
+        view.command_manager.redo()
+        assert _roof_picture(scene) == styles[-1], style
+        view.command_manager.undo()
+    assert styles[0] != styles[1]
+    assert (linked_ridge(item) is not None) == (kind == ObjectType.HOUSE)
+
+
+@pytest.mark.parametrize("style", ("gable", "hip", "shed", "flat"))
+def test_tool_shed_explicit_roof_paints_the_fill_on_edit_and_load(qtbot, tmp_path, style) -> None:
+    scene, view = _scene_view(qtbot)
+    scene.set_shadows_enabled(False)
+    shed = RectangleItem(100, 50, 400, 200, object_type=ObjectType.TOOL_SHED,
+                         layer_id=scene.active_layer.id)
+    scene.addItem(shed)
+    panel = PropertiesPanel(command_manager=view.command_manager)
+    qtbot.addWidget(panel)
+    panel.set_selected_items([shed])
+    roof = next(combo for combo in panel.findChildren(QComboBox) if combo.findData(style) >= 0)
+
+    automatic = _roof_picture(scene)
+    assert automatic.pixelColor(110, 110) != Qt.GlobalColor.white
+    roof.setCurrentIndex(roof.findData(style))
+    assert shed.metadata["roof_style"] == style
+    explicit = _roof_picture(scene)
+    interior = explicit.pixelColor(110, 110)
+    # The material is warm wood. Empty fills and the slope's neutral shade fail this check.
+    assert interior.red() > interior.blue() + 20
+    assert explicit != automatic
+    view.command_manager.undo()
+    assert _roof_picture(scene) == automatic
+    view.command_manager.redo()
+    assert _roof_picture(scene) == explicit
+
+    plan = tmp_path / "tool-shed.ogp"
+    ProjectManager().save(scene, plan)
+    ProjectManager().load(scene, plan)
+    assert _roof_picture(scene).pixelColor(110, 110) == interior
+
+
+def test_legacy_one_way_ridge_does_not_snap_or_select_when_roof_is_flat(qtbot, tmp_path) -> None:
+    scene, view = _scene_view(qtbot)
+    panel = PropertiesPanel(command_manager=view.command_manager)
+    source = _house_rect(scene)
+    panel._on_property_changed(source, "object_type", ObjectType.HOUSE)
+    ridge = linked_ridge(source)
+    ridge.metadata.pop("owner_polygon_id")
+    plan = tmp_path / "legacy-ridge.ogp"
+    ProjectManager().save(scene, plan)
+    ProjectManager().load(scene, plan)
+    house = scene.find_item_by_id(source.item_id)
+    ridge = linked_ridge(house)
+    assert "owner_polygon_id" not in ridge.metadata
+    mid = ridge.mapToScene((ridge.points[0] + ridge.points[-1]) / 2)
+    assert ridge in scene.items(mid)
+    view._ensure_snap_index()
+    assert ridge in view._point_snapper._items
+
+    panel._on_roof_style_changed(house, "flat")
+    assert not ridge.isVisible() and ridge not in scene.items(mid)
+    assert not ridge.flags() & ridge.GraphicsItemFlag.ItemIsSelectable
+    view._ensure_snap_index()
+    assert ridge not in view._point_snapper._items
+    assert linked_ridge(house) is ridge
+
+    view.command_manager.undo()
+    assert ridge.isVisible() and ridge in scene.items(mid)
+    assert ridge.flags() & ridge.GraphicsItemFlag.ItemIsSelectable
+
+
+def test_flat_house_to_greenhouse_reuses_and_shows_its_ridge_on_redo(qtbot) -> None:
+    scene, view = _scene_view(qtbot)
+    panel = PropertiesPanel(command_manager=view.command_manager)
+    item = _house_rect(scene)
+    panel._on_property_changed(item, "object_type", ObjectType.HOUSE)
+    panel._on_roof_style_changed(item, "flat")
+    ridge = _ridge_of(item)
+    assert ridge is not None and not ridge.isVisible()
+
+    panel._on_property_changed(item, "object_type", ObjectType.GREENHOUSE)
+    assert _ridge_of(item) is ridge and ridge.isVisible()
+    assert ridge.metadata["ridge_finish"] == "aluminium"
+    view.command_manager.undo()
+    assert _ridge_of(item) is ridge and not ridge.isVisible()
+    view.command_manager.redo()
+    assert _ridge_of(item) is ridge and ridge.isVisible()
+
+
+def test_layer_filtered_image_keeps_inactive_roof_cap_hidden(qtbot) -> None:
+    scene, view = _scene_view(qtbot)
+    panel = PropertiesPanel(command_manager=view.command_manager)
+    item = _house_rect(scene)
+    panel._on_property_changed(item, "object_type", ObjectType.HOUSE)
+    panel._on_roof_style_changed(item, "flat")
+    ridge = _ridge_of(item)
+    assert ridge is not None and not ridge.isVisible()
+    region = (90.0, 40.0, 420.0, 220.0)
+    live = render_canvas_image(scene, region, None, 420)
+    selected = render_canvas_image(scene, region, [str(item.layer_id)], 420)
+    assert selected["png_bytes"] == live["png_bytes"]
+    assert not ridge.isVisible()
 
 
 def test_undo_removes_the_ridge_and_redo_restores_the_same_one(qtbot) -> None:

@@ -1,4 +1,4 @@
-"""Paint a HOUSE's roof as two tile planes — the one ridge-aware brush path.
+"""Paint a building's roof in its plan footprint.
 
 A HOUSE is drawn as its roof seen from above: the fill pattern is roof tiles,
 and the ridge divides two planes whose tiles lap DOWN-SLOPE, away from the
@@ -9,11 +9,10 @@ module is what makes a rectangle converted into a HOUSE (#690) draw the same
 roof as a house drawn with the polygon tool; before it, ``RectangleItem`` fell
 back to the flat fill and its tiles lapped back up toward the ridge.
 
-Both item classes call :func:`paint_roof_with_ridge` with their own outline in
-item coordinates. The item supplies ``mapFromScene`` (the ridge points are
-stored in scene space since #364), its brush, pen and optional
-``fill_transform`` (#665); this module owns the split, the mirrored brush and
-the SVG-safe two-pass paint.
+Both item classes call :func:`paint_building_roof` with their own outline.
+The house's linked ridge is mapped from scene to local coordinates (#364).
+The hip uses the 3D builder's nearest-eave faces. The mono-pitch brush
+descends from local +Y, and a flat roof is one surface.
 
 Facts pinned by ``tests/unit/test_roof_tile_orientation.py`` over eight
 house/rotation cases: the two halves are mirror images, and walking outward
@@ -25,13 +24,154 @@ tests fail.
 from __future__ import annotations
 
 import math
-from typing import Any, cast
+from functools import lru_cache
+from typing import TYPE_CHECKING
 
 from PyQt6.QtCore import QLineF, QPointF, QRectF, Qt
-from PyQt6.QtGui import QBrush, QPainter, QPainterPath, QPen, QPolygonF, QTransform
+from PyQt6.QtGui import QBrush, QLinearGradient, QPainter, QPainterPath, QPen, QPolygonF, QTransform
 from PyQt6.QtWidgets import QGraphicsItem
 
 from open_garden_planner.core.fill_patterns import FillTransform, brush_for_painter
+from open_garden_planner.core.object_types import ObjectType
+from open_garden_planner.core.roof_style import BUILDING_KINDS, FLAT, GABLE, HIP, SHED, roof_style
+from open_garden_planner.core.scene3d.builders.primitives import ccw_ring
+from open_garden_planner.core.scene3d.builders.roofs import (
+    MAX_HIP_CORNERS,
+    HipPlan,
+    bounding_box_ridge,
+    hip_plan,
+    is_convex,
+)
+from open_garden_planner.core.scene3d.polygon import is_buildable_region
+from open_garden_planner.ui.canvas.roof_ridge_link import ridge_points_local
+
+if TYPE_CHECKING:
+    from .polygon_item import PolygonItem
+    from .rectangle_item import RectangleItem
+
+
+def _polygon_path(polygon: QPolygonF) -> QPainterPath:
+    path = QPainterPath()
+    path.addPolygon(polygon)
+    path.closeSubpath()
+    return path
+
+
+@lru_cache(maxsize=128)
+def _hip_faces(points: tuple[tuple[float, float], ...]) -> HipPlan | None:
+    if not is_buildable_region(points) or not is_convex(points):
+        return None
+    plan = hip_plan(ccw_ring(points))
+    return plan if plan.faces else None
+
+
+def _face_brush(
+    painter: QPainter,
+    brush: QBrush,
+    origin: QPointF,
+    angle: float,
+    fill_transform: FillTransform | None,
+    *,
+    mirrored: bool,
+) -> QBrush:
+    frame = QTransform()
+    frame.translate(origin.x(), origin.y())
+    frame.rotate(angle)
+    if mirrored:
+        frame.scale(1.0, -1.0)
+    if fill_transform is not None and not fill_transform.is_identity:
+        frame = frame * fill_transform.brush_transform()
+    result = QBrush(brush)
+    result.setTransform(frame)
+    return brush_for_painter(result, painter) or result
+
+
+def paint_building_roof(
+    painter: QPainter,
+    item: RectangleItem | PolygonItem,
+    polygon: QPolygonF,
+    ridge: QGraphicsItem | None,
+) -> bool:
+    """Draw the style shared with the caster and 3D builder. Return whether painted."""
+    kind = item.object_type
+    if kind is None or kind.name not in BUILDING_KINDS or polygon.count() < 3:
+        return False
+    style = roof_style(item.metadata)
+    ridge_points = ridge_points_local(item, ridge)
+    if style is None:
+        if kind == ObjectType.TOOL_SHED:
+            return False  # its automatic roof is already painted by the sprite
+        style = GABLE if kind == ObjectType.GARAGE_SHED or ridge_points else FLAT
+
+    brush = item.brush()
+    pen = item.pen()
+    transform = item.fill_transform
+    path = _polygon_path(polygon)
+
+    if style == FLAT:
+        painter.fillPath(path, brush_for_painter(brush, painter) or brush)
+    elif style == SHED:
+        box = polygon.boundingRect()
+        high = QPointF(box.center().x(), box.bottom())
+        low = QPointF(high.x(), box.top())
+        painter.fillPath(path, _face_brush(painter, brush, high, 0.0, transform, mirrored=True))
+        # Local +Y is the high eave, the same direction as the mono-pitch builder.
+        shade = QLinearGradient(high, low)
+        tone = pen.color().darker(150)
+        tone.setAlpha(0)
+        shade.setColorAt(0.0, tone)
+        tone.setAlpha(42)
+        shade.setColorAt(1.0, tone)
+        painter.fillPath(path, QBrush(shade))
+    else:
+        points = tuple((p.x(), p.y()) for p in (polygon.at(i) for i in range(polygon.count())))
+        hip = _hip_faces(points) if style == HIP and len(points) <= MAX_HIP_CORNERS else None
+        if hip is not None:
+            _paint_hip(painter, hip, brush, pen, transform)
+        else:
+            # Non-convex or over-budget hips fall back to a gable, as in 3D.
+            # A shed without a linked ridge uses the same local long axis.
+            if ridge_points is None:
+                if kind == ObjectType.TOOL_SHED and hasattr(item, "rect"):
+                    box = polygon.boundingRect()
+                    x = box.center().x()
+                    ridge_points = (QPointF(x, box.top()), QPointF(x, box.bottom()))
+                elif ends := bounding_box_ridge(points):
+                    ridge_points = (QPointF(*ends[0]), QPointF(*ends[1]))
+            if ridge_points is None or not _paint_gable(
+                painter, path, *ridge_points, brush, pen, transform
+            ):
+                return False
+            if ridge is None or style == HIP:
+                painter.save()
+                painter.setClipPath(path, Qt.ClipOperation.IntersectClip)
+                painter.setPen(pen)
+                painter.drawLine(*ridge_points)
+                painter.restore()
+            return True
+
+    painter.setBrush(Qt.BrushStyle.NoBrush)
+    painter.setPen(pen)
+    painter.drawPath(path)
+    return True
+
+
+def _paint_hip(
+    painter: QPainter, plan: HipPlan, brush: QBrush, pen: QPen, transform: FillTransform | None
+) -> None:
+    seams = QPainterPath()
+    for index, face in plan.faces:
+        dx, dy = plan.edge[index]
+        polygon = QPolygonF([QPointF(x, y) for x, y in face])
+        painter.fillPath(_polygon_path(polygon), _face_brush(
+            painter, brush, polygon.boundingRect().center(),
+            math.degrees(math.atan2(dy, dx)), transform, mirrored=True,
+        ))
+        seams.addPolygon(polygon)
+        seams.closeSubpath()
+    painter.setBrush(Qt.BrushStyle.NoBrush)
+    painter.setPen(pen)
+    painter.drawPath(seams)
 
 
 def _split_path_by_line(
@@ -89,58 +229,23 @@ def _split_path_by_line(
     return path.intersected(left_rect), path.intersected(right_rect)
 
 
-def paint_roof_with_ridge(
+def _paint_gable(
     painter: QPainter,
-    host: QGraphicsItem,
-    polygon: QPolygonF,
-    ridge: QGraphicsItem,
+    poly_path: QPainterPath,
+    p1: QPointF,
+    p2: QPointF,
     brush: QBrush,
     pen: QPen,
-    fill_transform: FillTransform | None = None,
-) -> None:
-    """Paint HOUSE *polygon* with the tile texture mirrored on each side of the ridge.
-
-    Args:
-        painter: The painter already painting *host* in its local frame.
-        host: The item being painted — supplies ``mapFromScene`` so a rotated
-            house's scene-space ridge is mapped back into its own frame.
-        polygon: The house outline in *host*'s local coordinates.
-        ridge: The linked ``ROOF_RIDGE``; its points are scene-space.
-        brush: The item's own brush (pattern pixmap + colour).
-        pen: The item's own pen, used for the outline on top.
-        fill_transform: The per-object pattern transform (#665), composed INTO
-            the ridge frame rather than replacing it.
-    """
-    # Get ridge endpoints in item-local coordinates of THIS shape.
-    #
-    # Since #364 the ridge's points are SCENE coordinates, not ridge-item
-    # locals: `_update_ridge_on_boundary` computes them in the polygon's
-    # local frame and maps them out with `mapToScene`. So scene -> local is
-    # `ridge.mapToScene` then `host.mapFromScene`. Do not add a second
-    # `host.mapToScene` on top — that rotates the axis twice and is
-    # precisely the bug that made the #372 test sample off-axis (§11.4).
-    pts = cast(Any, ridge).points
-    if len(pts) < 2:
-        return
-    p1 = host.mapFromScene(ridge.mapToScene(pts[0]))
-    p2 = host.mapFromScene(ridge.mapToScene(pts[-1]))
-
+    fill_transform: FillTransform | None,
+) -> bool:
     dx = p2.x() - p1.x()
     dy = p2.y() - p1.y()
     length = math.sqrt(dx * dx + dy * dy)
     if length < 1e-9:
-        return
+        return False
     mid_x = (p1.x() + p2.x()) / 2.0
     mid_y = (p1.y() + p2.y()) / 2.0
     angle_deg = math.degrees(math.atan2(dy, dx))
-
-    # Build polygon QPainterPath
-    poly_path = QPainterPath()
-    if polygon.count() > 0:
-        poly_path.moveTo(polygon.at(0))
-        for i in range(1, polygon.count()):
-            poly_path.lineTo(polygon.at(i))
-        poly_path.closeSubpath()
 
     # Build half-plane clipping paths along the ridge line
     left_path, right_path = _split_path_by_line(poly_path, QLineF(p1, p2))
@@ -154,31 +259,9 @@ def paint_roof_with_ridge(
     # frame, not instead of it: angle 0 keeps the canonical tiles, and a
     # user angle turns them relative to the roof, so the two planes stay
     # mirror images of each other.
-    user_tx = None
-    if fill_transform is not None and not fill_transform.is_identity:
-        user_tx = fill_transform.brush_transform()
-
-    normal_tx = QTransform()
-    normal_tx.translate(mid_x, mid_y)
-    normal_tx.rotate(angle_deg)
-    if user_tx is not None:
-        normal_tx = normal_tx * user_tx
-    normal_brush = QBrush(brush)
-    normal_brush.setTransform(normal_tx)
-    # the tile at the painter's resolution, inside the same ridge frame (#785)
-    normal_brush = brush_for_painter(normal_brush, painter) or normal_brush
-
-    # Mirrored brush: reflects the down-slope across the ridge, for the
-    # half that faces the other way (issue #372).
-    mirrored_tx = QTransform()
-    mirrored_tx.translate(mid_x, mid_y)
-    mirrored_tx.rotate(angle_deg)
-    mirrored_tx.scale(1.0, -1.0)
-    if user_tx is not None:
-        mirrored_tx = mirrored_tx * user_tx
-    mirrored_brush = QBrush(brush)
-    mirrored_brush.setTransform(mirrored_tx)
-    mirrored_brush = brush_for_painter(mirrored_brush, painter) or mirrored_brush
+    origin = QPointF(mid_x, mid_y)
+    normal_brush = _face_brush(painter, brush, origin, angle_deg, fill_transform, mirrored=False)
+    mirrored_brush = _face_brush(painter, brush, origin, angle_deg, fill_transform, mirrored=True)
 
     # Bounding rect for fill (clip handles actual shape)
     bounds = poly_path.boundingRect()
@@ -261,3 +344,4 @@ def paint_roof_with_ridge(
     painter.setBrush(Qt.BrushStyle.NoBrush)
     painter.setPen(pen)
     painter.drawPath(poly_path)
+    return True

@@ -104,7 +104,12 @@ def test_every_style_tops_out_at_the_height(style, kind, height) -> None:
     top = max(float(part.mesh.positions[:, 2].max()) for part in parts)
     assert top == pytest.approx(height, rel=1e-4)
     # a building too low for a door or a window has no facade part (an empty mesh is left out)
-    expected = ["walls", "roof", "facade", "floor"] if height >= 250.0 else ["walls", "roof", "floor"]
+    expected = ["walls", "roof"]
+    if style == rs.FLAT:
+        expected.append("roof_trim")
+    if height >= 250.0:
+        expected.append("facade")
+    expected.append("floor")
     assert [part.name for part in parts] == expected
 
 

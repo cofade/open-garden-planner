@@ -271,7 +271,7 @@ def build_small() -> PlanBuilder:
     # --- buildings ---
     b.house([(160, 1000), (1060, 1000), (1060, 1540), (160, 1540)])
     b.greenhouse(1340, 1180, 240, 340, "Greenhouse")
-    b.rect(1960, 1240, 300, 240, T.GARAGE_SHED, "Shed")
+    b.filled(b.rect(1960, 1240, 300, 240, T.GARAGE_SHED, "Shed"), FillPattern.CONCRETE)
     b.rect(220, 740, 380, 210, T.PERGOLA, "Pergola", height_cm=250)
 
     # --- boundaries ---
@@ -372,7 +372,7 @@ def build_large() -> PlanBuilder:
     T = ObjectType
     b.polygon([(30, 30), (4970, 30), (4970, 2970), (30, 2970)], T.LAWN, "Lawn")
     b.house([(200, 2200), (1300, 2200), (1300, 2900), (200, 2900)])
-    b.rect(1500, 2500, 400, 350, T.GARAGE_SHED, "Shed")
+    b.filled(b.rect(1500, 2500, 400, 350, T.GARAGE_SHED, "Shed"), FillPattern.CONCRETE)
     b.greenhouse(2100, 2450, 500, 420, "Greenhouse")
     b.polyline([(10, 10), (4990, 10), (4990, 2990)], T.FENCE, PathFenceStyle.WOODEN_FENCE,
                "Fence")
@@ -445,6 +445,7 @@ def build_built() -> PlanBuilder:
     studio = b.rect(1260, 1360, 520, 380, T.HOUSE, "Studio", height_cm=520)
     studio.metadata["roof_style"] = "hip"
     garage = b.rect(1900, 1300, 520, 420, T.GARAGE_SHED, "Garage")
+    b.filled(garage, FillPattern.CONCRETE)
     garage.metadata["roof_style"] = "flat"
     shed = b.rect(80, 80, 240, 180, T.TOOL_SHED, "Tool shed")
     shed.metadata["roof_style"] = "shed"

@@ -754,12 +754,12 @@ TRANSLATIONS: dict[str, dict[str, str]] = {
         "Peony": "Pfingstrose",
         "Iris": "Schwertlilie",
         "Lily": "Lilie",
-        "Marigold": "Ringelblume",
+        "Marigold": "Studentenblume",
         "Zinnia": "Zinnie",
         "Cosmos": "Kosmee",
         "Aster": "Aster",
         "Chrysanthemum": "Chrysantheme",
-        "Geranium": "Storchschnabel",
+        "Geranium": "Geranie",
         "Petunia": "Petunie",
         "Pansy": "Stiefmütterchen",
         "Hydrangea": "Hortensie",
@@ -848,6 +848,7 @@ TRANSLATIONS: dict[str, dict[str, str]] = {
 
     # ── CategoryDropdown (popup under each toolbar category button) ──
     "CategoryDropdown": {
+        "No matching items": "Keine passenden Einträge",
         "Filter…": "Filtern…",
         "Add to Favorites": "Zu Favoriten hinzufügen",
         "Remove from Favorites": "Aus Favoriten entfernen",

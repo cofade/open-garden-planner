@@ -14,6 +14,7 @@ from __future__ import annotations
 
 import datetime
 from dataclasses import dataclass
+from functools import lru_cache
 from typing import Any
 
 from PyQt6.QtCore import QDate, QEvent, QObject, QPoint, QRect, QSize, Qt, QTimer, pyqtSignal
@@ -131,15 +132,16 @@ _STEP_COMMIT_DEBOUNCE_MS = 600
 
 
 def _series_qcolor(base: QColor) -> QColor:
-    """A series colour as it is drawn on the theme's rows.
+    """Use one series colour for the legend and all chart row states."""
+    # The darkest light row is hovered; the brightest dark row is selected.
+    # Calibrating there covers the ordinary, alternate and propagation rows.
+    backdrop = theme_qcolor("selection" if is_dark_theme() else "button_hover")
+    return _contrasting_series(base.rgb(), backdrop.rgb())
 
-    The light theme draws the reference value. On the dark theme's rows a
-    colour that would sink into them (harvest's dark red is 2.2:1 there) is
-    lightened until it stands out; the hue stays, so the legend still reads.
-    """
-    if not is_dark_theme():
-        return QColor(base)
-    return readable_on(base, theme_qcolor("input"))
+
+@lru_cache(maxsize=32)
+def _contrasting_series(base: int, backdrop: int) -> QColor:
+    return readable_on(QColor.fromRgb(base), QColor.fromRgb(backdrop))
 
 
 def _month_abbr(month_1: int) -> str:

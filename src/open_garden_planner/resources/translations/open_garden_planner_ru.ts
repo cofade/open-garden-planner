@@ -1301,27 +1301,32 @@
     <context>
         <name>CategoryDropdown</name>
         <message>
-            <location filename="../../ui/widgets/category_dropdown.py" line="184" />
+            <location filename="../../ui/widgets/category_dropdown.py" line="193" />
             <source>Add to Favorites</source>
             <translation>Добавить в избранное</translation>
         </message>
         <message>
-            <location filename="../../ui/widgets/category_dropdown.py" line="192" />
+            <location filename="../../ui/widgets/category_dropdown.py" line="201" />
             <source>Add to List</source>
             <translation>Добавить в список</translation>
         </message>
         <message>
-            <location filename="../../ui/widgets/category_dropdown.py" line="287" />
+            <location filename="../../ui/widgets/category_dropdown.py" line="298" />
             <source>Filter…</source>
             <translation>Фильтр…</translation>
         </message>
         <message>
-            <location filename="../../ui/widgets/category_dropdown.py" line="178" />
+            <location filename="../../ui/widgets/category_dropdown.py" line="328" />
+            <source>No matching items</source>
+            <translation>Нет подходящих элементов</translation>
+        </message>
+        <message>
+            <location filename="../../ui/widgets/category_dropdown.py" line="187" />
             <source>Remove from Favorites</source>
             <translation>Удалить из избранного</translation>
         </message>
         <message>
-            <location filename="../../ui/widgets/category_dropdown.py" line="151" />
+            <location filename="../../ui/widgets/category_dropdown.py" line="160" />
             <source>{name} (Favorite)</source>
             <translation>{name} (в избранном)</translation>
         </message>
@@ -4607,7 +4612,7 @@ Use 0.1 for DXF in mm, 100 for DXF in metres.</source>
             <location filename="../../resources/data/plant_species.json" line="1" />
             <location filename="../../ui/widgets/gallery_data.py" line="347" />
             <source>Geranium</source>
-            <translation>Герань</translation>
+            <translation>Пеларгония</translation>
         </message>
         <message>
             <location filename="../../resources/data/plant_species.json" line="1" />
@@ -4948,6 +4953,7 @@ Use 0.1 for DXF in mm, 100 for DXF in metres.</source>
         </message>
         <message>
             <location filename="../../resources/data/plant_species.json" line="1" />
+            <location filename="../../ui/widgets/gallery_data.py" line="345" />
             <source>Pot Marigold</source>
             <translation>Календула</translation>
         </message>
@@ -12595,9 +12601,9 @@ checked = always protect, unchecked = never protect, indeterminate = use the pla
             <translation>На задний план</translation>
         </message>
         <message>
-            <location filename="../../ui/panels/properties_panel.py" line="1830" />
-            <source>Shapes the roof in the 3D view. The 2D plan and its sun study are unchanged.</source>
-            <translation>Формирует крышу в 3D-виде. 2D-план и анализ инсоляции остаются без изменений.</translation>
+            <location filename="../../ui/panels/properties_panel.py" line="1831" />
+            <source>The 2D plan draws the roof style. The sun study and 3D view also use pitch and overhang.</source>
+            <translation>На 2D-плане показана форма крыши. При анализе инсоляции и в 3D-виде также учитываются уклон и свес крыши.</translation>
         </message>
         <message>
             <location filename="../../ui/panels/properties_panel.py" line="1404" />

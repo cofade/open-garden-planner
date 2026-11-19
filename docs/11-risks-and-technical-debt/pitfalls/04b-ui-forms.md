@@ -258,3 +258,14 @@ because of the colon, while unprefixed `12 1` was correctly Intermediate. Qt the
 refused the next fraction digit. Normalize once and use that numeric text on both
 paths. Check real character-by-character entry; parsing a completed value alone
 cannot expose this failure.
+
+### PF-UI-43
+
+- **Rule:** Keep category popups within the anchor screen and re-pack matching buttons in scrollable results.
+- **Pinned by:** `tests/integration/test_category_toolbar.py`
+- **Source:** #951
+- **Status:** standing
+- **Legacy:** none (new entry)
+
+The vegetables category offered a 1215 px popup on an 800 px work area.
+Hiding buttons left the matches in their old rows.

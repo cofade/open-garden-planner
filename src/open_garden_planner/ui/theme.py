@@ -12,7 +12,7 @@ from collections.abc import Callable
 from pathlib import Path
 
 from PyQt6 import sip
-from PyQt6.QtCore import QSize, Qt
+from PyQt6.QtCore import QObject, QSize, Qt, pyqtSlot
 from PyQt6.QtGui import QColor, QGuiApplication, QPainter, QPalette, QPixmap
 from PyQt6.QtWidgets import QApplication, QWidget
 
@@ -40,7 +40,7 @@ class ThemeColors:
         "border_focus": "#4a9e4a",
         # Canvas colors
         "canvas_background": "#f5f5dc",
-        "canvas_outside": "#707070",
+        "canvas_outside": "#a7aaa0",
         "grid_line": "#c8c8a8",
         "grid_line_major": "#b0b090",
         "canvas_border": "#5a6b5a",
@@ -107,7 +107,7 @@ class ThemeColors:
         # Canvas colors - keep same as light theme so the garden plan
         # always looks bright and natural; only UI chrome goes dark
         "canvas_background": "#f5f5dc",
-        "canvas_outside": "#707070",
+        "canvas_outside": "#3a4238",
         "grid_line": "#c8c8a8",
         "grid_line_major": "#b0b090",
         "canvas_border": "#5a6b5a",
@@ -1358,6 +1358,11 @@ def generate_stylesheet(mode: ThemeMode) -> str:
         background-color: {colors['button_pressed']};
     }}
 
+    #CategoryDropdown QToolButton:checked {{
+        background-color: {colors['selection']};
+        border-color: {colors['accent']};
+    }}
+
     #GlobalSearchResults {{
         background-color: {colors['surface']};
         border: 1px solid {colors['border']};
@@ -1454,6 +1459,30 @@ def _set_windows_dark_titlebar(window, dark: bool) -> None:
         pass
 
 
+class _SystemThemeMonitor(QObject):
+    """Reapply the app palette after Qt finishes processing a scheme change."""
+
+    def __init__(self, app: QApplication) -> None:
+        super().__init__(app)
+        self.mode = ThemeMode.LIGHT
+        hints = app.styleHints()
+        if hints is not None:
+            hints.colorSchemeChanged.connect(self.refresh, Qt.ConnectionType.QueuedConnection)
+
+    @pyqtSlot()
+    def refresh(self) -> None:
+        app = self.parent()
+        if (
+            self.mode is ThemeMode.SYSTEM
+            and ThemeColors.get_colors(self.mode) is not _current_colors
+            and isinstance(app, QApplication)
+        ):
+            apply_theme(app, self.mode)
+
+
+_system_theme_monitor: _SystemThemeMonitor | None = None
+
+
 def apply_theme(app: QApplication, mode: ThemeMode) -> None:
     """Apply the specified theme to the application.
 
@@ -1465,7 +1494,11 @@ def apply_theme(app: QApplication, mode: ThemeMode) -> None:
         app: QApplication instance
         mode: Theme mode to apply
     """
-    global _current_colors
+    global _current_colors, _system_theme_monitor
+
+    if _system_theme_monitor is None or sip.isdeleted(_system_theme_monitor):
+        _system_theme_monitor = _SystemThemeMonitor(app)
+    _system_theme_monitor.mode = mode
 
     # A system-following theme first hands Qt's scheme back to the operating
     # system, THEN asks it; an explicit theme pins the scheme after resolving.

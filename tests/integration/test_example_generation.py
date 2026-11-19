@@ -14,11 +14,22 @@ Thumbnails are not compared: they are rendered with the machine's fonts.
 import importlib
 import json
 import sys
+from datetime import date
+from itertools import pairwise
 from pathlib import Path
 
 import pytest
+from PyQt6.QtCore import QTranslator
 
+from open_garden_planner.core.cad_geometry import point_to_segment_distance
+from open_garden_planner.core.i18n import _TRANSLATIONS_DIR
+from open_garden_planner.core.project import ProjectManager
+from open_garden_planner.core.scene3d.record import PARAM_RADIUS_CM
 from open_garden_planner.services.example_library import BUNDLED_EXAMPLES
+from open_garden_planner.ui.canvas.canvas_scene import CanvasScene
+from open_garden_planner.ui.canvas.footprints import standing_point
+from open_garden_planner.ui.canvas.items import CircleItem, PolylineItem
+from open_garden_planner.ui.view3d.snapshot import snapshot_records
 from tests.example_specs import SPECS
 
 SCRIPTS = Path(__file__).resolve().parents[2] / "scripts"
@@ -46,6 +57,39 @@ def test_the_shipped_files_are_what_the_generator_makes(qtbot, generator, slug):
     for name, expected in content.items():
         shipped = json.loads((BUNDLED_EXAMPLES / name).read_text(encoding="utf-8"))
         assert shipped == expected, f"{name} is stale: rerun scripts/generate_examples.py"
+
+
+def test_family_garden_gravel_clears_the_projected_birch_canopy(qtbot):
+    scene = CanvasScene()
+    manager = ProjectManager()
+    manager.load(scene, BUNDLED_EXAMPLES / "family-garden.ogp", as_template=True)
+    sidecar = json.loads((BUNDLED_EXAMPLES / "family-garden.meta.json").read_text(encoding="utf-8"))
+    records = snapshot_records(scene, date.fromisoformat(sidecar["showcase_date"]))
+    birch = next(item for item in scene.items() if isinstance(item, CircleItem)
+                 and item.metadata.get("plant_species", {}).get("common_name") == "Birch")
+    gravel = next(item for item in scene.items()
+                  if isinstance(item, PolylineItem) and item.name == "Gravel path")
+    centre = standing_point(birch)
+    assert centre is not None
+    radius = records[str(birch.item_id)].params[PARAM_RADIUS_CM]
+    assert isinstance(radius, float) and radius > birch.radius
+    route = [gravel.mapToScene(point) for point in gravel.points]
+    distance = min(point_to_segment_distance(centre, a, b)[0] for a, b in pairwise(route))
+    assert distance - radius - gravel.stroke_width / 2 >= 2.5
+
+
+@pytest.mark.parametrize("language", ("de", "es"))
+def test_example_species_names_match_the_translated_gallery(qtbot, generator, language):
+    from example_plans.i18n import localized_plan
+
+    translator = QTranslator()
+    assert translator.load(str(_TRANSLATIONS_DIR / f"open_garden_planner_{language}.qm"))
+    names = ("Geranium", "Marigold")
+    plan = {"objects": [{"metadata": {"plant_species": {"common_name": name}}} for name in names]}
+    localized = localized_plan(plan, language)
+    assert [
+        item["metadata"]["plant_species"]["common_name"] for item in localized["objects"]
+    ] == [translator.translate("GalleryData", name) for name in names]
 
 
 def test_the_check_mode_names_a_stale_file(qtbot, generator, monkeypatch, tmp_path):

@@ -1329,6 +1329,11 @@
     "state": "CLOSED",
     "title": "Export follow-ups: harvest summary cut after one page, succession badge size, text size unit, print margins"
   },
+  "838": {
+    "is_pr": true,
+    "state": "MERGED",
+    "title": "feat(#698, #782, #784-#796, #836): 2D visual polish - sharp canvas, legible overlays, exports, theme and locale"
+  },
   "839": {
     "is_pr": false,
     "state": "OPEN",
@@ -1378,6 +1383,11 @@
     "is_pr": false,
     "state": "CLOSED",
     "title": "Sun shadow: a faint lighter hairline runs along a shade's outline"
+  },
+  "861": {
+    "is_pr": false,
+    "state": "OPEN",
+    "title": "Theme: no live follow of a Windows light/dark change in \"System\"; three calendar colours below 3:1 in the light theme; canvas surround is the same grey in both themes"
   },
   "865": {
     "is_pr": false,
@@ -1543,5 +1553,20 @@
     "is_pr": false,
     "state": "OPEN",
     "title": "Ship 13 bundled example plans as showcase material (nine new, food forest enlarged)"
+  },
+  "950": {
+    "is_pr": false,
+    "state": "OPEN",
+    "title": "Plant gallery: Marigold (Tagetes) and Geranium (Pelargonium) carry another plant's name in German and Spanish"
+  },
+  "951": {
+    "is_pr": false,
+    "state": "OPEN",
+    "title": "Selecting plants - View changes and unable to find and use desired plant."
+  },
+  "978": {
+    "is_pr": true,
+    "state": "OPEN",
+    "title": "fix: restore plant browsing and improve 2D plan reliability"
   }
 }
