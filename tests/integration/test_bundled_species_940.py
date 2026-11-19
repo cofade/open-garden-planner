@@ -113,14 +113,15 @@ def test_the_database_constructor_reaches_the_category_look(canvas: CanvasView, 
 
 
 def test_a_grape_vine_on_a_pergola_bears_grapes_in_october_only(canvas: CanvasView) -> None:
-    """The vine climbs the pergola it stands beside and hangs its grapes in the
-    harvest window its record carries (weeks 18-24 after the last frost: 18 September
-    to 30 October for a 05-15 frost), not in June."""
+    """The vine climbs the pergola it stands beside and hangs its grapes in its fruit
+    months, September and October, not in June. Its record carries no harvest window in
+    weeks after the last frost: that put ripe grapes in June where the last frost is in
+    February (the Mediterranean courtyard example), so it ripens like every woody fruit."""
     scene = canvas.scene()
     pergola = RectangleItem(560.0, 640.0, 300.0, 240.0, object_type=ObjectType.PERGOLA)
     scene.addItem(pergola)
     vine = _drop(canvas, "SHRUB:species=grape vine", QPointF(540.0, 760.0))
-    assert vine.metadata["plant_species"]["harvest_start"] == 18
+    assert "harvest_start" not in vine.metadata["plant_species"]
     states = {}
     for day in (JUNE, OCTOBER):
         records = enrich_climber_records(snapshot_records(scene, day).values())
