@@ -219,6 +219,24 @@ def test_a_bulbs_goblet_keeps_its_outside_normal_and_the_crocus_its_purple() -> 
     assert float(geo.col[:, :3].max()) <= float(lin.max()) * crocus.shade * 1.01
 
 
+@pytest.mark.parametrize("species", ["apple_tree", "forsythia", "tulip", "lilac", "lavender",
+                                     "dill", "sunflower", "rose"])
+def test_each_flower_carries_one_phase(species: str) -> None:
+    """The engine opens and fades a plant's flowers one by one by their phase (UV.y,
+    ``qml/screen.vert``): every vertex of one flower - petals, centre, twig, scape,
+    cluster - shares it, phases lie in [0, 1) and spread over it (review 2: a whole crown
+    popped in or out of flower, its shadow with it)."""
+    parts = forge_plant(SpriteRef("species", species), 150.0, 60.0, seed=7, lod=LOD0, cache=None)
+    mesh = _part(parts, FLOWER_PART)
+    phase = mesh.uvs[:, 1].astype(np.float64)
+    assert float(phase.min()) >= 0.0 and float(phase.max()) < 1.0
+    # a triangle never spans two flowers
+    tri = phase[mesh.indices]
+    assert float(np.abs(tri - tri[:, :1]).max()) == 0.0
+    distinct = np.unique(phase)
+    assert len(distinct) >= 3 and float(distinct.max() - distinct.min()) > 0.5
+
+
 def test_crown_flowers_anchor_on_the_outer_shell() -> None:
     rng = np.random.default_rng(3)
     dirs = rng.normal(size=(8000, 3))

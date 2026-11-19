@@ -316,6 +316,23 @@ def _frame_for(axis: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
     return tangent, bitangent
 
 
+#: A flower's phase lies in [0, FLOWER_PHASE_MAX): the engine opens a plant's flowers in
+#: phase order as its bloom rises and fades them as it falls (``qml/screen.vert``).
+FLOWER_PHASE_MAX: Final[float] = 0.999
+
+
+def with_phase(geo: RawGeo, phase: np.ndarray) -> RawGeo:
+    """``geo`` - ``len(phase)`` equal blocks of vertices, one a flower - with each block's
+    UV.y set to its flower's phase (#940, review 2). While a plant's bloom is below 1 the
+    engine collapses every flower whose phase is not below it, in every pass, its shadow
+    too: flowers open and fade one by one instead of a whole crown popping or dithering."""
+    if geo.vertex_count == 0 or len(phase) == 0 or geo.vertex_count % len(phase):
+        return geo
+    geo.uv = geo.uv.copy()
+    geo.uv[:, 1] = np.repeat(np.asarray(phase, dtype=np.float32), geo.vertex_count // len(phase))
+    return geo
+
+
 def _oriented_spheroids_geo(
     centers: np.ndarray,
     axes: np.ndarray,
@@ -355,6 +372,7 @@ def _petals_geo(
     quad: bool,
     tip_light: float = 0.45,
     goblet: bool = False,
+    phase: np.ndarray | None = None,
 ) -> RawGeo:
     """One whorl of petals round each flower, DOUBLE-SIDED: every petal twice, once
     wound to face its flower's ``facing`` (the inside of the cup: ``petal`` at the base
@@ -376,8 +394,8 @@ def _petals_geo(
     if n == 0:
         return empty_geo()
     tangent, bitangent = _frame_for(facing)
-    phase = rng.uniform(0.0, 2.0 * math.pi, size=(n, 1))
-    angle = phase + 2.0 * math.pi * np.arange(p)[None, :] / p + rng.uniform(-0.08, 0.08, size=(n, p))
+    turn = rng.uniform(0.0, 2.0 * math.pi, size=(n, 1))
+    angle = turn + 2.0 * math.pi * np.arange(p)[None, :] / p + rng.uniform(-0.08, 0.08, size=(n, p))
     ca, sa = np.cos(angle)[..., None], np.sin(angle)[..., None]          # (n, p, 1)
     radial = ca * tangent[:, None, :] + sa * bitangent[:, None, :]       # (n, p, 3)
     side = -sa * tangent[:, None, :] + ca * bitangent[:, None, :]
@@ -435,6 +453,8 @@ def _petals_geo(
     pos = np.concatenate([pts, pts]).astype(np.float32)
     nrm = np.concatenate([n_front, n_back]).astype(np.float32)
     uv = np.zeros((len(pos), 2), dtype=np.float32)
+    if phase is not None:
+        uv[:, 1] = np.tile(np.repeat(np.asarray(phase, dtype=np.float32), p * k), 2)
     return RawGeo(pos=pos, nrm=nrm, col=col, uv=uv, tri=np.concatenate([front, back]))
 
 
@@ -477,12 +497,16 @@ def flowers_geo(
     rng: np.random.Generator,
     *,
     lod: int,
+    phase: np.ndarray | None = None,
 ) -> RawGeo:
     """Flowers of ``flower``'s form at ``centers``, each turned to its row of ``facing``,
     in the colours of ``FLOWERS[spec]`` (the 2D table): petals, a second inner whorl for
-    a double flower, and its centre."""
+    a double flower, and its centre - each flower carrying its ``phase`` (``with_phase``;
+    drawn here when not given)."""
     if len(centers) == 0:
         return empty_geo()
+    if phase is None:
+        phase = rng.random(len(centers)) * FLOWER_PHASE_MAX
     outer_hex, light_hex, center_hex = FLOWERS.get(spec, FLOWERS["white"])
     c_outer = _hex_to_linear_rgb(outer_hex) * np.float32(flower.shade)
     c_light = _hex_to_linear_rgb(light_hex) * np.float32(flower.shade)
@@ -493,20 +517,20 @@ def flowers_geo(
     radii = np.asarray(radii, dtype=np.float64)
     goblet = flower.habit == "scape" and flower.cup >= GOBLET_CUP
     geos = [_petals_geo(centers, facing, radii, petals, flower.cup, c_outer, c_light, rng,
-                        quad=quad, tip_light=flower.tip_light, goblet=goblet)]
+                        quad=quad, tip_light=flower.tip_light, goblet=goblet, phase=phase)]
     if double:
         # the inner whorl: smaller and deeper, in the 2D sprite's inner colour
         inner = c_outer + PETAL_TIP_LIGHT * (c_light - c_outer)
         geos.append(_petals_geo(centers + facing * (0.06 * radii[:, None]), facing, radii * 0.66,
                                 petals, flower.cup + 0.35, inner, c_light, rng, quad=quad,
-                                tip_light=flower.tip_light))
+                                tip_light=flower.tip_light, phase=phase))
     if flower.disc_radius > 0.0:
         disc_r = np.maximum(radii * flower.disc_radius, 0.3)
         depth = np.maximum(radii * flower.disc_depth, 0.2)
-        geos.append(_oriented_spheroids_geo(
+        geos.append(with_phase(_oriented_spheroids_geo(
             centers + facing * (0.5 * depth[:, None]), facing, disc_r, depth,
             c_center, c_center * 0.85, c_center * 0.65, sides=disc_sides,
-        ))
+        ), phase))
     return concat_geo(geos)
 
 
@@ -659,12 +683,13 @@ def _crown_flowers_geo(
     radii = radius * rng.uniform(0.85, 1.15, size=count)
     # the flower sits on the leaf or twig it anchors on, not inside it
     centers = anchors + outward * (0.35 * radii[:, None])
+    phase = rng.random(count) * FLOWER_PHASE_MAX
     geo = flowers_geo(flower, str(traits.blossom_spec or "white"), centers, facing, radii,
-                      rng, lod=lod)
+                      rng, lod=lod, phase=phase)
     if not twigs:
         return geo
     assert wood is not None
-    return concat_geo([_twigs_to_wood(wood, anchors, traits, rng), geo])
+    return concat_geo([with_phase(_twigs_to_wood(wood, anchors, traits, rng), phase), geo])
 
 
 def _twigs_to_wood(
@@ -757,10 +782,11 @@ def build_blossom_accents(
             f_centers = anchors[:, None, :] + np.stack(
                 [np.cos(ang) * spread, np.sin(ang) * spread, np.broadcast_to(dz, ang.shape)], axis=-1)
             f_r = np.broadcast_to(cl_r * (0.36 - 0.10 * frac), ang.shape).reshape(-1)
-            geos.append(_spheroids_geo(
+            phase = np.repeat(rng.random(n_clusters) * FLOWER_PHASE_MAX, florets_per)
+            geos.append(with_phase(_spheroids_geo(
                 f_centers.reshape(-1, 3), f_r, f_r * (1.25 if pendulous else 0.95),
                 c_light, c_dark, c_occ, sides=sides,
-            ))
+            ), phase))
 
     # 3. `puffs` (lavender flower spikes)
     puffs_dict = recipe.get("puffs")
@@ -784,7 +810,7 @@ def build_blossom_accents(
         p0 = anchors - dirs * (spike_h * 0.35)
         p1 = anchors + dirs * (spike_h * 0.65)
         c_mid = 0.5 * (c_dark + c_light)
-        geos.append(
+        geos.append(with_phase(
             frustum_tubes(
                 p0,
                 p1,
@@ -792,8 +818,8 @@ def build_blossom_accents(
                 np.full(len(anchors), spike_r * 0.45, dtype=np.float64),
                 sides=5 if lod == LOD0 else 4,
                 color_rgba=(float(c_mid[0]), float(c_mid[1]), float(c_mid[2]), 1.0),
-            )
-        )
+            ), rng.random(len(anchors)) * FLOWER_PHASE_MAX,
+        ))
 
     return concat_geo(geos)
 
@@ -874,7 +900,9 @@ def build_umbel_accents(
         c_col * 0.78,
         sides=5 if lod == LOD0 else 4,
     )
-    return concat_geo([rays_geo, discs_geo])
+    # one phase an umbel, its rays and its florets (#940, review 2)
+    phase = np.repeat(rng.random(len(anchors)) * FLOWER_PHASE_MAX, rays_per_umbel + 1)
+    return concat_geo([with_phase(rays_geo, phase), with_phase(discs_geo, phase)])
 
 
 def build_pod_accents(
@@ -1000,7 +1028,8 @@ def _clamp_accent_geo(geo: RawGeo, height_cm: float, radius_cm: float) -> RawGeo
         p[far, 1] *= factor
     p[:, 2] = np.clip(p[:, 2], 0.01, float(height_cm) * 0.995)
     out.pos = p.astype(np.float32)
-    out.uv = np.zeros((len(out.pos), 2), dtype=np.float32)
+    out.uv = out.uv.astype(np.float32).copy()
+    out.uv[:, 0] = 0.0          # UV.y keeps each flower's phase (``with_phase``)
     out.nrm = _fix_vc_flat_normals(out.pos, out.nrm, out.tri)
     return out
 
@@ -1216,6 +1245,7 @@ __all__ = [
     "crown_flower_anchors",
     "flower_part",
     "wood_flower_anchors",
+    "with_phase",
     "flower_triangles",
     "flowers_geo",
 ]

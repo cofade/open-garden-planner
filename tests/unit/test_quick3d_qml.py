@@ -212,8 +212,16 @@ def test_a_faded_or_cut_part_is_a_screen_door_not_a_blend() -> None:
     assert ("materials: fade < 1.0 || seasonOpacity < 1.0 ? [vcScreen] : detailMap ? [vcDetail] : swayFrame.x > 0.0 "
             "&& root.windBlowing ? [vcSway] : root.builtSnow > 0.0 && partName !== \"floor\" "
             "? [vcSnow] : [vcLook]") in " ".join(blocks["vcPart"].split())
-    # #940: a plant's flowers open and fade with their bloom through the same door
-    assert "property real uOpacity: fade * seasonOpacity" in blocks["vcPart"]
+    # #940: a plant's flowers open and fade one by one with their bloom - screen.vert
+    # collapses each by its phase (UV.y) in every pass; every user of screen.vert declares
+    # the season, the built parts and the water at 1 (nothing collapses)
+    assert "property real uSeason: seasonOpacity" in blocks["vcPart"]
+    assert re.search(r"property real uOpacity: fade\s*$", blocks["vcPart"], re.M)
+    assert code.count("property real uSeason") == code.count('vertexShader: "screen.vert"')
+    door = (QML_DIR / "screen.vert").read_text(encoding="utf-8")
+    assert "if (uSeason < 1.0 && UV0.y >= uSeason)" in door and "vColor = COLOR;" in door
+    assert "BASE_COLOR = vec4(vColor.rgb * uTint, 1.0);" in (QML_DIR / "screen.frag").read_text(
+        encoding="utf-8")
     for name, door in (("waterPart", "waterDoor"), ("foliagePart", "foliageDoor"),
                        ("grassPart", "grassDoor")):
         assert f"materials: fade < 1.0 ? [{door}] : [" in blocks[name], name

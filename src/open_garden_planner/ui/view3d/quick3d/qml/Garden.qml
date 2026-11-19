@@ -681,8 +681,10 @@ Item {
             CustomMaterial {
                 id: vcScreen
                 property vector3d uTint: Qt.vector3d(tintLinear.x * seasonTint.x, tintLinear.y * seasonTint.y, tintLinear.z * seasonTint.z)
-                // #940: a plant's flowers open and fade through the same door (their bloom)
-                property real uOpacity: fade * seasonOpacity
+                property real uOpacity: fade
+                // #940: a plant's flowers open and fade one by one with their bloom
+                // (screen.vert collapses each by its phase, its shadow too)
+                property real uSeason: seasonOpacity
                 property real uRough: surfaceRough
                 property real uSpecular: surfaceSpecular
                 shadingMode: CustomMaterial.Shaded
@@ -800,6 +802,7 @@ Item {
                 id: roofScreen
                 property vector3d uTint: tintLinear
                 property real uOpacity: root.roofsHidden ? 0.0 : fade
+                property real uSeason: 1.0      // screen.vert: nothing collapses by phase
                 property real uRough: surfaceRough
                 property real uSpecular: surfaceSpecular
                 shadingMode: CustomMaterial.Shaded
@@ -933,6 +936,7 @@ Item {
                 property real uRough: 0.02
                 property real uGlintCap: 0.6 / (root.exposure * root.photoExposure)
                 property real uOpacity: fade
+                property real uSeason: 1.0      // screen.vert: nothing collapses by phase
                 shadingMode: CustomMaterial.Shaded
                 vertexShader: "screen.vert"
                 fragmentShader: "water_door.frag"
@@ -1629,6 +1633,7 @@ Item {
                 materials: CustomMaterial {
                     property vector3d uTint: Qt.vector3d(1, 1, 1)
                     property real uOpacity: 0.0
+                    property real uSeason: 1.0
                     property real uRough: 0.78
                     property real uSpecular: 0.35
                     shadingMode: CustomMaterial.Shaded
@@ -1733,6 +1738,7 @@ Item {
                     property real uRough: 0.02
                     property real uGlintCap: 0.6
                     property real uOpacity: 0.0
+                    property real uSeason: 1.0
                     shadingMode: CustomMaterial.Shaded
                     vertexShader: "screen.vert"
                     fragmentShader: "water_door.frag"

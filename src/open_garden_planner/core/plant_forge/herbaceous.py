@@ -18,7 +18,14 @@ from ..plant_art import recipe_for
 from ..plant_art.traits3d import Traits3D
 from ..scene3d.color import srgb_to_linear
 from ..scene3d.mesh import MeshPart
-from .accents import FLOWER_PART, PETAL_RISE_PER_CUP, flower_part, flowers_geo
+from .accents import (
+    FLOWER_PART,
+    FLOWER_PHASE_MAX,
+    PETAL_RISE_PER_CUP,
+    flower_part,
+    flowers_geo,
+    with_phase,
+)
 from .assemble import PART_WOOD, fit_forged_parts
 from .foliage import (
     RawGeo,
@@ -442,11 +449,13 @@ def _forged_flowering_bulb(
     out = np.column_stack([np.cos(az), np.sin(az), np.zeros(n_flowers)])
     facing = normalize_vec((1.0 - flower.face_up) * out + flower.face_up * np.array([0.0, 0.0, 1.0])
                            + rng.normal(0.0, 0.10, size=(n_flowers, 3)))
-    flowers = flowers_geo(flower, str(traits.blossom_spec or "white"), tips, facing, r_f, rng, lod=lod)
+    phase = rng.random(n_flowers) * FLOWER_PHASE_MAX
+    flowers = flowers_geo(flower, str(traits.blossom_spec or "white"), tips, facing, r_f, rng,
+                          lod=lod, phase=phase)
     # A scape is its flower's stalk: it rises with the flower and goes with it, so ten
     # months a year a bulb is its leaves, not a bunch of bare stalks (#940, review 2).
-    return fit_forged_parts(neck, foliage, concat_geo([scapes, flowers]), height_cm, radius_cm,
-                            accents_name=FLOWER_PART)
+    return fit_forged_parts(neck, foliage, concat_geo([with_phase(scapes, phase), flowers]),
+                            height_cm, radius_cm, accents_name=FLOWER_PART)
 
 
 #: Per LOD: culms, segments per culm, tube sides, the most leaves.
