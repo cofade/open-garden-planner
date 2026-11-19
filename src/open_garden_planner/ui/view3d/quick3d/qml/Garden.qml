@@ -778,6 +778,7 @@ Item {
             // roof's tiles laid by the mesh's uvs); a roof's timber is a roof part too
             property real surfaceRough: 0.78
             property real surfaceSpecular: 0.35
+            property var patternMap: null   // an explicit flat roof's plan fill
             property var detailMap: null
             property real detailMode: 0
             property real detailTile: 256
@@ -795,6 +796,7 @@ Item {
                 id: roofLook
                 vertexColorsEnabled: true
                 baseColor: tint
+                baseColorMap: patternMap ? patternMap : null
                 roughness: surfaceRough
                 specularAmount: surfaceSpecular
             }
@@ -835,8 +837,8 @@ Item {
             CustomMaterial {
                 id: roofSnow
                 property vector3d uTintSrgb: Qt.vector3d(tint.r, tint.g, tint.b)
-                property TextureInput uFill: TextureInput { texture: null }
-                property real uHasFill: 0.0
+                property TextureInput uFill: TextureInput { texture: patternMap ? patternMap : null }
+                property real uHasFill: patternMap ? 1.0 : 0.0
                 property real uRough: surfaceRough
                 property real uSpecular: surfaceSpecular
                 property real uSnowCover: root.builtSnow

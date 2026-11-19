@@ -2526,7 +2526,7 @@ class CanvasView(QGraphicsView):
         items = [
             it
             for it in self._canvas_scene.items()
-            if (it.flags() & _QGI.GraphicsItemFlag.ItemIsSelectable)
+            if it.isVisible() and (it.flags() & _QGI.GraphicsItemFlag.ItemIsSelectable)
         ]
         self._point_snapper.update_scene(items, scene_bounds=self.scene().sceneRect())
         self._snap_index_dirty = False

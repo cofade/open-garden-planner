@@ -3,6 +3,7 @@
 Open Garden Planner is a free desktop application for precision garden planning.
 It combines a 2D canvas, plant records, garden tasks, exports, and a 3D view.
 Choose metric or imperial lengths and areas, and litres or US quarts and gallons for container volumes.
+Browse plant categories with name and trait filters and scroll through the results.
 
 ## Start here
 

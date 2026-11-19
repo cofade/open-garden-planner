@@ -5,9 +5,12 @@ import math
 import xml.etree.ElementTree as ET
 from collections import Counter
 from datetime import date
+from itertools import pairwise
 from pathlib import Path
 
 import pytest
+from PyQt6.QtCore import QPointF, Qt
+from PyQt6.QtGui import QPolygonF
 
 from open_garden_planner.core.solar import solar_position
 from tests.example_specs import COGNATES, LIGHT, SPECS, showcase_utc
@@ -167,18 +170,36 @@ def label(obj):
 
 
 def test_the_showcase_is_the_bench_plan_and_cannot_drift_from_it():
-    """The plan of every Beauty Board: same items and ids (a plant's shape is seeded by its
-    id), same plants, and the same geometry but for the four centres listed in ``MOVED``.
-    Regenerating the fixture without the example, or the other way round, fails here."""
+    """Keep the bench IDs, plant data and geometry outside the documented walk edits."""
     plan, bench = load(SHOWCASE), json.loads(BENCH.read_text(encoding="utf-8"))
     assert plan["canvas"] == bench["canvas"]
     assert plan["version"] == bench["version"]
-    assert len(plan["objects"]) == len(bench["objects"])
+    shipped_items = {obj["item_id"]: obj for obj in plan["objects"]}
+    fixture_items = {obj["item_id"]: obj for obj in bench["objects"]}
+    west = next(obj for obj in bench["objects"] if label(obj) == "Perennial border")
+    east = next(obj for obj in plan["objects"] if label(obj) == "Perennial border (east)")
+    assert shipped_items.keys() == fixture_items.keys() | {east["item_id"]}
+    west_children = shipped_items[west["item_id"]]["child_item_ids"]
+    east_children = east["child_item_ids"]
+    assert len(west_children) == 6 and len(east_children) == 4
+    assert set(west_children) | set(east_children) == set(west["child_item_ids"])
     fields = ("item_id", "type", "object_type", "x", "y", "center_x", "center_y", "radius", "width",
               "height", "rotation", "points", "parent_bed_id", "child_item_ids", "name")
     moved = set()
-    for shipped, fixture in zip(plan["objects"], bench["objects"], strict=True):
+    for item_id, fixture in fixture_items.items():
+        shipped = shipped_items[item_id]
         expected = {k: fixture.get(k) for k in fields}
+        if fixture is west:
+            assert shipped["points"] != fixture["points"]
+            expected |= {"points": shipped["points"], "child_item_ids": west_children}
+        if label(fixture) == "Gravel path":
+            assert shipped["points"][0] == fixture["points"][0]
+            assert shipped["points"][-1] == fixture["points"][-1]
+            assert shipped["points"] != fixture["points"]
+            expected["points"] = shipped["points"]
+        if item_id in east_children:
+            assert fixture["parent_bed_id"] == west["item_id"]
+            expected["parent_bed_id"] = east["item_id"]
         if label(fixture) in MOVED and fixture["type"] == "circle":
             before, after = MOVED[label(fixture)]
             assert (fixture["center_x"], fixture["center_y"]) == before, label(fixture)
@@ -237,7 +258,7 @@ def _gap_to_walk(obj, walk, half_width):
 def test_nothing_stands_in_the_showcases_stepping_stone_walk(language):
     """The stones are a 50 cm walk from the terrace to the pond. A bird bath stood on it,
     and a chrysanthemum and a geranium grew into it (review of #795). Only the ground it
-    is laid on or through may lie under it: the lawn, the terrace, the perennial border."""
+    is laid on may lie under it: the lawn and the terrace."""
     plan, english = load(SHOWCASE, language), load(SHOWCASE)
     names = {o["item_id"]: label(o) for o in english["objects"]}
     stones = next(o for o in plan["objects"] if names[o["item_id"]] == "Stepping stones")
@@ -245,7 +266,7 @@ def test_nothing_stands_in_the_showcases_stepping_stone_walk(language):
     assert walk == [(700.0, 720.0), (640.0, 600.0), (560.0, 520.0), (500.0, 420.0)], (
         "the path's points are not moved: other test data is pinned to them")
     half_width = stones["stroke_width"] / 2
-    ground = {"Lawn", "Terrace", "Perennial border"}
+    ground = {"Lawn", "Terrace"}
     in_the_walk, nearest = [], {}
     for obj in plan["objects"]:
         name = names[obj["item_id"]]
@@ -261,17 +282,41 @@ def test_nothing_stands_in_the_showcases_stepping_stone_walk(language):
     assert 5 <= nearest["Geranium"] < 15 and 5 <= nearest["Chrysanthemum"] < 15
     assert 20 <= nearest["Bird bath"] < 60 and 0 < nearest["Pond"] < 10
     # the plants of the border keep their distance from each other as well
-    border = sorted(o["center_x"] for o in plan["objects"]
-                    if o.get("parent_bed_id") == next(
-                        i for i, n in names.items() if n == "Perennial border"))
-    assert len(border) == 10 and min(b - a for a, b in zip(border, border[1:], strict=False)) >= 60
+    borders = {obj["item_id"]: obj for obj in plan["objects"]
+               if names[obj["item_id"]] in {"Perennial border", "Perennial border (east)"}}
+    assert len(borders) == 2
+    plants = [obj for obj in plan["objects"] if obj.get("parent_bed_id") in borders]
+    centres_x = sorted(plant["center_x"] for plant in plants)
+    assert len(plants) == 10 and min(b - a for a, b in pairwise(centres_x)) >= 60
+    for plant in plants:
+        bed = borders[plant["parent_bed_id"]]
+        assert plant["item_id"] in bed["child_item_ids"]
+        centre = (plant["center_x"], plant["center_y"])
+        outline = _outline(bed)
+        polygon = QPolygonF([QPointF(x, y) for x, y in outline])
+        assert polygon.containsPoint(QPointF(*centre), Qt.FillRule.OddEvenFill)
+        assert _distance_to_polyline(centre, outline) >= plant["radius"]
+
+
+@pytest.mark.parametrize("language", ("", "de", "es"))
+def test_the_showcase_gravel_walk_clears_the_birch_crown(language):
+    plan = load(SHOWCASE, language)
+    names = {label(obj): obj["item_id"] for obj in load(SHOWCASE)["objects"]}
+    items = {obj["item_id"]: obj for obj in plan["objects"]}
+    gravel = items[names["Gravel path"]]
+    walk = [(point["x"], point["y"]) for point in gravel["points"]]
+    # The detour fits through the neighbouring tree, vegetable and trellis.
+    # Its original endpoint sits flush with the trellis.
+    for name, clearance in (("Birch", 5.0), ("Zucchini", 5.0), ("Trellis", 0.0)):
+        gap = _gap_to_walk(items[names[name]], walk, gravel["stroke_width"] / 2)
+        assert gap >= clearance, (name, gap)
 
 
 def test_the_showcase_is_a_real_saved_plan_with_its_links_and_place():
     plan = load(SHOWCASE)
     assert plan["location"]["timezone"] == "Europe/Berlin"
     by_id = {o["item_id"]: o for o in plan["objects"]}
-    assert len(by_id) == len(plan["objects"]) == 100
+    assert len(by_id) == len(plan["objects"]) == 101
     assert sum(1 for o in plan["objects"] if species(o) or o.get("object_type") in
                {"TREE", "SHRUB", "PERENNIAL"}) == 61
     for obj in plan["objects"]:

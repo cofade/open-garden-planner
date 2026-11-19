@@ -268,7 +268,7 @@ OBJECT_STYLES: dict[ObjectType, ObjectStyle] = {
         stroke_color=QColor(105, 105, 105),  # Dim gray
         stroke_width=2.0,
         display_name=QT_TR_NOOP("Garage/Shed"),
-        fill_pattern=FillPattern.CONCRETE,
+        fill_pattern=FillPattern.ROOF_TILES,
     ),
     ObjectType.TERRACE_PATIO: ObjectStyle(
         fill_color=QColor(222, 184, 135, 255),  # Burlywood

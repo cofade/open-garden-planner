@@ -672,7 +672,9 @@ class TestRoofRows:
         labels = [panel._form_layout.labelForField(field) for field in roof]
         assert all(label.buddy() is field for label, field in zip(labels, roof, strict=True))
         hints = {label.toolTip() for label in labels} | {field.accessibleDescription() for field in roof}
-        assert len(hints) == 1 and "3D view" in hints.pop()
+        assert hints == {
+            "The 2D plan draws the roof style. The sun study and 3D view also use pitch and overhang."
+        }
 
 
 class TestObjectTypeDropdownIcons:

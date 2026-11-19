@@ -439,11 +439,10 @@ class TestDefaultBuilder:
         expected = (mesh.positions[:, :2] + np.asarray(origin)) / PATTERN_TILE_CM
         assert np.allclose(mesh.uvs, expected)
 
-    def test_a_fill_part_is_vc_only_and_untinted(self) -> None:
-        """The rules ``MeshPart.__post_init__`` holds (a fill picture is a base colour
-        map: only the ``vc`` material takes one, and it already carries the colour)."""
-        with pytest.raises(ValueError, match="vc"):
-            MeshPart(prism_mesh([SQUARE], 10.0), "roof", fill_texture=True)
+    def test_a_fill_part_requires_a_picture_capable_material_and_is_untinted(self) -> None:
+        """The fill picture already carries the colour and needs a material that can show it."""
+        with pytest.raises(ValueError, match="only those materials take a picture"):
+            MeshPart(prism_mesh([SQUARE], 10.0), "glass", fill_texture=True)
         with pytest.raises(ValueError, match="not tinted"):
             MeshPart(prism_mesh([SQUARE], 10.0), "vc", tinted=True, fill_texture=True)
         with pytest.raises(ValueError, match="ground detail"):

@@ -7,7 +7,7 @@
 - Pixmap rendering covering the border (no — pen has alpha 220).
 - Selection-handle code stealing focus (irrelevant to paint).
 
-**Key signal**: instrumenting paint() showed the `ui/canvas/items/rectangle_item.py:411` `_draw_soil_mismatch_border` call *never ran* for raised beds. That code is unconditional within `is_bed_type` — so something earlier was returning.
+**Key signal**: instrumenting paint() showed the `ui/canvas/items/rectangle_item.py:382` `_draw_soil_mismatch_border` call *never ran* for raised beds. That code is unconditional within `is_bed_type` — so something earlier was returning.
 
 **Root cause**: an early `return` at the end of the RAISED_BED furniture-pixmap block bypassed it — RAISED_BED is rendered as a *furniture pixmap* (the wooden-frame look), and that branch returned before reaching the border. Every line below that — grid overlay, rotation indicator, *and the soil mismatch border* — was bypassed for raised beds. The original code reviewer of US-12.10d wired the border thinking it was reachable for all bed types.
 

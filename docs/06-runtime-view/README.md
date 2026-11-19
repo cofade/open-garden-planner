@@ -580,6 +580,7 @@ sequenceDiagram
     Note over K: the snapshot ends with with_context(records):<br/>door wall, lawn cut-outs and blade share (L4)
     K->>Y: apply(records, sun, ground)
     Y->>E: begin · the minimal calls · commit
+    Note over Y,E: A fill-only edit on an explicit flat roof updates its cap material.<br/>The roof geometry stays in the sink.
     K-->>K: applied(TickReport: diff, times, retired)
     Note over E: Qt draws the next frame on its render thread
 ```
@@ -1104,6 +1105,24 @@ Normal startup applies the application stylesheet and palette before constructin
 the window. After show, `refresh_window_theme` updates native frames and opt-in
 palette/icon hooks without reapplying the stylesheet or notifying listeners a
 second time. A later user theme change still uses the complete `apply_theme` path.
+
+In System mode, the platform appearance change uses the same path (#861).
+
+```mermaid
+sequenceDiagram
+    participant OS as Operating system
+    participant Qt as QStyleHints
+    participant Monitor as System theme monitor
+    participant Theme as apply_theme
+    OS->>Qt: Appearance changes
+    Qt-->>Monitor: Queue colorSchemeChanged callback
+    Qt->>Qt: Finish updating the platform palette
+    Monitor->>Monitor: Read current preference and effective palette
+    opt System theme and palette changed
+        Monitor->>Theme: Reapply theme
+        Theme->>Theme: Publish palette, stylesheet, icons and window colors
+    end
+```
 
 ## Gravel ground detail (#605, PR #645 owner pass)
 

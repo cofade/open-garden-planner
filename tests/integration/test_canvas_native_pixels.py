@@ -29,6 +29,13 @@ def test_selected_repaints_match_full_repaints_on_windows(native_pixels):
     assert max(native_pixels["repaints"]) == 0
 
 
+def test_selected_shed_replacement_repaints_in_the_main_window(native_pixels):
+    for edit, result in native_pixels["embedded_shed"].items():
+        assert result["changed"] > 0 and result["regions"], edit
+        assert result["repeat_noise"] == 0, (edit, result)
+        assert result["diff"] == 0, (edit, result)
+
+
 def test_balcony_note_clears_the_furniture_with_native_fonts(native_pixels):
     for result in native_pixels["balcony"].values():
         assert not result["overlaps"]

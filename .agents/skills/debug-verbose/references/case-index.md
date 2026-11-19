@@ -266,3 +266,10 @@
 | Case study: selected dense polyline blocked for 5–10 s in QPainterPathStroker (#928) | [Read](266-case-study-selected-dense-polyline-stroker-928.md) |
 | Case study: the 3D truth probes measured ground they did not ask for (#885, #886) | [Read](267-3d-truth-probe-ground.md) |
 | Case study: the foliage driver published success before its window was gone (#893) | [Read](268-foliage-driver-deferred-window-delete.md) |
+| Case study: an unbounded category popup clipped matches (#951) | [Read](269-category-popup-overflow-951.md) |
+| Case study: System theme changes never reached the running palette (#861) | [Read](270-system-theme-and-calendar-861.md) |
+| Case study: a repaint comparison crossed a minimap refresh (#879) | [Read](271-native-repaint-minimap-879.md) |
+| Case study: first-launch maximization capped a headless test window (PR #978) | [Read](272-sun-legend-headless-window.md) |
+| Case study: Ringelblume was absent from the Flowers & Perennials gallery (#950) | [Read](273-gallery-calendula-entry-950.md) |
+| Case study: an explicit flat roof lost its fill in 3D (PR #978) | [Read](274-flat-roof-3d-fill-978.md) |
+| Case study: an explicit tool-shed roof lost its 2D drawing (PR #978) | [Read](275-tool-shed-explicit-roof-978.md) |

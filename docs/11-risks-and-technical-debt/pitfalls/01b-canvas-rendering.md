@@ -215,6 +215,20 @@ Passing 16,000 tightly packed vertices inside a 300 cm clip into Qt's non-cosmet
 
 ### PF-CAN-67
 
+- **Rule:** Compare the settled native viewport with two full repaints.
+- **Pinned by:** `tests/integration/test_canvas_native_pixels.py::test_selected_shed_replacement_repaints_in_the_main_window`
+- **Source:** #879
+- **Status:** standing
+- **Legacy:** none (new entry)
+
+Wait for the minimap's thumbnail timer. Crop the owning window's backing
+store without asking the widget to redraw, then capture a second full repaint
+as a stability control. The first undo capture differed by 810 pixels, all
+inside the minimap. Seven settled main-window edits matched on v1.40.8,
+including replacing the selected shed with a glasshouse.
+
+### PF-CAN-68
+
 - **Rule:** Export a raster picture no finer than the page it lands on: `raster_level` rounds a painter's scale UP to a power of two for the canvas, and a print painter meets that level with up to 1.7x the pixels a 300-dpi page shows. Fit each picture to one pixel per export unit (`svg_export._fit_picture`), measured by the lengths the state transform maps the target's edges onto (never a rotation-inflated bounding box), and never enlarge one.
 - **Pinned by:** `tests/unit/test_svg_export_pictures.py::test_a_picture_finer_than_its_place_is_cut_to_the_export`; `tests/unit/test_svg_export_pictures.py::test_the_device_size_is_taken_through_the_state_transform`; `tests/unit/test_svg_export_pictures.py::test_a_turned_picture_is_measured_by_its_edge_not_its_bounding_box`; `tests/unit/test_svg_export_pictures.py::test_a_non_finite_target_never_aborts_the_export`; `tests/integration/test_svg_export_fidelity.py::test_no_picture_is_embedded_finer_than_the_export_can_show`
 - **Source:** #850
@@ -222,4 +236,3 @@ Passing 16,000 tightly packed vertices inside a 300 cm clip into Qt's non-cosmet
 - **Legacy:** none (new entry)
 
 Measured on the bundled examples at a 30 cm page (#850): the family garden's sprites carried 1.33-1.37x the pixels the page shows, the food forest's 1.26-1.69x, and the raised bed's and balcony's 1.00-1.13x — the file fell 18.9 %, 27.4 %, 1.1 % and 6.4 % once each picture was fitted. What stayed is the deliberate cost of 300 dpi: 11 fill-texture tiles (2.72 MB of the family garden) and the sprites themselves, so a plan whose page scale already exceeds its raster level barely moves. Two parts of the report were left alone on purpose — a clipped stroke stays a filled outline because `QSvgRenderer` ignores `clip-path` (the fidelity suite is rasterised with it), and de-duplicating identical payloads saves 0.13 MB of 6.1 MB.
-

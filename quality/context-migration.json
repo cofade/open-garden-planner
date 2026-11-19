@@ -218,7 +218,7 @@
         {
           "path": ".agents/skills/debug-verbose/references/042-case-study-early-return-inside-a-paint-branch-silently-bypasses-later-draws-us-12-10-.md",
           "sha256": "aa0af451300d7c02f6267e1439be0c036f39510104adfa9729fe84b7efc4956c",
-          "current_sha256": "534a52c675b5a279ae5664e5f2d6e1c2a42c93ecfd5840c8bca11d43409d0d36"
+          "current_sha256": "c64a2d035242ff3caa01ffecf2af5c2cae6c49731850c39d780e607c8d611b42"
         },
         {
           "path": ".agents/skills/debug-verbose/references/043-case-study-outer-dialog-ok-appends-a-duplicate-after-sub-dialog-edit-us-12-10-f2-6c-f.md",
@@ -1618,7 +1618,7 @@
         {
           "path": ".claude/skills/debug-verbose/references/042-case-study-early-return-inside-a-paint-branch-silently-bypasses-later-draws-us-12-10-.md",
           "sha256": "aa0af451300d7c02f6267e1439be0c036f39510104adfa9729fe84b7efc4956c",
-          "current_sha256": "534a52c675b5a279ae5664e5f2d6e1c2a42c93ecfd5840c8bca11d43409d0d36"
+          "current_sha256": "c64a2d035242ff3caa01ffecf2af5c2cae6c49731850c39d780e607c8d611b42"
         },
         {
           "path": ".claude/skills/debug-verbose/references/043-case-study-outer-dialog-ok-appends-a-duplicate-after-sub-dialog-edit-us-12-10-f2-6c-f.md",

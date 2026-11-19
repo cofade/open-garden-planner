@@ -15,8 +15,8 @@ and read by the 3D snapshot:
 
 Additive, like ``object_height_cm`` (ADR-037): old app versions ignore the keys,
 old plans load without them (automatic), and the ``.ogp`` ``FILE_VERSION`` stays.
-The 2D canvas does not read them: the plan's ridge line and its 2D sun study are
-unchanged (issue #440 owns a roof-aware 2D caster).
+The canvas roof picture also reads the style (#946); its outline is the plan
+footprint. The roof-aware 2D caster (#440) reads all three keys.
 
 The roof's TOP is the building's height in every style — the 2D resolver's
 answer, as before (ADR-037: a building's height is its ridge height): the pitch

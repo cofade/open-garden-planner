@@ -33,6 +33,7 @@ from open_garden_planner.core.greenhouse import (
 )
 from open_garden_planner.core.object_types import ObjectType, is_ridge_bearing_type
 from open_garden_planner.core.roof_ridge import compute_roof_ridge_endpoints
+from open_garden_planner.core.roof_style import FLAT, HIP, SHED, roof_style
 
 #: ``metadata`` key saying which finish a ridge wears. Absent: a house's brown.
 RIDGE_FINISH_KEY: Final = "ridge_finish"
@@ -133,6 +134,22 @@ def ridge_points_local(
     return first, second
 
 
+def ridge_cap_is_active(owner: QGraphicsItem | None) -> bool:
+    """Whether the stored ridge is the owner's currently displayed cap."""
+    return (
+        getattr(owner, "object_type", None) != ObjectType.HOUSE
+        or roof_style(getattr(owner, "metadata", None)) not in (FLAT, HIP, SHED)
+    )
+
+
+def refresh_ridge_visibility(ridge: QGraphicsItem | None) -> None:
+    """Apply the attached scene's layer and roof-style visibility rules."""
+    if ridge is not None:
+        apply = getattr(ridge.scene(), "_apply_item_visibility", None)
+        if callable(apply):
+            apply(ridge)
+
+
 def apply_ridge_look(owner: QGraphicsItem, ridge: QGraphicsItem | None) -> None:
     """Give *ridge* the finish its owner's type asks for (#768).
 
@@ -160,6 +177,7 @@ def apply_ridge_look(owner: QGraphicsItem, ridge: QGraphicsItem | None) -> None:
     update = getattr(ridge, "update", None)
     if callable(update):
         update()
+    refresh_ridge_visibility(ridge)
 
 
 def build_linked_ridge(
