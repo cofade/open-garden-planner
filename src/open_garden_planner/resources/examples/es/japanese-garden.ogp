@@ -1,0 +1,2471 @@
+{
+  "version": "1.4",
+  "metadata": {
+    "modified": "2026-10-26T00:00:00+00:00"
+  },
+  "canvas": {
+    "width": 1200,
+    "height": 1000
+  },
+  "layers": [
+    {
+      "id": "93c07dc5-2de3-5511-8b50-bc544fd5588f",
+      "name": "Jard\u00edn",
+      "visible": true,
+      "locked": false,
+      "opacity": 1.0,
+      "z_order": 0,
+      "permaculture_layer": null
+    },
+    {
+      "id": "05f39773-29e5-5c4f-b782-acc14f416298",
+      "name": "Indicaciones",
+      "visible": true,
+      "locked": false,
+      "opacity": 1.0,
+      "z_order": 1,
+      "permaculture_layer": null
+    }
+  ],
+  "objects": [
+    {
+      "type": "polygon",
+      "item_id": "0cdd8865-b839-5361-8fa4-7c25c782b993",
+      "points": [
+        {
+          "x": 0.0,
+          "y": 0.0
+        },
+        {
+          "x": 1200.0,
+          "y": 0.0
+        },
+        {
+          "x": 1200.0,
+          "y": 1000.0
+        },
+        {
+          "x": 0.0,
+          "y": 1000.0
+        }
+      ],
+      "object_type": "LAWN",
+      "name": "C\u00e9sped de musgo",
+      "layer_id": "93c07dc5-2de3-5511-8b50-bc544fd5588f",
+      "label_visible": false,
+      "fill_color": "#ff64b43c",
+      "stroke_color": "#ff3c821e",
+      "stroke_width": 2.0,
+      "fill_pattern": "GRASS",
+      "stroke_style": "SOLID",
+      "stack_order": 1024
+    },
+    {
+      "type": "polygon",
+      "item_id": "5646e991-0043-5ed0-a6b4-7e65226531d2",
+      "points": [
+        {
+          "x": 90.0,
+          "y": 90.0
+        },
+        {
+          "x": 710.0,
+          "y": 90.0
+        },
+        {
+          "x": 710.0,
+          "y": 510.0
+        },
+        {
+          "x": 90.0,
+          "y": 510.0
+        }
+      ],
+      "object_type": "TERRACE_PATIO",
+      "name": "Arena rastrillada",
+      "layer_id": "93c07dc5-2de3-5511-8b50-bc544fd5588f",
+      "label_visible": false,
+      "fill_color": "#ffdeb887",
+      "stroke_color": "#ffa0522d",
+      "stroke_width": 2.0,
+      "fill_pattern": "SAND",
+      "stroke_style": "SOLID",
+      "stack_order": 4096
+    },
+    {
+      "type": "polygon",
+      "item_id": "5beb36fa-26f8-551c-bd37-88071bbeb5d5",
+      "points": [
+        {
+          "x": 190.0,
+          "y": 300.0
+        },
+        {
+          "x": 290.0,
+          "y": 270.0
+        },
+        {
+          "x": 380.0,
+          "y": 320.0
+        },
+        {
+          "x": 360.0,
+          "y": 410.0
+        },
+        {
+          "x": 250.0,
+          "y": 430.0
+        },
+        {
+          "x": 180.0,
+          "y": 380.0
+        }
+      ],
+      "object_type": "LAWN",
+      "name": "Isla de musgo",
+      "layer_id": "93c07dc5-2de3-5511-8b50-bc544fd5588f",
+      "label_visible": false,
+      "fill_color": "#ff64b43c",
+      "stroke_color": "#ff3c821e",
+      "stroke_width": 2.0,
+      "fill_pattern": "GRASS",
+      "stroke_style": "SOLID",
+      "stack_order": 5120
+    },
+    {
+      "type": "polygon",
+      "item_id": "ebb2cb67-5679-510d-b202-91f342cbe16e",
+      "points": [
+        {
+          "x": 500.0,
+          "y": 250.0
+        },
+        {
+          "x": 590.0,
+          "y": 240.0
+        },
+        {
+          "x": 640.0,
+          "y": 300.0
+        },
+        {
+          "x": 600.0,
+          "y": 360.0
+        },
+        {
+          "x": 510.0,
+          "y": 340.0
+        }
+      ],
+      "object_type": "LAWN",
+      "name": "Isla de musgo",
+      "layer_id": "93c07dc5-2de3-5511-8b50-bc544fd5588f",
+      "label_visible": false,
+      "fill_color": "#ff64b43c",
+      "stroke_color": "#ff3c821e",
+      "stroke_width": 2.0,
+      "fill_pattern": "GRASS",
+      "stroke_style": "SOLID",
+      "stack_order": 6144
+    },
+    {
+      "type": "polygon",
+      "item_id": "52aa0e10-9c62-5de0-ae6f-b87aaf432a2f",
+      "points": [
+        {
+          "x": 110.0,
+          "y": 630.0
+        },
+        {
+          "x": 390.0,
+          "y": 630.0
+        },
+        {
+          "x": 390.0,
+          "y": 720.0
+        },
+        {
+          "x": 110.0,
+          "y": 720.0
+        }
+      ],
+      "object_type": "TERRACE_PATIO",
+      "name": "Galer\u00eda",
+      "layer_id": "93c07dc5-2de3-5511-8b50-bc544fd5588f",
+      "label_visible": false,
+      "fill_color": "#ffdeb887",
+      "stroke_color": "#ffa0522d",
+      "stroke_width": 2.0,
+      "fill_pattern": "DECKING",
+      "stroke_style": "SOLID",
+      "stack_order": 12288
+    },
+    {
+      "type": "polygon",
+      "item_id": "30467d53-0846-5475-bdca-9f4c1767cbd0",
+      "points": [
+        {
+          "x": 390.0,
+          "y": 560.0
+        },
+        {
+          "x": 460.0,
+          "y": 560.0
+        },
+        {
+          "x": 460.0,
+          "y": 940.0
+        },
+        {
+          "x": 390.0,
+          "y": 940.0
+        }
+      ],
+      "object_type": "TERRACE_PATIO",
+      "name": "Paseo de pizarra",
+      "layer_id": "93c07dc5-2de3-5511-8b50-bc544fd5588f",
+      "label_visible": false,
+      "fill_color": "#ff7b8088",
+      "stroke_color": "#ffa0522d",
+      "stroke_width": 2.0,
+      "fill_pattern": "SLATE",
+      "stroke_style": "SOLID",
+      "stack_order": 13312
+    },
+    {
+      "type": "polyline",
+      "item_id": "bec83dd3-f92d-5efc-953a-cb5fd46db275",
+      "points": [
+        {
+          "x": 600.0,
+          "y": 50.0
+        },
+        {
+          "x": 600.0,
+          "y": 90.0
+        }
+      ],
+      "object_type": "PATH",
+      "name": "Camino de la puerta",
+      "layer_id": "93c07dc5-2de3-5511-8b50-bc544fd5588f",
+      "label_visible": false,
+      "stroke_color": "#ff8c8c8c",
+      "stroke_width": 90.0,
+      "path_fence_style": "PAVED_PATH",
+      "stack_order": 14336
+    },
+    {
+      "type": "polyline",
+      "item_id": "c3ca7572-efcf-5815-a7a7-c1c9455b17d8",
+      "points": [
+        {
+          "x": 700.0,
+          "y": 300.0
+        },
+        {
+          "x": 790.0,
+          "y": 380.0
+        },
+        {
+          "x": 780.0,
+          "y": 480.0
+        },
+        {
+          "x": 700.0,
+          "y": 540.0
+        },
+        {
+          "x": 560.0,
+          "y": 560.0
+        },
+        {
+          "x": 460.0,
+          "y": 590.0
+        }
+      ],
+      "object_type": "PATH",
+      "name": "Pasaderas",
+      "layer_id": "93c07dc5-2de3-5511-8b50-bc544fd5588f",
+      "label_visible": false,
+      "stroke_color": "#ffa0a09b",
+      "stroke_width": 55.0,
+      "path_fence_style": "STEPPING_STONES",
+      "stack_order": 15360
+    },
+    {
+      "type": "polygon",
+      "item_id": "26d69ebf-a22d-5a1b-b2b2-3d9087a765e2",
+      "points": [
+        {
+          "x": 700.0,
+          "y": 620.0
+        },
+        {
+          "x": 800.0,
+          "y": 560.0
+        },
+        {
+          "x": 960.0,
+          "y": 560.0
+        },
+        {
+          "x": 1090.0,
+          "y": 620.0
+        },
+        {
+          "x": 1120.0,
+          "y": 740.0
+        },
+        {
+          "x": 1060.0,
+          "y": 860.0
+        },
+        {
+          "x": 920.0,
+          "y": 900.0
+        },
+        {
+          "x": 780.0,
+          "y": 870.0
+        },
+        {
+          "x": 690.0,
+          "y": 780.0
+        }
+      ],
+      "object_type": "POND_POOL",
+      "name": "Estanque",
+      "layer_id": "93c07dc5-2de3-5511-8b50-bc544fd5588f",
+      "label_visible": false,
+      "fill_color": "#ff40a4df",
+      "stroke_color": "#ff191970",
+      "stroke_width": 2.0,
+      "fill_pattern": "WATER",
+      "stroke_style": "SOLID",
+      "stack_order": 17408
+    },
+    {
+      "type": "polyline",
+      "item_id": "07a81de9-671d-5bb1-bd17-4f43d5f1980a",
+      "points": [
+        {
+          "x": 620.0,
+          "y": 740.0
+        },
+        {
+          "x": 760.0,
+          "y": 730.0
+        },
+        {
+          "x": 900.0,
+          "y": 735.0
+        },
+        {
+          "x": 1060.0,
+          "y": 725.0
+        },
+        {
+          "x": 1150.0,
+          "y": 730.0
+        }
+      ],
+      "object_type": "PATH",
+      "name": "Puente de tablones",
+      "layer_id": "93c07dc5-2de3-5511-8b50-bc544fd5588f",
+      "label_visible": false,
+      "stroke_color": "#ffa07846",
+      "stroke_width": 80.0,
+      "path_fence_style": "WOODEN_BOARDWALK",
+      "stack_order": 18432
+    },
+    {
+      "type": "polygon",
+      "item_id": "81ed58dd-e539-58d2-a631-56cc3b6d739d",
+      "points": [
+        {
+          "x": 90.0,
+          "y": 25.0
+        },
+        {
+          "x": 520.0,
+          "y": 25.0
+        },
+        {
+          "x": 520.0,
+          "y": 80.0
+        },
+        {
+          "x": 90.0,
+          "y": 80.0
+        }
+      ],
+      "object_type": "TERRACE_PATIO",
+      "name": "Franja de guijarros",
+      "layer_id": "93c07dc5-2de3-5511-8b50-bc544fd5588f",
+      "label_visible": false,
+      "fill_color": "#ffdeb887",
+      "stroke_color": "#ffa0522d",
+      "stroke_width": 2.0,
+      "fill_pattern": "PEBBLES",
+      "stroke_style": "SOLID",
+      "stack_order": 19456
+    },
+    {
+      "type": "polyline",
+      "item_id": "4ec8abd3-980e-593d-b951-5634756b7325",
+      "points": [
+        {
+          "x": 8.0,
+          "y": 8.0
+        },
+        {
+          "x": 8.0,
+          "y": 992.0
+        },
+        {
+          "x": 1192.0,
+          "y": 992.0
+        },
+        {
+          "x": 1192.0,
+          "y": 8.0
+        },
+        {
+          "x": 660.0,
+          "y": 8.0
+        }
+      ],
+      "object_type": "FENCE",
+      "name": "Valla de madera",
+      "metadata": {
+        "object_height_cm": 190.0
+      },
+      "layer_id": "93c07dc5-2de3-5511-8b50-bc544fd5588f",
+      "label_visible": false,
+      "stroke_color": "#ff8b5a2b",
+      "stroke_width": 3.0,
+      "path_fence_style": "WOODEN_FENCE",
+      "stack_order": 2048
+    },
+    {
+      "type": "polyline",
+      "item_id": "2ce3812b-54ce-53fb-9bb6-3e2ee4d7a136",
+      "points": [
+        {
+          "x": 540.0,
+          "y": 8.0
+        },
+        {
+          "x": 8.0,
+          "y": 8.0
+        }
+      ],
+      "object_type": "FENCE",
+      "name": "Valla de madera",
+      "metadata": {
+        "object_height_cm": 190.0
+      },
+      "layer_id": "93c07dc5-2de3-5511-8b50-bc544fd5588f",
+      "label_visible": false,
+      "stroke_color": "#ff8b5a2b",
+      "stroke_width": 3.0,
+      "path_fence_style": "WOODEN_FENCE",
+      "stack_order": 3072
+    },
+    {
+      "type": "polygon",
+      "item_id": "7c9b55ae-406c-5cd2-8c43-4eaafb68b502",
+      "points": [
+        {
+          "x": 255.0,
+          "y": 332.0
+        },
+        {
+          "x": 272.0,
+          "y": 322.0
+        },
+        {
+          "x": 296.0,
+          "y": 320.0
+        },
+        {
+          "x": 314.0,
+          "y": 334.0
+        },
+        {
+          "x": 318.0,
+          "y": 356.0
+        },
+        {
+          "x": 304.0,
+          "y": 372.0
+        },
+        {
+          "x": 282.0,
+          "y": 378.0
+        },
+        {
+          "x": 260.0,
+          "y": 372.0
+        },
+        {
+          "x": 250.0,
+          "y": 352.0
+        }
+      ],
+      "object_type": "GENERIC_POLYGON",
+      "name": "Roca",
+      "metadata": {
+        "object_height_cm": 60.0
+      },
+      "layer_id": "93c07dc5-2de3-5511-8b50-bc544fd5588f",
+      "label_visible": false,
+      "fill_color": "#ffa49e93",
+      "stroke_color": "#ff4682b4",
+      "stroke_width": 2.0,
+      "fill_pattern": "STONE",
+      "stroke_style": "SOLID",
+      "stack_order": 7168
+    },
+    {
+      "type": "polygon",
+      "item_id": "e9dc771a-f61c-5784-8671-2b0894b376a6",
+      "points": [
+        {
+          "x": 545.0,
+          "y": 282.0
+        },
+        {
+          "x": 562.0,
+          "y": 275.0
+        },
+        {
+          "x": 580.0,
+          "y": 277.0
+        },
+        {
+          "x": 591.0,
+          "y": 290.0
+        },
+        {
+          "x": 590.0,
+          "y": 306.0
+        },
+        {
+          "x": 576.0,
+          "y": 316.0
+        },
+        {
+          "x": 558.0,
+          "y": 317.0
+        },
+        {
+          "x": 546.0,
+          "y": 304.0
+        }
+      ],
+      "object_type": "GENERIC_POLYGON",
+      "name": "Roca",
+      "metadata": {
+        "object_height_cm": 40.0
+      },
+      "layer_id": "93c07dc5-2de3-5511-8b50-bc544fd5588f",
+      "label_visible": false,
+      "fill_color": "#ffa49e93",
+      "stroke_color": "#ff4682b4",
+      "stroke_width": 2.0,
+      "fill_pattern": "STONE",
+      "stroke_style": "SOLID",
+      "stack_order": 8192
+    },
+    {
+      "type": "polygon",
+      "item_id": "98ea17fa-6c1a-5e02-8475-c585daef1a68",
+      "points": [
+        {
+          "x": 420.0,
+          "y": 192.0
+        },
+        {
+          "x": 440.0,
+          "y": 183.0
+        },
+        {
+          "x": 462.0,
+          "y": 184.0
+        },
+        {
+          "x": 475.0,
+          "y": 198.0
+        },
+        {
+          "x": 474.0,
+          "y": 216.0
+        },
+        {
+          "x": 458.0,
+          "y": 229.0
+        },
+        {
+          "x": 438.0,
+          "y": 231.0
+        },
+        {
+          "x": 420.0,
+          "y": 222.0
+        },
+        {
+          "x": 413.0,
+          "y": 206.0
+        }
+      ],
+      "object_type": "GENERIC_POLYGON",
+      "name": "Roca",
+      "metadata": {
+        "object_height_cm": 25.0
+      },
+      "layer_id": "93c07dc5-2de3-5511-8b50-bc544fd5588f",
+      "label_visible": false,
+      "fill_color": "#ffa49e93",
+      "stroke_color": "#ff4682b4",
+      "stroke_width": 2.0,
+      "fill_pattern": "STONE",
+      "stroke_style": "SOLID",
+      "stack_order": 9216
+    },
+    {
+      "type": "circle",
+      "item_id": "ca96dae7-1cef-562d-9e2a-573dcc992a08",
+      "center_x": 300.0,
+      "center_y": 400.0,
+      "radius": 120.0,
+      "object_type": "TREE",
+      "name": "Pino",
+      "metadata": {
+        "plant_species": {
+          "scientific_name": "Pinus sylvestris",
+          "common_name": "Pino",
+          "family": "Pinaceae",
+          "genus": "Pinus",
+          "cycle": "perennial",
+          "growth_rate": "medium",
+          "flower_type": "monoecious",
+          "pollination_type": "self_fertile",
+          "min_height_cm": 1500.0,
+          "max_height_cm": 3500.0,
+          "min_spread_cm": 600.0,
+          "max_spread_cm": 1200.0,
+          "sun_requirement": "full_sun",
+          "water_needs": "low",
+          "hardiness_zone_min": 3,
+          "hardiness_zone_max": 7,
+          "ph_min": 4.5,
+          "ph_max": 6.5,
+          "edible": false,
+          "edible_parts": [],
+          "data_source": "bundled",
+          "frost_tolerance": "hardy",
+          "nutrient_demand": "light",
+          "n_demand": "low",
+          "p_demand": "low",
+          "k_demand": "low",
+          "permaculture_layer": "canopy",
+          "functions": []
+        },
+        "plant_instance": {
+          "planting_date": "2025-10-25",
+          "current_height_cm": 320.0,
+          "current_spread_cm": 240.0
+        }
+      },
+      "layer_id": "93c07dc5-2de3-5511-8b50-bc544fd5588f",
+      "label_visible": false,
+      "fill_color": "#ff228b22",
+      "stroke_color": "#ff000000",
+      "stroke_width": 1.0,
+      "fill_pattern": "SOLID",
+      "stroke_style": "SOLID",
+      "plant_category": "ROUND_DECIDUOUS",
+      "plant_species": "Pine",
+      "spacing_radius_cm": 119.0,
+      "stack_order": 10240
+    },
+    {
+      "type": "rectangle",
+      "item_id": "31d4ea7d-add0-5e75-94f1-40b63d45bb2a",
+      "x": 110.0,
+      "y": 720.0,
+      "width": 280.0,
+      "height": 210.0,
+      "object_type": "TOOL_SHED",
+      "name": "Casa de t\u00e9",
+      "metadata": {
+        "object_height_cm": 290.0,
+        "roof_style": "hip",
+        "roof_pitch_deg": 30.0,
+        "roof_overhang_cm": 60.0
+      },
+      "layer_id": "93c07dc5-2de3-5511-8b50-bc544fd5588f",
+      "label_visible": false,
+      "fill_color": "#ffa0825a",
+      "stroke_color": "#ff000000",
+      "stroke_width": 1.0,
+      "fill_pattern": "SOLID",
+      "stroke_style": "SOLID",
+      "stack_order": 11264
+    },
+    {
+      "type": "rectangle",
+      "item_id": "56bc420c-d9ed-5dae-8d08-fa0f5058033d",
+      "x": 150.0,
+      "y": 650.0,
+      "width": 130.0,
+      "height": 46.0,
+      "object_type": "BENCH",
+      "name": "Banco",
+      "layer_id": "93c07dc5-2de3-5511-8b50-bc544fd5588f",
+      "label_visible": false,
+      "fill_color": "#ff966e46",
+      "stroke_color": "#ff000000",
+      "stroke_width": 1.0,
+      "fill_pattern": "SOLID",
+      "stroke_style": "SOLID",
+      "stack_order": 16384
+    },
+    {
+      "type": "circle",
+      "item_id": "963da755-15e3-5e21-89ea-053d5b139065",
+      "center_x": 600.0,
+      "center_y": 690.0,
+      "radius": 115.0,
+      "object_type": "TREE",
+      "name": "Arce japon\u00e9s",
+      "metadata": {
+        "plant_species": {
+          "scientific_name": "Acer palmatum",
+          "common_name": "Arce japon\u00e9s",
+          "family": "Sapindaceae",
+          "genus": "Acer",
+          "cycle": "perennial",
+          "growth_rate": "slow",
+          "flower_type": "hermaphrodite",
+          "pollination_type": "unknown",
+          "min_height_cm": 300.0,
+          "max_height_cm": 500.0,
+          "min_spread_cm": 300.0,
+          "max_spread_cm": 500.0,
+          "sun_requirement": "partial_sun",
+          "water_needs": "medium",
+          "hardiness_zone_min": 5,
+          "hardiness_zone_max": 8,
+          "ph_min": 5.5,
+          "ph_max": 7.0,
+          "edible": false,
+          "edible_parts": [],
+          "data_source": "bundled",
+          "frost_tolerance": "hardy",
+          "nutrient_demand": "light",
+          "n_demand": "low",
+          "p_demand": "low",
+          "k_demand": "low",
+          "permaculture_layer": "sub_canopy",
+          "functions": []
+        },
+        "plant_instance": {
+          "planting_date": "2025-10-25",
+          "current_height_cm": 250.0,
+          "current_spread_cm": 230.0
+        }
+      },
+      "layer_id": "93c07dc5-2de3-5511-8b50-bc544fd5588f",
+      "label_visible": false,
+      "fill_color": "#ff228b22",
+      "stroke_color": "#ff000000",
+      "stroke_width": 1.0,
+      "fill_pattern": "SOLID",
+      "stroke_style": "SOLID",
+      "plant_category": "ROUND_DECIDUOUS",
+      "plant_species": "Japanese Maple",
+      "spacing_radius_cm": 114.0,
+      "stack_order": 20480
+    },
+    {
+      "type": "circle",
+      "item_id": "d458405c-8e3b-5d70-b72e-24346e0d77cb",
+      "center_x": 800.0,
+      "center_y": 170.0,
+      "radius": 90.0,
+      "object_type": "TREE",
+      "name": "Arce japon\u00e9s",
+      "metadata": {
+        "plant_species": {
+          "scientific_name": "Acer palmatum",
+          "common_name": "Arce japon\u00e9s",
+          "family": "Sapindaceae",
+          "genus": "Acer",
+          "cycle": "perennial",
+          "growth_rate": "slow",
+          "flower_type": "hermaphrodite",
+          "pollination_type": "unknown",
+          "min_height_cm": 300.0,
+          "max_height_cm": 500.0,
+          "min_spread_cm": 300.0,
+          "max_spread_cm": 500.0,
+          "sun_requirement": "partial_sun",
+          "water_needs": "medium",
+          "hardiness_zone_min": 5,
+          "hardiness_zone_max": 8,
+          "ph_min": 5.5,
+          "ph_max": 7.0,
+          "edible": false,
+          "edible_parts": [],
+          "data_source": "bundled",
+          "frost_tolerance": "hardy",
+          "nutrient_demand": "light",
+          "n_demand": "low",
+          "p_demand": "low",
+          "k_demand": "low",
+          "permaculture_layer": "sub_canopy",
+          "functions": []
+        },
+        "plant_instance": {
+          "planting_date": "2025-10-25",
+          "current_height_cm": 190.0,
+          "current_spread_cm": 180.0
+        }
+      },
+      "layer_id": "93c07dc5-2de3-5511-8b50-bc544fd5588f",
+      "label_visible": false,
+      "fill_color": "#ff228b22",
+      "stroke_color": "#ff000000",
+      "stroke_width": 1.0,
+      "fill_pattern": "SOLID",
+      "stroke_style": "SOLID",
+      "plant_category": "ROUND_DECIDUOUS",
+      "plant_species": "Japanese Maple",
+      "spacing_radius_cm": 89.0,
+      "stack_order": 21504
+    },
+    {
+      "type": "circle",
+      "item_id": "00aa3240-6c67-59f3-87cf-01e3bba9321c",
+      "center_x": 1085.0,
+      "center_y": 190.0,
+      "radius": 140.0,
+      "object_type": "TREE",
+      "name": "Abedul",
+      "metadata": {
+        "plant_species": {
+          "scientific_name": "Betula pendula",
+          "common_name": "Abedul",
+          "family": "Betulaceae",
+          "genus": "Betula",
+          "cycle": "perennial",
+          "growth_rate": "fast",
+          "flower_type": "monoecious",
+          "pollination_type": "self_fertile",
+          "min_height_cm": 800.0,
+          "max_height_cm": 2500.0,
+          "min_spread_cm": 600.0,
+          "max_spread_cm": 1200.0,
+          "sun_requirement": "full_sun",
+          "water_needs": "medium",
+          "hardiness_zone_min": 2,
+          "hardiness_zone_max": 7,
+          "ph_min": 5.0,
+          "ph_max": 7.5,
+          "edible": false,
+          "edible_parts": [],
+          "data_source": "bundled",
+          "frost_tolerance": "hardy",
+          "nutrient_demand": "light",
+          "n_demand": "low",
+          "p_demand": "low",
+          "k_demand": "low",
+          "permaculture_layer": "canopy",
+          "functions": []
+        },
+        "plant_instance": {
+          "planting_date": "2025-10-25",
+          "current_height_cm": 700.0,
+          "current_spread_cm": 280.0
+        }
+      },
+      "layer_id": "93c07dc5-2de3-5511-8b50-bc544fd5588f",
+      "label_visible": false,
+      "fill_color": "#ff228b22",
+      "stroke_color": "#ff000000",
+      "stroke_width": 1.0,
+      "fill_pattern": "SOLID",
+      "stroke_style": "SOLID",
+      "plant_category": "ROUND_DECIDUOUS",
+      "plant_species": "Birch",
+      "spacing_radius_cm": 139.0,
+      "stack_order": 22528
+    },
+    {
+      "type": "circle",
+      "item_id": "46cb721a-3ef1-5a6b-bf3c-31832bac448b",
+      "center_x": 930.0,
+      "center_y": 400.0,
+      "radius": 110.0,
+      "object_type": "TREE",
+      "name": "Pino",
+      "metadata": {
+        "plant_species": {
+          "scientific_name": "Pinus sylvestris",
+          "common_name": "Pino",
+          "family": "Pinaceae",
+          "genus": "Pinus",
+          "cycle": "perennial",
+          "growth_rate": "medium",
+          "flower_type": "monoecious",
+          "pollination_type": "self_fertile",
+          "min_height_cm": 1500.0,
+          "max_height_cm": 3500.0,
+          "min_spread_cm": 600.0,
+          "max_spread_cm": 1200.0,
+          "sun_requirement": "full_sun",
+          "water_needs": "low",
+          "hardiness_zone_min": 3,
+          "hardiness_zone_max": 7,
+          "ph_min": 4.5,
+          "ph_max": 6.5,
+          "edible": false,
+          "edible_parts": [],
+          "data_source": "bundled",
+          "frost_tolerance": "hardy",
+          "nutrient_demand": "light",
+          "n_demand": "low",
+          "p_demand": "low",
+          "k_demand": "low",
+          "permaculture_layer": "canopy",
+          "functions": []
+        },
+        "plant_instance": {
+          "planting_date": "2025-10-25",
+          "current_height_cm": 300.0,
+          "current_spread_cm": 220.0
+        }
+      },
+      "layer_id": "93c07dc5-2de3-5511-8b50-bc544fd5588f",
+      "label_visible": false,
+      "fill_color": "#ff228b22",
+      "stroke_color": "#ff000000",
+      "stroke_width": 1.0,
+      "fill_pattern": "SOLID",
+      "stroke_style": "SOLID",
+      "plant_category": "ROUND_DECIDUOUS",
+      "plant_species": "Pine",
+      "spacing_radius_cm": 109.0,
+      "stack_order": 23552
+    },
+    {
+      "type": "circle",
+      "item_id": "ace6cc4b-8379-5686-a6ff-9b17f3785c34",
+      "center_x": 520.0,
+      "center_y": 950.0,
+      "radius": 42.5,
+      "object_type": "TREE",
+      "name": "Bamb\u00fa",
+      "metadata": {
+        "plant_species": {
+          "scientific_name": "Fargesia murielae",
+          "common_name": "Bamb\u00fa",
+          "family": "Poaceae",
+          "genus": "Fargesia",
+          "cycle": "perennial",
+          "growth_rate": "medium",
+          "flower_type": "hermaphrodite",
+          "pollination_type": "unknown",
+          "min_height_cm": 300.0,
+          "max_height_cm": 400.0,
+          "min_spread_cm": 150.0,
+          "max_spread_cm": 250.0,
+          "sun_requirement": "partial_sun",
+          "water_needs": "medium",
+          "hardiness_zone_min": 5,
+          "hardiness_zone_max": 9,
+          "ph_min": 5.5,
+          "ph_max": 7.5,
+          "edible": false,
+          "edible_parts": [],
+          "data_source": "bundled",
+          "frost_tolerance": "hardy",
+          "nutrient_demand": "medium",
+          "n_demand": "high",
+          "p_demand": "low",
+          "k_demand": "medium",
+          "permaculture_layer": "shrub",
+          "functions": []
+        },
+        "plant_instance": {
+          "planting_date": "2025-10-25",
+          "current_height_cm": 330.0,
+          "current_spread_cm": 85.0
+        }
+      },
+      "layer_id": "93c07dc5-2de3-5511-8b50-bc544fd5588f",
+      "label_visible": false,
+      "fill_color": "#ff228b22",
+      "stroke_color": "#ff000000",
+      "stroke_width": 1.0,
+      "fill_pattern": "SOLID",
+      "stroke_style": "SOLID",
+      "plant_category": "ROUND_DECIDUOUS",
+      "plant_species": "Bamboo",
+      "spacing_radius_cm": 41.5,
+      "stack_order": 24576
+    },
+    {
+      "type": "circle",
+      "item_id": "1eb84231-4af4-5b26-bb40-7503e8c412b5",
+      "center_x": 607.1,
+      "center_y": 950.0,
+      "radius": 42.5,
+      "object_type": "TREE",
+      "name": "Bamb\u00fa",
+      "metadata": {
+        "plant_species": {
+          "scientific_name": "Fargesia murielae",
+          "common_name": "Bamb\u00fa",
+          "family": "Poaceae",
+          "genus": "Fargesia",
+          "cycle": "perennial",
+          "growth_rate": "medium",
+          "flower_type": "hermaphrodite",
+          "pollination_type": "unknown",
+          "min_height_cm": 300.0,
+          "max_height_cm": 400.0,
+          "min_spread_cm": 150.0,
+          "max_spread_cm": 250.0,
+          "sun_requirement": "partial_sun",
+          "water_needs": "medium",
+          "hardiness_zone_min": 5,
+          "hardiness_zone_max": 9,
+          "ph_min": 5.5,
+          "ph_max": 7.5,
+          "edible": false,
+          "edible_parts": [],
+          "data_source": "bundled",
+          "frost_tolerance": "hardy",
+          "nutrient_demand": "medium",
+          "n_demand": "high",
+          "p_demand": "low",
+          "k_demand": "medium",
+          "permaculture_layer": "shrub",
+          "functions": []
+        },
+        "plant_instance": {
+          "planting_date": "2025-10-25",
+          "current_height_cm": 330.0,
+          "current_spread_cm": 85.0
+        }
+      },
+      "layer_id": "93c07dc5-2de3-5511-8b50-bc544fd5588f",
+      "label_visible": false,
+      "fill_color": "#ff228b22",
+      "stroke_color": "#ff000000",
+      "stroke_width": 1.0,
+      "fill_pattern": "SOLID",
+      "stroke_style": "SOLID",
+      "plant_category": "ROUND_DECIDUOUS",
+      "plant_species": "Bamboo",
+      "spacing_radius_cm": 41.5,
+      "stack_order": 25600
+    },
+    {
+      "type": "circle",
+      "item_id": "06ac2e68-1af5-5579-bee6-cd880bdc8790",
+      "center_x": 694.3,
+      "center_y": 950.0,
+      "radius": 42.5,
+      "object_type": "TREE",
+      "name": "Bamb\u00fa",
+      "metadata": {
+        "plant_species": {
+          "scientific_name": "Fargesia murielae",
+          "common_name": "Bamb\u00fa",
+          "family": "Poaceae",
+          "genus": "Fargesia",
+          "cycle": "perennial",
+          "growth_rate": "medium",
+          "flower_type": "hermaphrodite",
+          "pollination_type": "unknown",
+          "min_height_cm": 300.0,
+          "max_height_cm": 400.0,
+          "min_spread_cm": 150.0,
+          "max_spread_cm": 250.0,
+          "sun_requirement": "partial_sun",
+          "water_needs": "medium",
+          "hardiness_zone_min": 5,
+          "hardiness_zone_max": 9,
+          "ph_min": 5.5,
+          "ph_max": 7.5,
+          "edible": false,
+          "edible_parts": [],
+          "data_source": "bundled",
+          "frost_tolerance": "hardy",
+          "nutrient_demand": "medium",
+          "n_demand": "high",
+          "p_demand": "low",
+          "k_demand": "medium",
+          "permaculture_layer": "shrub",
+          "functions": []
+        },
+        "plant_instance": {
+          "planting_date": "2025-10-25",
+          "current_height_cm": 330.0,
+          "current_spread_cm": 85.0
+        }
+      },
+      "layer_id": "93c07dc5-2de3-5511-8b50-bc544fd5588f",
+      "label_visible": false,
+      "fill_color": "#ff228b22",
+      "stroke_color": "#ff000000",
+      "stroke_width": 1.0,
+      "fill_pattern": "SOLID",
+      "stroke_style": "SOLID",
+      "plant_category": "ROUND_DECIDUOUS",
+      "plant_species": "Bamboo",
+      "spacing_radius_cm": 41.5,
+      "stack_order": 26624
+    },
+    {
+      "type": "circle",
+      "item_id": "bb34cff0-4b23-5a87-9b69-ca05e0b54e03",
+      "center_x": 781.4,
+      "center_y": 950.0,
+      "radius": 42.5,
+      "object_type": "TREE",
+      "name": "Bamb\u00fa",
+      "metadata": {
+        "plant_species": {
+          "scientific_name": "Fargesia murielae",
+          "common_name": "Bamb\u00fa",
+          "family": "Poaceae",
+          "genus": "Fargesia",
+          "cycle": "perennial",
+          "growth_rate": "medium",
+          "flower_type": "hermaphrodite",
+          "pollination_type": "unknown",
+          "min_height_cm": 300.0,
+          "max_height_cm": 400.0,
+          "min_spread_cm": 150.0,
+          "max_spread_cm": 250.0,
+          "sun_requirement": "partial_sun",
+          "water_needs": "medium",
+          "hardiness_zone_min": 5,
+          "hardiness_zone_max": 9,
+          "ph_min": 5.5,
+          "ph_max": 7.5,
+          "edible": false,
+          "edible_parts": [],
+          "data_source": "bundled",
+          "frost_tolerance": "hardy",
+          "nutrient_demand": "medium",
+          "n_demand": "high",
+          "p_demand": "low",
+          "k_demand": "medium",
+          "permaculture_layer": "shrub",
+          "functions": []
+        },
+        "plant_instance": {
+          "planting_date": "2025-10-25",
+          "current_height_cm": 330.0,
+          "current_spread_cm": 85.0
+        }
+      },
+      "layer_id": "93c07dc5-2de3-5511-8b50-bc544fd5588f",
+      "label_visible": false,
+      "fill_color": "#ff228b22",
+      "stroke_color": "#ff000000",
+      "stroke_width": 1.0,
+      "fill_pattern": "SOLID",
+      "stroke_style": "SOLID",
+      "plant_category": "ROUND_DECIDUOUS",
+      "plant_species": "Bamboo",
+      "spacing_radius_cm": 41.5,
+      "stack_order": 27648
+    },
+    {
+      "type": "circle",
+      "item_id": "c6c966f5-4daa-5a9c-8a52-8dc88866d647",
+      "center_x": 868.6,
+      "center_y": 950.0,
+      "radius": 42.5,
+      "object_type": "TREE",
+      "name": "Bamb\u00fa",
+      "metadata": {
+        "plant_species": {
+          "scientific_name": "Fargesia murielae",
+          "common_name": "Bamb\u00fa",
+          "family": "Poaceae",
+          "genus": "Fargesia",
+          "cycle": "perennial",
+          "growth_rate": "medium",
+          "flower_type": "hermaphrodite",
+          "pollination_type": "unknown",
+          "min_height_cm": 300.0,
+          "max_height_cm": 400.0,
+          "min_spread_cm": 150.0,
+          "max_spread_cm": 250.0,
+          "sun_requirement": "partial_sun",
+          "water_needs": "medium",
+          "hardiness_zone_min": 5,
+          "hardiness_zone_max": 9,
+          "ph_min": 5.5,
+          "ph_max": 7.5,
+          "edible": false,
+          "edible_parts": [],
+          "data_source": "bundled",
+          "frost_tolerance": "hardy",
+          "nutrient_demand": "medium",
+          "n_demand": "high",
+          "p_demand": "low",
+          "k_demand": "medium",
+          "permaculture_layer": "shrub",
+          "functions": []
+        },
+        "plant_instance": {
+          "planting_date": "2025-10-25",
+          "current_height_cm": 330.0,
+          "current_spread_cm": 85.0
+        }
+      },
+      "layer_id": "93c07dc5-2de3-5511-8b50-bc544fd5588f",
+      "label_visible": false,
+      "fill_color": "#ff228b22",
+      "stroke_color": "#ff000000",
+      "stroke_width": 1.0,
+      "fill_pattern": "SOLID",
+      "stroke_style": "SOLID",
+      "plant_category": "ROUND_DECIDUOUS",
+      "plant_species": "Bamboo",
+      "spacing_radius_cm": 41.5,
+      "stack_order": 28672
+    },
+    {
+      "type": "circle",
+      "item_id": "e153a7ed-cf01-5c52-95d4-f242872f6a3b",
+      "center_x": 955.7,
+      "center_y": 950.0,
+      "radius": 42.5,
+      "object_type": "TREE",
+      "name": "Bamb\u00fa",
+      "metadata": {
+        "plant_species": {
+          "scientific_name": "Fargesia murielae",
+          "common_name": "Bamb\u00fa",
+          "family": "Poaceae",
+          "genus": "Fargesia",
+          "cycle": "perennial",
+          "growth_rate": "medium",
+          "flower_type": "hermaphrodite",
+          "pollination_type": "unknown",
+          "min_height_cm": 300.0,
+          "max_height_cm": 400.0,
+          "min_spread_cm": 150.0,
+          "max_spread_cm": 250.0,
+          "sun_requirement": "partial_sun",
+          "water_needs": "medium",
+          "hardiness_zone_min": 5,
+          "hardiness_zone_max": 9,
+          "ph_min": 5.5,
+          "ph_max": 7.5,
+          "edible": false,
+          "edible_parts": [],
+          "data_source": "bundled",
+          "frost_tolerance": "hardy",
+          "nutrient_demand": "medium",
+          "n_demand": "high",
+          "p_demand": "low",
+          "k_demand": "medium",
+          "permaculture_layer": "shrub",
+          "functions": []
+        },
+        "plant_instance": {
+          "planting_date": "2025-10-25",
+          "current_height_cm": 330.0,
+          "current_spread_cm": 85.0
+        }
+      },
+      "layer_id": "93c07dc5-2de3-5511-8b50-bc544fd5588f",
+      "label_visible": false,
+      "fill_color": "#ff228b22",
+      "stroke_color": "#ff000000",
+      "stroke_width": 1.0,
+      "fill_pattern": "SOLID",
+      "stroke_style": "SOLID",
+      "plant_category": "ROUND_DECIDUOUS",
+      "plant_species": "Bamboo",
+      "spacing_radius_cm": 41.5,
+      "stack_order": 29696
+    },
+    {
+      "type": "circle",
+      "item_id": "f751f96a-5045-53fb-b1cf-2775bce0d721",
+      "center_x": 1042.9,
+      "center_y": 950.0,
+      "radius": 42.5,
+      "object_type": "TREE",
+      "name": "Bamb\u00fa",
+      "metadata": {
+        "plant_species": {
+          "scientific_name": "Fargesia murielae",
+          "common_name": "Bamb\u00fa",
+          "family": "Poaceae",
+          "genus": "Fargesia",
+          "cycle": "perennial",
+          "growth_rate": "medium",
+          "flower_type": "hermaphrodite",
+          "pollination_type": "unknown",
+          "min_height_cm": 300.0,
+          "max_height_cm": 400.0,
+          "min_spread_cm": 150.0,
+          "max_spread_cm": 250.0,
+          "sun_requirement": "partial_sun",
+          "water_needs": "medium",
+          "hardiness_zone_min": 5,
+          "hardiness_zone_max": 9,
+          "ph_min": 5.5,
+          "ph_max": 7.5,
+          "edible": false,
+          "edible_parts": [],
+          "data_source": "bundled",
+          "frost_tolerance": "hardy",
+          "nutrient_demand": "medium",
+          "n_demand": "high",
+          "p_demand": "low",
+          "k_demand": "medium",
+          "permaculture_layer": "shrub",
+          "functions": []
+        },
+        "plant_instance": {
+          "planting_date": "2025-10-25",
+          "current_height_cm": 330.0,
+          "current_spread_cm": 85.0
+        }
+      },
+      "layer_id": "93c07dc5-2de3-5511-8b50-bc544fd5588f",
+      "label_visible": false,
+      "fill_color": "#ff228b22",
+      "stroke_color": "#ff000000",
+      "stroke_width": 1.0,
+      "fill_pattern": "SOLID",
+      "stroke_style": "SOLID",
+      "plant_category": "ROUND_DECIDUOUS",
+      "plant_species": "Bamboo",
+      "spacing_radius_cm": 41.5,
+      "stack_order": 30720
+    },
+    {
+      "type": "circle",
+      "item_id": "536caf6d-598d-5d32-bd54-5360b3ddc276",
+      "center_x": 1130.0,
+      "center_y": 950.0,
+      "radius": 42.5,
+      "object_type": "TREE",
+      "name": "Bamb\u00fa",
+      "metadata": {
+        "plant_species": {
+          "scientific_name": "Fargesia murielae",
+          "common_name": "Bamb\u00fa",
+          "family": "Poaceae",
+          "genus": "Fargesia",
+          "cycle": "perennial",
+          "growth_rate": "medium",
+          "flower_type": "hermaphrodite",
+          "pollination_type": "unknown",
+          "min_height_cm": 300.0,
+          "max_height_cm": 400.0,
+          "min_spread_cm": 150.0,
+          "max_spread_cm": 250.0,
+          "sun_requirement": "partial_sun",
+          "water_needs": "medium",
+          "hardiness_zone_min": 5,
+          "hardiness_zone_max": 9,
+          "ph_min": 5.5,
+          "ph_max": 7.5,
+          "edible": false,
+          "edible_parts": [],
+          "data_source": "bundled",
+          "frost_tolerance": "hardy",
+          "nutrient_demand": "medium",
+          "n_demand": "high",
+          "p_demand": "low",
+          "k_demand": "medium",
+          "permaculture_layer": "shrub",
+          "functions": []
+        },
+        "plant_instance": {
+          "planting_date": "2025-10-25",
+          "current_height_cm": 330.0,
+          "current_spread_cm": 85.0
+        }
+      },
+      "layer_id": "93c07dc5-2de3-5511-8b50-bc544fd5588f",
+      "label_visible": false,
+      "fill_color": "#ff228b22",
+      "stroke_color": "#ff000000",
+      "stroke_width": 1.0,
+      "fill_pattern": "SOLID",
+      "stroke_style": "SOLID",
+      "plant_category": "ROUND_DECIDUOUS",
+      "plant_species": "Bamboo",
+      "spacing_radius_cm": 41.5,
+      "stack_order": 31744
+    },
+    {
+      "type": "circle",
+      "item_id": "c2609536-7395-5e0f-bc29-99cbe7978221",
+      "center_x": 1125.0,
+      "center_y": 490.0,
+      "radius": 65.0,
+      "object_type": "TREE",
+      "name": "Rododendro",
+      "metadata": {
+        "plant_species": {
+          "scientific_name": "Rhododendron ponticum",
+          "common_name": "Rododendro",
+          "family": "Ericaceae",
+          "genus": "Rhododendron",
+          "cycle": "perennial",
+          "growth_rate": "slow",
+          "flower_type": "hermaphrodite",
+          "pollination_type": "self_fertile",
+          "min_height_cm": 100.0,
+          "max_height_cm": 400.0,
+          "min_spread_cm": 100.0,
+          "max_spread_cm": 400.0,
+          "sun_requirement": "partial_shade",
+          "water_needs": "medium",
+          "hardiness_zone_min": 5,
+          "hardiness_zone_max": 8,
+          "ph_min": 4.5,
+          "ph_max": 6.0,
+          "edible": false,
+          "edible_parts": [],
+          "data_source": "bundled",
+          "frost_tolerance": "hardy",
+          "nutrient_demand": "light",
+          "n_demand": "low",
+          "p_demand": "low",
+          "k_demand": "low",
+          "permaculture_layer": "shrub",
+          "functions": []
+        },
+        "plant_instance": {
+          "planting_date": "2025-10-25",
+          "current_height_cm": 120.0,
+          "current_spread_cm": 130.0
+        }
+      },
+      "layer_id": "93c07dc5-2de3-5511-8b50-bc544fd5588f",
+      "label_visible": false,
+      "fill_color": "#ff228b22",
+      "stroke_color": "#ff000000",
+      "stroke_width": 1.0,
+      "fill_pattern": "SOLID",
+      "stroke_style": "SOLID",
+      "plant_category": "ROUND_DECIDUOUS",
+      "plant_species": "Rhododendron",
+      "spacing_radius_cm": 64.0,
+      "stack_order": 32768
+    },
+    {
+      "type": "circle",
+      "item_id": "df456547-0fad-51b1-8a9d-471b94976718",
+      "center_x": 1125.0,
+      "center_y": 835.0,
+      "radius": 65.0,
+      "object_type": "TREE",
+      "name": "Rododendro",
+      "metadata": {
+        "plant_species": {
+          "scientific_name": "Rhododendron ponticum",
+          "common_name": "Rododendro",
+          "family": "Ericaceae",
+          "genus": "Rhododendron",
+          "cycle": "perennial",
+          "growth_rate": "slow",
+          "flower_type": "hermaphrodite",
+          "pollination_type": "self_fertile",
+          "min_height_cm": 100.0,
+          "max_height_cm": 400.0,
+          "min_spread_cm": 100.0,
+          "max_spread_cm": 400.0,
+          "sun_requirement": "partial_shade",
+          "water_needs": "medium",
+          "hardiness_zone_min": 5,
+          "hardiness_zone_max": 8,
+          "ph_min": 4.5,
+          "ph_max": 6.0,
+          "edible": false,
+          "edible_parts": [],
+          "data_source": "bundled",
+          "frost_tolerance": "hardy",
+          "nutrient_demand": "light",
+          "n_demand": "low",
+          "p_demand": "low",
+          "k_demand": "low",
+          "permaculture_layer": "shrub",
+          "functions": []
+        },
+        "plant_instance": {
+          "planting_date": "2025-10-25",
+          "current_height_cm": 120.0,
+          "current_spread_cm": 130.0
+        }
+      },
+      "layer_id": "93c07dc5-2de3-5511-8b50-bc544fd5588f",
+      "label_visible": false,
+      "fill_color": "#ff228b22",
+      "stroke_color": "#ff000000",
+      "stroke_width": 1.0,
+      "fill_pattern": "SOLID",
+      "stroke_style": "SOLID",
+      "plant_category": "ROUND_DECIDUOUS",
+      "plant_species": "Rhododendron",
+      "spacing_radius_cm": 64.0,
+      "stack_order": 33792
+    },
+    {
+      "type": "circle",
+      "item_id": "e9bb6204-6f9f-5c3a-83ec-4da3b4023381",
+      "center_x": 650.0,
+      "center_y": 835.0,
+      "radius": 65.0,
+      "object_type": "TREE",
+      "name": "Rododendro",
+      "metadata": {
+        "plant_species": {
+          "scientific_name": "Rhododendron ponticum",
+          "common_name": "Rododendro",
+          "family": "Ericaceae",
+          "genus": "Rhododendron",
+          "cycle": "perennial",
+          "growth_rate": "slow",
+          "flower_type": "hermaphrodite",
+          "pollination_type": "self_fertile",
+          "min_height_cm": 100.0,
+          "max_height_cm": 400.0,
+          "min_spread_cm": 100.0,
+          "max_spread_cm": 400.0,
+          "sun_requirement": "partial_shade",
+          "water_needs": "medium",
+          "hardiness_zone_min": 5,
+          "hardiness_zone_max": 8,
+          "ph_min": 4.5,
+          "ph_max": 6.0,
+          "edible": false,
+          "edible_parts": [],
+          "data_source": "bundled",
+          "frost_tolerance": "hardy",
+          "nutrient_demand": "light",
+          "n_demand": "low",
+          "p_demand": "low",
+          "k_demand": "low",
+          "permaculture_layer": "shrub",
+          "functions": []
+        },
+        "plant_instance": {
+          "planting_date": "2025-10-25",
+          "current_height_cm": 120.0,
+          "current_spread_cm": 130.0
+        }
+      },
+      "layer_id": "93c07dc5-2de3-5511-8b50-bc544fd5588f",
+      "label_visible": false,
+      "fill_color": "#ff228b22",
+      "stroke_color": "#ff000000",
+      "stroke_width": 1.0,
+      "fill_pattern": "SOLID",
+      "stroke_style": "SOLID",
+      "plant_category": "ROUND_DECIDUOUS",
+      "plant_species": "Rhododendron",
+      "spacing_radius_cm": 64.0,
+      "stack_order": 34816
+    },
+    {
+      "type": "circle",
+      "item_id": "f2bc56da-cfea-5aae-96a4-a2f72e3adcf8",
+      "center_x": 120.0,
+      "center_y": 560.0,
+      "radius": 42.5,
+      "object_type": "TREE",
+      "name": "Boj",
+      "metadata": {
+        "plant_species": {
+          "scientific_name": "Buxus sempervirens",
+          "common_name": "Boj",
+          "family": "Buxaceae",
+          "genus": "Buxus",
+          "cycle": "perennial",
+          "growth_rate": "slow",
+          "flower_type": "monoecious",
+          "pollination_type": "self_fertile",
+          "min_height_cm": 100.0,
+          "max_height_cm": 500.0,
+          "min_spread_cm": 80.0,
+          "max_spread_cm": 300.0,
+          "sun_requirement": "partial_sun",
+          "water_needs": "medium",
+          "hardiness_zone_min": 5,
+          "hardiness_zone_max": 9,
+          "ph_min": 6.5,
+          "ph_max": 7.5,
+          "edible": false,
+          "edible_parts": [],
+          "data_source": "bundled",
+          "frost_tolerance": "hardy",
+          "nutrient_demand": "light",
+          "n_demand": "low",
+          "p_demand": "low",
+          "k_demand": "low",
+          "permaculture_layer": "shrub",
+          "functions": []
+        },
+        "plant_instance": {
+          "planting_date": "2025-10-25",
+          "current_height_cm": 70.0,
+          "current_spread_cm": 85.0
+        }
+      },
+      "layer_id": "93c07dc5-2de3-5511-8b50-bc544fd5588f",
+      "label_visible": false,
+      "fill_color": "#ff228b22",
+      "stroke_color": "#ff000000",
+      "stroke_width": 1.0,
+      "fill_pattern": "SOLID",
+      "stroke_style": "SOLID",
+      "plant_category": "ROUND_DECIDUOUS",
+      "plant_species": "Boxwood",
+      "spacing_radius_cm": 41.5,
+      "stack_order": 35840
+    },
+    {
+      "type": "circle",
+      "item_id": "2df69c05-b9d1-5178-8499-1e19a2d7b9a8",
+      "center_x": 60.0,
+      "center_y": 470.0,
+      "radius": 42.5,
+      "object_type": "TREE",
+      "name": "Boj",
+      "metadata": {
+        "plant_species": {
+          "scientific_name": "Buxus sempervirens",
+          "common_name": "Boj",
+          "family": "Buxaceae",
+          "genus": "Buxus",
+          "cycle": "perennial",
+          "growth_rate": "slow",
+          "flower_type": "monoecious",
+          "pollination_type": "self_fertile",
+          "min_height_cm": 100.0,
+          "max_height_cm": 500.0,
+          "min_spread_cm": 80.0,
+          "max_spread_cm": 300.0,
+          "sun_requirement": "partial_sun",
+          "water_needs": "medium",
+          "hardiness_zone_min": 5,
+          "hardiness_zone_max": 9,
+          "ph_min": 6.5,
+          "ph_max": 7.5,
+          "edible": false,
+          "edible_parts": [],
+          "data_source": "bundled",
+          "frost_tolerance": "hardy",
+          "nutrient_demand": "light",
+          "n_demand": "low",
+          "p_demand": "low",
+          "k_demand": "low",
+          "permaculture_layer": "shrub",
+          "functions": []
+        },
+        "plant_instance": {
+          "planting_date": "2025-10-25",
+          "current_height_cm": 70.0,
+          "current_spread_cm": 85.0
+        }
+      },
+      "layer_id": "93c07dc5-2de3-5511-8b50-bc544fd5588f",
+      "label_visible": false,
+      "fill_color": "#ff228b22",
+      "stroke_color": "#ff000000",
+      "stroke_width": 1.0,
+      "fill_pattern": "SOLID",
+      "stroke_style": "SOLID",
+      "plant_category": "ROUND_DECIDUOUS",
+      "plant_species": "Boxwood",
+      "spacing_radius_cm": 41.5,
+      "stack_order": 36864
+    },
+    {
+      "type": "circle",
+      "item_id": "64311567-e6ee-5a47-a75a-e7f759ac6ab7",
+      "center_x": 540.0,
+      "center_y": 860.0,
+      "radius": 42.5,
+      "object_type": "TREE",
+      "name": "Boj",
+      "metadata": {
+        "plant_species": {
+          "scientific_name": "Buxus sempervirens",
+          "common_name": "Boj",
+          "family": "Buxaceae",
+          "genus": "Buxus",
+          "cycle": "perennial",
+          "growth_rate": "slow",
+          "flower_type": "monoecious",
+          "pollination_type": "self_fertile",
+          "min_height_cm": 100.0,
+          "max_height_cm": 500.0,
+          "min_spread_cm": 80.0,
+          "max_spread_cm": 300.0,
+          "sun_requirement": "partial_sun",
+          "water_needs": "medium",
+          "hardiness_zone_min": 5,
+          "hardiness_zone_max": 9,
+          "ph_min": 6.5,
+          "ph_max": 7.5,
+          "edible": false,
+          "edible_parts": [],
+          "data_source": "bundled",
+          "frost_tolerance": "hardy",
+          "nutrient_demand": "light",
+          "n_demand": "low",
+          "p_demand": "low",
+          "k_demand": "low",
+          "permaculture_layer": "shrub",
+          "functions": []
+        },
+        "plant_instance": {
+          "planting_date": "2025-10-25",
+          "current_height_cm": 70.0,
+          "current_spread_cm": 85.0
+        }
+      },
+      "layer_id": "93c07dc5-2de3-5511-8b50-bc544fd5588f",
+      "label_visible": false,
+      "fill_color": "#ff228b22",
+      "stroke_color": "#ff000000",
+      "stroke_width": 1.0,
+      "fill_pattern": "SOLID",
+      "stroke_style": "SOLID",
+      "plant_category": "ROUND_DECIDUOUS",
+      "plant_species": "Boxwood",
+      "spacing_radius_cm": 41.5,
+      "stack_order": 37888
+    },
+    {
+      "type": "circle",
+      "item_id": "124d7188-2d75-57df-9d5b-b50b692a6f87",
+      "center_x": 930.0,
+      "center_y": 150.0,
+      "radius": 42.5,
+      "object_type": "TREE",
+      "name": "Boj",
+      "metadata": {
+        "plant_species": {
+          "scientific_name": "Buxus sempervirens",
+          "common_name": "Boj",
+          "family": "Buxaceae",
+          "genus": "Buxus",
+          "cycle": "perennial",
+          "growth_rate": "slow",
+          "flower_type": "monoecious",
+          "pollination_type": "self_fertile",
+          "min_height_cm": 100.0,
+          "max_height_cm": 500.0,
+          "min_spread_cm": 80.0,
+          "max_spread_cm": 300.0,
+          "sun_requirement": "partial_sun",
+          "water_needs": "medium",
+          "hardiness_zone_min": 5,
+          "hardiness_zone_max": 9,
+          "ph_min": 6.5,
+          "ph_max": 7.5,
+          "edible": false,
+          "edible_parts": [],
+          "data_source": "bundled",
+          "frost_tolerance": "hardy",
+          "nutrient_demand": "light",
+          "n_demand": "low",
+          "p_demand": "low",
+          "k_demand": "low",
+          "permaculture_layer": "shrub",
+          "functions": []
+        },
+        "plant_instance": {
+          "planting_date": "2025-10-25",
+          "current_height_cm": 70.0,
+          "current_spread_cm": 85.0
+        }
+      },
+      "layer_id": "93c07dc5-2de3-5511-8b50-bc544fd5588f",
+      "label_visible": false,
+      "fill_color": "#ff228b22",
+      "stroke_color": "#ff000000",
+      "stroke_width": 1.0,
+      "fill_pattern": "SOLID",
+      "stroke_style": "SOLID",
+      "plant_category": "ROUND_DECIDUOUS",
+      "plant_species": "Boxwood",
+      "spacing_radius_cm": 41.5,
+      "stack_order": 38912
+    },
+    {
+      "type": "circle",
+      "item_id": "d7c19a95-7be9-5609-af63-ce4845d1e828",
+      "center_x": 760.0,
+      "center_y": 470.0,
+      "radius": 45.0,
+      "object_type": "SHRUB",
+      "name": "Eulalia",
+      "metadata": {
+        "plant_species": {
+          "scientific_name": "Miscanthus sinensis",
+          "common_name": "Eulalia",
+          "family": "Poaceae",
+          "genus": "Miscanthus",
+          "cycle": "perennial",
+          "growth_rate": "medium",
+          "flower_type": "hermaphrodite",
+          "pollination_type": "self_sterile",
+          "min_height_cm": 150.0,
+          "max_height_cm": 200.0,
+          "min_spread_cm": 100.0,
+          "max_spread_cm": 150.0,
+          "sun_requirement": "full_sun",
+          "water_needs": "medium",
+          "hardiness_zone_min": 5,
+          "hardiness_zone_max": 9,
+          "ph_min": 5.5,
+          "ph_max": 7.5,
+          "edible": false,
+          "edible_parts": [],
+          "data_source": "bundled",
+          "frost_tolerance": "hardy",
+          "nutrient_demand": "light",
+          "n_demand": "low",
+          "p_demand": "low",
+          "k_demand": "low",
+          "permaculture_layer": "herbaceous",
+          "functions": []
+        },
+        "plant_instance": {
+          "planting_date": "2025-10-25",
+          "current_height_cm": 150.0,
+          "current_spread_cm": 90.0
+        }
+      },
+      "layer_id": "93c07dc5-2de3-5511-8b50-bc544fd5588f",
+      "label_visible": false,
+      "fill_color": "#ff6b8e23",
+      "stroke_color": "#ff000000",
+      "stroke_width": 1.0,
+      "fill_pattern": "SOLID",
+      "stroke_style": "SOLID",
+      "plant_category": "SPREADING_SHRUB",
+      "plant_species": "Miscanthus",
+      "spacing_radius_cm": 44.0,
+      "stack_order": 39936
+    },
+    {
+      "type": "circle",
+      "item_id": "731d1da5-3ba8-5dd3-a9e7-3f6f474881a5",
+      "center_x": 855.0,
+      "center_y": 470.0,
+      "radius": 45.0,
+      "object_type": "SHRUB",
+      "name": "Eulalia",
+      "metadata": {
+        "plant_species": {
+          "scientific_name": "Miscanthus sinensis",
+          "common_name": "Eulalia",
+          "family": "Poaceae",
+          "genus": "Miscanthus",
+          "cycle": "perennial",
+          "growth_rate": "medium",
+          "flower_type": "hermaphrodite",
+          "pollination_type": "self_sterile",
+          "min_height_cm": 150.0,
+          "max_height_cm": 200.0,
+          "min_spread_cm": 100.0,
+          "max_spread_cm": 150.0,
+          "sun_requirement": "full_sun",
+          "water_needs": "medium",
+          "hardiness_zone_min": 5,
+          "hardiness_zone_max": 9,
+          "ph_min": 5.5,
+          "ph_max": 7.5,
+          "edible": false,
+          "edible_parts": [],
+          "data_source": "bundled",
+          "frost_tolerance": "hardy",
+          "nutrient_demand": "light",
+          "n_demand": "low",
+          "p_demand": "low",
+          "k_demand": "low",
+          "permaculture_layer": "herbaceous",
+          "functions": []
+        },
+        "plant_instance": {
+          "planting_date": "2025-10-25",
+          "current_height_cm": 150.0,
+          "current_spread_cm": 90.0
+        }
+      },
+      "layer_id": "93c07dc5-2de3-5511-8b50-bc544fd5588f",
+      "label_visible": false,
+      "fill_color": "#ff6b8e23",
+      "stroke_color": "#ff000000",
+      "stroke_width": 1.0,
+      "fill_pattern": "SOLID",
+      "stroke_style": "SOLID",
+      "plant_category": "SPREADING_SHRUB",
+      "plant_species": "Miscanthus",
+      "spacing_radius_cm": 44.0,
+      "stack_order": 40960
+    },
+    {
+      "type": "circle",
+      "item_id": "79ceeb95-b614-5838-83c3-3e26bcb6c004",
+      "center_x": 950.0,
+      "center_y": 470.0,
+      "radius": 45.0,
+      "object_type": "SHRUB",
+      "name": "Eulalia",
+      "metadata": {
+        "plant_species": {
+          "scientific_name": "Miscanthus sinensis",
+          "common_name": "Eulalia",
+          "family": "Poaceae",
+          "genus": "Miscanthus",
+          "cycle": "perennial",
+          "growth_rate": "medium",
+          "flower_type": "hermaphrodite",
+          "pollination_type": "self_sterile",
+          "min_height_cm": 150.0,
+          "max_height_cm": 200.0,
+          "min_spread_cm": 100.0,
+          "max_spread_cm": 150.0,
+          "sun_requirement": "full_sun",
+          "water_needs": "medium",
+          "hardiness_zone_min": 5,
+          "hardiness_zone_max": 9,
+          "ph_min": 5.5,
+          "ph_max": 7.5,
+          "edible": false,
+          "edible_parts": [],
+          "data_source": "bundled",
+          "frost_tolerance": "hardy",
+          "nutrient_demand": "light",
+          "n_demand": "low",
+          "p_demand": "low",
+          "k_demand": "low",
+          "permaculture_layer": "herbaceous",
+          "functions": []
+        },
+        "plant_instance": {
+          "planting_date": "2025-10-25",
+          "current_height_cm": 150.0,
+          "current_spread_cm": 90.0
+        }
+      },
+      "layer_id": "93c07dc5-2de3-5511-8b50-bc544fd5588f",
+      "label_visible": false,
+      "fill_color": "#ff6b8e23",
+      "stroke_color": "#ff000000",
+      "stroke_width": 1.0,
+      "fill_pattern": "SOLID",
+      "stroke_style": "SOLID",
+      "plant_category": "SPREADING_SHRUB",
+      "plant_species": "Miscanthus",
+      "spacing_radius_cm": 44.0,
+      "stack_order": 41984
+    },
+    {
+      "type": "circle",
+      "item_id": "23a43105-7aab-5091-92b5-d4f40eb425f9",
+      "center_x": 690.0,
+      "center_y": 600.0,
+      "radius": 30.0,
+      "object_type": "SHRUB",
+      "name": "Lirio",
+      "metadata": {
+        "plant_species": {
+          "scientific_name": "Iris germanica",
+          "common_name": "Lirio",
+          "family": "Iridaceae",
+          "genus": "Iris",
+          "cycle": "perennial",
+          "growth_rate": "medium",
+          "flower_type": "hermaphrodite",
+          "pollination_type": "self_fertile",
+          "min_height_cm": 30.0,
+          "max_height_cm": 100.0,
+          "min_spread_cm": 30.0,
+          "max_spread_cm": 60.0,
+          "sun_requirement": "full_sun",
+          "water_needs": "low",
+          "hardiness_zone_min": 3,
+          "hardiness_zone_max": 9,
+          "ph_min": 6.5,
+          "ph_max": 7.5,
+          "edible": false,
+          "edible_parts": [],
+          "data_source": "bundled",
+          "frost_tolerance": "hardy",
+          "nutrient_demand": "light",
+          "n_demand": "low",
+          "p_demand": "low",
+          "k_demand": "low",
+          "permaculture_layer": "herbaceous",
+          "functions": []
+        },
+        "plant_instance": {
+          "planting_date": "2024-04-20"
+        }
+      },
+      "layer_id": "93c07dc5-2de3-5511-8b50-bc544fd5588f",
+      "label_visible": false,
+      "fill_color": "#ff6b8e23",
+      "stroke_color": "#ff000000",
+      "stroke_width": 1.0,
+      "fill_pattern": "SOLID",
+      "stroke_style": "SOLID",
+      "plant_category": "SPREADING_SHRUB",
+      "plant_species": "Iris",
+      "stack_order": 43008
+    },
+    {
+      "type": "circle",
+      "item_id": "7f050335-4d5e-5623-98f0-9ed97a376326",
+      "center_x": 820.0,
+      "center_y": 540.0,
+      "radius": 30.0,
+      "object_type": "SHRUB",
+      "name": "Lirio",
+      "metadata": {
+        "plant_species": {
+          "scientific_name": "Iris germanica",
+          "common_name": "Lirio",
+          "family": "Iridaceae",
+          "genus": "Iris",
+          "cycle": "perennial",
+          "growth_rate": "medium",
+          "flower_type": "hermaphrodite",
+          "pollination_type": "self_fertile",
+          "min_height_cm": 30.0,
+          "max_height_cm": 100.0,
+          "min_spread_cm": 30.0,
+          "max_spread_cm": 60.0,
+          "sun_requirement": "full_sun",
+          "water_needs": "low",
+          "hardiness_zone_min": 3,
+          "hardiness_zone_max": 9,
+          "ph_min": 6.5,
+          "ph_max": 7.5,
+          "edible": false,
+          "edible_parts": [],
+          "data_source": "bundled",
+          "frost_tolerance": "hardy",
+          "nutrient_demand": "light",
+          "n_demand": "low",
+          "p_demand": "low",
+          "k_demand": "low",
+          "permaculture_layer": "herbaceous",
+          "functions": []
+        },
+        "plant_instance": {
+          "planting_date": "2024-04-20"
+        }
+      },
+      "layer_id": "93c07dc5-2de3-5511-8b50-bc544fd5588f",
+      "label_visible": false,
+      "fill_color": "#ff6b8e23",
+      "stroke_color": "#ff000000",
+      "stroke_width": 1.0,
+      "fill_pattern": "SOLID",
+      "stroke_style": "SOLID",
+      "plant_category": "SPREADING_SHRUB",
+      "plant_species": "Iris",
+      "stack_order": 44032
+    },
+    {
+      "type": "circle",
+      "item_id": "14a991ff-3a6b-5e8f-8fa4-a433827e52f8",
+      "center_x": 980.0,
+      "center_y": 545.0,
+      "radius": 30.0,
+      "object_type": "SHRUB",
+      "name": "Lirio",
+      "metadata": {
+        "plant_species": {
+          "scientific_name": "Iris germanica",
+          "common_name": "Lirio",
+          "family": "Iridaceae",
+          "genus": "Iris",
+          "cycle": "perennial",
+          "growth_rate": "medium",
+          "flower_type": "hermaphrodite",
+          "pollination_type": "self_fertile",
+          "min_height_cm": 30.0,
+          "max_height_cm": 100.0,
+          "min_spread_cm": 30.0,
+          "max_spread_cm": 60.0,
+          "sun_requirement": "full_sun",
+          "water_needs": "low",
+          "hardiness_zone_min": 3,
+          "hardiness_zone_max": 9,
+          "ph_min": 6.5,
+          "ph_max": 7.5,
+          "edible": false,
+          "edible_parts": [],
+          "data_source": "bundled",
+          "frost_tolerance": "hardy",
+          "nutrient_demand": "light",
+          "n_demand": "low",
+          "p_demand": "low",
+          "k_demand": "low",
+          "permaculture_layer": "herbaceous",
+          "functions": []
+        },
+        "plant_instance": {
+          "planting_date": "2024-04-20"
+        }
+      },
+      "layer_id": "93c07dc5-2de3-5511-8b50-bc544fd5588f",
+      "label_visible": false,
+      "fill_color": "#ff6b8e23",
+      "stroke_color": "#ff000000",
+      "stroke_width": 1.0,
+      "fill_pattern": "SOLID",
+      "stroke_style": "SOLID",
+      "plant_category": "SPREADING_SHRUB",
+      "plant_species": "Iris",
+      "stack_order": 45056
+    },
+    {
+      "type": "circle",
+      "item_id": "cfca33ef-1fc4-5788-b803-e5dad59f2b60",
+      "center_x": 1105.0,
+      "center_y": 610.0,
+      "radius": 30.0,
+      "object_type": "SHRUB",
+      "name": "Lirio",
+      "metadata": {
+        "plant_species": {
+          "scientific_name": "Iris germanica",
+          "common_name": "Lirio",
+          "family": "Iridaceae",
+          "genus": "Iris",
+          "cycle": "perennial",
+          "growth_rate": "medium",
+          "flower_type": "hermaphrodite",
+          "pollination_type": "self_fertile",
+          "min_height_cm": 30.0,
+          "max_height_cm": 100.0,
+          "min_spread_cm": 30.0,
+          "max_spread_cm": 60.0,
+          "sun_requirement": "full_sun",
+          "water_needs": "low",
+          "hardiness_zone_min": 3,
+          "hardiness_zone_max": 9,
+          "ph_min": 6.5,
+          "ph_max": 7.5,
+          "edible": false,
+          "edible_parts": [],
+          "data_source": "bundled",
+          "frost_tolerance": "hardy",
+          "nutrient_demand": "light",
+          "n_demand": "low",
+          "p_demand": "low",
+          "k_demand": "low",
+          "permaculture_layer": "herbaceous",
+          "functions": []
+        },
+        "plant_instance": {
+          "planting_date": "2024-04-20"
+        }
+      },
+      "layer_id": "93c07dc5-2de3-5511-8b50-bc544fd5588f",
+      "label_visible": false,
+      "fill_color": "#ff6b8e23",
+      "stroke_color": "#ff000000",
+      "stroke_width": 1.0,
+      "fill_pattern": "SOLID",
+      "stroke_style": "SOLID",
+      "plant_category": "SPREADING_SHRUB",
+      "plant_species": "Iris",
+      "stack_order": 46080
+    },
+    {
+      "type": "circle",
+      "item_id": "782652c2-f6fb-56a7-8f16-7d675ee8f700",
+      "center_x": 1155.0,
+      "center_y": 660.0,
+      "radius": 30.0,
+      "object_type": "SHRUB",
+      "name": "Lirio",
+      "metadata": {
+        "plant_species": {
+          "scientific_name": "Iris germanica",
+          "common_name": "Lirio",
+          "family": "Iridaceae",
+          "genus": "Iris",
+          "cycle": "perennial",
+          "growth_rate": "medium",
+          "flower_type": "hermaphrodite",
+          "pollination_type": "self_fertile",
+          "min_height_cm": 30.0,
+          "max_height_cm": 100.0,
+          "min_spread_cm": 30.0,
+          "max_spread_cm": 60.0,
+          "sun_requirement": "full_sun",
+          "water_needs": "low",
+          "hardiness_zone_min": 3,
+          "hardiness_zone_max": 9,
+          "ph_min": 6.5,
+          "ph_max": 7.5,
+          "edible": false,
+          "edible_parts": [],
+          "data_source": "bundled",
+          "frost_tolerance": "hardy",
+          "nutrient_demand": "light",
+          "n_demand": "low",
+          "p_demand": "low",
+          "k_demand": "low",
+          "permaculture_layer": "herbaceous",
+          "functions": []
+        },
+        "plant_instance": {
+          "planting_date": "2024-04-20"
+        }
+      },
+      "layer_id": "93c07dc5-2de3-5511-8b50-bc544fd5588f",
+      "label_visible": false,
+      "fill_color": "#ff6b8e23",
+      "stroke_color": "#ff000000",
+      "stroke_width": 1.0,
+      "fill_pattern": "SOLID",
+      "stroke_style": "SOLID",
+      "plant_category": "SPREADING_SHRUB",
+      "plant_species": "Iris",
+      "stack_order": 47104
+    },
+    {
+      "type": "circle",
+      "item_id": "ae4890bf-31be-59fe-a0bd-8f9a308b3241",
+      "center_x": 900.0,
+      "center_y": 548.0,
+      "radius": 30.0,
+      "object_type": "SHRUB",
+      "name": "Lirio",
+      "metadata": {
+        "plant_species": {
+          "scientific_name": "Iris germanica",
+          "common_name": "Lirio",
+          "family": "Iridaceae",
+          "genus": "Iris",
+          "cycle": "perennial",
+          "growth_rate": "medium",
+          "flower_type": "hermaphrodite",
+          "pollination_type": "self_fertile",
+          "min_height_cm": 30.0,
+          "max_height_cm": 100.0,
+          "min_spread_cm": 30.0,
+          "max_spread_cm": 60.0,
+          "sun_requirement": "full_sun",
+          "water_needs": "low",
+          "hardiness_zone_min": 3,
+          "hardiness_zone_max": 9,
+          "ph_min": 6.5,
+          "ph_max": 7.5,
+          "edible": false,
+          "edible_parts": [],
+          "data_source": "bundled",
+          "frost_tolerance": "hardy",
+          "nutrient_demand": "light",
+          "n_demand": "low",
+          "p_demand": "low",
+          "k_demand": "low",
+          "permaculture_layer": "herbaceous",
+          "functions": []
+        },
+        "plant_instance": {
+          "planting_date": "2024-04-20"
+        }
+      },
+      "layer_id": "93c07dc5-2de3-5511-8b50-bc544fd5588f",
+      "label_visible": false,
+      "fill_color": "#ff6b8e23",
+      "stroke_color": "#ff000000",
+      "stroke_width": 1.0,
+      "fill_pattern": "SOLID",
+      "stroke_style": "SOLID",
+      "plant_category": "SPREADING_SHRUB",
+      "plant_species": "Iris",
+      "stack_order": 48128
+    },
+    {
+      "type": "circle",
+      "item_id": "0277e142-6742-5fda-ba65-a661fb485c85",
+      "center_x": 60.0,
+      "center_y": 70.0,
+      "radius": 55.0,
+      "object_type": "TREE",
+      "name": "Enebro",
+      "metadata": {
+        "plant_species": {
+          "scientific_name": "Juniperus communis",
+          "common_name": "Enebro",
+          "family": "Cupressaceae",
+          "genus": "Juniperus",
+          "cycle": "perennial",
+          "growth_rate": "slow",
+          "flower_type": "dioecious_female",
+          "pollination_type": "self_sterile",
+          "min_height_cm": 50.0,
+          "max_height_cm": 1000.0,
+          "min_spread_cm": 100.0,
+          "max_spread_cm": 400.0,
+          "sun_requirement": "full_sun",
+          "water_needs": "low",
+          "hardiness_zone_min": 2,
+          "hardiness_zone_max": 8,
+          "ph_min": 6.0,
+          "ph_max": 7.5,
+          "edible": false,
+          "edible_parts": [],
+          "data_source": "bundled",
+          "frost_tolerance": "hardy",
+          "nutrient_demand": "light",
+          "n_demand": "low",
+          "p_demand": "low",
+          "k_demand": "low",
+          "permaculture_layer": "shrub",
+          "functions": []
+        },
+        "plant_instance": {
+          "planting_date": "2025-10-25",
+          "current_height_cm": 160.0,
+          "current_spread_cm": 110.0
+        }
+      },
+      "layer_id": "93c07dc5-2de3-5511-8b50-bc544fd5588f",
+      "label_visible": false,
+      "fill_color": "#ff228b22",
+      "stroke_color": "#ff000000",
+      "stroke_width": 1.0,
+      "fill_pattern": "SOLID",
+      "stroke_style": "SOLID",
+      "plant_category": "ROUND_DECIDUOUS",
+      "plant_species": "Juniper",
+      "spacing_radius_cm": 54.0,
+      "stack_order": 49152
+    },
+    {
+      "type": "circle",
+      "item_id": "3f39b5a5-2b19-5ea9-86f9-4cdbcf2f75ac",
+      "center_x": 450.0,
+      "center_y": 540.0,
+      "radius": 14,
+      "object_type": "GARDEN_LIGHT",
+      "name": "Linterna de piedra",
+      "layer_id": "93c07dc5-2de3-5511-8b50-bc544fd5588f",
+      "label_visible": false,
+      "fill_color": "#ff313538",
+      "stroke_color": "#ff000000",
+      "stroke_width": 1.0,
+      "fill_pattern": "SOLID",
+      "stroke_style": "SOLID",
+      "stack_order": 50176
+    },
+    {
+      "type": "circle",
+      "item_id": "2372b5a1-9ff5-5adc-a896-5dc1f0383663",
+      "center_x": 740.0,
+      "center_y": 440.0,
+      "radius": 14,
+      "object_type": "GARDEN_LIGHT",
+      "name": "Linterna de piedra",
+      "layer_id": "93c07dc5-2de3-5511-8b50-bc544fd5588f",
+      "label_visible": false,
+      "fill_color": "#ff313538",
+      "stroke_color": "#ff000000",
+      "stroke_width": 1.0,
+      "fill_pattern": "SOLID",
+      "stroke_style": "SOLID",
+      "stack_order": 51200
+    },
+    {
+      "type": "circle",
+      "item_id": "e1c64916-9473-54de-a943-12064c484bea",
+      "center_x": 1060.0,
+      "center_y": 500.0,
+      "radius": 14,
+      "object_type": "GARDEN_LIGHT",
+      "name": "Linterna de piedra",
+      "layer_id": "93c07dc5-2de3-5511-8b50-bc544fd5588f",
+      "label_visible": false,
+      "fill_color": "#ff313538",
+      "stroke_color": "#ff000000",
+      "stroke_width": 1.0,
+      "fill_pattern": "SOLID",
+      "stroke_style": "SOLID",
+      "stack_order": 52224
+    },
+    {
+      "type": "text",
+      "item_id": "ff1c23c5-62d8-51d1-8c7d-bd1b282517bc",
+      "x": 110.0,
+      "y": 180.0,
+      "content": "20 oct 2026 \u00b7 1  Abra la vista 3D: arena, pizarra, guijarros, musgo y agua, uno junto a otro.\n2  Seleccione una superficie \u2192 Propiedades: cambie el relleno y v\u00e9alo en 2D y 3D a la vez.\n3  Plano y sol: vaya a junio. Los arces siguen rojos, el abedul se vuelve verde. Referencia D\u00fcsseldorf.",
+      "font_family": "Arial",
+      "font_size": 0.3,
+      "bold": false,
+      "italic": false,
+      "text_color": "#ff243528",
+      "layer_id": "05f39773-29e5-5c4f-b782-acc14f416298",
+      "stack_order": 1024
+    }
+  ],
+  "location": {
+    "name": "D\u00fcsseldorf",
+    "latitude": 51.2277,
+    "longitude": 6.7735,
+    "timezone": "Europe/Berlin",
+    "frost_dates": {
+      "last_spring_frost": "04-10",
+      "first_fall_frost": "11-05"
+    }
+  },
+  "camera_tours": [
+    {
+      "name": "Vuelo alrededor del jard\u00edn",
+      "motion": "orbit",
+      "orbit": {
+        "target": [
+          600.0,
+          500.0
+        ],
+        "distance_cm": 2638.0,
+        "yaw_deg": 0.2,
+        "pitch_deg": 34.0,
+        "fov_deg": 40.0,
+        "turns": 1,
+        "clockwise": true,
+        "ease": true
+      },
+      "duration_s": 30.0,
+      "fps": 30,
+      "size": [
+        1920,
+        1080
+      ]
+    }
+  ]
+}

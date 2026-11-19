@@ -4819,5 +4819,30 @@
       "species_key": "prunus avium",
       "species_name": "Cherry Tree"
     }
-  }
+  },
+  "camera_tours": [
+    {
+      "name": "Garden orbit",
+      "motion": "orbit",
+      "orbit": {
+        "target": [
+          1200.0,
+          800.0
+        ],
+        "distance_cm": 3063.0,
+        "yaw_deg": 316.1,
+        "pitch_deg": 18.0,
+        "fov_deg": 40.0,
+        "turns": 1,
+        "clockwise": true,
+        "ease": true
+      },
+      "duration_s": 30.0,
+      "fps": 30,
+      "size": [
+        1920,
+        1080
+      ]
+    }
+  ]
 }

@@ -6,7 +6,7 @@ features. Until Phase 17 L1.7 (#385) these tables lived in
 ``scripts/generate_plant_sprites.py`` and the 3D spike kept a copy of the
 palettes. Now there is one home:
 
-- ``scripts/generate_plant_sprites.py`` imports the tables and draws the 123 SVGs
+- ``scripts/generate_plant_sprites.py`` imports the tables and draws the 126 SVGs
   from them (its output is byte-identical to before the move; pinned by
   ``tests/unit/test_plant_sprite_conformance.py``);
 - ``core/scene3d/builders/plants.py`` reads the SAME recipe to build a plant's
@@ -31,7 +31,7 @@ the meaning of every recipe key:
 To change a plant: edit its recipe here, run the generator, commit both.
 """
 
-# ruff: noqa: C408 - dict() keyword style is deliberate: the 123-entry recipe
+# ruff: noqa: C408 - dict() keyword style is deliberate: the 126-entry recipe
 # tables read far better as dict(a=..., pal=...) than as quoted-key literals.
 
 from __future__ import annotations
@@ -92,6 +92,8 @@ FRUITS: dict[str, tuple[str, str, str]] = {
     "eggplant": ("#7a5bb5", "#4a2f80", "#291452"),
     "pumpkin": ("#ffb35c", "#ef8324", "#b3540c"),
     "butternut": ("#f0d09a", "#d4a860", "#9a7232"),
+    # a dark wine grape under its waxy bloom: dustier and darker than the plum
+    "grape": ("#7d6ea8", "#4a3870", "#261a3c"),
 }
 
 # flower petal specs: (petal_outer, petal_tip_light, center)
@@ -113,7 +115,7 @@ FLOWERS: dict[str, tuple[str, str, str]] = {
 
 
 # --------------------------------------------------------------------------- #
-# species table — one compact recipe per species (108)
+# species table — one compact recipe per species (111)
 # --------------------------------------------------------------------------- #
 SPECIES: dict[str, Recipe] = {
     # trees
@@ -317,6 +319,12 @@ SPECIES: dict[str, Recipe] = {
                    flowers=dict(spec="purple", petals=6, radius=5.0, n=5, zone=(6, 22))),
     "sunflower": dict(a="flower", pal="fresh",
                       flowers=dict(spec="gold", petals=16, double=True)),
+    # #940: three species of the bundled example plans (appended: the table's order is
+    # the order the generator writes the files in)
+    "japanese_maple": dict(a="canopy", pal="redleaf", leaf_scale=0.65, n_out=24, frilly=True),
+    "bamboo": dict(a="grass", pal="fresh", r=44, n_out=26, leaf_scale=0.85),
+    "grape_vine": dict(a="climber", pal="fresh", frilly=True, leaf_scale=1.2,
+                       fruit=dict(kind="grape", n=7, size=(1.9, 2.3), per=(8, 12))),
 }
 
 # --------------------------------------------------------------------------- #

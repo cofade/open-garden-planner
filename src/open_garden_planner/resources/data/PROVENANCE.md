@@ -31,7 +31,7 @@ Each file carries:
 
 | file | sources |
 | ---- | ------- |
-| `plant_species.json` | RHS, Cornell, Kew, USDA/GRIN, UMN, OSU |
+| `plant_species.json` | RHS, Cornell, Kew, USDA/GRIN, UMN, OSU; the five #940 records (Japanese maple, bamboo, Miscanthus, windmill palm, grape vine) from general horticultural knowledge, curated in-repo, no text copied |
 | `companion_planting.json` | RHS, Riotte, Rodale |
 | `seed_viability.json` | OSU, Johnny's Selected Seeds, Mother Earth News, RHS |
 | `amendments.json` | Rodale, RHS, USDA Extension |

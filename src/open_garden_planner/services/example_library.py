@@ -31,24 +31,26 @@ class ExampleEntry:
 
 def bundled_examples(language: str = "en") -> list[ExampleEntry]:
     """Load trusted sidecars; malformed/missing bundled content is a packaging bug."""
-    entries = []
-    for canonical in sorted(BUNDLED_EXAMPLES.glob("*.ogp")):
+    listed = []
+    for canonical in BUNDLED_EXAMPLES.glob("*.ogp"):
         meta = json.loads(canonical.with_suffix(".meta.json").read_text(encoding="utf-8"))
         path = canonical
         if f"name_{language}" in meta and f"description_{language}" in meta:
             localized = BUNDLED_EXAMPLES / language / canonical.name
             if localized.is_file():
                 path = localized
-        thumbnail = path.with_suffix(".png")
+        # One picture for every language: it shows the plan without its hint text.
+        thumbnail = canonical.with_suffix(".png")
         if not thumbnail.is_file():
             raise FileNotFoundError(thumbnail)
-        entries.append(ExampleEntry(
+        listed.append((int(meta["order"]), canonical.name, ExampleEntry(
             path, meta.get("name_" + language, meta["name_en"]),
             meta.get("description_" + language, meta["description_en"]),
             tuple(meta["tags"]), meta["license"], thumbnail,
             meta.get("attribution_" + language, meta["attribution"]),
-        ))
-    return entries
+        )))
+    # The sidecar's ``order``: the gallery's fixed order, the same in every language.
+    return [entry for _order, _name, entry in sorted(listed, key=lambda row: row[:2])]
 
 
 def gallery_entries(language: str = "en") -> list[ExampleEntry]:

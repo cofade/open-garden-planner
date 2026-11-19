@@ -29,7 +29,7 @@ def test_roundtrip_unknowns_and_deduplication():
 
 def test_all_bundled_traits_curated():
     records = get_species_db()
-    assert len(records) == 118
+    assert len(records) == 123
     for record in records.values():
         assert PermacultureLayer(record["permaculture_layer"]) != PermacultureLayer.UNKNOWN
         assert all(PlantFunction(f) for f in record["functions"])

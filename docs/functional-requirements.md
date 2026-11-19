@@ -223,7 +223,7 @@ Pre-defined object types for common property elements:
   The existing `PlantAPIManager.search()` online fallback still searches custom entries before Trefle, Perenual and Permapeople. It does not deduplicate custom-library results against provider results. Every result row shows its source (FR-PLANT-18), distinguishing a reusable user record from a fetched record. The bundled catalog is available through the shared offline search service rather than a new network-manager client.
 - **FR-PLANT-24** *(issue #302)*: A plant search that every reachable database answers with **zero matches is not an error** and must never be reported as one. `PlantAPIManager.search()` raises `PlantAPIError` only when *no* configured provider answered at all (every one raised) and the custom library had no hit; if at least one provider answered — even with an empty list — the honest result `[]` is returned. `PlantSearchDialog` then shows a warning-coloured status *"No plants matched '{query}'. Try another spelling or the scientific name."* with **no modal dialog**, or *"No plant databases are configured. Add API credentials in Preferences to search online."* when `PlantAPIManager.configured_source_count == 0`. If one configured provider answered with zero matches while another *raised*, the result is still an honest zero result (no modal) but the status appends *"({sources} unavailable — check Preferences.)"* naming the failed provider(s) (`PlantAPIManager.last_search_failed_sources`), so an outage is not silently masked by a neighbour's empty answer. The red *"Search failed: …"* status plus the *"check your internet connection and API credentials"* message box is reserved for a genuine technical failure (every configured provider raised). (Before this, a query for a variety absent from every database — the reporter's *mahachanok* mango — produced the failure dialog with the credentials hint even though connection and credentials were fine; the same misreport class the #294 Preferences "Test" button had.) Pinned by `tests/integration/test_plant_search_zero_results.py` and `tests/unit/test_plant_api_manager_search.py`.
 - **FR-PLANT-15** *(issue #170)*: On canvas drop or tool draw of a plant, look up the species in the bundled DB (`resources/data/plant_species.json`) by scientific name → common name → alias (case-insensitive). On hit, populate `metadata["plant_species"]` with the full record (pH, NPK demand, sun, water, calendar, hardiness) so the plant detail panel shows data immediately and US-12.10d soil-mismatch warnings fire automatically. A **gallery** drop of a named species also sizes the drawn footprint so its diameter equals the species' `max_spread_cm`, exactly like a Plant Database drop (`build_species_plant`); an unknown/custom name keeps the gallery default (TREE 200 cm, SHRUB 100 cm, PERENNIAL 60 cm). This is creation-time sizing only — an existing plant's footprint still changes only through a species assignment (FR-PLANT-17), and the 2D/3D canopy of an unmeasured plant follows its drawn footprint, so resizing or clearing `max_spread_cm` never rewrites owner geometry. (#596 manual pass: the fixed gallery diameter made an 8 m apple tree 2 m wide in 3D.)
-- **FR-PLANT-16** *(issue #170)*: Bundled DB ships records for **every species exposed by the gallery** (currently 118 entries: trees, shrubs, vegetables, herbs, berries, fruits, ornamentals). Every record has `ph_min`, `ph_max`, `nutrient_demand`, `n_demand`, `p_demand`, `k_demand` populated. Where the gallery's species string differs from the canonical common name (e.g. "pea" vs "Garden Pea", "apple tree" vs "Apple Tree"), records carry an optional `aliases` array. Misses fall through to the existing API search button (FR-PLANT-14).
+- **FR-PLANT-16** *(issue #170)*: Bundled DB ships records for **every species exposed by the gallery** (currently 123 entries: trees, shrubs, vegetables, herbs, berries, fruits, ornamentals). Every record has `ph_min`, `ph_max`, `nutrient_demand`, `n_demand`, `p_demand`, `k_demand` populated. Where the gallery's species string differs from the canonical common name (e.g. "pea" vs "Garden Pea", "apple tree" vs "Apple Tree"), records carry an optional `aliases` array. Misses fall through to the existing API search button (FR-PLANT-14).
 - **FR-PLANT-17** *(issue #213)*: Assigning a database species to an **existing** generic plant — via the plant database panel (Load Custom / Create Custom) or the Plants-menu species search (`application.py`) — writes `metadata["plant_species"]` **and** resizes the drawn footprint so its **diameter equals the species' `max_spread_cm`** (the visible change the issue requires) while keeping the plant centred. The resize is **silent** in the common case; the only thing that prompts is a **manual `spacing_radius_cm` override that conflicts with the database value** — then a dialog offers **Apply database values** (default: resize the footprint and clear the override so the database cascades) or **Keep custom values** (override *and* placed footprint left untouched). The assignment is a single undoable step (`ApplySpeciesCommand`, one undo unit, dirties the document — metadata, override, and footprint radius all revert together). Species with no usable `max_spread_cm` only update metadata (no resize). The footprint is resized via `CircleItem.set_radius_centered()`, which keeps the rotation pivot on the new centre so a rotated plant does not drift on save/reload.
 - **FR-PLANT-18** *(issue #297)*: Confirming a plant search result in `PlantSearchDialog` (OK or double-click) fetches the provider's full per-species detail record via `PlantAPIManager.get_by_id()` and merges it onto the search result before it is assigned to a plant. The merge is generic (`_merge_detail_into_search_result()`, a loop over every `PlantSpeciesData` field): a field at its dataclass default — or `None`, regardless of the field's own default — in the detail response defers to the search result's value; every other field takes the detail response's value. `source_id`/`data_source`/`raw_data` always come from the detail response. Search/list endpoints can be structurally sparser than detail endpoints for the same provider — confirmed live for Trefle's `/plants/search`, which omits `growth`/`specifications`/`foliage` entirely, so `sun_requirement`, `water_needs`, `ph_min`/`ph_max`, `nutrient_demand`, `foliage_color`/`foliage_texture`, and (also detail-only) `max_height_cm`, `growth_rate`, `description` would otherwise stay at their unset defaults for every Trefle-sourced plant regardless of parser correctness. The fetch runs once, on confirm, not per browsed result (rate-limit consideration); is skipped for anything that isn't a known online provider (`data_source` not in `{"trefle", "perenual", "permapeople"}`, or an empty `source_id`) -- local custom/bundled entries and unidentifiable results have no online detail endpoint to fetch. **Two failure modes, two behaviors**: a provider signaling "no richer detail exists for this record" — `PlantDetailUnavailableError`, raised for Perenual's free-tier paywall (HTTP 429, live-confirmed not rate limiting) and for Trefle records with a present-but-null `main_species` (~4% of a live sample, all scientific-name-only species) — falls back **quietly** (logged, no user-facing warning), since nothing is actually wrong. A genuine failure — a raised error, or a successful response whose `source_id` doesn't match the one requested — shows a translated warning before falling back, so a real failure can't silently reproduce #297's own symptom. Deliberately does **not** reject on an empty/missing `common_name` alone: Trefle omits it for many genuinely valid, scientific-name-only species, and a first cut of this fix wrongly discarded fully-populated detail records on that basis (caught in senior review round 2). **Enrichment gain is provider-dependent** (measured live, senior review round 7): Trefle's detail response consistently adds `description`/`sun_requirement`/`water_needs`/`ph_min`/`ph_max`/`nutrient_demand` over its search response, but Perenual's and Permapeople's detail responses did not carry any field their own search responses lacked in the sample checked — so a confirm against those two providers still requests a detail round-trip without a measured data gain in that historical sample. Acceptance now fetches details on a worker while the dialog remains responsive. Changing the selection, starting another query or closing the dialog invalidates the pending response; only enrichment for the current selection can complete acceptance. Not a bug (their parsers may grow to use more detail-only fields later), but worth knowing before assuming every provider benefits equally. **Manual-testing finding (2026-08-10)**: a result row previously showed only `"{common_name} ({scientific_name})"`, with nothing indicating which store served it. Since the custom library is searched first (FR-PLANT-14) and is not deduplicated against API results, a stale or bogus custom entry sharing a name with a real species was visually indistinguishable from -- and silently shadowed -- the live API record; confirming it skipped enrichment entirely (`data_source == "custom"`) with no explanation shown. Every result row now shows its data source (e.g. "Tomato (Solanum lycopersicum) — Custom Plant" vs "— Trefle") via the shared `plant_source_label()` helper (`ui/plant_species_assignment.py`), also used by the properties panel's own "Data Source" tooltip so the two can't drift apart. **File-size consequence, documented not fixed (final review pass, 2026-08-11)**: `raw_data` (the full provider response, kept for `"Extensible metadata for API-specific fields"` per its own field comment) is one of the three fields `_merge_detail_into_search_result()` always takes from the detail response, deliberately and pinned by `test_source_id_data_source_and_raw_data_always_come_from_detail`. Before this fix, a Trefle-sourced plant's persisted `raw_data` was the sparse search-result payload (enrichment never ran); after it, a successfully enriched plant persists the full detail response instead -- larger, but not a new category of data: every provider's `search()` result was already persisting its own raw API response the same way. No code currently reads `raw_data` back for any provider. Left as-is rather than stripped, since removing it would contradict the existing, deliberately-tested "detail's raw_data is the richer payload" invariant on a doc-and-hygiene finding -- revisit only if `.ogp` file size becomes a measured problem.
 
@@ -623,7 +623,7 @@ Acceptance: `tests/integration/test_icon_system.py` + `tests/integration/test_th
 
 ## FR-29: Visual Refresh — Plant Illustrations (issue #281, ADR-040)
 
-- **FR-PLANT-ART-01**: Every species (108) and category (15) plant sprite renders in one cohesive top-down "Lush Sprite" style — individual shingled leaves with depth (occlusion + per-leaf gradients), glossy fruit and chunky bloom clusters — replacing the washed-out translucent-blob set, on the same files and render path the canvas already uses (no behavior change in `plant_renderer`).
+- **FR-PLANT-ART-01**: Every species (111) and category (15) plant sprite renders in one cohesive top-down "Lush Sprite" style — individual shingled leaves with depth (occlusion + per-leaf gradients), glossy fruit and chunky bloom clusters — replacing the washed-out translucent-blob set, on the same files and render path the canvas already uses (no behavior change in `plant_renderer`).
 - **FR-PLANT-ART-02**: Sprites stay visually correct under the canvas' stable per-plant random rotation (radial shading, no baked light direction) and remain legible at small growth-model sizes (≈16 px) as well as large tree footprints.
 - **FR-PLANT-ART-03**: Each species keeps one signature recognition cue at plan scale (fruit color, bloom shape/color, rib color, root-vegetable bulb at the center, silhouette — e.g. tomato ≠ pepper ≠ eggplant, carrot ≠ radish ≠ beet).
 - **FR-PLANT-ART-04**: The whole set is procedurally regenerable by `scripts/generate_plant_sprites.py` from per-species recipes — since Phase 17 L1.7 the recipe tables live in `core/plant_art/recipes.py`, shared with the 3D plant builder (FR-3D-PLANT-01); committed SVGs byte-match regeneration (deterministic, seeded) and carry provenance (`resources/plants/PROVENANCE.md`) — no external or image-model assets.
@@ -837,10 +837,12 @@ Acceptance (L2): `tests/integration/test_view3d_analysis.py` (§8.10 — the wor
 
 Plant Forge: procedural species models, LODs and phenology (L3, #387, ADR-064).
 
-- **FR-3D-FORGE-01:** All 123 sprite recipes (108 species and 15 categories)
+- **FR-3D-FORGE-01:** All 126 sprite recipes (111 species and 15 categories)
   have procedural 3D models in 13 archetypes, using shared art traits and no
   external models. Known heights remain within 3% and crown spread within 10%;
-  winter structural wood retains ground contact and recorded height.
+  winter structural wood retains ground contact and recorded height. A bulb
+  (tulip, daffodil, crocus, iris, lily) reaches its height with its flower: out of
+  bloom it stands as its strap leaves, at about 40-60% of that height (#940).
 - **FR-3D-FORGE-02:** Total triangle caps are 25,000/6,000/800 at distance LODs
   up to 18 m / up to 45 m / beyond 45 m. A256-entry, 64 MiB LRU bounds mesh storage.
 - **FR-3D-FORGE-03:** Initial silhouettes precede background synthesis. Camera
@@ -850,11 +852,16 @@ Plant Forge: procedural species models, LODs and phenology (L3, #387, ADR-064).
   within 50 cm of the canopy edge, then a three-pole bamboo tripod.
 - **FR-3D-FORGE-05:** Separate flower, fruit/pod and tuber geometry permits
   independent bloom and ripeness. Recorded harvest windows follow the shared
-  day-level task calendar and the plan's local frost dates.
+  day-level task calendar and the plan's local frost dates; a perennial's fruit
+  shows only inside its fruit months (#940). Flowers are counted by the crown's
+  surface and show from every side.
 - **FR-3D-FORGE-06:** Existing Models respond to seasonal date changes through
   shader/material values. Deciduous leaves and their shadows disappear in
   winter, evergreens retain foliage; illustrative seasons shift in the southern
-  hemisphere. Plant existence stays on the shared lifetime rule.
+  hemisphere. Plant existence stays on the shared lifetime rule. Bloom opens over
+  the first ten days of its window and fades over the last ten, flower by flower;
+  a hardy plant flowers before the last frost, a tender one waits for it; magnolia,
+  forsythia, peach, plum and cherry carry few leaves until their bloom ends (#940).
 
 Acceptance: `tests/integration/test_plant_forge.py`,
 `tests/integration/test_plant_forge_workspace.py`,
@@ -1220,16 +1227,17 @@ engine), the unit suites `tests/unit/test_playback.py`, `test_scene3d_weather.py
 
 - **FR-EXAMPLE-07** (#390): The examples include **Family garden**, a 24 × 16 m whole garden made to
   explore in 3D, the plan of the project's own renders. Its names are localized; its botany is not.
-- **FR-EXAMPLE-01**: Welcome and File offer at least three offline examples with
-  localized names/descriptions, PNG previews and visible license attribution.
-  User templates in the app-data templates directory appear alongside them.
+- **FR-EXAMPLE-01**: Welcome and File offer thirteen offline examples (#940) in a fixed
+  order, the same in every language, with localized names/descriptions, PNG previews and
+  visible license attribution. User templates in the app-data templates directory appear
+  after them.
 - **FR-EXAMPLE-02**: Opening an example or any `.ogp` through New from template
   creates an untitled, dirty copy through the normal document loader. Saving asks
   for a destination; bundled bytes and modification times stay unchanged.
   Known bundled examples retain their public demonstration location, fictional
   soil tests and fictional harvest history; external templates use the portable subset. English, German and
-  Spanish examples include localized object names, notes, tutorial annotations and
-  matching language-specific gallery thumbnails.
+  Spanish examples include localized object names, notes, hints and tour names. One gallery
+  thumbnail serves every language: it shows the plan without its hint text (#940).
 - **FR-EXAMPLE-03**: Save as template explains and removes site, history, task,
   inventory, preference and image data plus absolute paths. Geometry, species,
   layers, guilds, constraints, smart symbols and succession dates stay portable.
@@ -1242,18 +1250,22 @@ engine), the unit suites `tests/unit/test_playback.py`, `test_scene3d_weather.py
   group guild plants in cultivated soil, keep raised-bed plants inside the drawn
   soil, and explain a dated sun/soil/guild workflow with editable plan annotations.
 
-- **FR-EXAMPLE-08** (#795): An example opens on its reference date with a daytime sun,
-  however late the wall clock is: Family garden on 21 June 2026, the teaching plans on
-  21 September 2026. The Plan & Sun strip shows that moment. Opening or creating another
+- **FR-EXAMPLE-08** (#795, #940): An example opens on its reference date with the sun above
+  the horizon, however late the wall clock is, and never with the night overlay on the plan.
+  Each example has its own date and its own light: midday, a morning, a late afternoon or
+  golden hour (for example Family garden on 21 June 2026 at midday, the spring garden on
+  18 April 2026, the Mediterranean courtyard on the evening of 21 June 2026). The Plan & Sun
+  strip shows that moment. Opening or creating another
   document puts the clock back to the reading the user had before, and so does saving the
   copy (Save or Save As): it is the user's plan from then on, the status bar says that it
   now follows their own date and time, and a date or time they set afterwards stays when
   another document opens. The moment itself is never saved; a copy saved from an example
   opens like any plan of the user's. A plant added before the copy is saved is planted on
   the example's date, one added after it on the user's date.
-- **FR-EXAMPLE-09** (#795): Each example has a small harvest history that is marked as
-  fictional, so the Harvest tab, a plant's harvest log and the report's harvest page show
-  content. The Seed Inventory is the user's own and stays as it is; when it is empty the
+- **FR-EXAMPLE-09** (#795, #940): An example with edible plants has a small harvest history
+  that is marked as fictional, so the Harvest tab, a plant's harvest log and the report's
+  harvest page show content. An ornamental example (the modern and the Japanese garden) has
+  none. The Seed Inventory is the user's own and stays as it is; when it is empty the
   tab says what it is for and how to add a packet.
 - **FR-EXAMPLE-10** (#795): For every plan, not only examples: Plant Details show a
   species without a photo as the plan draws it, and the Diagnostics panel lists the
@@ -1264,7 +1276,24 @@ engine), the unit suites `tests/unit/test_playback.py`, `test_scene3d_weather.py
   file, it does not enter Recent, the report cover carries the sidecar's name, and the
   first save is a Save As. The bundled bytes are never written.
 
-ADR-066, `tests/integration/test_templates_gallery.py` and
+- **FR-EXAMPLE-12** (#940): Every example but Family garden carries one hint text that says
+  what the plan shows and what to try. The hint lies alone on the top layer **Hints**:
+  hiding that layer in the Layers panel leaves the plan without any text, ready for a
+  picture.
+- **FR-EXAMPLE-13** (#940): Every example stores a camera tour **Garden orbit** (one eased
+  turn around the whole plan, starting with the showcase sun behind the camera). Three
+  examples store a second tour: the modern garden's runs from evening into night and the
+  garden lights come on, the terraced-house garden's holds the camera while a day's shadows
+  pass, the spring garden's holds it while the year 2026 passes. A tour's time of day is
+  read on the computer's clock. An example's 3D view opens on the side its orbit starts
+  from, at the distance that fits the view; **Reset 3D View** goes to the default side.
+- **FR-EXAMPLE-14** (#940): The examples lie in eleven German and Austrian places and in
+  Valencia, and show, between them: a rotated north, guide lines and distance constraints, a
+  succession plan, soil samples, three guilds, container planting, a flower meadow, garden
+  lights, all four roof styles and a year time-lapse.
+
+ADR-066, `tests/example_specs.py`, `tests/integration/test_example_plans.py`,
+`tests/integration/test_templates_gallery.py` and
 `tests/integration/test_example_showcase.py` own the behavior.
 
 ## FR-STATS: Public download reporting (ADR-067, #634 follow-up, #677)

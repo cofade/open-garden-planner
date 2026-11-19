@@ -16,6 +16,15 @@
       "opacity": 1.0,
       "z_order": 0,
       "permaculture_layer": null
+    },
+    {
+      "id": "173b4b4b-ba3c-5d8d-b079-46b5b5613f76",
+      "name": "Hinweise",
+      "visible": true,
+      "locked": false,
+      "opacity": 1.0,
+      "z_order": 1,
+      "permaculture_layer": null
     }
   ],
   "objects": [
@@ -1267,8 +1276,8 @@
       "bold": false,
       "italic": false,
       "text_color": "#ff243528",
-      "layer_id": "086c33b3-d63c-5b9b-9793-bfccb7e709e3",
-      "stack_order": 25600
+      "layer_id": "173b4b4b-ba3c-5d8d-b079-46b5b5613f76",
+      "stack_order": 1024
     }
   ],
   "location": {
@@ -1387,5 +1396,30 @@
       "species_key": "petroselinum crispum",
       "species_name": "Petersilie"
     }
-  }
+  },
+  "camera_tours": [
+    {
+      "name": "Rundflug",
+      "motion": "orbit",
+      "orbit": {
+        "target": [
+          250.0,
+          150.0
+        ],
+        "distance_cm": 824.0,
+        "yaw_deg": 312.6,
+        "pitch_deg": 18.0,
+        "fov_deg": 40.0,
+        "turns": 1,
+        "clockwise": true,
+        "ease": true
+      },
+      "duration_s": 30.0,
+      "fps": 30,
+      "size": [
+        1920,
+        1080
+      ]
+    }
+  ]
 }

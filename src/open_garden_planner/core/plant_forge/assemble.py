@@ -60,12 +60,17 @@ def fit_forged_parts(
     *,
     structural_height: bool = False,
     preserve_horizontal_frame: bool = False,
+    accents_name: str = PART_ACCENTS,
 ) -> tuple[MeshPart, ...]:
-    """Fit ``(wood, foliage, accents)`` to ``height_cm`` and ``radius_cm`` and wrap as ``MeshPart``s."""
+    """Fit ``(wood, foliage, accents)`` to ``height_cm`` and ``radius_cm`` and wrap as ``MeshPart``s.
+
+    ``accents_name``: the third part's name - ``"flowers"`` when a builder places its own
+    flowers inside the fit (a bulb's scapes, a sunflower's heads: #940), so the season
+    shows and hides them like any plant's flowers."""
     raw_list = [
         (PART_WOOD, "vc", wood),
         (PART_FOLIAGE, "foliage", foliage),
-        (PART_ACCENTS, "vc", accents),
+        (accents_name, "vc", accents),
     ]
     non_empty = [(name, mat, g.copy()) for name, mat, g in raw_list if g.vertex_count > 0 and g.triangle_count > 0]
     if not non_empty:

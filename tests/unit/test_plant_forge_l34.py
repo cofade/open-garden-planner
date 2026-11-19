@@ -237,13 +237,13 @@ class TestL34ClimberSupportResolution:
 
 
 class TestL34ClimberBuildersAndAll123Coverage:
-    """Verify all 16 climber recipes and confirm all 13 archetypes / 123 recipes are forged."""
+    """Verify all 16 climber recipes and confirm all 13 archetypes / 126 recipes are forged."""
 
     def test_all_7_climber_recipes_and_all_13_archetypes_covered(self) -> None:
-        assert len(CLIMBER_SPRITES) == 7
+        assert len(CLIMBER_SPRITES) == 8
         all_archetypes = {r["a"] for r in SPECIES.values()} | {r["a"] for r in CATEGORIES.values()}
         assert all_archetypes == ARCHETYPES
-        assert len(SPECIES) + len(CATEGORIES) == 123
+        assert len(SPECIES) + len(CATEGORIES) == 126
 
     @pytest.mark.parametrize("sprite", CLIMBER_SPRITES, ids=lambda s: f"{s.group}/{s.name}")
     @pytest.mark.parametrize("support_kind", [SUPPORT_BEAN_POLES, SUPPORT_TRELLIS, SUPPORT_FENCE, SUPPORT_PERGOLA])

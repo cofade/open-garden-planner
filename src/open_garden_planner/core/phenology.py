@@ -22,6 +22,7 @@ Qt-free: standard library + NumPy + `core.plant_art` + `core.scene3d` only.
 
 from __future__ import annotations
 
+import calendar
 import datetime
 import math
 from collections.abc import Mapping, Sequence
@@ -185,6 +186,66 @@ def _month_window_weight(
     return float(min(max(ramp_from + (1.0 - ramp_from) * progress, 0.0), 1.0))
 
 
+#: Flowers open over this many days at the start of their bloom window and fade over as
+#: many at its end (#940, review 2): the window's months are whole, a plant's flowering is
+#: not - a step on the 1st of the month popped a whole tree in or out of flower.
+BLOOM_RAMP_DAYS: Final[float] = 10.0
+#: A month's mean length, for the whole months of a window before and after the current.
+_MEAN_MONTH_DAYS: Final[float] = 365.25 / 12.0
+
+
+def _month_run_days(
+    plan_date: datetime.date, latitude_deg: float, months_nh: tuple[int, ...],
+) -> tuple[float, float] | None:
+    """``(days since, days until)`` the run of consecutive window months holding
+    ``plan_date`` began / ends (cyclic: a December runs into January); None outside the
+    window; both infinite for a window of all twelve months."""
+    months = set(months_nh)
+    s_month = seasonal_month(plan_date, latitude_deg)
+    if s_month not in months:
+        return None
+    if len(months) >= 12:
+        return math.inf, math.inf
+    before = after = 0
+    while ((s_month - 2 - before) % 12) + 1 in months:
+        before += 1
+    while ((s_month + after) % 12) + 1 in months:
+        after += 1
+    month_days = calendar.monthrange(plan_date.year, plan_date.month)[1]
+    return (before * _MEAN_MONTH_DAYS + (plan_date.day - 1),
+            after * _MEAN_MONTH_DAYS + (month_days - plan_date.day))
+
+
+def _bloom_weight(plan_date: datetime.date, latitude_deg: float, months_nh: tuple[int, ...]) -> float:
+    """``0..1``: 1 inside the bloom window, opening over its first ``BLOOM_RAMP_DAYS``
+    and fading over its last (a gap in the months closes one run and opens the next)."""
+    run = _month_run_days(plan_date, latitude_deg, months_nh)
+    if run is None:
+        return 0.0
+    since, until = run
+    return (_smoothstep(0.0, BLOOM_RAMP_DAYS, since + 0.5)
+            * _smoothstep(0.0, BLOOM_RAMP_DAYS, until + 0.5))
+
+
+def _month_window_progress(
+    plan_date: datetime.date, latitude_deg: float, months_nh: tuple[int, ...],
+) -> float:
+    """How far ``plan_date`` lies through the window ``months_nh`` (0 its first day, 1
+    its end) — the same month and day arithmetic as ``_month_window_weight``. Outside the
+    window: 1.0. The window's months are taken in their listed order (no year wrap)."""
+    s_month = seasonal_month(plan_date, latitude_deg)
+    if s_month not in months_nh:
+        return 1.0
+    day_frac = min(max((plan_date.day - 1) / 30.0, 0.0), 1.0)
+    return float(min((months_nh.index(s_month) + day_frac) / len(months_nh), 1.0))
+
+
+#: The share of a precocious bloomer's bloom window after which its leaves unfold
+#: (#940): held at ``Traits3D.bloom_leaf_density`` before it, at the season's own
+#: density at the window's end — so the leaves never jump when the flowers go.
+BLOOM_LEAF_UNFOLD_FROM: Final[float] = 0.75
+
+
 def _frost_window(frost_dates: Mapping[str, object] | None) -> tuple[str | None, str | None]:
     if not frost_dates:
         return None, None
@@ -282,7 +343,7 @@ def _evaluate_cached(
     autumn_mult = _palette_autumn_multiplier(traits.palette, traits.autumn_palette)
 
     # 2. Bloom (0..1)
-    bloom = _month_window_weight(plan_date, lat_q, traits.bloom_months, ramp_from=1.0)
+    bloom = _bloom_weight(plan_date, lat_q, traits.bloom_months)
 
     # 3. Ripeness (0..1)
     harvest_weeks = harvest_override if harvest_override is not None else traits.harvest_weeks
@@ -291,13 +352,37 @@ def _evaluate_cached(
         # Calendar frost dates already describe local seasons. Do not apply the
         # hemisphere phase shift to them again, or round windows to whole months.
         ripeness = _harvest_ripeness(plan_date, harvest_weeks, frost_mmdd)
+        # A perennial's fruit ripens in its own months (#940): its record's frost-anchored
+        # window holds only inside them. An annual's months ARE that window (it carries
+        # ``harvest_weeks``); a vine's window 18 weeks after a February frost is June.
+        if (traits.harvest_weeks is None and traits.fruit_months
+                and s_month not in traits.fruit_months):
+            ripeness = 0.0
     else:
         ripeness = _month_window_weight(plan_date, lat_q, traits.fruit_months, ramp_from=0.55)
+    # Outside the plan's frost-free season a TENDER plant does not flower: it is planted
+    # out after the last frost. A hardy one flowers by its own months — crocus and
+    # daffodil before the last frost, asters after the first (#940).
     if (frost_window[0] and frost_window[1]
             and not _inside_frost_free_season(plan_date, *frost_window)):
-        bloom = 0.0
+        if not traits.frost_hardy_bloom:
+            bloom = 0.0
         if harvest_weeks is None:
             ripeness = 0.0
+
+    # A plant that flowers before or with its leaves (magnolia, forsythia, plum, cherry)
+    # carries only its bloom share of them from budburst until it has flowered, so that
+    # April reads as blossom and not as July (#940); its leaves unfold over the window's
+    # last quarter. Held from budburst, not from the window's first day: a cherry's
+    # leaves dropped from 0.54 on 31 March to 0.18 on 1 April (review 2).
+    if traits.deciduous and traits.bloom_leaf_density < 1.0 and traits.bloom_months:
+        if s_month in traits.bloom_months:
+            unfold = _smoothstep(BLOOM_LEAF_UNFOLD_FROM, 1.0,
+                                 _month_window_progress(plan_date, lat_q, traits.bloom_months))
+            held = traits.bloom_leaf_density + (1.0 - traits.bloom_leaf_density) * unfold
+            leaf_density = min(leaf_density, held)
+        elif s_month < traits.bloom_months[0]:
+            leaf_density = min(leaf_density, traits.bloom_leaf_density)
 
     # 4. Snow (0..1)
     if snow_q is not None:
@@ -436,6 +521,8 @@ def evaluate_phenology_for_records(
 
 
 __all__ = [
+    "BLOOM_LEAF_UNFOLD_FROM",
+    "BLOOM_RAMP_DAYS",
     "DEFAULT_LATITUDE_DEG",
     "plan_latitude",
     "SNOW_LINEAR_RGB",

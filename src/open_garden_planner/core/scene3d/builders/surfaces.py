@@ -27,13 +27,20 @@ it casts no shadow (the plan gives a surface no height).
   ``lawn_blades``; the engine hides them below) — in the lawn's colour, swaying
   with the wind, nowhere under a flat item painted ABOVE the lawn
   (``params["lawn_cutouts"]``, the snapshot's), so a path on a lawn stays clear.
+  A lawn whose fill pattern is WILDFLOWER (``params["surface_pattern"]``, written
+  for that pattern only) is a flower MEADOW (#940): taller, looser blades, and on
+  one in ``MEADOW_FLOWER_EVERY`` a flower head (``MEADOW_FLOWERS``) — a second,
+  untinted part under the same name, so the same presets show it.
 
-Relief stays inside the footprint plus 10 cm (issue #388's truth gate) and low:
-the tallest is a deck's boards, 6 cm.
+Relief stays inside the footprint plus 10 cm (issue #388's truth gate) and low —
+the tallest is a deck's boards, 6 cm — except a meadow's: grass up to
+``MEADOW_TOP_CM``. Relief is illustrative: the plan gives a surface no height, so
+it casts no shadow and no height gate measures it.
 """
 
 from __future__ import annotations
 
+import functools
 import math
 import threading
 from collections import OrderedDict
@@ -42,6 +49,7 @@ from typing import Final, NamedTuple
 import numpy as np
 from numpy.typing import NDArray
 
+from ...plant_art import FLOWERS
 from ...shadow_geometry import _offset_line, polyline_round_outline
 from ..build import (
     BuilderRegistry,
@@ -50,6 +58,7 @@ from ..build import (
     raised_surface,
     uv_origin_of,
 )
+from ..color import srgb_to_linear
 from ..mesh import Mesh, MeshPart
 from ..polygon import cut_region
 from ..record import (
@@ -134,6 +143,61 @@ MAX_DECK_ROWS: Final = 1_000
 MAX_RELIEF_VERTICES: Final = 4_096
 #: A blade's height (cm), before its ±30 % variation.
 BLADE_CM: Final = 7.0
+
+#: #940: the fill pattern that makes a LAWN a flower meadow.
+MEADOW_PATTERN: Final = "WILDFLOWER"
+#: A meadow blade's height (cm) before its variation: x 0.65-1.3 a blade, and x 0.78-1.22
+#: by the patch it grows in (``MEADOW_PATCH``) — 12 to 38 cm, a June hay meadow before the
+#: first cut. A flower's stem stands x 1.15-1.55 of it, x 0.9-1.1 by its patch.
+MEADOW_BLADE_CM: Final = 24.0
+MEADOW_PATCH: Final = 0.22
+#: A meadow blade's shading weight at its foot (its tip is 1), and how much darker a
+#: patch of tall grass is (and lighter a short one): the sward's depth and mottle.
+MEADOW_FOOT: Final = 0.68
+MEADOW_PATCH_SHADE: Final = 0.1
+#: The waves (cm) the meadow's patches of taller and shorter grass are summed from.
+MEADOW_PATCH_WAVES_CM: Final = (170.0, 260.0, 410.0)
+#: How far a meadow blade's tip leans out from its root, at most (cm): with a flower
+#: head's radius the relief stays inside the footprint plus 10 cm (#388's gate).
+MEADOW_REACH_CM: Final = 7.0
+STEM_REACH_CM: Final = 3.0
+#: One blade in this many is a flower's stem on average: 220 / 6 = 37 heads a square
+#: metre at the full density. Where the flowers are rich (a field like the grass's
+#: patches, ``MEADOW_RICHNESS_WAVES_CM``) up to 1 + ``MEADOW_RICHNESS`` times that.
+MEADOW_FLOWER_EVERY: Final = 6
+MEADOW_RICHNESS: Final = 0.85
+MEADOW_RICHNESS_WAVES_CM: Final = (230.0, 370.0, 590.0)
+#: A meadow's flowers: (``plant_art.recipes.FLOWERS`` key — the 2D sprites' petal and
+#: centre colours, share, head radius in cm) — a Central European hay meadow in June:
+#: ox-eye daisy, buttercup, knapweed and scabious, cranesbill, a few poppies; the radii
+#: are the upper half of the real flowers' (a head under 2 px at 25 m reads as nothing).
+MEADOW_FLOWERS: Final = (
+    ("white", 0.34, (2.0, 2.8)),
+    ("yellow", 0.30, (1.1, 1.5)),
+    ("lilac", 0.16, (1.5, 2.1)),
+    ("blue", 0.12, (1.4, 2.0)),
+    ("red", 0.08, (2.6, 3.4)),
+)
+#: Each kind of flower grows in DRIFTS: its share is weighted by exp(``MEADOW_DRIFT`` x a
+#: field of its own, ``MEADOW_DRIFT_WAVES_CM``), so a meadow seen from 25 m shows patches
+#: of white, yellow and violet, where flowers spread evenly averaged into one tint.
+MEADOW_DRIFT: Final = 2.0
+MEADOW_DRIFT_WAVES_CM: Final = (180.0, 290.0, 460.0)
+#: The highest a meadow's relief reaches (cm): the tallest stem and, over it, its head
+#: (tilted, its rim can stand higher than the stem's tip) — 44 cm.
+MEADOW_TOP_CM: Final = MEADOW_BLADE_CM * 1.55 * 1.1 + max(radius[1] for _key, _share, radius in MEADOW_FLOWERS)
+#: How far a head is tilted off level, at most (the tangent: 0.6 is 31 degrees).
+HEAD_TILT: Final = 0.6
+#: A head is a flat polygon of ``HEAD_PETALS`` corners round its stem's tip, in its petal
+#: colour, and an eye 0.15 cm over it (a triangle, ``HEAD_EYE`` of its radius) in its
+#: centre colour. Every vertex of a head has ONE normal and each triangle one colour: a
+#: head far off is a sliver under a pixel, and a varying the multisampled pixel
+#: extrapolated across a centre-to-rim gradient came out negative or zero — pixels of
+#: pure red, blue or black at the meadow's far edge.
+HEAD_PETALS: Final = 5
+HEAD_EYE: Final = 0.38
+HEAD_TRIANGLES: Final = HEAD_PETALS - 2 + 1
+HEAD_VERTICES: Final = HEAD_PETALS + 3
 
 Color = tuple[float, float, float, float]
 
@@ -652,6 +716,19 @@ def _blades(footprints: tuple[Ring, ...], holes: tuple[tuple[Ring, ...], ...], s
             wanted: int | None) -> tuple[F64, ...]:
     """The blades of a lawn before any cut-out: roots on a jittered grid inside its
     regions, and each blade's height, heading, lean, width, shade and phase."""
+    roots, rng = _rooted(footprints, holes, seed, wanted)
+    if rng is None:
+        return (np.zeros((0, 2)),) + (np.zeros(0),) * 6
+    n = len(roots)
+    return (roots, BLADE_CM * rng.uniform(0.7, 1.3, n), rng.uniform(0.0, 2.0 * math.pi, n),
+            rng.uniform(0.1, 0.45, n), rng.uniform(0.8, 1.3, n), rng.uniform(0.92, 1.0, n), rng.random(n))
+
+
+def _rooted(footprints: tuple[Ring, ...], holes: tuple[tuple[Ring, ...], ...], seed: str,
+            wanted: int | None) -> tuple[F64, np.random.Generator | None]:
+    """A sward's roots — a jittered grid inside its regions, the lawn's own count or the
+    plan's share of it — and the generator each blade's own draws continue from (None:
+    no blade)."""
     rings = [np.asarray(ring, dtype=np.float64) for ring in footprints]
     area = sum(abs(signed_area(ring)) for ring in rings)
     area -= sum(abs(signed_area(hole)) for group in holes for hole in group)
@@ -659,7 +736,7 @@ def _blades(footprints: tuple[Ring, ...], holes: tuple[tuple[Ring, ...], ...], s
     if wanted is not None:  # the plan's share (``context``)
         count = min(count, max(0, wanted))
     if count < 1:
-        return (np.zeros((0, 2)),) + (np.zeros(0),) * 6
+        return np.zeros((0, 2)), None
     rng = np.random.Generator(np.random.PCG64(item_seed(seed, "lawn blades")))
     every = np.concatenate(rings)
     low, high = every.min(axis=0), every.max(axis=0)
@@ -679,18 +756,14 @@ def _blades(footprints: tuple[Ring, ...], holes: tuple[tuple[Ring, ...], ...], s
         for hole in (holes[index] if holes else ()):
             inside &= ~_inside(roots, np.asarray(hole, dtype=np.float64))
         keep |= inside
-    roots = roots[keep]
-    n = len(roots)
-    return (roots, BLADE_CM * rng.uniform(0.7, 1.3, n), rng.uniform(0.0, 2.0 * math.pi, n),
-            rng.uniform(0.1, 0.45, n), rng.uniform(0.8, 1.3, n), rng.uniform(0.92, 1.0, n), rng.random(n))
+    return roots[keep], rng
 
 
-class _Sward(NamedTuple):
-    """A lawn's blades as the engine gets them, before any cut-out: the roots
-    ``(n, 2)`` and, per blade, its five vertices' positions, normals, colours and
-    uvs (``(n, 5, 3|3|4|2)``, float32)."""
+class _Heads(NamedTuple):
+    """A meadow's flower heads: the blade each one tops ``(m,)``, and its
+    ``HEAD_VERTICES`` vertices' positions, normals, colours and uvs (float32)."""
 
-    roots: F64
+    stem: NDArray[np.intp]
     positions: NDArray[np.float32]
     normals: NDArray[np.float32]
     colors: NDArray[np.float32]
@@ -701,14 +774,35 @@ class _Sward(NamedTuple):
         return sum(int(array.nbytes) for array in self)
 
 
+class _Sward(NamedTuple):
+    """A lawn's blades as the engine gets them, before any cut-out: the roots
+    ``(n, 2)`` and, per blade, its five vertices' positions, normals, colours and
+    uvs (``(n, 5, 3|3|4|2)``, float32); a meadow's flower heads too (``_Heads``)."""
+
+    roots: F64
+    positions: NDArray[np.float32]
+    normals: NDArray[np.float32]
+    colors: NDArray[np.float32]
+    uvs: NDArray[np.float32]
+    heads: _Heads | None = None
+
+    @property
+    def nbytes(self) -> int:
+        arrays = (self.roots, self.positions, self.normals, self.colors, self.uvs)
+        return (sum(int(array.nbytes) for array in arrays)
+                + (self.heads.nbytes if self.heads is not None else 0))
+
+
 #: A blade's two triangles at its foot and one at its tip, over its five vertices.
 _BLADE_CORNERS: Final = np.array([0, 1, 3, 0, 3, 2, 2, 3, 4])
 _BLADE_FRACTIONS: Final = np.array([0.0, 0.0, 0.45, 0.45, 1.0])
+#: A head's polygon — a fan from its first corner — and its eye (the last three vertices).
+_HEAD_CORNERS: Final = np.array([*((0, k, k + 1) for k in range(1, HEAD_PETALS - 1)),
+                                 tuple(range(HEAD_PETALS, HEAD_VERTICES))]).reshape(-1)
 
 
-def _grow(roots: F64, height: F64, heading: F64, lean: F64, width: F64, shade: F64,
-          phase: F64) -> _Sward:
-    """Every blade's vertices (``_Sward``)."""
+def _blade_shapes(roots: F64, height: F64, heading: F64, lean: F64, width: F64) -> tuple[F64, F64]:
+    """Every blade's five vertices and their one normal, ``((k, 5, 3), (k, 5, 3))``."""
     k = len(roots)
     direction = np.stack([np.cos(heading), np.sin(heading), np.zeros(k)], axis=1)
     side = np.stack([-np.sin(heading), np.cos(heading), np.zeros(k)], axis=1)
@@ -722,7 +816,18 @@ def _grow(roots: F64, height: F64, heading: F64, lean: F64, width: F64, shade: F
     positions = np.stack([rows[0][0], rows[0][1], rows[1][0], rows[1][1], rows[2][0]], axis=1)
     normal = direction * 0.4 + np.array([0.0, 0.0, 1.0])
     normal /= np.linalg.norm(normal, axis=1, keepdims=True)
-    normals = np.repeat(normal[:, None, :], 5, axis=1)
+    return positions, np.repeat(normal[:, None, :], 5, axis=1)
+
+
+def _f32(*arrays: NDArray[np.floating]) -> tuple[NDArray[np.float32], ...]:
+    return tuple(np.ascontiguousarray(array, dtype=np.float32) for array in arrays)
+
+
+def _grow(roots: F64, height: F64, heading: F64, lean: F64, width: F64, shade: F64,
+          phase: F64) -> _Sward:
+    """Every blade's vertices (``_Sward``)."""
+    k = len(roots)
+    positions, normals = _blade_shapes(roots, height, heading, lean, width)
     # near the lawn's own value, a little darker at the foot: at 0.62 + 0.38·f with a
     # shade of 0.82-1 the blades read as dark stubble on the painted lawn (142.5 luma
     # against 182.7, 3D review of #388)
@@ -730,8 +835,112 @@ def _grow(roots: F64, height: F64, heading: F64, lean: F64, width: F64, shade: F
     colors = np.stack([weight, weight, weight, np.ones_like(weight)], axis=-1)
     uvs = np.stack([np.broadcast_to(_BLADE_FRACTIONS, (k, 5)), np.repeat(phase[:, None], 5, axis=1)],
                    axis=-1)
-    return _Sward(roots, *(np.ascontiguousarray(array, dtype=np.float32)
-                           for array in (positions, normals, colors, uvs)))
+    blade_positions, blade_normals, blade_colors, blade_uvs = _f32(positions, normals, colors, uvs)
+    return _Sward(roots, blade_positions, blade_normals, blade_colors, blade_uvs)
+
+
+def _patches(points: F64, rng: np.random.Generator, waves_cm: tuple[float, ...] = MEADOW_PATCH_WAVES_CM) -> F64:
+    """A smooth field over ``points`` in −1..1: plane waves of ``waves_cm``, each its own
+    heading and phase, summed to unit variance and clipped at ±1 — a standard deviation
+    of 0.73, a third of the points on a plateau at ±1 (measured). The meadow's patches of
+    taller and shorter grass, where its flowers are rich, a kind of flower's drifts."""
+    heading = rng.uniform(0.0, 2.0 * math.pi, len(waves_cm))
+    phase = rng.uniform(0.0, 2.0 * math.pi, len(waves_cm))
+    waves = np.stack([np.cos(heading), np.sin(heading)], axis=1) * (2.0 * math.pi / np.asarray(waves_cm))[:, None]
+    field = np.sin(points @ waves.T + phase).sum(axis=1)
+    return np.asarray(field / math.sqrt(len(waves_cm) / 2.0), dtype=np.float64).clip(-1.0, 1.0)
+
+
+@functools.cache
+def flower_colours() -> tuple[F64, F64]:
+    """Each ``MEADOW_FLOWERS`` entry's petal and centre colour as the 2D sprites paint
+    them (``FLOWERS``: petal, petal tip, centre), linear RGB ``(k, 3)``."""
+    petals = np.asarray([srgb_to_linear(FLOWERS[key][0]) for key, _share, _radius in MEADOW_FLOWERS],
+                        dtype=np.float64)
+    centres = np.asarray([srgb_to_linear(FLOWERS[key][2]) for key, _share, _radius in MEADOW_FLOWERS],
+                         dtype=np.float64)
+    return petals, centres
+
+
+def _meadow(roots: F64, rng: np.random.Generator) -> _Sward:
+    """A meadow's blades and flower heads (``_Sward`` with ``heads``) on the roots of
+    ``_rooted``, every draw from ``rng``."""
+    n = len(roots)
+    rich = 1.0 + MEADOW_RICHNESS * _patches(roots, rng, MEADOW_RICHNESS_WAVES_CM)
+    stem = rng.random(n) * MEADOW_FLOWER_EVERY < rich
+    patch = _patches(roots, rng)
+    grass_cm = MEADOW_BLADE_CM * rng.uniform(0.65, 1.3, n) * (1.0 + MEADOW_PATCH * patch)
+    stem_cm = MEADOW_BLADE_CM * rng.uniform(1.15, 1.55, n) * (1.0 + 0.1 * patch)
+    height = np.where(stem, stem_cm, grass_cm)
+    heading = rng.uniform(0.0, 2.0 * math.pi, n)
+    reach = np.where(stem, np.minimum(rng.uniform(0.0, 0.1, n) * height, STEM_REACH_CM),
+                     np.minimum(rng.uniform(0.1, 0.4, n) * height, MEADOW_REACH_CM))
+    width = np.where(stem, rng.uniform(0.35, 0.5, n), rng.uniform(0.9, 1.5, n))
+    shade = np.where(stem, rng.uniform(0.78, 0.88, n), rng.uniform(0.82, 1.04, n))
+    dry = np.where(~stem & (rng.random(n) < 0.3), rng.uniform(0.3, 1.0, n), 0.0)
+    phase = rng.random(n)
+    positions, normals = _blade_shapes(roots, height, heading, reach / height, width)
+    # a deep sward is darker at its foot, and darker where it grows tall (the patches: a
+    # mottle seen from 25 m, where a lawn of the same colour is flat); some blades' tips
+    # are drying (seed heads, straw): warmer, by the square of the height fraction
+    shade = shade * (1.0 - MEADOW_PATCH_SHADE * patch)
+    weight = (MEADOW_FOOT + (1.0 - MEADOW_FOOT) * _BLADE_FRACTIONS)[None, :] * shade[:, None]
+    warm = dry[:, None] * _BLADE_FRACTIONS[None, :] ** 2
+    colors = np.stack([weight * (1.0 + 0.8 * warm), weight * (1.0 + 0.05 * warm),
+                       weight * (1.0 - 0.4 * warm), np.ones_like(weight)], axis=-1)
+    # the wind's weight grows with the blade: w = uv.x² at its tip is √(h / BLADE_CM), so
+    # a 24 cm blade sways 1.85 times a lawn blade's ``windStrength`` (grass.vert)
+    sway = (height / BLADE_CM) ** 0.25
+    uvs = np.stack([_BLADE_FRACTIONS[None, :] * sway[:, None], np.repeat(phase[:, None], 5, axis=1)],
+                   axis=-1)
+    vertices, shading, colours, weights = _f32(positions, normals, colors, uvs)
+    return _Sward(roots, vertices, shading, colours, weights,
+                  heads=_heads(np.flatnonzero(stem), roots, positions[:, 4], sway, phase, rng))
+
+
+def _heads(stem: NDArray[np.intp], roots: F64, tips: F64, sway: F64, phase: F64,
+           rng: np.random.Generator) -> _Heads:
+    """A flower head on the tip of every stem: a tilted polygon in its petal colour and
+    an eye in its centre colour (``HEAD_PETALS``); its kind drawn from
+    ``MEADOW_FLOWERS``' shares, each weighted by its drifts at the stem's root."""
+    m = len(stem)
+    shares = np.asarray([share for _key, share, _radius in MEADOW_FLOWERS])
+    at = roots[stem]
+    weight = shares[None, :] * np.exp(MEADOW_DRIFT * np.stack(
+        [_patches(at, rng, MEADOW_DRIFT_WAVES_CM) for _flower in MEADOW_FLOWERS], axis=1))
+    reach = np.cumsum(weight, axis=1)
+    kind = np.minimum((reach < rng.random(m)[:, None] * reach[:, -1:]).sum(axis=1), len(MEADOW_FLOWERS) - 1)
+    low, high = (np.asarray([radius[i] for _key, _share, radius in MEADOW_FLOWERS]) for i in (0, 1))
+    radius = low[kind] + (high[kind] - low[kind]) * rng.random(m)
+    lean, tilt = rng.uniform(0.0, 2.0 * math.pi, m), rng.uniform(0.0, HEAD_TILT, m)
+    spin = rng.uniform(0.0, 2.0 * math.pi, m)
+    bright = rng.uniform(0.9, 1.05, m)
+    up = np.stack([tilt * np.cos(lean), tilt * np.sin(lean), np.ones(m)], axis=1)
+    up /= np.linalg.norm(up, axis=1, keepdims=True)
+    across = np.stack([np.cos(spin), np.sin(spin), np.zeros(m)], axis=1)
+    across -= up * (across * up).sum(axis=1, keepdims=True)
+    across /= np.linalg.norm(across, axis=1, keepdims=True)
+    along = np.cross(up, across)
+    angle = 2.0 * math.pi * np.arange(HEAD_PETALS) / HEAD_PETALS
+    out = (np.cos(angle)[None, :, None] * across[:, None, :]
+           + np.sin(angle)[None, :, None] * along[:, None, :])          # (m, petals, 3)
+    tip = tips[stem]
+    rim = tip[:, None, :] + radius[:, None, None] * out
+    # the eye: a triangle a little over the polygon's middle, turned against its corners
+    eye_angle = 2.0 * math.pi * (np.arange(3) + 0.25) / 3.0
+    eye_out = (np.cos(eye_angle)[None, :, None] * across[:, None, :]
+               + np.sin(eye_angle)[None, :, None] * along[:, None, :])
+    eye = (tip + up * 0.15)[:, None, :] + (HEAD_EYE * radius)[:, None, None] * eye_out
+    positions = np.concatenate([rim, eye], axis=1)
+    normals = np.repeat(up[:, None, :], HEAD_VERTICES, axis=1)
+    petals, centres = flower_colours()
+    colour = np.concatenate([np.repeat(petals[kind][:, None, :], HEAD_PETALS, axis=1),
+                             np.repeat(centres[kind][:, None, :], 3, axis=1)], axis=1)
+    colour *= bright[:, None, None]
+    colors = np.concatenate([colour, np.ones((m, HEAD_VERTICES, 1))], axis=2)
+    # every vertex sways with its stem's tip
+    uvs = np.repeat(np.stack([sway[stem], phase[stem]], axis=1)[:, None, :], HEAD_VERTICES, axis=1)
+    return _Heads(stem, *_f32(positions, normals, colors, uvs))
 
 
 #: The lawns' swards are remembered, keyed by the lawn's own geometry, seed and blade
@@ -748,9 +957,10 @@ _SWARD_LOCK = threading.Lock()
 
 
 def _sward(footprints: tuple[Ring, ...], holes: tuple[tuple[Ring, ...], ...], seed: str,
-           wanted: int | None) -> _Sward:
-    """The lawn's blades before any cut-out, remembered (``SWARD_CACHE_BYTES``)."""
-    key = (footprints, holes, seed, wanted)
+           wanted: int | None, meadow: bool = False) -> _Sward:
+    """The lawn's blades before any cut-out — a meadow's with its flower heads —
+    remembered (``SWARD_CACHE_BYTES``)."""
+    key = (footprints, holes, seed, wanted, meadow)
     with _SWARD_LOCK:
         held = _SWARDS.get(key)
         if held is not None:
@@ -758,7 +968,11 @@ def _sward(footprints: tuple[Ring, ...], holes: tuple[tuple[Ring, ...], ...], se
             _SWARD_STATS["hits"] += 1
             return held
         _SWARD_STATS["misses"] += 1
-    grown = _grow(*_blades(footprints, holes, seed, wanted))   # outside the lock: it is slow
+    roots, rng = _rooted(footprints, holes, seed, wanted) if meadow else (None, None)
+    if roots is not None and rng is not None:   # outside the lock: it is slow
+        grown = _meadow(roots, rng)
+    else:
+        grown = _grow(*_blades(footprints, holes, seed, wanted))
     with _SWARD_LOCK:
         _SWARDS[key] = grown
         total = sum(sward.nbytes for sward in _SWARDS.values())
@@ -800,7 +1014,8 @@ def _lawn(record: Record) -> tuple[MeshPart, ...]:
     if lawn_blade_share(record.params) == 0:
         return solid  # Low/Medium: do not synthesize or cache even an empty sward
     seed = str(record.params.get(PARAM_SEED, ""))
-    sward = _sward(record.footprints, record.holes, seed, lawn_blade_share(record.params))
+    sward = _sward(record.footprints, record.holes, seed, lawn_blade_share(record.params),
+                   is_meadow(record))
     roots = sward.roots
     if not len(roots):
         return solid
@@ -812,19 +1027,41 @@ def _lawn(record: Record) -> tuple[MeshPart, ...]:
         if near.any():
             index = np.flatnonzero(near)
             keep[index[_inside(roots[index], ring)]] = False
-    k = int(keep.sum())
-    if not k:
+    if not keep.any():
         return solid
-    arrays = sward[1:] if k == len(roots) else tuple(array[keep] for array in sward[1:])
+    blades = _relief_part(_kept((sward.positions, sward.normals, sward.colors, sward.uvs), keep),
+                          _BLADE_CORNERS, lift, tinted=True)
+    if sward.heads is None:
+        return (*solid, blades)
+    heads = sward.heads
+    # a head goes with its stem; it carries its own colours (``MEADOW_FLOWERS``), so it is
+    # not tinted — under the blades' NAME, which the engine shows from High (``Garden.qml``)
+    flowers = _relief_part(_kept((heads.positions, heads.normals, heads.colors, heads.uvs), keep[heads.stem]),
+                           _HEAD_CORNERS, lift, tinted=False)
+    return (*solid, blades, *((flowers,) if flowers.mesh.triangle_count else ()))
+
+
+def is_meadow(record: Record) -> bool:
+    """A LAWN that is a flower meadow (#940): its fill pattern is ``MEADOW_PATTERN``."""
+    return record.kind == "LAWN" and bool(record.params.get(PARAM_SURFACE_PATTERN) == MEADOW_PATTERN)
+
+
+def _kept(arrays: tuple[NDArray[np.float32], ...], keep: NDArray[np.bool_]) -> tuple[NDArray[np.float32], ...]:
+    return arrays if keep.all() else tuple(array[keep] for array in arrays)
+
+
+def _relief_part(arrays: tuple[NDArray[np.float32], ...], corners: NDArray[np.int_], lift: float, *,
+                 tinted: bool) -> MeshPart:
+    """One ``lawn_blades`` part of ``(k, v, …)`` per-element vertex arrays, each element
+    triangulated by ``corners``, risen by ``lift`` (a raised lawn's top)."""
     positions, normals, colors, uvs = arrays
+    k, per = positions.shape[:2]
     if lift:
         positions = positions.copy()      # the cache's array is shared: never move it
         positions[:, :, 2] += lift
-    indices = (_BLADE_CORNERS[None, :] + (np.arange(k) * 5)[:, None]).reshape(-1)
+    indices = (corners[None, :] + (np.arange(k) * per)[:, None]).reshape(-1)
     mesh = Mesh.from_arrays(positions, normals, colors, uvs, indices)
-    return (*solid,
-            MeshPart(mesh, "grass", casts_shadow=False, tinted=True, name=LAWN_BLADES,
-                     ground_detail=True))
+    return MeshPart(mesh, "grass", casts_shadow=False, tinted=tinted, name=LAWN_BLADES, ground_detail=True)
 
 
 def clear_lawn_cache() -> None:
@@ -848,6 +1085,5 @@ def register(registry: BuilderRegistry) -> None:
         registry.register(kind, builder)
 
 
-__all__ = ["BUILDERS", "DECK_PATTERNS", "KINDS", "LAWN_BLADES", "clear_lawn_cache", "pond_regions", "register",
-           "sward_cache_info",
-           "walk_path"]
+__all__ = ["BUILDERS", "DECK_PATTERNS", "KINDS", "LAWN_BLADES", "MEADOW_PATTERN", "clear_lawn_cache",
+           "flower_colours", "is_meadow", "pond_regions", "register", "sward_cache_info", "walk_path"]

@@ -15,6 +15,7 @@ from open_garden_planner.core.project import ProjectManager
 from open_garden_planner.services.example_library import bundled_examples
 from open_garden_planner.ui.dialogs.welcome_dialog import WelcomeDialog
 from tests.agent_api_helpers import start_server
+from tests.example_specs import SPECS
 
 
 @pytest.fixture
@@ -197,7 +198,7 @@ def test_examples_resource_over_real_transport_is_read_only(window, qtbot):
         thread.start()
         qtbot.waitUntil(lambda: result.get("done", False), timeout=20000)
         assert "error" not in result, result.get("error")
-        assert len(result["entries"]) == 4   # three teaching plans and the 3D showcase
+        assert len(result["entries"]) == len(SPECS)
         assert all(Path(e["path"]).is_file() for e in result["entries"])
         after = window._project_manager.snapshot_dict(window.canvas_scene)
         before.pop("metadata", None)

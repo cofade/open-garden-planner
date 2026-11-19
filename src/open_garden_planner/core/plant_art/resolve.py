@@ -24,7 +24,7 @@ so the word "lemon" cannot turn that herb into a citrus tree. Bean (Bush) and
 Sweet Potato retain their existing species recipes; those broader art changes
 remain outside L3's three resolver examples.
 
-``tests/fixtures/plant_art/sprite_resolution_golden.json`` holds 1,562 answers
+``tests/fixtures/plant_art/sprite_resolution_golden.json`` holds 1,624 answers
 of the resolver — the golden is regenerated from the rule, and
 ``scripts/make_sprite_resolution_golden.py`` keeps a statement-for-statement
 copy of it as the fixture's provenance (and of the rule it replaced, as
@@ -76,6 +76,14 @@ PLANT_KINDS: Final[frozenset[str]] = frozenset(DEFAULT_CATEGORY)
 EXACT_CATEGORY_ALIASES: Final[dict[str, str]] = {
     "lemon balm": "herb",
     "melissa officinalis": "herb",
+    # #940: a bundled species that draws a category's look. A species record reaches
+    # no category but the three its height picks (``ui/plant_creation.build_species_plant``),
+    # so the grass and the palm are named here.
+    "miscanthus": "ornamental_grass",
+    "miscanthus sinensis": "ornamental_grass",
+    "windmill palm": "palm",
+    "chusan palm": "palm",
+    "trachycarpus fortunei": "palm",
 }
 
 #: ``PlantCategory`` name → sprite file stem under ``resources/plants/categories``
@@ -288,6 +296,10 @@ SPECIES_SPRITES: Final[dict[str, str]] = {
     "juglans": "walnut_tree",
     "oak": "oak",
     "quercus": "oak",
+    # before "maple": the two-word names win over the one-word "maple" and "acer" anyway
+    # (rule 2 prefers the key with the most words), the order only reads that way
+    "japanese maple": "japanese_maple",
+    "acer palmatum": "japanese_maple",
     "maple": "maple",
     "acer": "maple",
     "birch": "birch",
@@ -330,6 +342,16 @@ SPECIES_SPRITES: Final[dict[str, str]] = {
     "elderberry": "elderberry",
     "sambucus": "elderberry",
     "elder": "elderberry",
+    # #940. No bare "grape": it would draw a grape hyacinth or an Oregon grape as a vine
+    # (rule 2). A name that IS "grape" still finds the vine by rule 3.
+    "bamboo": "bamboo",
+    "umbrella bamboo": "bamboo",
+    "fargesia": "bamboo",
+    "fargesia murielae": "bamboo",
+    "grape vine": "grape_vine",
+    "grapevine": "grape_vine",
+    "vitis": "grape_vine",
+    "vitis vinifera": "grape_vine",
 }
 
 

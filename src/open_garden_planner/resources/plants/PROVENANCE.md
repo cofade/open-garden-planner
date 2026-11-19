@@ -2,7 +2,7 @@
 
 | What | Detail |
 | ---- | ------ |
-| Files | `species/*.svg` (108), `categories/*.svg` (15) |
+| Files | `species/*.svg` (111), `categories/*.svg` (15) |
 | Generator | `scripts/generate_plant_sprites.py` — the drawing code — and the recipe tables it draws from, `src/open_garden_planner/core/plant_art/recipes.py` (since Phase 17 L1.7; the 3D plant builder reads the same tables). Both in this repo: together they are the provenance record |
 | Method | Procedural SVG generation, seeded per sprite name, deterministic bytes |
 | Style | "Lush Sprite" — approved by the project owner 2026-07-26 in the #281 style lab (contact-sheet sign-off) |

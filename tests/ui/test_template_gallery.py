@@ -25,7 +25,8 @@ def test_minimum_welcome_size_shows_a_complete_selected_thumbnail(qtbot, qapp, l
         dialog.findChild(QTabWidget).setCurrentIndex(1)
         dialog.show()
         gallery = dialog._gallery
-        for index in range(3):
+        assert gallery.list.count() >= 4
+        for index in range(gallery.list.count()):
             gallery.list.setCurrentRow(index)
             gallery.list.scrollToItem(gallery.list.currentItem())
             qapp.processEvents()

@@ -147,7 +147,9 @@ PARAM_ROOF_OVERHANG: Final = "roof_overhang_cm"
 #: its path keeps its param and its mesh. Absent when the plan has no path.
 PARAM_DOOR_WALL: Final = "door_wall"
 #: str — a TERRACE_PATIO's or DRIVEWAY's fill-pattern name (L4.2): its relief
-#: (boards for a deck, pavers, a kerb) depends on it, so here it is geometry.
+#: (boards for a deck, pavers, a kerb) depends on it, so here it is geometry. A LAWN
+#: carries it only when it is WILDFLOWER (#940: a flower meadow's taller blades and
+#: flowers), so every other lawn's record stays as it was.
 PARAM_SURFACE_PATTERN: Final = "surface_pattern"
 #: ``((x, y), …)`` rings — a LAWN's (L4.5): the outlines, in the lawn's local frame,
 #: of the flat items painted ABOVE it (paths, terraces, beds, ponds …). Its blades

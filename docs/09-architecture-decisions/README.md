@@ -10675,6 +10675,26 @@ and count, no wall-of-planks, chamfer unchanged, smooth loop, dense/curved shado
 transmittance) and `test_string_lights.py` (#709's 40 cm gap and 2.5 cm chord rule on
 the same sampled arc).
 
+### ADR-065 addendum: a WILDFLOWER lawn is a flower meadow (#940)
+
+**Context:** The bundled example plans of #940 need a wildflower meadow that reads as one
+in 3D. A fill pattern reached 3D only as the baked ground picture (the 2D tint makes the
+WILDFLOWER texture a light-specked green), and a LAWN with that fill grew the plain 7 cm
+blades.
+
+**Decision:** For this one case the pattern is geometry: the snapshot writes
+`surface_pattern` (a build-only param, as for a deck) into a LAWN's record only when it is
+WILDFLOWER, and the lawn builder grows a meadow — the lawn's blade share as taller, looser
+blades, and flower heads on about one blade in six, in drifts, in `plant_art.FLOWERS`
+colours, as a second untinted part named `lawn_blades`. No QML, shader, asset, setting or
+file-format change. The rule and its pins: §8.29.12.
+
+**Consequences:** Below High a meadow is only its painted picture. The heads flower all
+year (#943). Grass up to 38 cm and heads up to 44 cm hide a plant lower than that standing
+in the meadow: a plant does not cut a lawn (`context._NOT_A_CUTOUT`). A meadow costs about
++22 % of a lawn's triangles of the same area and its first build about 1.6 times the lawn's;
+the plan's blade budget bounds both.
+
 ## ADR-066: Offline examples and portable .ogp templates (US-F5, #316, #379)
 
 **Status:** Accepted; owner executable acceptance confirmed on 27 October 2026; shipped in [v1.33.0](https://github.com/cofade/open-garden-planner/releases/tag/v1.33.0) via [PR #610](https://github.com/cofade/open-garden-planner/pull/610).
@@ -10900,6 +10920,79 @@ and would show the bed's name as a species).
 **Evidence.** `tests/integration/test_example_showcase.py`, `tests/unit/test_showcase_moment.py`,
 `tests/unit/test_example_content.py`, `tests/integration/test_example_generation.py`,
 `tests/integration/test_example_demo_state.py`.
+
+### ADR-066 addendum: thirteen examples that are the showcase material (#940, 2026-11-19)
+
+**Context.** The pictures and the video of the repository showcase (#564, #939) were to come
+from plans made for the capture. The owner decided against throwaway plans: what is shown
+ships. The four examples all lay in Germany and opened at noon on 21 June or 21 September;
+together they left unused 16 object types, 14 of the 24 fill textures, three roof styles, a
+rotated north, stored camera tours and 61 of the 118 species.
+
+**Decisions.**
+
+1. **Nine new plans, and the food forest enlarged** (owner). Each new plan shows one side of
+   the app: allotment (planning), cottage garden (drawing to measure), terraced-house garden
+   (sun and a rotated north), roof terrace (containers), spring garden (time), wildlife garden
+   (the lush 3D view), Mediterranean courtyard (another sun), modern garden (light at night),
+   Japanese garden (surfaces). The food forest grows an orchard meadow instead of a tenth plan:
+   a dense half beside an open half, and no second card of the same kind in the gallery.
+2. **The hint lies on its own layer** (owner). A plan that explains itself and a plan that is
+   ready for a picture are the same plan with one layer shown or hidden. The first three plans'
+   notes moved there too; the family garden stays without one.
+3. **A fixed gallery order, no filter** (owner). The sidecar's `order`. A filter row was
+   weighed and not built: thirteen cards scroll.
+4. **No plan opens after sunset** (owner). The 2D canvas shows its night overlay then, and an
+   example must open readable. The modern garden opens at golden hour; dusk is its stored tour.
+5. **What an example keeps stays** (owner, decision 4 of the #795 addendum). The allotment
+   shows planning through a succession plan, which a template keeps, not through a crop
+   rotation history.
+6. **Every plan stores an orbit.** A promo video is then a button press in a shipped plan and
+   any user can make the same one. Framed from the plan's bounds as the Camera Tour dialog
+   frames one, started with the showcase sun behind the camera, every number rounded.
+7. **All places share Central European Time.** The clock and a tour's time range read the
+   computer's zone and the plan's `timezone` is not read (#945). The Japanese garden lies in
+   Düsseldorf for that reason.
+8. **One thumbnail per plan.** It shows the plan at its showcase moment without the hint
+   layer, so it has no text to translate. A picture per language cost 8 MB for one image.
+9. **A harvest history is not mandatory.** The modern and the Japanese garden have no honest
+   harvest. FR-EXAMPLE-09 names the rule.
+10. **The table of `tests/example_specs.py` is a second statement by hand.** The generator
+    authors; the table says what each plan is meant to be. A meta-test keeps the table, the
+    shipped files and the generator the same set, so a plan cannot ship unchecked.
+11. **Five species were added first** (owner): Japanese maple, bamboo, miscanthus, windmill
+    palm, grape vine. The windmill palm and not a dwarf fan palm, because the palm look has
+    only a tall-trunk form (#949).
+12. **Two look fixes ship with the plans** (owner: fix what the pictures need). Hardy plants
+    flower by their own months and only tender ones wait for the frost-free season; a lawn
+    with the wildflower fill is a flower meadow in 3D. Everything else found became an issue:
+    #941 to #949, and #839 for the seasonal 2D look.
+13. **An independent 3D review judged every plan before the pictures were taken.** Its plan
+    findings were fixed in the plans: an orbit pitch per plan, hedges in runs, plants in
+    containers instead of on planter pots, a young walnut, sown annuals at a seedling's size,
+    a dusk tour that ends in twilight. Its engine findings became #953 to #966, except two
+    that the pictures needed: flowers that can be seen at garden scale, and decision 14.
+14. **A bundled example opens in 3D on the side its stored orbit starts from**
+    (`core/camera_tours.opening_side`, `Workspace.set_opening_side`). The default side looks into an
+    afternoon sun and, over a garden wall, at the wall. The distance stays the pane's own;
+    "Reset 3D View" and every plan that is not a bundled example keep the default side.
+15. **The README's pictures come from the shipped plans through a script** (#564):
+    `scripts/capture_readme_media.py`. A picture that cannot be re-shot goes stale with the
+    next change to the look. The download button links to the installer of one release and
+    the version sync moves it, because "the latest installer" has no fixed address.
+
+**Rejected.** Hand-drawn plans saved from the app (the generation gate compares every shipped
+file with the generator, and three languages cannot be kept in step by hand); a per-plan
+picture per language; widening `EXAMPLE_DEMO_FIELDS` for a crop-rotation history; a plan that
+opens at dusk; places outside Central European Time; a separate plan for the orchard meadow.
+
+**Consequences.** The examples folder grows from 6.6 MB to about 12 MB. A new example needs a
+module, a table row and a provenance row, and is then checked by every generic rule. The
+season in the 2D picture is still missing (#839): the spring garden flowers only in 3D.
+
+**Evidence.** `tests/example_specs.py`, `tests/unit/test_example_specs.py`,
+`tests/integration/test_example_plans.py`, `tests/integration/test_example_generation.py`,
+`tests/unit/test_example_content.py`.
 
 ## ADR-067: Release download statistics without telemetry
 
