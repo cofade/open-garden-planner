@@ -31,6 +31,8 @@ from open_garden_planner.ui.canvas.items.circle_item import CircleItem
 from open_garden_planner.ui.canvas.items.polygon_item import PolygonItem
 from open_garden_planner.ui.canvas.items.polyline_item import PolylineItem
 
+from . import perf_report
+
 REPO_ROOT = Path(__file__).resolve().parents[2]
 BENCHMARK_PLAN = REPO_ROOT / "tests" / "fixtures" / "plans" / "audit-2026-10-plan_500.ogp"
 
@@ -108,24 +110,32 @@ def _assert_repaint_budget(view: CanvasView, label: str, rounds: int = 8) -> Non
     Evaluating the best median across up to 8 measurement rounds protects
     against transient background spikes while strictly enforcing that typical
     frame presentation satisfies the <= 16.7 ms budget.
-    """
-    all_medians: list[float] = []
-    for r in range(rounds):
-        if r > 0:
-            time.sleep(0.05)
-            gc.collect()
-            QApplication.processEvents()
-        times = _measure_repaints(view)
-        med = statistics.median(times)
-        all_medians.append(med)
-        if med <= FRAME_BUDGET_MS:
-            return
 
-    best_median = min(all_medians)
-    assert best_median <= FRAME_BUDGET_MS, (
-        f"{label} repaint exceeds frame budget {FRAME_BUDGET_MS:.2f} ms "
-        f"(best median: {best_median:.2f} ms across {rounds} rounds)"
-    )
+    Every round's median is recorded (#931), not only the best one: a budget
+    that fails by a fraction of a millisecond is decided between "the code got
+    slower" and "the runner was busy" by how far apart the rounds were.
+    """
+    with perf_report.measure(label, FRAME_BUDGET_MS, rounds) as measurement:
+        for r in range(rounds):
+            if r > 0:
+                time.sleep(0.05)
+                gc.collect()
+                QApplication.processEvents()
+            times = _measure_repaints(view)
+            med = statistics.median(times)
+            measurement.medians.append(med)
+            if med <= FRAME_BUDGET_MS:
+                return
+
+        best_median = min(measurement.medians)
+        spread = measurement.spread
+        assert best_median <= FRAME_BUDGET_MS, (
+            f"{label} repaint exceeds frame budget {FRAME_BUDGET_MS:.2f} ms "
+            f"(best median: {best_median:.2f} ms across {rounds} rounds; "
+            f"every median: "
+            f"{', '.join(f'{value:.2f}' for value in measurement.medians)}; "
+            f"spread: {'-' if spread is None else f'{spread * 100:.1f}%'})"
+        )
 
 
 
@@ -205,7 +215,7 @@ def line_benchmark_view(qtbot):
     return view
 
 
-def _best_median(view: CanvasView, rounds: int = 6) -> float:
+def _best_median(view: CanvasView, rounds: int = 6, measurement=None) -> float:
     """Best-of-rounds median repaint time in ms (same idea as _assert_repaint_budget)."""
     best = float("inf")
     for r in range(rounds):
@@ -213,7 +223,10 @@ def _best_median(view: CanvasView, rounds: int = 6) -> float:
             time.sleep(0.05)
             gc.collect()
             QApplication.processEvents()
-        best = min(best, statistics.median(_measure_repaints(view)))
+        med = statistics.median(_measure_repaints(view))
+        if measurement is not None:
+            measurement.medians.append(med)
+        best = min(best, med)
     return best
 
 
@@ -262,17 +275,35 @@ class TestNfrPerf01LinePaintBudgets:
         lines = [i for i in view.scene().items() if isinstance(i, PolylineItem)]
         assert lines, "the scenario must hold lines to measure"
 
-        with_lines = _best_median(view)
+        scenario_started = time.perf_counter()
+        with perf_report.measure("line scenario (added cost)", 40.0, 1) as measurement:
+            with_lines_started = time.perf_counter()
+            with_lines = _best_median(view, measurement=measurement)
+            with_lines_seconds = time.perf_counter() - with_lines_started
+        measured_with = list(measurement.medians)
+        measurement.medians.clear()
         for line in lines:
             line.setVisible(False)
         QApplication.processEvents()
+        without_started = time.perf_counter()
         without_lines = _best_median(view)
+        without_seconds = time.perf_counter() - without_started
 
         delta = with_lines - without_lines
-        assert delta <= 40.0, (
-            f"the scenario lines add {delta:.2f} ms to the frame ({with_lines:.2f} ms "
-            f"-> {without_lines:.2f} ms); line paint cost has exploded"
-        )
+        measurement.medians.append(delta)
+        measurement.detail = {
+            "with_lines_medians": [round(value, 3) for value in measured_with],
+            "with_lines_seconds": round(with_lines_seconds, 2),
+            "without_lines_ms": round(without_lines, 3),
+            "without_lines_seconds": round(without_seconds, 2),
+        }
+        try:
+            assert delta <= 40.0, (
+                f"the scenario lines add {delta:.2f} ms to the frame ({with_lines:.2f} ms "
+                f"-> {without_lines:.2f} ms); line paint cost has exploded"
+            )
+        finally:
+            perf_report.take(measurement, scenario_started)
 
 
 def _restack_scene(plants: int, beds: int, *, link: bool) -> CanvasScene:
@@ -305,12 +336,15 @@ def _restack_scene(plants: int, beds: int, *, link: bool) -> CanvasScene:
     return scene
 
 
-def _best_restack_ms(scene: CanvasScene, rounds: int = 7) -> float:
+def _best_restack_ms(scene: CanvasScene, rounds: int = 7, measurement=None) -> float:
     best = float("inf")
     for _ in range(rounds):
         start = time.perf_counter()
         scene._restack_plant_containment()
-        best = min(best, (time.perf_counter() - start) * 1000.0)
+        value = (time.perf_counter() - start) * 1000.0
+        if measurement is not None:
+            measurement.medians.append(value)
+        best = min(best, value)
     return best
 
 
@@ -321,7 +355,10 @@ class TestNfrPerf01ContainmentScanBudget:
     @pytest.mark.perf
     def test_the_reference_plan_scan_stays_within_budget(self, benchmark_view) -> None:
         scene = benchmark_view.scene()
-        best = _best_restack_ms(scene)
+        with perf_report.measure(
+            "containment scan (reference plan)", RESTACK_BUDGET_MS, 7
+        ) as measurement:
+            best = _best_restack_ms(scene, measurement=measurement)
         assert best <= RESTACK_BUDGET_MS, (
             f"the containment scan costs {best:.2f} ms on the reference plan "
             f"(budget {RESTACK_BUDGET_MS} ms)"
@@ -340,8 +377,10 @@ class TestNfrPerf01ContainmentScanBudget:
         (mutation-verified: 100 builds against 5).
         """
         scene = _restack_scene(300, 30, link=link)
+        label = f"containment scan (300 {'linked' if link else 'unlinked'})"
         try:
-            best = _best_restack_ms(scene)
+            with perf_report.measure(label, RESTACK_BUDGET_MS, 7) as measurement:
+                best = _best_restack_ms(scene, measurement=measurement)
         finally:
             scene.clear()
         assert best <= RESTACK_BUDGET_MS, (

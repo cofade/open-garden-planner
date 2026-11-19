@@ -236,8 +236,9 @@ class TestExportsAreSharp:
     ) -> None:
         """The SVG export records the plan in 1/300-inch units (#787), so the
         sprite it embeds is the one a 300-dpi PNG of that width gets: on 40 cm of
-        paper 3.94 units per cm, rasterised at 4 px per cm — four times the
-        pixels a side of the file that has one unit per cm.
+        paper 3.94 units per cm, and no more bitmap pixels than that page shows
+        (#850: the canvas's power-of-two level used to be written as it was, up to
+        8x the pixels).
 
         Read from the file, not from ``QSvgRenderer``'s raster of it: that
         enlarges an embedded picture without smoothing, and the blocks of a
@@ -246,12 +247,17 @@ class TestExportsAreSharp:
         scene, _item, _half, _gain = _build(kind, rotation)
         fine_path, coarse_path = tmp_path / "fine.svg", tmp_path / "coarse.svg"
         ExportService.export_to_svg(scene, fine_path, output_width_cm=40.0)
-        # 1200 units wide: one unit — and one bitmap pixel — per cm
+        # 1200 units wide: one unit - and one bitmap pixel - per cm
         ExportService.export_to_svg(scene, coarse_path, output_width_cm=10.16)
         fine, coarse = _largest_picture(fine_path), _largest_picture(coarse_path)
         assert coarse.width() > 0
-        assert fine.width() == pytest.approx(4 * coarse.width(), abs=4)
-        assert fine.height() == pytest.approx(4 * coarse.height(), abs=4)
+        # 40 cm of page is 3.937 times the units of 10.16 cm, so its picture is
+        # 3.937 times as fine: every picture is fitted to the page it lands on, so
+        # the old power-of-two step (which made both pages share a level, and read
+        # as exactly 4x) is gone.
+        page_ratio = 40.0 / 10.16
+        assert fine.width() == pytest.approx(page_ratio * coarse.width(), rel=0.01)
+        assert fine.height() == pytest.approx(page_ratio * coarse.height(), rel=0.01)
 
     @pytest.mark.parametrize("rotation", [0.0, 30.0])
     def test_an_svg_fill_carries_the_detail_tile(self, qtbot, tmp_path, rotation: float) -> None:

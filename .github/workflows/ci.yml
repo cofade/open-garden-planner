@@ -269,6 +269,9 @@ jobs:
         env:
           QT_QPA_PLATFORM: offscreen
           COVERAGE_FILE: coverage-data/perf.coverage
+          # #931: every round's median, the spread and the runner's conditions,
+          # kept beside the job log instead of only in the failure message.
+          OGP_PERF_REPORT: coverage-data/perf-report.json
         run: >
           python -m pytest tests/ -m perf -n 0 -v --durations=0
           --cov=open_garden_planner --cov-branch --cov-report=

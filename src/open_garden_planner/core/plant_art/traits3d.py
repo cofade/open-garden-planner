@@ -193,7 +193,8 @@ class Traits3D:
     harvest_weeks: tuple[int, int] | None
     autumn_palette: str
     #: The plant flowers by its own ``bloom_months``, frost season or not: it stays in
-    #: the ground over winter (``_FROST_HARDY_BLOOM_STEMS``). False: its flowers wait
+    #: the ground over winter (``FROST_HARDY_BLOOM_STEMS``, read from the species
+    #: records). False: its flowers wait
     #: for the plan's frost-free season (``core/phenology.py``), as a tender plant is
     #: planted out after the last frost.
     frost_hardy_bloom: bool = False
@@ -325,7 +326,9 @@ _BLOOM_MONTHS: Final[dict[str, tuple[int, ...]]] = {
     # flowering & berry shrubs
     "forsythia": (3, 4),
     "camellia": (2, 3, 4),
-    "rhododendron": (4, 5, 6),
+    # Rhododendron ponticum, the bundled species (the sprite is shared with azalea):
+    # May-June, not April (#964: the spring example showed it in bloom on 18 April).
+    "rhododendron": (5, 6),
     "lilac": (5, 6),
     "viburnum": (5, 6),
     "spirea": (5, 6, 7),
@@ -413,29 +416,54 @@ _FRUIT_BLOSSOM_SPEC: Final[dict[str, str]] = {
     "fruit_tree": "pink",
 }
 
-#: Species that flower by their own bloom months even outside the plan's frost-free
-#: season (#940): bulbs, hardy perennials and herbs, shrubs, climbers and fruit trees
-#: that stay in the ground over winter. Crocus and daffodil flower before the last
-#: frost, apple and magnolia blossom often does, asters and chrysanthemums go on
-#: after the first. Every other plant is tender or planted out after the last frost,
-#: and its flowers wait for the frost-free season. Species stems only: a category
-#: says nothing about a plant's hardiness. No bundled record that draws one of these
-#: is ``frost_tolerance: "tender"`` (drift-guarded, ``tests/unit/test_phenology.py``).
-_FROST_HARDY_BLOOM_STEMS: Final[frozenset[str]] = frozenset({
-    # fruit and ornamental trees
-    "apple_tree", "pear_tree", "plum_tree", "peach_tree", "cherry_tree", "olive_tree",
-    "magnolia",
-    # flowering and berry shrubs
-    "forsythia", "camellia", "rhododendron", "lilac", "viburnum", "spirea", "elderberry",
-    "privet", "barberry", "blueberry", "raspberry", "blackberry", "gooseberry", "currant",
-    "rose", "hydrangea", "hibiscus",
-    # woody climbers
-    "wisteria", "clematis", "jasmine",
-    # bulbs and hardy perennials
-    "crocus", "daffodil", "tulip", "pansy", "peony", "iris", "lily", "aster", "chrysanthemum",
-    # perennial herbs and the frost-hardy pea
-    "lavender", "rosemary", "thyme", "sage", "oregano", "chives", "chamomile", "pea",
-})
+#: Species whose bloom tolerates frost (#940), read from the bundled records (#968).
+#:
+#: It was a hand-kept list of stems BESIDE ``frost_tolerance`` in
+#: ``plant_species.json``, and a drift guard in one direction was all that held the
+#: two together. It is not derivable from ``frost_tolerance``: a beet is hardy and
+#: has no bloom to keep through a frost, while a camellia is only half-hardy and
+#: flowers in winter. So the datum moved into the record that already describes the
+#: plant (``"frost_hardy_bloom": true``), and the record is now the one source.
+#:
+#: A record that draws a species sprite and omits the key is not bloom-hardy; a
+#: sprite with no record is not either, and says so in ``tests/unit/test_phenology.py``.
+def _bloom_hardy_stems() -> frozenset[str]:
+    """The species sprites whose bundled record keeps its bloom through frost.
+
+    The record is found the way the gallery finds it (``resolve_sprite`` on its
+    common name, then its scientific name), so a name an alias carries cannot
+    drift from the sprite. A record whose name resolves to a CATEGORY sprite (an
+    ``EXACT_CATEGORY_ALIASES`` entry such as Miscanthus) contributes nothing: the
+    flag is a species-sprite datum and a category has no record. A file that cannot
+    be read leaves the set empty — the same stance
+    ``services/bundled_species_db`` takes, which then has no species data at all.
+    Never Qt, never a second table.
+    """
+    import json
+    from pathlib import Path
+
+    path = Path(__file__).resolve().parents[2] / "resources" / "data" / "plant_species.json"
+    try:
+        records = json.loads(path.read_text(encoding="utf-8")).get("plants", [])
+    except (OSError, ValueError):
+        return frozenset()
+    hardy: set[str] = set()
+    for record in records:
+        if not isinstance(record, dict) or not record.get("frost_hardy_bloom"):
+            continue
+        for field in ("common_name", "scientific_name"):
+            name = str(record.get(field) or "")
+            if not name:
+                continue
+            sprite = resolve_sprite("PERENNIAL", name)
+            if sprite is not None and sprite.group == GROUP_SPECIES:
+                hardy.add(sprite.name)
+                break
+    return frozenset(hardy)
+
+
+FROST_HARDY_BLOOM_STEMS: Final[frozenset[str]] = _bloom_hardy_stems()
+
 
 #: Deciduous plants that flower before or with their leaves, and the share of their
 #: leaves out while they flower (#940): magnolia and forsythia flower on bare wood,
@@ -681,7 +709,10 @@ _TREE_OVERRIDES: Final[dict[str, tuple[CrownTraits, BranchingTraits, str, str]]]
         CrownTraits("oval", trunk_share=0.30, taper=-0.15, droop=0.15, aspect_xy=1.02),
         BranchingTraits(540, 2.5, 0.020, 0.14, 0.08, BARK_GREY, 1.0),
         "lobed",
-        "redleaf",
+        # #942: a Norway maple's summer crown is green, so its autumn shift is the
+        # yellow-orange every green deciduous tree uses. Red belongs to #940's
+        # Japanese maple, which is its own species.
+        "autumn",
     ),
     "birch": (
         CrownTraits("oval", trunk_share=0.20, taper=0.25, droop=0.65, aspect_xy=0.88),
@@ -966,7 +997,7 @@ def _with_flowering(traits: Traits3D, stem: str, recipe: Recipe) -> Traits3D:
 
 def _species_traits(stem: str, recipe: Recipe) -> Traits3D:
     traits = _with_flowering(_build_traits(GROUP_SPECIES, stem, recipe), stem, recipe)
-    return replace(traits, frost_hardy_bloom=True) if stem in _FROST_HARDY_BLOOM_STEMS else traits
+    return replace(traits, frost_hardy_bloom=True) if stem in FROST_HARDY_BLOOM_STEMS else traits
 
 
 #: 3D traits for every species recipe (111).
@@ -1015,6 +1046,7 @@ __all__ = [
     "CROWN_SHAPES",
     "FLOWER_CM_PER_RECIPE_RADIUS",
     "FLOWER_HABITS",
+    "FROST_HARDY_BLOOM_STEMS",
     "SCAPE_COVER",
     "FlowerTraits",
     "HARVEST_WINDOWS_WEEKS",

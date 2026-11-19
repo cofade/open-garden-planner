@@ -167,19 +167,21 @@ def test_a_falling_leaf_takes_its_colour_from_its_own_crown() -> None:
     """#687: a leaf is its crown's colour — the Forge's leaf colours for the tree's own
     palette (``plant_forge.palette_leaf_colors``, what the crown is built with) times the
     season's tint (``PhenologyState.foliage_tint_linear``, the crown's ``seasonTint``) —
-    never a palette literal (``ogp-lush-cinematic`` style table). So a red maple drops red
-    leaves and a green tree turning amber drops amber ones; each tree its own samples
-    (seeded by its id): two trees of one species drop no clones."""
+    never a palette literal (``ogp-lush-cinematic`` style table). So a red Japanese maple
+    drops red leaves and a green tree turning amber drops amber ones; each tree its own
+    samples (seeded by its id): two trees of one species drop no clones."""
     from open_garden_planner.core.plant_art import traits_for
     from open_garden_planner.core.plant_forge import palette_leaf_colors
     from open_garden_planner.core.scene3d import particles
     from open_garden_planner.core.scene3d.builders.plants import plant_sprite
 
     assert not hasattr(particles, "LEAF_PALETTE"), "no palette literal for leaves"
+    # #942 turned the Norway maple green in summer and yellow-orange in autumn, so the
+    # red tree this pins is #940's Japanese maple — its own species, its own palette.
     maple = dataclasses.replace(plant("maple", east=0.0), params=Params(
-        {"seed": "maple", "radius_cm": 150.0, "sprite_species": "maple"}))
+        {"seed": "maple", "radius_cm": 150.0, "sprite_species": "japanese_maple"}))
     maple2 = dataclasses.replace(plant("maple2", east=400.0), params=Params(
-        {"seed": "maple2", "radius_cm": 150.0, "sprite_species": "maple"}))
+        {"seed": "maple2", "radius_cm": 150.0, "sprite_species": "japanese_maple"}))
     oak = plant("oak", east=800.0)
     red, amber = (1.45, 0.55, 0.45), (1.25, 0.85, 0.35)
     seasons = {"maple": dataclasses.replace(state(leaves=0.5, autumn=0.9), foliage_tint_linear=red),
@@ -198,7 +200,9 @@ def test_a_falling_leaf_takes_its_colour_from_its_own_crown() -> None:
         assert len(palette) >= 4
         drop = (_hue(palette.mean(axis=0)) - _hue(crown) + 180.0) % 360.0 - 180.0
         assert abs(drop) <= 10.0, (record.item_id, _hue(palette.mean(axis=0)), _hue(crown))
-    assert _hue(np.asarray(leaves["maple"].palette_linear).mean(axis=0)) < 20.0, "a red maple drops red"
+    red_hue = _hue(np.asarray(leaves["maple"].palette_linear).mean(axis=0))
+    assert min(red_hue, 360.0 - red_hue) < 20.0, (
+        "a red Japanese maple drops red", red_hue)
     assert leaves["maple"].palette_linear != leaves["maple2"].palette_linear, "no clones"
     again = {e.item_id: e for e in ambient_emitters([maple, maple2, oak], seasons, date(2026, 10, 20), 52.0)}
     assert again["maple"] == leaves["maple"], "deterministic per item"
