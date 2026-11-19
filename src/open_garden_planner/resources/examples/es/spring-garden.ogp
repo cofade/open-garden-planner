@@ -487,6 +487,7 @@
       "stroke_style": "SOLID",
       "plant_category": "ROUND_DECIDUOUS",
       "plant_species": "Magnolia",
+      "spacing_radius_cm": 134.0,
       "stack_order": 11264
     },
     {
@@ -545,6 +546,7 @@
       "stroke_style": "SOLID",
       "plant_category": "ROUND_DECIDUOUS",
       "plant_species": "Cherry Tree",
+      "spacing_radius_cm": 184.0,
       "stack_order": 12288
     },
     {
@@ -603,13 +605,14 @@
       "stroke_style": "SOLID",
       "plant_category": "ROUND_DECIDUOUS",
       "plant_species": "Plum Tree",
+      "spacing_radius_cm": 134.0,
       "stack_order": 13312
     },
     {
       "type": "circle",
-      "item_id": "0736bf83-7f66-5718-afe2-56f8fc1a54a2",
-      "center_x": 1150.0,
-      "center_y": 190.0,
+      "item_id": "eb7a37df-0059-5346-8ece-8916f4e22a14",
+      "center_x": 1165.0,
+      "center_y": 170.0,
       "radius": 145.0,
       "object_type": "TREE",
       "name": "Manzano",
@@ -661,6 +664,7 @@
       "stroke_style": "SOLID",
       "plant_category": "ROUND_DECIDUOUS",
       "plant_species": "Apple Tree",
+      "spacing_radius_cm": 144.0,
       "stack_order": 14336
     },
     {
@@ -717,6 +721,7 @@
       "stroke_style": "SOLID",
       "plant_category": "SPREADING_SHRUB",
       "plant_species": "Forsythia",
+      "spacing_radius_cm": 61.5,
       "stack_order": 15360
     },
     {
@@ -773,6 +778,7 @@
       "stroke_style": "SOLID",
       "plant_category": "SPREADING_SHRUB",
       "plant_species": "Forsythia",
+      "spacing_radius_cm": 61.5,
       "stack_order": 16384
     },
     {
@@ -829,6 +835,7 @@
       "stroke_style": "SOLID",
       "plant_category": "SPREADING_SHRUB",
       "plant_species": "Forsythia",
+      "spacing_radius_cm": 61.5,
       "stack_order": 17408
     },
     {
@@ -885,6 +892,7 @@
       "stroke_style": "SOLID",
       "plant_category": "SPREADING_SHRUB",
       "plant_species": "Forsythia",
+      "spacing_radius_cm": 61.5,
       "stack_order": 18432
     },
     {
@@ -941,6 +949,7 @@
       "stroke_style": "SOLID",
       "plant_category": "ROUND_DECIDUOUS",
       "plant_species": "Lilac",
+      "spacing_radius_cm": 79.0,
       "stack_order": 19456
     },
     {
@@ -997,6 +1006,7 @@
       "stroke_style": "SOLID",
       "plant_category": "ROUND_DECIDUOUS",
       "plant_species": "Rhododendron",
+      "spacing_radius_cm": 54.0,
       "stack_order": 20480
     },
     {
@@ -10061,6 +10071,7 @@
       "stroke_style": "SOLID",
       "plant_category": "FLOWERING_PERENNIAL",
       "plant_species": "Pansy",
+      "spacing_radius_cm": 13.0,
       "parent_bed_id": "2d2fe531-e428-54d2-9fd2-f849b5183fef",
       "stack_order": 194560
     },
@@ -10118,6 +10129,7 @@
       "stroke_style": "SOLID",
       "plant_category": "FLOWERING_PERENNIAL",
       "plant_species": "Pansy",
+      "spacing_radius_cm": 13.0,
       "parent_bed_id": "2d2fe531-e428-54d2-9fd2-f849b5183fef",
       "stack_order": 195584
     },
@@ -10175,6 +10187,7 @@
       "stroke_style": "SOLID",
       "plant_category": "FLOWERING_PERENNIAL",
       "plant_species": "Pansy",
+      "spacing_radius_cm": 13.0,
       "parent_bed_id": "2d2fe531-e428-54d2-9fd2-f849b5183fef",
       "stack_order": 196608
     },
@@ -10232,6 +10245,7 @@
       "stroke_style": "SOLID",
       "plant_category": "FLOWERING_PERENNIAL",
       "plant_species": "Pansy",
+      "spacing_radius_cm": 13.0,
       "parent_bed_id": "2d2fe531-e428-54d2-9fd2-f849b5183fef",
       "stack_order": 197632
     },
@@ -10289,6 +10303,7 @@
       "stroke_style": "SOLID",
       "plant_category": "FLOWERING_PERENNIAL",
       "plant_species": "Pansy",
+      "spacing_radius_cm": 13.0,
       "parent_bed_id": "2d2fe531-e428-54d2-9fd2-f849b5183fef",
       "stack_order": 198656
     },
@@ -10346,6 +10361,7 @@
       "stroke_style": "SOLID",
       "plant_category": "FLOWERING_PERENNIAL",
       "plant_species": "Pansy",
+      "spacing_radius_cm": 13.0,
       "parent_bed_id": "2d2fe531-e428-54d2-9fd2-f849b5183fef",
       "stack_order": 199680
     },
@@ -10403,6 +10419,7 @@
       "stroke_style": "SOLID",
       "plant_category": "FLOWERING_PERENNIAL",
       "plant_species": "Pansy",
+      "spacing_radius_cm": 13.0,
       "parent_bed_id": "2d2fe531-e428-54d2-9fd2-f849b5183fef",
       "stack_order": 200704
     },
@@ -10460,6 +10477,7 @@
       "stroke_style": "SOLID",
       "plant_category": "FLOWERING_PERENNIAL",
       "plant_species": "Pansy",
+      "spacing_radius_cm": 13.0,
       "parent_bed_id": "2d2fe531-e428-54d2-9fd2-f849b5183fef",
       "stack_order": 201728
     },
@@ -10517,6 +10535,7 @@
       "stroke_style": "SOLID",
       "plant_category": "FLOWERING_PERENNIAL",
       "plant_species": "Pansy",
+      "spacing_radius_cm": 13.0,
       "parent_bed_id": "2d2fe531-e428-54d2-9fd2-f849b5183fef",
       "stack_order": 202752
     },
@@ -10574,6 +10593,7 @@
       "stroke_style": "SOLID",
       "plant_category": "FLOWERING_PERENNIAL",
       "plant_species": "Pansy",
+      "spacing_radius_cm": 13.0,
       "parent_bed_id": "2d2fe531-e428-54d2-9fd2-f849b5183fef",
       "stack_order": 203776
     },
@@ -10646,6 +10666,7 @@
       "stroke_style": "SOLID",
       "plant_category": "FLOWERING_PERENNIAL",
       "plant_species": "Chives",
+      "spacing_radius_cm": 14.0,
       "parent_bed_id": "e5d3ddc9-1b1d-5dc1-b900-e76fe066c222",
       "stack_order": 205824
     },
@@ -10718,6 +10739,7 @@
       "stroke_style": "SOLID",
       "plant_category": "FLOWERING_PERENNIAL",
       "plant_species": "Chives",
+      "spacing_radius_cm": 14.0,
       "parent_bed_id": "e5d3ddc9-1b1d-5dc1-b900-e76fe066c222",
       "stack_order": 206848
     },
@@ -10790,6 +10812,7 @@
       "stroke_style": "SOLID",
       "plant_category": "FLOWERING_PERENNIAL",
       "plant_species": "Chives",
+      "spacing_radius_cm": 14.0,
       "parent_bed_id": "e5d3ddc9-1b1d-5dc1-b900-e76fe066c222",
       "stack_order": 207872
     },
@@ -10930,6 +10953,7 @@
       "stroke_style": "SOLID",
       "plant_category": "SPREADING_SHRUB",
       "plant_species": "Rhubarb",
+      "spacing_radius_cm": 44.0,
       "parent_bed_id": "d7f8496c-b311-5cca-a8f9-3d1501252c87",
       "stack_order": 210944
     },
@@ -10938,7 +10962,7 @@
       "item_id": "9d7ec834-1885-5950-ba66-c22004235445",
       "x": 362.0,
       "y": 846.0,
-      "content": "18 abr 2026 \u00b7 1  Abra la vista 3D: bulbos, magnolio y frutales florecen hoy.\n2  Plan y sol: mueva la fecha. En junio quedan hojas, en noviembre los \u00e1rboles est\u00e1n desnudos.\n3  Vista 3D \u2192 Recorrido de c\u00e1mara: \u00abUn a\u00f1o en el jard\u00edn\u00bb. Heidelberg; registros ficticios.",
+      "content": "18 abr 2026 \u00b7 1  Abra la vista 3D: bulbos, magnolio y frutales florecen hoy.\n2  Plano y sol: mueva la fecha. En junio quedan hojas, en noviembre los \u00e1rboles est\u00e1n desnudos.\n3  Vista 3D \u2192 Recorrido de c\u00e1mara: \u00abUn a\u00f1o en el jard\u00edn\u00bb. Heidelberg; registros ficticios.",
       "font_family": "Arial",
       "font_size": 0.4,
       "bold": false,
@@ -10954,7 +10978,7 @@
     "longitude": 8.6724,
     "timezone": "Europe/Berlin",
     "frost_dates": {
-      "last_spring_frost": "04-08",
+      "last_spring_frost": "04-25",
       "first_fall_frost": "11-01"
     }
   },

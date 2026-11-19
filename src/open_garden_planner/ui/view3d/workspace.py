@@ -1163,7 +1163,7 @@ class Workspace(QWidget):
         self._apply_camera()
         self._capture.document_shown()  # the new camera gives photo mode's blur its point
 
-    def open_from(self, side: tuple[float, float] | None) -> None:
+    def set_opening_side(self, side: tuple[float, float] | None) -> None:
         """The (yaw, pitch) the open document is first seen from in 3D, or None for the
         default side. Said by the window after it opened a bundled example: the default
         side looks into a late sun, and over a garden wall sees the wall (#940). It

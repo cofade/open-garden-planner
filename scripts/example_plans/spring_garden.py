@@ -64,7 +64,7 @@ def build():
     plan.plant("magnolia x soulangeana", 280, 540, planted=WOODY, size=(300, 270))
     plan.plant("prunus avium", 1110, 500, planted=WOODY, size=(480, 370))
     plan.plant("prunus domestica", 240, 230, planted=WOODY, size=(330, 270))
-    plan.plant("malus domestica", 1150, 190, planted=WOODY, size=(340, 290))
+    plan.plant("malus domestica", 1165, 170, planted=WOODY, size=(340, 290))
     for y in (410, 550, 690, 830):
         plan.plant("forsythia x intermedia", 95, y, planted=WOODY, size=(150, 125))
     plan.plant("syringa vulgaris", 1300, 860, planted=WOODY, size=(220, 160))
@@ -103,7 +103,7 @@ def build():
         "2  Plan & Sonne: Datum verschieben. Im Juni bleibt nur Laub, im November sind die Bäume kahl.\n"
         "3  3D-Ansicht → Kamerafahrt: „Ein Jahr im Garten“ abspielen. Heidelberg; Einträge sind fiktiv.",
         "18 abr 2026 · 1  Abra la vista 3D: bulbos, magnolio y frutales florecen hoy.\n"
-        "2  Plan y sol: mueva la fecha. En junio quedan hojas, en noviembre los árboles están desnudos.\n"
+        "2  Plano y sol: mueva la fecha. En junio quedan hojas, en noviembre los árboles están desnudos.\n"
         "3  Vista 3D → Recorrido de cámara: «Un año en el jardín». Heidelberg; registros ficticios."),
         size=0.4)
 

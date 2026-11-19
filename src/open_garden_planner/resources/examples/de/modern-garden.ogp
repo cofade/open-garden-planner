@@ -449,6 +449,7 @@
       "stroke_style": "SOLID",
       "plant_category": "ROUND_DECIDUOUS",
       "plant_species": "Boxwood",
+      "spacing_radius_cm": 31.5,
       "stack_order": 12288
     },
     {
@@ -505,6 +506,7 @@
       "stroke_style": "SOLID",
       "plant_category": "ROUND_DECIDUOUS",
       "plant_species": "Boxwood",
+      "spacing_radius_cm": 31.5,
       "stack_order": 13312
     },
     {
@@ -561,6 +563,7 @@
       "stroke_style": "SOLID",
       "plant_category": "ROUND_DECIDUOUS",
       "plant_species": "Boxwood",
+      "spacing_radius_cm": 31.5,
       "stack_order": 14336
     },
     {
@@ -617,6 +620,7 @@
       "stroke_style": "SOLID",
       "plant_category": "ROUND_DECIDUOUS",
       "plant_species": "Boxwood",
+      "spacing_radius_cm": 31.5,
       "stack_order": 15360
     },
     {
@@ -673,6 +677,7 @@
       "stroke_style": "SOLID",
       "plant_category": "ROUND_DECIDUOUS",
       "plant_species": "Boxwood",
+      "spacing_radius_cm": 31.5,
       "stack_order": 16384
     },
     {
@@ -729,6 +734,7 @@
       "stroke_style": "SOLID",
       "plant_category": "ROUND_DECIDUOUS",
       "plant_species": "Japanese Maple",
+      "spacing_radius_cm": 139.0,
       "parent_bed_id": "3f0e88b9-5ce6-52ba-8719-4aee51e8a601",
       "stack_order": 18432
     },
@@ -813,6 +819,7 @@
       "stroke_style": "SOLID",
       "plant_category": "SPREADING_SHRUB",
       "plant_species": "Miscanthus",
+      "spacing_radius_cm": 44.0,
       "parent_bed_id": "389937c1-c2de-502e-827e-1f24b8a5bfce",
       "stack_order": 24576
     },
@@ -870,6 +877,7 @@
       "stroke_style": "SOLID",
       "plant_category": "SPREADING_SHRUB",
       "plant_species": "Miscanthus",
+      "spacing_radius_cm": 44.0,
       "parent_bed_id": "389937c1-c2de-502e-827e-1f24b8a5bfce",
       "stack_order": 25600
     },
@@ -927,6 +935,7 @@
       "stroke_style": "SOLID",
       "plant_category": "SPREADING_SHRUB",
       "plant_species": "Miscanthus",
+      "spacing_radius_cm": 44.0,
       "parent_bed_id": "389937c1-c2de-502e-827e-1f24b8a5bfce",
       "stack_order": 26624
     },
@@ -1027,6 +1036,7 @@
       "stroke_style": "SOLID",
       "plant_category": "FLOWERING_PERENNIAL",
       "plant_species": "Lavender",
+      "spacing_radius_cm": 24.0,
       "parent_bed_id": "3058ac7b-d96f-5097-8b1c-143c35df46ab",
       "stack_order": 27648
     },
@@ -1098,6 +1108,7 @@
       "stroke_style": "SOLID",
       "plant_category": "FLOWERING_PERENNIAL",
       "plant_species": "Lavender",
+      "spacing_radius_cm": 24.0,
       "parent_bed_id": "3058ac7b-d96f-5097-8b1c-143c35df46ab",
       "stack_order": 28672
     },
@@ -1169,6 +1180,7 @@
       "stroke_style": "SOLID",
       "plant_category": "FLOWERING_PERENNIAL",
       "plant_species": "Lavender",
+      "spacing_radius_cm": 24.0,
       "parent_bed_id": "3058ac7b-d96f-5097-8b1c-143c35df46ab",
       "stack_order": 29696
     },
@@ -1240,6 +1252,7 @@
       "stroke_style": "SOLID",
       "plant_category": "FLOWERING_PERENNIAL",
       "plant_species": "Lavender",
+      "spacing_radius_cm": 24.0,
       "parent_bed_id": "3058ac7b-d96f-5097-8b1c-143c35df46ab",
       "stack_order": 30720
     },
@@ -1311,6 +1324,7 @@
       "stroke_style": "SOLID",
       "plant_category": "FLOWERING_PERENNIAL",
       "plant_species": "Lavender",
+      "spacing_radius_cm": 24.0,
       "parent_bed_id": "3058ac7b-d96f-5097-8b1c-143c35df46ab",
       "stack_order": 31744
     },
@@ -1395,6 +1409,7 @@
       "stroke_style": "SOLID",
       "plant_category": "SPREADING_SHRUB",
       "plant_species": "Miscanthus",
+      "spacing_radius_cm": 44.0,
       "parent_bed_id": "8b061c3f-0f5f-55c5-a018-69d6ac460bb0",
       "stack_order": 32768
     },
@@ -1452,6 +1467,7 @@
       "stroke_style": "SOLID",
       "plant_category": "SPREADING_SHRUB",
       "plant_species": "Miscanthus",
+      "spacing_radius_cm": 44.0,
       "parent_bed_id": "8b061c3f-0f5f-55c5-a018-69d6ac460bb0",
       "stack_order": 33792
     },
@@ -1509,6 +1525,7 @@
       "stroke_style": "SOLID",
       "plant_category": "SPREADING_SHRUB",
       "plant_species": "Miscanthus",
+      "spacing_radius_cm": 44.0,
       "parent_bed_id": "8b061c3f-0f5f-55c5-a018-69d6ac460bb0",
       "stack_order": 34816
     },
@@ -1546,7 +1563,7 @@
       "item_id": "dc8b1cd8-cab2-5aa0-b5b4-eb7aed816d9d",
       "center_x": 1440.0,
       "center_y": 110.0,
-      "radius": 42.5,
+      "radius": 37.5,
       "object_type": "TREE",
       "name": "Bambus",
       "metadata": {
@@ -1583,7 +1600,7 @@
         "plant_instance": {
           "planting_date": "2026-03-01",
           "current_height_cm": 320.0,
-          "current_spread_cm": 85.0
+          "current_spread_cm": 75.0
         }
       },
       "layer_id": "b397a8a3-d81a-51ad-b146-2ba6e788a7d7",
@@ -1595,6 +1612,7 @@
       "stroke_style": "SOLID",
       "plant_category": "ROUND_DECIDUOUS",
       "plant_species": "Bamboo",
+      "spacing_radius_cm": 36.5,
       "parent_bed_id": "d32dc2ab-99ef-52e3-a348-a101e5cd3a60",
       "stack_order": 36864
     },
@@ -1603,7 +1621,7 @@
       "item_id": "385b79a7-e080-5404-abca-ca3d79cce941",
       "center_x": 1440.0,
       "center_y": 190.0,
-      "radius": 42.5,
+      "radius": 37.5,
       "object_type": "TREE",
       "name": "Bambus",
       "metadata": {
@@ -1640,7 +1658,7 @@
         "plant_instance": {
           "planting_date": "2026-03-01",
           "current_height_cm": 320.0,
-          "current_spread_cm": 85.0
+          "current_spread_cm": 75.0
         }
       },
       "layer_id": "b397a8a3-d81a-51ad-b146-2ba6e788a7d7",
@@ -1652,6 +1670,7 @@
       "stroke_style": "SOLID",
       "plant_category": "ROUND_DECIDUOUS",
       "plant_species": "Bamboo",
+      "spacing_radius_cm": 36.5,
       "parent_bed_id": "d32dc2ab-99ef-52e3-a348-a101e5cd3a60",
       "stack_order": 37888
     },
@@ -1660,7 +1679,7 @@
       "item_id": "d01a7eeb-0e28-5cbb-89b5-55a63264383b",
       "center_x": 1440.0,
       "center_y": 270.0,
-      "radius": 42.5,
+      "radius": 37.5,
       "object_type": "TREE",
       "name": "Bambus",
       "metadata": {
@@ -1697,7 +1716,7 @@
         "plant_instance": {
           "planting_date": "2026-03-01",
           "current_height_cm": 320.0,
-          "current_spread_cm": 85.0
+          "current_spread_cm": 75.0
         }
       },
       "layer_id": "b397a8a3-d81a-51ad-b146-2ba6e788a7d7",
@@ -1709,6 +1728,7 @@
       "stroke_style": "SOLID",
       "plant_category": "ROUND_DECIDUOUS",
       "plant_species": "Bamboo",
+      "spacing_radius_cm": 36.5,
       "parent_bed_id": "d32dc2ab-99ef-52e3-a348-a101e5cd3a60",
       "stack_order": 38912
     },
@@ -1717,7 +1737,7 @@
       "item_id": "e87ecd9b-b7d6-5ee0-a8ce-dfb94f715eef",
       "center_x": 1440.0,
       "center_y": 350.0,
-      "radius": 42.5,
+      "radius": 37.5,
       "object_type": "TREE",
       "name": "Bambus",
       "metadata": {
@@ -1754,7 +1774,7 @@
         "plant_instance": {
           "planting_date": "2026-03-01",
           "current_height_cm": 320.0,
-          "current_spread_cm": 85.0
+          "current_spread_cm": 75.0
         }
       },
       "layer_id": "b397a8a3-d81a-51ad-b146-2ba6e788a7d7",
@@ -1766,6 +1786,7 @@
       "stroke_style": "SOLID",
       "plant_category": "ROUND_DECIDUOUS",
       "plant_species": "Bamboo",
+      "spacing_radius_cm": 36.5,
       "parent_bed_id": "d32dc2ab-99ef-52e3-a348-a101e5cd3a60",
       "stack_order": 39936
     },
@@ -1774,7 +1795,7 @@
       "item_id": "7839167b-766a-5787-a1b7-fb14b80bdcfc",
       "center_x": 1440.0,
       "center_y": 430.0,
-      "radius": 42.5,
+      "radius": 37.5,
       "object_type": "TREE",
       "name": "Bambus",
       "metadata": {
@@ -1811,7 +1832,7 @@
         "plant_instance": {
           "planting_date": "2026-03-01",
           "current_height_cm": 320.0,
-          "current_spread_cm": 85.0
+          "current_spread_cm": 75.0
         }
       },
       "layer_id": "b397a8a3-d81a-51ad-b146-2ba6e788a7d7",
@@ -1823,6 +1844,7 @@
       "stroke_style": "SOLID",
       "plant_category": "ROUND_DECIDUOUS",
       "plant_species": "Bamboo",
+      "spacing_radius_cm": 36.5,
       "parent_bed_id": "d32dc2ab-99ef-52e3-a348-a101e5cd3a60",
       "stack_order": 40960
     },

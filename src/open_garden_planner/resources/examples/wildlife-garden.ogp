@@ -550,6 +550,7 @@
       "stroke_style": "SOLID",
       "plant_category": "SPREADING_SHRUB",
       "plant_species": "Iris",
+      "spacing_radius_cm": 17.0,
       "stack_order": 17408
     },
     {
@@ -604,6 +605,7 @@
       "stroke_style": "SOLID",
       "plant_category": "SPREADING_SHRUB",
       "plant_species": "Iris",
+      "spacing_radius_cm": 17.0,
       "stack_order": 18432
     },
     {
@@ -658,13 +660,14 @@
       "stroke_style": "SOLID",
       "plant_category": "SPREADING_SHRUB",
       "plant_species": "Iris",
+      "spacing_radius_cm": 17.0,
       "stack_order": 19456
     },
     {
       "type": "circle",
-      "item_id": "17f48dcf-6a49-5dd7-9e78-81ab47a5df68",
-      "center_x": 1010.0,
-      "center_y": 1015.0,
+      "item_id": "0c9c25dc-6dc7-5b7e-8f51-2b1a6361c170",
+      "center_x": 1000.0,
+      "center_y": 1005.0,
       "radius": 30.0,
       "object_type": "SHRUB",
       "name": "Iris",
@@ -712,6 +715,7 @@
       "stroke_style": "SOLID",
       "plant_category": "SPREADING_SHRUB",
       "plant_species": "Iris",
+      "spacing_radius_cm": 17.0,
       "stack_order": 20480
     },
     {
@@ -766,6 +770,7 @@
       "stroke_style": "SOLID",
       "plant_category": "SPREADING_SHRUB",
       "plant_species": "Iris",
+      "spacing_radius_cm": 17.0,
       "stack_order": 21504
     },
     {
@@ -820,6 +825,7 @@
       "stroke_style": "SOLID",
       "plant_category": "SPREADING_SHRUB",
       "plant_species": "Iris",
+      "spacing_radius_cm": 17.0,
       "stack_order": 22528
     },
     {
@@ -876,6 +882,7 @@
       "stroke_style": "SOLID",
       "plant_category": "ROUND_DECIDUOUS",
       "plant_species": "Willow",
+      "spacing_radius_cm": 199.0,
       "stack_order": 23552
     },
     {
@@ -932,6 +939,7 @@
       "stroke_style": "SOLID",
       "plant_category": "ROUND_DECIDUOUS",
       "plant_species": "Oak",
+      "spacing_radius_cm": 199.0,
       "stack_order": 24576
     },
     {
@@ -988,6 +996,7 @@
       "stroke_style": "SOLID",
       "plant_category": "ROUND_DECIDUOUS",
       "plant_species": "Birch",
+      "spacing_radius_cm": 149.0,
       "stack_order": 25600
     },
     {
@@ -1047,6 +1056,7 @@
       "stroke_style": "SOLID",
       "plant_category": "ROUND_DECIDUOUS",
       "plant_species": "Elderberry",
+      "spacing_radius_cm": 104.0,
       "stack_order": 26624
     },
     {
@@ -1106,6 +1116,7 @@
       "stroke_style": "SOLID",
       "plant_category": "ROUND_DECIDUOUS",
       "plant_species": "Elderberry",
+      "spacing_radius_cm": 99.0,
       "stack_order": 27648
     },
     {
@@ -1162,6 +1173,7 @@
       "stroke_style": "SOLID",
       "plant_category": "ROUND_DECIDUOUS",
       "plant_species": "Viburnum",
+      "spacing_radius_cm": 84.0,
       "stack_order": 28672
     },
     {
@@ -1218,6 +1230,7 @@
       "stroke_style": "SOLID",
       "plant_category": "SPREADING_SHRUB",
       "plant_species": "Barberry",
+      "spacing_radius_cm": 69.0,
       "stack_order": 29696
     },
     {
@@ -1274,6 +1287,7 @@
       "stroke_style": "SOLID",
       "plant_category": "ROUND_DECIDUOUS",
       "plant_species": "Holly",
+      "spacing_radius_cm": 84.0,
       "stack_order": 30720
     },
     {
@@ -1400,6 +1414,7 @@
       "stroke_style": "SOLID",
       "plant_category": "FLOWERING_PERENNIAL",
       "plant_species": "Pot Marigold",
+      "spacing_radius_cm": 4.0,
       "stack_order": 34816
     },
     {
@@ -1470,6 +1485,7 @@
       "stroke_style": "SOLID",
       "plant_category": "FLOWERING_PERENNIAL",
       "plant_species": "Pot Marigold",
+      "spacing_radius_cm": 4.0,
       "stack_order": 35840
     },
     {
@@ -1540,6 +1556,7 @@
       "stroke_style": "SOLID",
       "plant_category": "FLOWERING_PERENNIAL",
       "plant_species": "Pot Marigold",
+      "spacing_radius_cm": 4.0,
       "stack_order": 36864
     },
     {
@@ -1610,6 +1627,7 @@
       "stroke_style": "SOLID",
       "plant_category": "FLOWERING_PERENNIAL",
       "plant_species": "Pot Marigold",
+      "spacing_radius_cm": 4.0,
       "stack_order": 37888
     },
     {
@@ -1680,6 +1698,7 @@
       "stroke_style": "SOLID",
       "plant_category": "FLOWERING_PERENNIAL",
       "plant_species": "Pot Marigold",
+      "spacing_radius_cm": 4.0,
       "stack_order": 38912
     },
     {
@@ -1750,6 +1769,7 @@
       "stroke_style": "SOLID",
       "plant_category": "FLOWERING_PERENNIAL",
       "plant_species": "Pot Marigold",
+      "spacing_radius_cm": 4.0,
       "stack_order": 39936
     },
     {
@@ -1820,6 +1840,7 @@
       "stroke_style": "SOLID",
       "plant_category": "FLOWERING_PERENNIAL",
       "plant_species": "Pot Marigold",
+      "spacing_radius_cm": 4.0,
       "stack_order": 40960
     },
     {
@@ -1890,6 +1911,7 @@
       "stroke_style": "SOLID",
       "plant_category": "FLOWERING_PERENNIAL",
       "plant_species": "Pot Marigold",
+      "spacing_radius_cm": 4.0,
       "stack_order": 41984
     },
     {
@@ -1960,6 +1982,7 @@
       "stroke_style": "SOLID",
       "plant_category": "FLOWERING_PERENNIAL",
       "plant_species": "Pot Marigold",
+      "spacing_radius_cm": 4.0,
       "stack_order": 43008
     },
     {
@@ -2030,6 +2053,7 @@
       "stroke_style": "SOLID",
       "plant_category": "FLOWERING_PERENNIAL",
       "plant_species": "Pot Marigold",
+      "spacing_radius_cm": 4.0,
       "stack_order": 44032
     },
     {
@@ -2100,6 +2124,7 @@
       "stroke_style": "SOLID",
       "plant_category": "FLOWERING_PERENNIAL",
       "plant_species": "Pot Marigold",
+      "spacing_radius_cm": 4.0,
       "stack_order": 45056
     },
     {
@@ -2170,6 +2195,7 @@
       "stroke_style": "SOLID",
       "plant_category": "FLOWERING_PERENNIAL",
       "plant_species": "Pot Marigold",
+      "spacing_radius_cm": 4.0,
       "stack_order": 46080
     },
     {
@@ -2240,6 +2266,7 @@
       "stroke_style": "SOLID",
       "plant_category": "FLOWERING_PERENNIAL",
       "plant_species": "Pot Marigold",
+      "spacing_radius_cm": 4.0,
       "stack_order": 47104
     },
     {
@@ -2310,6 +2337,7 @@
       "stroke_style": "SOLID",
       "plant_category": "FLOWERING_PERENNIAL",
       "plant_species": "Pot Marigold",
+      "spacing_radius_cm": 4.0,
       "stack_order": 48128
     },
     {
@@ -2380,6 +2408,7 @@
       "stroke_style": "SOLID",
       "plant_category": "FLOWERING_PERENNIAL",
       "plant_species": "Pot Marigold",
+      "spacing_radius_cm": 4.0,
       "stack_order": 49152
     },
     {
@@ -2450,6 +2479,7 @@
       "stroke_style": "SOLID",
       "plant_category": "FLOWERING_PERENNIAL",
       "plant_species": "Pot Marigold",
+      "spacing_radius_cm": 4.0,
       "stack_order": 50176
     },
     {
@@ -2506,63 +2536,8 @@
       "stroke_style": "SOLID",
       "plant_category": "SPREADING_SHRUB",
       "plant_species": "Cosmos",
+      "spacing_radius_cm": 4.0,
       "stack_order": 51200
-    },
-    {
-      "type": "circle",
-      "item_id": "916083a8-a129-5ffd-9917-d178a54f9623",
-      "center_x": 252.7,
-      "center_y": 273.5,
-      "radius": 5.0,
-      "object_type": "SHRUB",
-      "name": "Cosmos",
-      "metadata": {
-        "plant_species": {
-          "scientific_name": "Cosmos bipinnatus",
-          "common_name": "Cosmos",
-          "family": "Asteraceae",
-          "genus": "Cosmos",
-          "cycle": "annual",
-          "growth_rate": "fast",
-          "flower_type": "hermaphrodite",
-          "pollination_type": "self_fertile",
-          "min_height_cm": 60.0,
-          "max_height_cm": 180.0,
-          "min_spread_cm": 30.0,
-          "max_spread_cm": 50.0,
-          "sun_requirement": "full_sun",
-          "water_needs": "low",
-          "hardiness_zone_min": 2,
-          "hardiness_zone_max": 11,
-          "ph_min": 6.0,
-          "ph_max": 8.5,
-          "edible": false,
-          "edible_parts": [],
-          "data_source": "bundled",
-          "frost_tolerance": "tender",
-          "nutrient_demand": "light",
-          "n_demand": "low",
-          "p_demand": "low",
-          "k_demand": "low",
-          "permaculture_layer": "herbaceous",
-          "functions": []
-        },
-        "plant_instance": {
-          "planting_date": "2026-04-12",
-          "current_height_cm": 10.0,
-          "current_spread_cm": 10.0
-        }
-      },
-      "layer_id": "55f59d67-d2d8-5e12-ae18-6945334e08cb",
-      "label_visible": false,
-      "fill_color": "#ff6b8e23",
-      "stroke_color": "#ff000000",
-      "stroke_width": 1.0,
-      "fill_pattern": "SOLID",
-      "stroke_style": "SOLID",
-      "plant_category": "SPREADING_SHRUB",
-      "plant_species": "Cosmos",
-      "stack_order": 52224
     },
     {
       "type": "circle",
@@ -2618,119 +2593,8 @@
       "stroke_style": "SOLID",
       "plant_category": "SPREADING_SHRUB",
       "plant_species": "Cosmos",
-      "stack_order": 53248
-    },
-    {
-      "type": "circle",
-      "item_id": "840626bf-0946-5a88-ae4c-c9deb67ebb18",
-      "center_x": 417.8,
-      "center_y": 317.6,
-      "radius": 5.0,
-      "object_type": "SHRUB",
-      "name": "Cosmos",
-      "metadata": {
-        "plant_species": {
-          "scientific_name": "Cosmos bipinnatus",
-          "common_name": "Cosmos",
-          "family": "Asteraceae",
-          "genus": "Cosmos",
-          "cycle": "annual",
-          "growth_rate": "fast",
-          "flower_type": "hermaphrodite",
-          "pollination_type": "self_fertile",
-          "min_height_cm": 60.0,
-          "max_height_cm": 180.0,
-          "min_spread_cm": 30.0,
-          "max_spread_cm": 50.0,
-          "sun_requirement": "full_sun",
-          "water_needs": "low",
-          "hardiness_zone_min": 2,
-          "hardiness_zone_max": 11,
-          "ph_min": 6.0,
-          "ph_max": 8.5,
-          "edible": false,
-          "edible_parts": [],
-          "data_source": "bundled",
-          "frost_tolerance": "tender",
-          "nutrient_demand": "light",
-          "n_demand": "low",
-          "p_demand": "low",
-          "k_demand": "low",
-          "permaculture_layer": "herbaceous",
-          "functions": []
-        },
-        "plant_instance": {
-          "planting_date": "2026-04-12",
-          "current_height_cm": 10.0,
-          "current_spread_cm": 10.0
-        }
-      },
-      "layer_id": "55f59d67-d2d8-5e12-ae18-6945334e08cb",
-      "label_visible": false,
-      "fill_color": "#ff6b8e23",
-      "stroke_color": "#ff000000",
-      "stroke_width": 1.0,
-      "fill_pattern": "SOLID",
-      "stroke_style": "SOLID",
-      "plant_category": "SPREADING_SHRUB",
-      "plant_species": "Cosmos",
-      "stack_order": 54272
-    },
-    {
-      "type": "circle",
-      "item_id": "88e44ae2-ea8a-5429-b8f7-15d0c533e70b",
-      "center_x": 492.5,
-      "center_y": 258.5,
-      "radius": 5.0,
-      "object_type": "SHRUB",
-      "name": "Cosmos",
-      "metadata": {
-        "plant_species": {
-          "scientific_name": "Cosmos bipinnatus",
-          "common_name": "Cosmos",
-          "family": "Asteraceae",
-          "genus": "Cosmos",
-          "cycle": "annual",
-          "growth_rate": "fast",
-          "flower_type": "hermaphrodite",
-          "pollination_type": "self_fertile",
-          "min_height_cm": 60.0,
-          "max_height_cm": 180.0,
-          "min_spread_cm": 30.0,
-          "max_spread_cm": 50.0,
-          "sun_requirement": "full_sun",
-          "water_needs": "low",
-          "hardiness_zone_min": 2,
-          "hardiness_zone_max": 11,
-          "ph_min": 6.0,
-          "ph_max": 8.5,
-          "edible": false,
-          "edible_parts": [],
-          "data_source": "bundled",
-          "frost_tolerance": "tender",
-          "nutrient_demand": "light",
-          "n_demand": "low",
-          "p_demand": "low",
-          "k_demand": "low",
-          "permaculture_layer": "herbaceous",
-          "functions": []
-        },
-        "plant_instance": {
-          "planting_date": "2026-04-12",
-          "current_height_cm": 10.0,
-          "current_spread_cm": 10.0
-        }
-      },
-      "layer_id": "55f59d67-d2d8-5e12-ae18-6945334e08cb",
-      "label_visible": false,
-      "fill_color": "#ff6b8e23",
-      "stroke_color": "#ff000000",
-      "stroke_width": 1.0,
-      "fill_pattern": "SOLID",
-      "stroke_style": "SOLID",
-      "plant_category": "SPREADING_SHRUB",
-      "plant_species": "Cosmos",
-      "stack_order": 55296
+      "spacing_radius_cm": 4.0,
+      "stack_order": 52224
     },
     {
       "type": "circle",
@@ -2786,119 +2650,8 @@
       "stroke_style": "SOLID",
       "plant_category": "SPREADING_SHRUB",
       "plant_species": "Cosmos",
-      "stack_order": 56320
-    },
-    {
-      "type": "circle",
-      "item_id": "305bf97e-7b79-5dfe-a80f-a3907678f006",
-      "center_x": 170.7,
-      "center_y": 359.1,
-      "radius": 5.0,
-      "object_type": "SHRUB",
-      "name": "Cosmos",
-      "metadata": {
-        "plant_species": {
-          "scientific_name": "Cosmos bipinnatus",
-          "common_name": "Cosmos",
-          "family": "Asteraceae",
-          "genus": "Cosmos",
-          "cycle": "annual",
-          "growth_rate": "fast",
-          "flower_type": "hermaphrodite",
-          "pollination_type": "self_fertile",
-          "min_height_cm": 60.0,
-          "max_height_cm": 180.0,
-          "min_spread_cm": 30.0,
-          "max_spread_cm": 50.0,
-          "sun_requirement": "full_sun",
-          "water_needs": "low",
-          "hardiness_zone_min": 2,
-          "hardiness_zone_max": 11,
-          "ph_min": 6.0,
-          "ph_max": 8.5,
-          "edible": false,
-          "edible_parts": [],
-          "data_source": "bundled",
-          "frost_tolerance": "tender",
-          "nutrient_demand": "light",
-          "n_demand": "low",
-          "p_demand": "low",
-          "k_demand": "low",
-          "permaculture_layer": "herbaceous",
-          "functions": []
-        },
-        "plant_instance": {
-          "planting_date": "2026-04-12",
-          "current_height_cm": 10.0,
-          "current_spread_cm": 10.0
-        }
-      },
-      "layer_id": "55f59d67-d2d8-5e12-ae18-6945334e08cb",
-      "label_visible": false,
-      "fill_color": "#ff6b8e23",
-      "stroke_color": "#ff000000",
-      "stroke_width": 1.0,
-      "fill_pattern": "SOLID",
-      "stroke_style": "SOLID",
-      "plant_category": "SPREADING_SHRUB",
-      "plant_species": "Cosmos",
-      "stack_order": 57344
-    },
-    {
-      "type": "circle",
-      "item_id": "060f3311-6901-5362-9617-a6b3f4f42bda",
-      "center_x": 153.5,
-      "center_y": 231.5,
-      "radius": 5.0,
-      "object_type": "SHRUB",
-      "name": "Cosmos",
-      "metadata": {
-        "plant_species": {
-          "scientific_name": "Cosmos bipinnatus",
-          "common_name": "Cosmos",
-          "family": "Asteraceae",
-          "genus": "Cosmos",
-          "cycle": "annual",
-          "growth_rate": "fast",
-          "flower_type": "hermaphrodite",
-          "pollination_type": "self_fertile",
-          "min_height_cm": 60.0,
-          "max_height_cm": 180.0,
-          "min_spread_cm": 30.0,
-          "max_spread_cm": 50.0,
-          "sun_requirement": "full_sun",
-          "water_needs": "low",
-          "hardiness_zone_min": 2,
-          "hardiness_zone_max": 11,
-          "ph_min": 6.0,
-          "ph_max": 8.5,
-          "edible": false,
-          "edible_parts": [],
-          "data_source": "bundled",
-          "frost_tolerance": "tender",
-          "nutrient_demand": "light",
-          "n_demand": "low",
-          "p_demand": "low",
-          "k_demand": "low",
-          "permaculture_layer": "herbaceous",
-          "functions": []
-        },
-        "plant_instance": {
-          "planting_date": "2026-04-12",
-          "current_height_cm": 10.0,
-          "current_spread_cm": 10.0
-        }
-      },
-      "layer_id": "55f59d67-d2d8-5e12-ae18-6945334e08cb",
-      "label_visible": false,
-      "fill_color": "#ff6b8e23",
-      "stroke_color": "#ff000000",
-      "stroke_width": 1.0,
-      "fill_pattern": "SOLID",
-      "stroke_style": "SOLID",
-      "plant_category": "SPREADING_SHRUB",
-      "plant_species": "Cosmos",
-      "stack_order": 58368
+      "spacing_radius_cm": 4.0,
+      "stack_order": 53248
     },
     {
       "type": "circle",
@@ -2954,6 +2707,292 @@
       "stroke_style": "SOLID",
       "plant_category": "SPREADING_SHRUB",
       "plant_species": "Cosmos",
+      "spacing_radius_cm": 4.0,
+      "stack_order": 54272
+    },
+    {
+      "type": "circle",
+      "item_id": "2a368be0-4978-5e4f-9128-13bfae74db4f",
+      "center_x": 274.8,
+      "center_y": 162.6,
+      "radius": 5.0,
+      "object_type": "SHRUB",
+      "name": "Cosmos",
+      "metadata": {
+        "plant_species": {
+          "scientific_name": "Cosmos bipinnatus",
+          "common_name": "Cosmos",
+          "family": "Asteraceae",
+          "genus": "Cosmos",
+          "cycle": "annual",
+          "growth_rate": "fast",
+          "flower_type": "hermaphrodite",
+          "pollination_type": "self_fertile",
+          "min_height_cm": 60.0,
+          "max_height_cm": 180.0,
+          "min_spread_cm": 30.0,
+          "max_spread_cm": 50.0,
+          "sun_requirement": "full_sun",
+          "water_needs": "low",
+          "hardiness_zone_min": 2,
+          "hardiness_zone_max": 11,
+          "ph_min": 6.0,
+          "ph_max": 8.5,
+          "edible": false,
+          "edible_parts": [],
+          "data_source": "bundled",
+          "frost_tolerance": "tender",
+          "nutrient_demand": "light",
+          "n_demand": "low",
+          "p_demand": "low",
+          "k_demand": "low",
+          "permaculture_layer": "herbaceous",
+          "functions": []
+        },
+        "plant_instance": {
+          "planting_date": "2026-04-12",
+          "current_height_cm": 10.0,
+          "current_spread_cm": 10.0
+        }
+      },
+      "layer_id": "55f59d67-d2d8-5e12-ae18-6945334e08cb",
+      "label_visible": false,
+      "fill_color": "#ff6b8e23",
+      "stroke_color": "#ff000000",
+      "stroke_width": 1.0,
+      "fill_pattern": "SOLID",
+      "stroke_style": "SOLID",
+      "plant_category": "SPREADING_SHRUB",
+      "plant_species": "Cosmos",
+      "spacing_radius_cm": 4.0,
+      "stack_order": 55296
+    },
+    {
+      "type": "circle",
+      "item_id": "f5460c1f-f85d-55d6-ac0b-e06620718b7f",
+      "center_x": 462.1,
+      "center_y": 204.7,
+      "radius": 5.0,
+      "object_type": "SHRUB",
+      "name": "Cosmos",
+      "metadata": {
+        "plant_species": {
+          "scientific_name": "Cosmos bipinnatus",
+          "common_name": "Cosmos",
+          "family": "Asteraceae",
+          "genus": "Cosmos",
+          "cycle": "annual",
+          "growth_rate": "fast",
+          "flower_type": "hermaphrodite",
+          "pollination_type": "self_fertile",
+          "min_height_cm": 60.0,
+          "max_height_cm": 180.0,
+          "min_spread_cm": 30.0,
+          "max_spread_cm": 50.0,
+          "sun_requirement": "full_sun",
+          "water_needs": "low",
+          "hardiness_zone_min": 2,
+          "hardiness_zone_max": 11,
+          "ph_min": 6.0,
+          "ph_max": 8.5,
+          "edible": false,
+          "edible_parts": [],
+          "data_source": "bundled",
+          "frost_tolerance": "tender",
+          "nutrient_demand": "light",
+          "n_demand": "low",
+          "p_demand": "low",
+          "k_demand": "low",
+          "permaculture_layer": "herbaceous",
+          "functions": []
+        },
+        "plant_instance": {
+          "planting_date": "2026-04-12",
+          "current_height_cm": 10.0,
+          "current_spread_cm": 10.0
+        }
+      },
+      "layer_id": "55f59d67-d2d8-5e12-ae18-6945334e08cb",
+      "label_visible": false,
+      "fill_color": "#ff6b8e23",
+      "stroke_color": "#ff000000",
+      "stroke_width": 1.0,
+      "fill_pattern": "SOLID",
+      "stroke_style": "SOLID",
+      "plant_category": "SPREADING_SHRUB",
+      "plant_species": "Cosmos",
+      "spacing_radius_cm": 4.0,
+      "stack_order": 56320
+    },
+    {
+      "type": "circle",
+      "item_id": "01891dea-5ab9-51e3-a79d-10f110e7ca14",
+      "center_x": 316.7,
+      "center_y": 346.0,
+      "radius": 5.0,
+      "object_type": "SHRUB",
+      "name": "Cosmos",
+      "metadata": {
+        "plant_species": {
+          "scientific_name": "Cosmos bipinnatus",
+          "common_name": "Cosmos",
+          "family": "Asteraceae",
+          "genus": "Cosmos",
+          "cycle": "annual",
+          "growth_rate": "fast",
+          "flower_type": "hermaphrodite",
+          "pollination_type": "self_fertile",
+          "min_height_cm": 60.0,
+          "max_height_cm": 180.0,
+          "min_spread_cm": 30.0,
+          "max_spread_cm": 50.0,
+          "sun_requirement": "full_sun",
+          "water_needs": "low",
+          "hardiness_zone_min": 2,
+          "hardiness_zone_max": 11,
+          "ph_min": 6.0,
+          "ph_max": 8.5,
+          "edible": false,
+          "edible_parts": [],
+          "data_source": "bundled",
+          "frost_tolerance": "tender",
+          "nutrient_demand": "light",
+          "n_demand": "low",
+          "p_demand": "low",
+          "k_demand": "low",
+          "permaculture_layer": "herbaceous",
+          "functions": []
+        },
+        "plant_instance": {
+          "planting_date": "2026-04-12",
+          "current_height_cm": 10.0,
+          "current_spread_cm": 10.0
+        }
+      },
+      "layer_id": "55f59d67-d2d8-5e12-ae18-6945334e08cb",
+      "label_visible": false,
+      "fill_color": "#ff6b8e23",
+      "stroke_color": "#ff000000",
+      "stroke_width": 1.0,
+      "fill_pattern": "SOLID",
+      "stroke_style": "SOLID",
+      "plant_category": "SPREADING_SHRUB",
+      "plant_species": "Cosmos",
+      "spacing_radius_cm": 4.0,
+      "stack_order": 57344
+    },
+    {
+      "type": "circle",
+      "item_id": "ce0ebb1e-2cdd-5a90-a412-fcc0d43adb87",
+      "center_x": 394.4,
+      "center_y": 264.0,
+      "radius": 5.0,
+      "object_type": "SHRUB",
+      "name": "Cosmos",
+      "metadata": {
+        "plant_species": {
+          "scientific_name": "Cosmos bipinnatus",
+          "common_name": "Cosmos",
+          "family": "Asteraceae",
+          "genus": "Cosmos",
+          "cycle": "annual",
+          "growth_rate": "fast",
+          "flower_type": "hermaphrodite",
+          "pollination_type": "self_fertile",
+          "min_height_cm": 60.0,
+          "max_height_cm": 180.0,
+          "min_spread_cm": 30.0,
+          "max_spread_cm": 50.0,
+          "sun_requirement": "full_sun",
+          "water_needs": "low",
+          "hardiness_zone_min": 2,
+          "hardiness_zone_max": 11,
+          "ph_min": 6.0,
+          "ph_max": 8.5,
+          "edible": false,
+          "edible_parts": [],
+          "data_source": "bundled",
+          "frost_tolerance": "tender",
+          "nutrient_demand": "light",
+          "n_demand": "low",
+          "p_demand": "low",
+          "k_demand": "low",
+          "permaculture_layer": "herbaceous",
+          "functions": []
+        },
+        "plant_instance": {
+          "planting_date": "2026-04-12",
+          "current_height_cm": 10.0,
+          "current_spread_cm": 10.0
+        }
+      },
+      "layer_id": "55f59d67-d2d8-5e12-ae18-6945334e08cb",
+      "label_visible": false,
+      "fill_color": "#ff6b8e23",
+      "stroke_color": "#ff000000",
+      "stroke_width": 1.0,
+      "fill_pattern": "SOLID",
+      "stroke_style": "SOLID",
+      "plant_category": "SPREADING_SHRUB",
+      "plant_species": "Cosmos",
+      "spacing_radius_cm": 4.0,
+      "stack_order": 58368
+    },
+    {
+      "type": "circle",
+      "item_id": "10804299-c86c-57c4-977f-b99c0c947f43",
+      "center_x": 211.9,
+      "center_y": 232.5,
+      "radius": 5.0,
+      "object_type": "SHRUB",
+      "name": "Cosmos",
+      "metadata": {
+        "plant_species": {
+          "scientific_name": "Cosmos bipinnatus",
+          "common_name": "Cosmos",
+          "family": "Asteraceae",
+          "genus": "Cosmos",
+          "cycle": "annual",
+          "growth_rate": "fast",
+          "flower_type": "hermaphrodite",
+          "pollination_type": "self_fertile",
+          "min_height_cm": 60.0,
+          "max_height_cm": 180.0,
+          "min_spread_cm": 30.0,
+          "max_spread_cm": 50.0,
+          "sun_requirement": "full_sun",
+          "water_needs": "low",
+          "hardiness_zone_min": 2,
+          "hardiness_zone_max": 11,
+          "ph_min": 6.0,
+          "ph_max": 8.5,
+          "edible": false,
+          "edible_parts": [],
+          "data_source": "bundled",
+          "frost_tolerance": "tender",
+          "nutrient_demand": "light",
+          "n_demand": "low",
+          "p_demand": "low",
+          "k_demand": "low",
+          "permaculture_layer": "herbaceous",
+          "functions": []
+        },
+        "plant_instance": {
+          "planting_date": "2026-04-12",
+          "current_height_cm": 10.0,
+          "current_spread_cm": 10.0
+        }
+      },
+      "layer_id": "55f59d67-d2d8-5e12-ae18-6945334e08cb",
+      "label_visible": false,
+      "fill_color": "#ff6b8e23",
+      "stroke_color": "#ff000000",
+      "stroke_width": 1.0,
+      "fill_pattern": "SOLID",
+      "stroke_style": "SOLID",
+      "plant_category": "SPREADING_SHRUB",
+      "plant_species": "Cosmos",
+      "spacing_radius_cm": 4.0,
       "stack_order": 59392
     },
     {
@@ -5004,9 +5043,9 @@
     },
     {
       "type": "circle",
-      "item_id": "45de7349-84bc-54da-9f5c-3f78990539f9",
-      "center_x": 1248.7,
-      "center_y": 258.3,
+      "item_id": "39499cd9-0093-5c00-af46-e40f86d006d5",
+      "center_x": 1517.6,
+      "center_y": 142.6,
       "radius": 30.0,
       "object_type": "PERENNIAL",
       "name": "Chamomile",
@@ -5070,9 +5109,9 @@
     },
     {
       "type": "circle",
-      "item_id": "27636375-31f9-5981-b125-1de3f5442525",
-      "center_x": 1024.9,
-      "center_y": 142.4,
+      "item_id": "617b7011-7791-506e-acfd-284f5215774c",
+      "center_x": 1009.3,
+      "center_y": 142.1,
       "radius": 30.0,
       "object_type": "PERENNIAL",
       "name": "Chamomile",
@@ -5136,9 +5175,9 @@
     },
     {
       "type": "circle",
-      "item_id": "a1f0ee8b-8698-5797-89bd-fd500324b9cb",
-      "center_x": 1346.7,
-      "center_y": 266.2,
+      "item_id": "a8dcee2a-ad24-52a3-aa50-291525a25e17",
+      "center_x": 1448.7,
+      "center_y": 116.8,
       "radius": 30.0,
       "object_type": "PERENNIAL",
       "name": "Chamomile",
@@ -5202,9 +5241,9 @@
     },
     {
       "type": "circle",
-      "item_id": "60bd48e8-ba8d-5826-8405-85a8c133097b",
-      "center_x": 1416.9,
-      "center_y": 213.5,
+      "item_id": "67ae4404-4ab4-5df9-a4f3-0c64e652e6c1",
+      "center_x": 1448.6,
+      "center_y": 263.0,
       "radius": 30.0,
       "object_type": "PERENNIAL",
       "name": "Chamomile",
@@ -5268,9 +5307,9 @@
     },
     {
       "type": "circle",
-      "item_id": "2717361b-8456-5168-89bf-d143c8d897dc",
-      "center_x": 1146.3,
-      "center_y": 259.9,
+      "item_id": "7c986420-f399-517e-bf5c-f3dfcccd040d",
+      "center_x": 1517.8,
+      "center_y": 276.5,
       "radius": 30.0,
       "object_type": "PERENNIAL",
       "name": "Chamomile",
@@ -5334,9 +5373,9 @@
     },
     {
       "type": "circle",
-      "item_id": "0364fdc9-7322-59f4-9a71-afba6ba38277",
-      "center_x": 1155.3,
-      "center_y": 141.4,
+      "item_id": "d5527f8e-0e76-5769-934e-a8754ddd0918",
+      "center_x": 1258.0,
+      "center_y": 210.1,
       "radius": 30.0,
       "object_type": "PERENNIAL",
       "name": "Chamomile",
@@ -5400,9 +5439,9 @@
     },
     {
       "type": "circle",
-      "item_id": "7df72896-ecdd-54aa-a44f-c02e01c01088",
-      "center_x": 1077.9,
-      "center_y": 227.3,
+      "item_id": "b6864830-fc7b-5488-b75e-3f0002261307",
+      "center_x": 1165.8,
+      "center_y": 272.4,
       "radius": 30.0,
       "object_type": "PERENNIAL",
       "name": "Chamomile",
@@ -5466,9 +5505,9 @@
     },
     {
       "type": "circle",
-      "item_id": "39499cd9-0093-5c00-af46-e40f86d006d5",
-      "center_x": 1517.6,
-      "center_y": 142.6,
+      "item_id": "9bd1436b-1156-51e9-83f5-2a88ee9bf49b",
+      "center_x": 1008.2,
+      "center_y": 213.5,
       "radius": 30.0,
       "object_type": "PERENNIAL",
       "name": "Chamomile",
@@ -5532,9 +5571,9 @@
     },
     {
       "type": "circle",
-      "item_id": "a5ba68a1-5c32-5d7c-83d7-6138bd1f6c5c",
-      "center_x": 1184.8,
-      "center_y": 202.0,
+      "item_id": "700050fb-edb0-5546-b0a7-0f8e75af7ebc",
+      "center_x": 1295.5,
+      "center_y": 279.9,
       "radius": 30.0,
       "object_type": "PERENNIAL",
       "name": "Chamomile",
@@ -5663,6 +5702,7 @@
       "stroke_style": "SOLID",
       "plant_category": "FLOWERING_PERENNIAL",
       "plant_species": "Borage",
+      "spacing_radius_cm": 28.0,
       "stack_order": 101376
     },
     {
@@ -5732,6 +5772,7 @@
       "stroke_style": "SOLID",
       "plant_category": "FLOWERING_PERENNIAL",
       "plant_species": "Borage",
+      "spacing_radius_cm": 28.0,
       "stack_order": 102400
     },
     {
@@ -5801,6 +5842,7 @@
       "stroke_style": "SOLID",
       "plant_category": "FLOWERING_PERENNIAL",
       "plant_species": "Borage",
+      "spacing_radius_cm": 28.0,
       "stack_order": 103424
     },
     {
@@ -5870,6 +5912,7 @@
       "stroke_style": "SOLID",
       "plant_category": "FLOWERING_PERENNIAL",
       "plant_species": "Borage",
+      "spacing_radius_cm": 28.0,
       "stack_order": 104448
     },
     {
@@ -5939,6 +5982,7 @@
       "stroke_style": "SOLID",
       "plant_category": "FLOWERING_PERENNIAL",
       "plant_species": "Borage",
+      "spacing_radius_cm": 28.0,
       "stack_order": 105472
     },
     {
@@ -6008,6 +6052,7 @@
       "stroke_style": "SOLID",
       "plant_category": "FLOWERING_PERENNIAL",
       "plant_species": "Borage",
+      "spacing_radius_cm": 28.0,
       "stack_order": 106496
     },
     {
@@ -6077,6 +6122,7 @@
       "stroke_style": "SOLID",
       "plant_category": "FLOWERING_PERENNIAL",
       "plant_species": "Borage",
+      "spacing_radius_cm": 28.0,
       "stack_order": 107520
     },
     {
@@ -6146,6 +6192,7 @@
       "stroke_style": "SOLID",
       "plant_category": "FLOWERING_PERENNIAL",
       "plant_species": "Borage",
+      "spacing_radius_cm": 28.0,
       "stack_order": 108544
     },
     {
@@ -6215,6 +6262,7 @@
       "stroke_style": "SOLID",
       "plant_category": "FLOWERING_PERENNIAL",
       "plant_species": "Borage",
+      "spacing_radius_cm": 28.0,
       "stack_order": 109568
     },
     {
@@ -6283,6 +6331,7 @@
       "stroke_style": "SOLID",
       "plant_category": "SPREADING_SHRUB",
       "plant_species": "Echinacea",
+      "spacing_radius_cm": 25.0,
       "stack_order": 110592
     },
     {
@@ -6351,6 +6400,7 @@
       "stroke_style": "SOLID",
       "plant_category": "SPREADING_SHRUB",
       "plant_species": "Echinacea",
+      "spacing_radius_cm": 25.0,
       "stack_order": 111616
     },
     {
@@ -6419,6 +6469,7 @@
       "stroke_style": "SOLID",
       "plant_category": "SPREADING_SHRUB",
       "plant_species": "Echinacea",
+      "spacing_radius_cm": 25.0,
       "stack_order": 112640
     },
     {
@@ -6487,6 +6538,7 @@
       "stroke_style": "SOLID",
       "plant_category": "SPREADING_SHRUB",
       "plant_species": "Echinacea",
+      "spacing_radius_cm": 25.0,
       "stack_order": 113664
     },
     {
@@ -6555,6 +6607,7 @@
       "stroke_style": "SOLID",
       "plant_category": "SPREADING_SHRUB",
       "plant_species": "Echinacea",
+      "spacing_radius_cm": 25.0,
       "stack_order": 114688
     },
     {
@@ -6623,6 +6676,7 @@
       "stroke_style": "SOLID",
       "plant_category": "SPREADING_SHRUB",
       "plant_species": "Echinacea",
+      "spacing_radius_cm": 25.0,
       "stack_order": 115712
     },
     {
@@ -6691,6 +6745,7 @@
       "stroke_style": "SOLID",
       "plant_category": "SPREADING_SHRUB",
       "plant_species": "Echinacea",
+      "spacing_radius_cm": 25.0,
       "stack_order": 116736
     },
     {
@@ -6759,6 +6814,7 @@
       "stroke_style": "SOLID",
       "plant_category": "SPREADING_SHRUB",
       "plant_species": "Echinacea",
+      "spacing_radius_cm": 25.0,
       "stack_order": 117760
     },
     {
@@ -6827,6 +6883,7 @@
       "stroke_style": "SOLID",
       "plant_category": "SPREADING_SHRUB",
       "plant_species": "Echinacea",
+      "spacing_radius_cm": 25.0,
       "stack_order": 118784
     },
     {
@@ -6895,6 +6952,7 @@
       "stroke_style": "SOLID",
       "plant_category": "SPREADING_SHRUB",
       "plant_species": "Echinacea",
+      "spacing_radius_cm": 25.0,
       "stack_order": 119808
     },
     {
@@ -6963,6 +7021,7 @@
       "stroke_style": "SOLID",
       "plant_category": "SPREADING_SHRUB",
       "plant_species": "Valerian",
+      "spacing_radius_cm": 28.0,
       "stack_order": 120832
     },
     {
@@ -7031,6 +7090,7 @@
       "stroke_style": "SOLID",
       "plant_category": "SPREADING_SHRUB",
       "plant_species": "Valerian",
+      "spacing_radius_cm": 28.0,
       "stack_order": 121856
     },
     {
@@ -7099,6 +7159,7 @@
       "stroke_style": "SOLID",
       "plant_category": "SPREADING_SHRUB",
       "plant_species": "Valerian",
+      "spacing_radius_cm": 28.0,
       "stack_order": 122880
     },
     {
@@ -7167,6 +7228,7 @@
       "stroke_style": "SOLID",
       "plant_category": "SPREADING_SHRUB",
       "plant_species": "Valerian",
+      "spacing_radius_cm": 28.0,
       "stack_order": 123904
     },
     {
@@ -7235,6 +7297,7 @@
       "stroke_style": "SOLID",
       "plant_category": "SPREADING_SHRUB",
       "plant_species": "Valerian",
+      "spacing_radius_cm": 28.0,
       "stack_order": 124928
     },
     {
@@ -7907,6 +7970,7 @@
       "stroke_style": "SOLID",
       "plant_category": "FLOWERING_PERENNIAL",
       "plant_species": "Hyssop",
+      "spacing_radius_cm": 28.0,
       "stack_order": 135168
     },
     {
@@ -7976,6 +8040,7 @@
       "stroke_style": "SOLID",
       "plant_category": "FLOWERING_PERENNIAL",
       "plant_species": "Hyssop",
+      "spacing_radius_cm": 28.0,
       "stack_order": 136192
     },
     {
@@ -8045,6 +8110,7 @@
       "stroke_style": "SOLID",
       "plant_category": "FLOWERING_PERENNIAL",
       "plant_species": "Hyssop",
+      "spacing_radius_cm": 28.0,
       "stack_order": 137216
     },
     {
@@ -8114,6 +8180,7 @@
       "stroke_style": "SOLID",
       "plant_category": "FLOWERING_PERENNIAL",
       "plant_species": "Hyssop",
+      "spacing_radius_cm": 28.0,
       "stack_order": 138240
     },
     {
@@ -8183,6 +8250,7 @@
       "stroke_style": "SOLID",
       "plant_category": "FLOWERING_PERENNIAL",
       "plant_species": "Hyssop",
+      "spacing_radius_cm": 28.0,
       "stack_order": 139264
     },
     {
@@ -8252,6 +8320,7 @@
       "stroke_style": "SOLID",
       "plant_category": "FLOWERING_PERENNIAL",
       "plant_species": "Hyssop",
+      "spacing_radius_cm": 28.0,
       "stack_order": 140288
     },
     {
@@ -8280,8 +8349,8 @@
     }
   },
   "harvest_logs": {
-    "27636375-31f9-5981-b125-1de3f5442525": {
-      "target_id": "27636375-31f9-5981-b125-1de3f5442525",
+    "9bd1436b-1156-51e9-83f5-2a88ee9bf49b": {
+      "target_id": "9bd1436b-1156-51e9-83f5-2a88ee9bf49b",
       "records": [
         {
           "id": "a075b104-115d-55df-87a7-c05749b80e0b",

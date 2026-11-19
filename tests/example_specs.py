@@ -45,7 +45,9 @@ class ExampleSpec:
     paths: bool = True                      # has at least one path
     more_tours: tuple[str, ...] = ()        # stored tours beside the orbit, in English
     north_angle_deg: float = 0.0
-    heavy: bool = False                     # also runs the export and render gates
+    #: The warnings the plan opens with, by diagnostic kind (the sun diagnostics, which
+    #: only say that Hours of Sun was not run yet, are left out). Empty: it opens clean.
+    warnings: tuple[tuple[str, int], ...] = ()
 
     @property
     def tours(self) -> tuple[str, ...]:
@@ -58,12 +60,16 @@ class ExampleSpec:
 
 SPECS: dict[str, ExampleSpec] = {
     "family-garden": ExampleSpec(1, "2026-06-21", "day", (52.52, 13.405), plants=61, hint=False,
-                                 woody_harvests=1, heavy=True),
+                                 # six trees whose grown crowns will meet, a shrub border planted
+                                 # 70 cm apart, snug vegetable rows: reported, not hidden (#786)
+                                 warnings=(("spacing_overlap", 22),),
+                                 woody_harvests=1),
     "food-forest": ExampleSpec(10, "2026-09-21", "day", (50.7374, 7.0982), plants=124,
-                               woody_harvests=3, heavy=True),
-    "raised-bed": ExampleSpec(12, "2026-09-21", "day", (52.52, 13.405), plants=174, heavy=True),
-    "balcony": ExampleSpec(13, "2026-09-21", "day", (47.999, 7.8421), plants=14, paths=False,
-                           heavy=True),
+                               # the apple guild's open nitrogen-fixer role is the lesson
+                               warnings=(("guild_role_missing", 1),),
+                               woody_harvests=3),
+    "raised-bed": ExampleSpec(12, "2026-09-21", "day", (52.52, 13.405), plants=174),
+    "balcony": ExampleSpec(13, "2026-09-21", "day", (47.999, 7.8421), plants=14, paths=False),
     "allotment": ExampleSpec(9, "2026-07-18", "morning", (51.3397, 12.3731), plants=216,
                              woody_harvests=4),
     "cottage-garden": ExampleSpec(6, "2026-06-20", "day", (49.8988, 10.9028), plants=123,
@@ -81,14 +87,6 @@ SPECS: dict[str, ExampleSpec] = {
     "japanese-garden": ExampleSpec(4, "2026-10-20", "afternoon", (51.2277, 6.7735), plants=30,
                                    harvests=(0, 0)),
 }
-
-#: The first three plans: teaching plans with a dated tutorial note, pinned in detail by
-#: ``tests/unit/test_example_content.py``.
-TEACHING = ("raised-bed", "food-forest", "balcony")
-#: The first four, in the order the gallery listed them before it had an order of its own.
-FIRST_FOUR = ("balcony", "family-garden", "food-forest", "raised-bed")
-#: The plans the costly export and render gates run on.
-HEAVY = tuple(slug for slug, spec in SPECS.items() if spec.heavy)
 
 #: A plant's common name that is the same word in English and in the plan's language.
 COGNATES = {

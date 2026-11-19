@@ -687,6 +687,7 @@
       "stroke_style": "SOLID",
       "plant_category": "ROUND_DECIDUOUS",
       "plant_species": "Pine",
+      "spacing_radius_cm": 119.0,
       "stack_order": 10240
     },
     {
@@ -785,6 +786,7 @@
       "stroke_style": "SOLID",
       "plant_category": "ROUND_DECIDUOUS",
       "plant_species": "Japanese Maple",
+      "spacing_radius_cm": 114.0,
       "stack_order": 20480
     },
     {
@@ -841,6 +843,7 @@
       "stroke_style": "SOLID",
       "plant_category": "ROUND_DECIDUOUS",
       "plant_species": "Japanese Maple",
+      "spacing_radius_cm": 89.0,
       "stack_order": 21504
     },
     {
@@ -897,6 +900,7 @@
       "stroke_style": "SOLID",
       "plant_category": "ROUND_DECIDUOUS",
       "plant_species": "Birch",
+      "spacing_radius_cm": 139.0,
       "stack_order": 22528
     },
     {
@@ -953,6 +957,7 @@
       "stroke_style": "SOLID",
       "plant_category": "ROUND_DECIDUOUS",
       "plant_species": "Pine",
+      "spacing_radius_cm": 109.0,
       "stack_order": 23552
     },
     {
@@ -1009,6 +1014,7 @@
       "stroke_style": "SOLID",
       "plant_category": "ROUND_DECIDUOUS",
       "plant_species": "Bamboo",
+      "spacing_radius_cm": 41.5,
       "stack_order": 24576
     },
     {
@@ -1065,6 +1071,7 @@
       "stroke_style": "SOLID",
       "plant_category": "ROUND_DECIDUOUS",
       "plant_species": "Bamboo",
+      "spacing_radius_cm": 41.5,
       "stack_order": 25600
     },
     {
@@ -1121,6 +1128,7 @@
       "stroke_style": "SOLID",
       "plant_category": "ROUND_DECIDUOUS",
       "plant_species": "Bamboo",
+      "spacing_radius_cm": 41.5,
       "stack_order": 26624
     },
     {
@@ -1177,6 +1185,7 @@
       "stroke_style": "SOLID",
       "plant_category": "ROUND_DECIDUOUS",
       "plant_species": "Bamboo",
+      "spacing_radius_cm": 41.5,
       "stack_order": 27648
     },
     {
@@ -1233,6 +1242,7 @@
       "stroke_style": "SOLID",
       "plant_category": "ROUND_DECIDUOUS",
       "plant_species": "Bamboo",
+      "spacing_radius_cm": 41.5,
       "stack_order": 28672
     },
     {
@@ -1289,6 +1299,7 @@
       "stroke_style": "SOLID",
       "plant_category": "ROUND_DECIDUOUS",
       "plant_species": "Bamboo",
+      "spacing_radius_cm": 41.5,
       "stack_order": 29696
     },
     {
@@ -1345,6 +1356,7 @@
       "stroke_style": "SOLID",
       "plant_category": "ROUND_DECIDUOUS",
       "plant_species": "Bamboo",
+      "spacing_radius_cm": 41.5,
       "stack_order": 30720
     },
     {
@@ -1401,13 +1413,14 @@
       "stroke_style": "SOLID",
       "plant_category": "ROUND_DECIDUOUS",
       "plant_species": "Bamboo",
+      "spacing_radius_cm": 41.5,
       "stack_order": 31744
     },
     {
       "type": "circle",
-      "item_id": "637cd52d-2880-59a4-a42d-45cd1ad19d0b",
-      "center_x": 1130.0,
-      "center_y": 560.0,
+      "item_id": "c2609536-7395-5e0f-bc29-99cbe7978221",
+      "center_x": 1125.0,
+      "center_y": 490.0,
       "radius": 65.0,
       "object_type": "TREE",
       "name": "Rododendro",
@@ -1457,13 +1470,14 @@
       "stroke_style": "SOLID",
       "plant_category": "ROUND_DECIDUOUS",
       "plant_species": "Rhododendron",
+      "spacing_radius_cm": 64.0,
       "stack_order": 32768
     },
     {
       "type": "circle",
-      "item_id": "bfdf532f-5c84-5f45-932d-6d961ad16e2e",
-      "center_x": 1150.0,
-      "center_y": 880.0,
+      "item_id": "df456547-0fad-51b1-8a9d-471b94976718",
+      "center_x": 1125.0,
+      "center_y": 835.0,
       "radius": 65.0,
       "object_type": "TREE",
       "name": "Rododendro",
@@ -1513,13 +1527,14 @@
       "stroke_style": "SOLID",
       "plant_category": "ROUND_DECIDUOUS",
       "plant_species": "Rhododendron",
+      "spacing_radius_cm": 64.0,
       "stack_order": 33792
     },
     {
       "type": "circle",
-      "item_id": "863a0a31-6405-5f7b-be2c-fae55a57f012",
-      "center_x": 640.0,
-      "center_y": 890.0,
+      "item_id": "e9bb6204-6f9f-5c3a-83ec-4da3b4023381",
+      "center_x": 650.0,
+      "center_y": 835.0,
       "radius": 65.0,
       "object_type": "TREE",
       "name": "Rododendro",
@@ -1569,6 +1584,7 @@
       "stroke_style": "SOLID",
       "plant_category": "ROUND_DECIDUOUS",
       "plant_species": "Rhododendron",
+      "spacing_radius_cm": 64.0,
       "stack_order": 34816
     },
     {
@@ -1625,6 +1641,7 @@
       "stroke_style": "SOLID",
       "plant_category": "ROUND_DECIDUOUS",
       "plant_species": "Boxwood",
+      "spacing_radius_cm": 41.5,
       "stack_order": 35840
     },
     {
@@ -1681,13 +1698,14 @@
       "stroke_style": "SOLID",
       "plant_category": "ROUND_DECIDUOUS",
       "plant_species": "Boxwood",
+      "spacing_radius_cm": 41.5,
       "stack_order": 36864
     },
     {
       "type": "circle",
-      "item_id": "5310a0a5-154f-5065-873f-52ec41e327af",
-      "center_x": 560.0,
-      "center_y": 880.0,
+      "item_id": "64311567-e6ee-5a47-a75a-e7f759ac6ab7",
+      "center_x": 540.0,
+      "center_y": 860.0,
       "radius": 42.5,
       "object_type": "TREE",
       "name": "Boj",
@@ -1737,6 +1755,7 @@
       "stroke_style": "SOLID",
       "plant_category": "ROUND_DECIDUOUS",
       "plant_species": "Boxwood",
+      "spacing_radius_cm": 41.5,
       "stack_order": 37888
     },
     {
@@ -1793,13 +1812,14 @@
       "stroke_style": "SOLID",
       "plant_category": "ROUND_DECIDUOUS",
       "plant_species": "Boxwood",
+      "spacing_radius_cm": 41.5,
       "stack_order": 38912
     },
     {
       "type": "circle",
-      "item_id": "deb62305-e2d0-56ad-8d87-f448087904af",
+      "item_id": "d7c19a95-7be9-5609-af63-ce4845d1e828",
       "center_x": 760.0,
-      "center_y": 500.0,
+      "center_y": 470.0,
       "radius": 45.0,
       "object_type": "SHRUB",
       "name": "Eulalia",
@@ -1849,13 +1869,14 @@
       "stroke_style": "SOLID",
       "plant_category": "SPREADING_SHRUB",
       "plant_species": "Miscanthus",
+      "spacing_radius_cm": 44.0,
       "stack_order": 39936
     },
     {
       "type": "circle",
-      "item_id": "6750b232-a882-5bdd-9c16-3f6561e7d4bf",
+      "item_id": "731d1da5-3ba8-5dd3-a9e7-3f6f474881a5",
       "center_x": 855.0,
-      "center_y": 500.0,
+      "center_y": 470.0,
       "radius": 45.0,
       "object_type": "SHRUB",
       "name": "Eulalia",
@@ -1905,13 +1926,14 @@
       "stroke_style": "SOLID",
       "plant_category": "SPREADING_SHRUB",
       "plant_species": "Miscanthus",
+      "spacing_radius_cm": 44.0,
       "stack_order": 40960
     },
     {
       "type": "circle",
-      "item_id": "2d8a191b-443e-5d05-9e20-f43ddcf477c1",
+      "item_id": "79ceeb95-b614-5838-83c3-3e26bcb6c004",
       "center_x": 950.0,
-      "center_y": 500.0,
+      "center_y": 470.0,
       "radius": 45.0,
       "object_type": "SHRUB",
       "name": "Eulalia",
@@ -1961,6 +1983,7 @@
       "stroke_style": "SOLID",
       "plant_category": "SPREADING_SHRUB",
       "plant_species": "Miscanthus",
+      "spacing_radius_cm": 44.0,
       "stack_order": 41984
     },
     {
@@ -2181,9 +2204,9 @@
     },
     {
       "type": "circle",
-      "item_id": "9e37c74d-f9ae-540e-8468-d708a976846f",
-      "center_x": 1140.0,
-      "center_y": 780.0,
+      "item_id": "782652c2-f6fb-56a7-8f16-7d675ee8f700",
+      "center_x": 1155.0,
+      "center_y": 660.0,
       "radius": 30.0,
       "object_type": "SHRUB",
       "name": "Lirio",
@@ -2235,9 +2258,9 @@
     },
     {
       "type": "circle",
-      "item_id": "3475d48b-3c53-535a-803a-3b8032e5ce89",
-      "center_x": 960.0,
-      "center_y": 915.0,
+      "item_id": "ae4890bf-31be-59fe-a0bd-8f9a308b3241",
+      "center_x": 900.0,
+      "center_y": 548.0,
       "radius": 30.0,
       "object_type": "SHRUB",
       "name": "Lirio",
@@ -2341,6 +2364,7 @@
       "stroke_style": "SOLID",
       "plant_category": "ROUND_DECIDUOUS",
       "plant_species": "Juniper",
+      "spacing_radius_cm": 54.0,
       "stack_order": 49152
     },
     {
@@ -2399,7 +2423,7 @@
       "item_id": "ff1c23c5-62d8-51d1-8c7d-bd1b282517bc",
       "x": 110.0,
       "y": 180.0,
-      "content": "20 oct 2026 \u00b7 1  Abra la vista 3D: arena, pizarra, guijarros, musgo y agua, uno junto a otro.\n2  Seleccione una superficie \u2192 Propiedades: cambie el relleno y v\u00e9alo en 2D y 3D a la vez.\n3  Plan y sol: vaya a junio. Los arces siguen rojos, el abedul se vuelve verde. Referencia D\u00fcsseldorf.",
+      "content": "20 oct 2026 \u00b7 1  Abra la vista 3D: arena, pizarra, guijarros, musgo y agua, uno junto a otro.\n2  Seleccione una superficie \u2192 Propiedades: cambie el relleno y v\u00e9alo en 2D y 3D a la vez.\n3  Plano y sol: vaya a junio. Los arces siguen rojos, el abedul se vuelve verde. Referencia D\u00fcsseldorf.",
       "font_family": "Arial",
       "font_size": 0.3,
       "bold": false,

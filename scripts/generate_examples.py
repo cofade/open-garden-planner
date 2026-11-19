@@ -99,7 +99,7 @@ def example_content(slug):
 
     The canonical English plan, its ``de/`` and ``es/`` copies and the sidecar. The one
     place the shipped files come from: ``main`` writes it, ``--check`` and
-    ``tests/unit/test_example_content.py`` compare the shipped files with it.
+    ``tests/integration/test_example_generation.py`` compare the shipped files with it.
     """
     module = PLANS[slug]
     scene, manager = AUTHORS[slug]()

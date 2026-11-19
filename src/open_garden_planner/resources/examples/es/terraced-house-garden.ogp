@@ -571,6 +571,7 @@
       "stroke_style": "SOLID",
       "plant_category": "SPREADING_SHRUB",
       "plant_species": "Hydrangea",
+      "spacing_radius_cm": 34.0,
       "parent_bed_id": "e4d1f7da-3b98-5298-846e-a36f9ad38145",
       "stack_order": 18432
     },
@@ -628,6 +629,7 @@
       "stroke_style": "SOLID",
       "plant_category": "SPREADING_SHRUB",
       "plant_species": "Hydrangea",
+      "spacing_radius_cm": 34.0,
       "parent_bed_id": "e4d1f7da-3b98-5298-846e-a36f9ad38145",
       "stack_order": 19456
     },
@@ -685,6 +687,7 @@
       "stroke_style": "SOLID",
       "plant_category": "SPREADING_SHRUB",
       "plant_species": "Hydrangea",
+      "spacing_radius_cm": 34.0,
       "parent_bed_id": "e4d1f7da-3b98-5298-846e-a36f9ad38145",
       "stack_order": 20480
     },
@@ -742,6 +745,7 @@
       "stroke_style": "SOLID",
       "plant_category": "ROUND_DECIDUOUS",
       "plant_species": "Rhododendron",
+      "spacing_radius_cm": 34.0,
       "parent_bed_id": "e4d1f7da-3b98-5298-846e-a36f9ad38145",
       "stack_order": 21504
     },
@@ -813,6 +817,7 @@
       "stroke_style": "SOLID",
       "plant_category": "FLOWERING_PERENNIAL",
       "plant_species": "Lavender",
+      "spacing_radius_cm": 24.0,
       "parent_bed_id": "58902132-16db-534b-a921-662a3527cb7b",
       "stack_order": 23552
     },
@@ -884,6 +889,7 @@
       "stroke_style": "SOLID",
       "plant_category": "FLOWERING_PERENNIAL",
       "plant_species": "Lavender",
+      "spacing_radius_cm": 24.0,
       "parent_bed_id": "58902132-16db-534b-a921-662a3527cb7b",
       "stack_order": 24576
     },
@@ -955,6 +961,7 @@
       "stroke_style": "SOLID",
       "plant_category": "FLOWERING_PERENNIAL",
       "plant_species": "Lavender",
+      "spacing_radius_cm": 24.0,
       "parent_bed_id": "58902132-16db-534b-a921-662a3527cb7b",
       "stack_order": 25600
     },
@@ -1026,6 +1033,7 @@
       "stroke_style": "SOLID",
       "plant_category": "FLOWERING_PERENNIAL",
       "plant_species": "Lavender",
+      "spacing_radius_cm": 24.0,
       "parent_bed_id": "58902132-16db-534b-a921-662a3527cb7b",
       "stack_order": 26624
     },
@@ -1085,6 +1093,7 @@
       "stroke_style": "SOLID",
       "plant_category": "SPREADING_SHRUB",
       "plant_species": "Rose",
+      "spacing_radius_cm": 34.0,
       "parent_bed_id": "58902132-16db-534b-a921-662a3527cb7b",
       "stack_order": 27648
     },
@@ -1144,6 +1153,7 @@
       "stroke_style": "SOLID",
       "plant_category": "SPREADING_SHRUB",
       "plant_species": "Rose",
+      "spacing_radius_cm": 34.0,
       "parent_bed_id": "58902132-16db-534b-a921-662a3527cb7b",
       "stack_order": 28672
     },
@@ -1215,6 +1225,7 @@
       "stroke_style": "SOLID",
       "plant_category": "FLOWERING_PERENNIAL",
       "plant_species": "Sage",
+      "spacing_radius_cm": 21.5,
       "parent_bed_id": "58902132-16db-534b-a921-662a3527cb7b",
       "stack_order": 29696
     },
@@ -1286,6 +1297,7 @@
       "stroke_style": "SOLID",
       "plant_category": "FLOWERING_PERENNIAL",
       "plant_species": "Sage",
+      "spacing_radius_cm": 21.5,
       "parent_bed_id": "58902132-16db-534b-a921-662a3527cb7b",
       "stack_order": 30720
     },
@@ -1384,6 +1396,7 @@
       "stroke_style": "SOLID",
       "plant_category": "ROUND_DECIDUOUS",
       "plant_species": "Apple Tree",
+      "spacing_radius_cm": 44.0,
       "stack_order": 34816
     },
     {
@@ -1926,6 +1939,7 @@
       "stroke_style": "SOLID",
       "plant_category": "FLOWERING_PERENNIAL",
       "plant_species": "Strawberry",
+      "spacing_radius_cm": 29.0,
       "parent_bed_id": "ea1e6ba3-9fb3-5874-a14b-13cff380a00e",
       "stack_order": 43008
     },
@@ -1998,6 +2012,7 @@
       "stroke_style": "SOLID",
       "plant_category": "FLOWERING_PERENNIAL",
       "plant_species": "Strawberry",
+      "spacing_radius_cm": 29.0,
       "parent_bed_id": "ea1e6ba3-9fb3-5874-a14b-13cff380a00e",
       "stack_order": 44032
     },
@@ -2070,6 +2085,7 @@
       "stroke_style": "SOLID",
       "plant_category": "FLOWERING_PERENNIAL",
       "plant_species": "Strawberry",
+      "spacing_radius_cm": 29.0,
       "parent_bed_id": "ea1e6ba3-9fb3-5874-a14b-13cff380a00e",
       "stack_order": 45056
     },
@@ -2142,6 +2158,7 @@
       "stroke_style": "SOLID",
       "plant_category": "FLOWERING_PERENNIAL",
       "plant_species": "Strawberry",
+      "spacing_radius_cm": 29.0,
       "parent_bed_id": "ea1e6ba3-9fb3-5874-a14b-13cff380a00e",
       "stack_order": 46080
     },
@@ -2211,9 +2228,9 @@
       "item_id": "fe4ad1be-5ef4-5ff7-8494-00783357e4de",
       "x": 50.0,
       "y": 985.0,
-      "content": "21 jun 2026 \u00b7 1  El norte est\u00e1 girado 35\u00b0: Plan y sol muestra la br\u00fajula.\n2  Horas de sol: el arriate este recibe el sol de la tarde, el oeste poco.\n3  Vista 3D \u2192 Recorrido de c\u00e1mara: \u00abSombras a lo largo del d\u00eda\u00bb.\nColonia; heladas y cosechas ficticias.",
+      "content": "21 jun 2026 \u00b7 1  El norte est\u00e1 girado 35\u00b0: Plano y sol muestra la br\u00fajula.\n2  Horas de sol: el arriate este recibe el sol de la tarde, el oeste poco.\n3  Vista 3D \u2192 Recorrido de c\u00e1mara: \u00abSombras a lo largo del d\u00eda\u00bb.\nColonia; heladas y cosechas ficticias.",
       "font_family": "Arial",
-      "font_size": 0.4,
+      "font_size": 0.37,
       "bold": true,
       "italic": false,
       "text_color": "#fffdfbee",

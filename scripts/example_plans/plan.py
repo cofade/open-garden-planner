@@ -11,6 +11,7 @@ south-west corner (the canvas view flips Qt's y for display).
 
 from __future__ import annotations
 
+import math
 import random
 from uuid import NAMESPACE_URL, UUID, uuid5
 
@@ -37,7 +38,6 @@ from open_garden_planner.models.plant_data import species_key
 from open_garden_planner.models.soil_test import SoilTestHistory, SoilTestRecord
 from open_garden_planner.models.succession import SuccessionEntry, SuccessionPlan
 from open_garden_planner.services.bundled_species_db import get_species_db
-from open_garden_planner.services.example_library import BUNDLED_EXAMPLES
 from open_garden_planner.services.guild_library import GuildLibrary
 from open_garden_planner.ui.canvas.canvas_scene import CanvasScene, GuideLine
 from open_garden_planner.ui.canvas.geometry_apply import apply_rotation
@@ -105,6 +105,7 @@ class Plan:
         self.scene = CanvasScene(width_cm=width_cm, height_cm=height_cm)
         self.manager = ProjectManager()
         self.planted = planted
+        self._drifted: list[tuple[float, float, float]] = []
         self._ids: set[UUID] = set()
         self._hint_layer: Layer | None = None
         self.ground = self.scene.active_layer
@@ -239,14 +240,25 @@ class Plan:
 
     # ── plants ───────────────────────────────────────────────────────────────
 
-    def plant(self, key, x, y, *, parent=None, planted=None, size=None, layer=None):
+    def plant(self, key, x, y, *, parent=None, planted=None, size=None, layer=None, apart=None):
         """One plant of the bundled species ``key`` (its scientific name in lower case).
 
         ``size`` is ``(height_cm, spread_cm)`` on the planting day: a tree that stood here
         before is given the size it has, a seedling none. The plant is created the way a
         drop from the gallery creates it, so its parent bed is found by geometry; naming
         ``parent`` asserts that it landed there.
+
+        ``apart`` is the planting distance in cm the plant is meant to keep: a lavender
+        edging or a bamboo screen is planted closer than the species' grown spread on
+        purpose. It becomes the plant's own spacing radius (Properties > Spacing radius),
+        half the distance less a centimetre, where that is less than the species': the
+        spacing check then reports a plant that is closer than it was meant to be, not
+        every hedge and every sown row. A plant given a ``size`` is kept at that spread
+        (a clipped box, a tree in a tub, a pruned pine), so its spread is its distance
+        unless ``apart`` says otherwise.
         """
+        if size:
+            apart = float(size[1]) if apart is None else min(float(apart), float(size[1]))
         item = build_species_plant(self.scene, QPointF(x, y), get_species_db()[key])
         common = item.metadata["plant_species"]["common_name"]
         assert common in TRANSLATIONS, f"{common!r} has no translation: add it to i18n.SPECIES_NAMES"
@@ -256,6 +268,10 @@ class Plan:
             instance.update(current_height_cm=float(size[0]), current_spread_cm=float(size[1]))
             item.set_radius_centered(float(size[1]) / 2.0)
         item.metadata["plant_instance"] = instance
+        if apart is not None:
+            own, meant = item.effective_spacing_radius(), float(apart) / 2.0 - 1.0
+            if own is None or meant < own:
+                item.spacing_radius_cm = max(meant, 1.0)
         item._item_id = self._id("PLANT", key, f"{x:g},{y:g}")
         item.layer_id = (layer or self.ground).id
         CreateItemsCommand(self.scene, [item]).execute()
@@ -264,21 +280,27 @@ class Plan:
         return item
 
     def row(self, key, start, end, count, **how):
-        """``count`` plants evenly from ``start`` to ``end``, both ends included."""
+        """``count`` plants evenly from ``start`` to ``end``, both ends included. The
+        row's step is their planting distance (``plant``'s ``apart``)."""
         (x0, y0), (x1, y1) = start, end
         steps = max(count - 1, 1)
+        if count > 1:
+            how.setdefault("apart", math.hypot(x1 - x0, y1 - y0) / steps)
         return [self.plant(key, round(x0 + (x1 - x0) * i / steps, 1),
                            round(y0 + (y1 - y0) * i / steps, 1), **how) for i in range(count)]
 
     def grid(self, key, x, y, columns, rows, dx, dy, **how):
-        """A block of plants: the first at (x, y), ``dx`` apart to the east, ``dy`` north."""
+        """A block of plants: the first at (x, y), ``dx`` apart to the east, ``dy`` north.
+        The smaller step is their planting distance."""
+        how.setdefault("apart", min(abs(dx), abs(dy)))
         return [self.plant(key, x + dx * column, y + dy * row, **how)
                 for row in range(rows) for column in range(columns)]
 
     def drift(self, key, area, count, *, gap, seed="", **how):
         """``count`` plants scattered in ``area`` (x, y, width, height), at least ``gap``
-        cm apart. The scatter is the same on every run: it is seeded by the plan, the
-        species and ``seed``."""
+        cm apart, which is their planting distance. The scatter is the same on every
+        run: it is seeded by the plan, the species and ``seed``."""
+        how.setdefault("apart", gap)
         x, y, width, height = area
         rng = random.Random(f"{self.slug}/{key}/{seed}")
         placed: list[tuple[float, float]] = []
@@ -286,9 +308,13 @@ class Plan:
             if len(placed) == count:
                 break
             px, py = round(rng.uniform(x, x + width), 1), round(rng.uniform(y, y + height), 1)
-            if all((px - qx) ** 2 + (py - qy) ** 2 >= gap * gap for qx, qy in placed):
+            if (all((px - qx) ** 2 + (py - qy) ** 2 >= gap * gap for qx, qy in placed)
+                    and all((px - qx) ** 2 + (py - qy) ** 2 >= ((gap + other) / 2.0) ** 2
+                            for qx, qy, other in self._drifted)):
                 placed.append((px, py))
         assert len(placed) == count, (self.slug, key, "the area is too small for the drift")
+        # a later drift in the same ground gives way to this one: a meadow is mixed
+        self._drifted += [(px, py, gap) for px, py in placed]
         return [self.plant(key, px, py, **how) for px, py in placed]
 
     # ── words and layers ─────────────────────────────────────────────────────
@@ -339,7 +365,7 @@ class Plan:
     def guild(self, template_id, name, centre, members):
         """Make ``centre`` and ``members`` (``{role: [plants]}``) one guild of the bundled
         template ``template_id``. The plants stand where the plan put them."""
-        library = GuildLibrary(user_dir=BUNDLED_EXAMPLES / "_no_user_guilds")
+        library = GuildLibrary(user_dir=a.NO_USER_GUILDS)
         template = library.templates[template_id].to_dict()
         for field, (german, spanish) in GUILD_WORDS[template_id].items():
             text(template[field], german, spanish)

@@ -377,6 +377,7 @@ SHOTS: dict[str, Callable[[Studio, Path], None]] = {
 
 
 def main() -> int:
+    script_isolation.isolate()
     parser = argparse.ArgumentParser(description=__doc__.split("\n", 1)[0])
     parser.add_argument("--only", default="", help="comma-separated shot names")
     parser.add_argument("--out", type=Path, default=OUT)
@@ -389,7 +390,6 @@ def main() -> int:
     unknown = [name for name in wanted if name not in SHOTS]
     if unknown:
         parser.error(f"unknown shot: {', '.join(unknown)}")
-    script_isolation.isolate()
     studio = Studio()
     try:
         for name in wanted:

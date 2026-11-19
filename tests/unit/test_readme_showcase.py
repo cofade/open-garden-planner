@@ -80,3 +80,11 @@ def test_the_readme_pictures_are_the_capture_scripts_and_none_is_left_over():
         name = Path(path).stem
         stem = name if "/examples/" not in path else "examples/"
         assert f'"{stem}' in script or f'f"{stem.split("-")[0]}-' in script, f"{path}: no shot writes it"
+
+
+def test_the_installer_link_names_the_file_the_release_workflow_uploads():
+    """The link's pattern and the workflow's asset name are written in two places."""
+    workflow = (ROOT / ".github/workflows/release.yml").read_text(encoding="utf-8")
+    assert '"dist/OpenGardenPlanner-v${{ steps.version.outputs.version }}-Setup.exe"' in workflow
+    assert INSTALLER_LINK.search(
+        "https://github.com/cofade/open-garden-planner/releases/download/v1.2.3/OpenGardenPlanner-v1.2.3-Setup.exe")

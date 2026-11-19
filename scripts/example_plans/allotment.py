@@ -131,9 +131,11 @@ def build():
         fill=FillPattern.COMPOST)
     corn = [plan.plant("zea mays", 1100 + dx, 690 + dy, parent=mound, planted="2026-05-15")
             for dx, dy in ((0, 0), (-46, 0), (46, 0), (0, -46), (0, 46))]
-    beans = [plan.plant("phaseolus coccineus", 1100 + dx, 690 + dy, parent=mound, planted="2026-05-25")
+    # the three sisters share a mound on purpose: beans climb the corn, squash covers the ground
+    beans = [plan.plant("phaseolus coccineus", 1100 + dx, 690 + dy, parent=mound, planted="2026-05-25",
+                        apart=30)
              for dx, dy in ((-36, 36), (36, -36))]
-    squash = plan.plant("cucurbita maxima", 1010, 775, parent=mound, planted="2026-05-25", size=(50, 200))
+    squash = plan.plant("cucurbita maxima", 1010, 775, parent=mound, planted="2026-05-25", size=(50, 200), apart=118)
     plan.guild("three-sisters-mound", text("Three Sisters", "Drei Schwestern", "Tres hermanas"),
                corn[0], {"nitrogen_fixer": beans, "ground_cover": [squash]})
 
@@ -158,7 +160,7 @@ def build():
         "3  Plan & Sonne: März bis Oktober durchgehen, die Beete füllen sich. Leipzig; alle Einträge sind fiktiv.",
         "18 jul 2026 · 1  Clic derecho en el bancal de ensaladas: sucesión (2027). El de patatas tiene un análisis de suelo.\n"
         "2  Seleccione el maíz → Gremios: el montículo de las tres hermanas con judías y calabaza.\n"
-        "3  Plan y sol: recorra de marzo a octubre y vea llenarse los bancales. Leipzig; registros ficticios."),
+        "3  Plano y sol: recorra de marzo a octubre y vea llenarse los bancales. Leipzig; registros ficticios."),
         size=0.44, ink=a.NOTE_ON_LAWN, bold=True)
 
     for key, entries in (

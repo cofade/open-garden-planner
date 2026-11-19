@@ -89,7 +89,7 @@ def build():
     plan.row("miscanthus sinensis", (1140, 1027), (1370, 1027), 3, parent=beds[2], size=(150, 90))
     screen = plan.rect(1405, 70, 70, 400, T.CONTAINER, text("Bamboo trough", "Bambustrog", "Jardinera de bambú"),
                        tall=50, fill=FillPattern.CORTEN, color=CORTEN, meta=steel)
-    plan.row("fargesia murielae", (1440, 110), (1440, 430), 5, parent=screen, size=(320, 85))
+    plan.row("fargesia murielae", (1440, 110), (1440, 430), 5, parent=screen, size=(320, 75))
 
     # ── light for the evening
     lantern = text("Lantern", "Laterne", "Farol")
@@ -112,6 +112,6 @@ def build():
         "3  Plan & Sonne: Uhr auf 13 Uhr stellen und den kurzen Schatten des Flachdachs vergleichen. Referenz München.",
         "15 ago 2026, hora dorada · 1  Vista 3D → Recorrido de cámara: «Del atardecer a la noche». Los faroles se encienden al ponerse el sol.\n"
         "2  Las cuatro guías marcan la retícula: arrastre el borde del estanque y se ajusta a ellas.\n"
-        "3  Plan y sol: ponga el reloj a las 13:00 y compare la sombra corta de la cubierta plana. Referencia Múnich."),
+        "3  Plano y sol: ponga el reloj a las 13:00 y compare la sombra corta de la cubierta plana. Referencia Múnich."),
         size=0.42, ink=a.NOTE_ON_LAWN, bold=True)
     return plan.done()

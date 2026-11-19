@@ -28,6 +28,6 @@ SITES = {
     "vienna": _site("Vienna", 48.2082, 16.3738, "Europe/Vienna", "04-15", "10-25"),
     "lueneburg": _site("Lüneburg", 53.2464, 10.4115, "Europe/Berlin", "05-05", "10-15"),
     "duesseldorf": _site("Düsseldorf", 51.2277, 6.7735, "Europe/Berlin", "04-10", "11-05"),
-    "heidelberg": _site("Heidelberg", 49.3988, 8.6724, "Europe/Berlin", "04-08", "11-01"),
+    "heidelberg": _site("Heidelberg", 49.3988, 8.6724, "Europe/Berlin", "04-25", "11-01"),
     "bonn": _site("Bonn", 50.7374, 7.0982, "Europe/Berlin", "05-15", "10-15"),
 }

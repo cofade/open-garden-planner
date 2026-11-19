@@ -67,7 +67,7 @@ def build():
     a.note(scene, 80, 145, text(
         "21 Sep 2026 · 1  16 lettuces + 60 carrots + 88 radishes; sow radish sections in batches.\n2  Right-click the bed: Succession Plan (2027), then Soil Test (fictional sample).\n3  Plan & Sun: 21 Sep, 17:30 → shed shade on the bed. Berlin / frost: demo data.",
         "21.09.2026 · 1  16 Salate + 60 Möhren + 88 Radieschen; Radieschen abschnittsweise säen.\n2  Rechtsklick aufs Beet: Nachfolgeplanung (2027), dann Bodentest (fiktive Probe).\n3  Plan & Sonne: 21.09., 17:30 Uhr → Beetschatten. Berlin / Frost: Beispieldaten.",
-        "21 sep 2026 · 1  16 lechugas + 60 zanahorias + 88 rábanos; siembre rábanos por tandas.\n2  Clic derecho en bancal: sucesión (2027), después análisis de suelo (muestra ficticia).\n3  Plan y sol: 21 sep, 17:30 → sombra sobre el bancal. Berlín / heladas: ejemplo."), 0.47, a.NOTE_ON_LAWN, bold=True, layer=a.hint_layer(scene, SLUG))
+        "21 sep 2026 · 1  16 lechugas + 60 zanahorias + 88 rábanos; siembre rábanos por tandas.\n2  Clic derecho en bancal: sucesión (2027), después análisis de suelo (muestra ficticia).\n3  Plano y sol: 21 sep, 17:30 → sombra sobre el bancal. Berlín / heladas: ejemplo."), 0.47, a.NOTE_ON_LAWN, bold=True, layer=a.hint_layer(scene, SLUG))
     # The bed stays fully planted on 21 September: what was taken so far are leaves and
     # thinnings, and the border's perennial chives have a season behind them.
     for key, entries in (

@@ -103,15 +103,15 @@ def build():
         "2  Hours of Sun: the east border gets the evening sun, the west one little.\n"
         "3  3D view → Camera Tour: play “Shadows over the day”.\n"
         "Cologne; frost dates and harvests are fictional.",
-        "21.06.2026 · 1  Norden ist um 35° gedreht: Plan & Sonne zeigt den Kompass.\n"
-        "2  Sonnenstunden: Die Ostrabatte hat Abendsonne, die Westrabatte kaum.\n"
+        "21.06.2026 · 1  Norden ist um 35° gedreht (Kompass in Plan & Sonne).\n"
+        "2  Sonnenstunden: Abendsonne im Ostbeet, im Westbeet kaum.\n"
         "3  3D-Ansicht → Kamerafahrt: „Schatten über den Tag“ abspielen.\n"
         "Köln; Frostdaten und Ernten sind fiktiv.",
-        "21 jun 2026 · 1  El norte está girado 35°: Plan y sol muestra la brújula.\n"
+        "21 jun 2026 · 1  El norte está girado 35°: Plano y sol muestra la brújula.\n"
         "2  Horas de sol: el arriate este recibe el sol de la tarde, el oeste poco.\n"
         "3  Vista 3D → Recorrido de cámara: «Sombras a lo largo del día».\n"
         "Colonia; heladas y cosechas ficticias."),
-        size=0.4, ink=a.NOTE_ON_LAWN, bold=True)
+        size=0.37, ink=a.NOTE_ON_LAWN, bold=True)
 
     for key, entries in (
         ("lactuca sativa", [("2026-06-03", 220, "g", a.OUTER_LEAVES), ("2026-06-16", 300, "g", a.CRISP)]),

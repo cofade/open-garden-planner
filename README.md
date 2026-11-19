@@ -2,6 +2,8 @@
 
 <a href="https://github.com/cofade/open-garden-planner/releases/download/v1.40.7/OpenGardenPlanner-v1.40.7-Setup.exe"><img src="docs/images/readme/download-windows.svg" alt="Download the latest Windows installer" height="56"></a>
 
+Windows may warn about the download, because the installer is not code-signed: [verify your download](#verify-your-download) with its checksum or its build attestation.
+
 [![Latest Release](https://img.shields.io/github/v/release/cofade/open-garden-planner?label=Latest%20Release)](https://github.com/cofade/open-garden-planner/releases/latest)
 [![License: GPL v3](https://img.shields.io/badge/License-GPLv3-blue.svg)](LICENSE)
 
@@ -27,7 +29,7 @@ Open Garden Planner fills the gap: **engineering-grade precision meets gardener-
 
 ## A look at the app
 
-Every picture on this page is taken from the app's own window on a plan that ships with it ([how](scripts/capture_readme_media.py)).
+Every picture on this page is taken from the app's own window on a plan that ships with it ([how](scripts/capture_readme_media.py)). In the family garden's pictures the dashed spacing warnings of its trees are switched off (View > Overlays), so that the shadows can be seen.
 
 ### Sun and shade
 
@@ -71,7 +73,7 @@ Every picture on this page is taken from the app's own window on a plan that shi
 
 ## Example gardens
 
-Thirteen gardens ship with the app. Each opens on its own day and in its own light, carries a short hint on a layer of its own that can be hidden, and has a stored camera tour.
+Thirteen gardens ship with the app. Each opens on its own day and in its own light and has a stored camera tour; every one but the family garden carries a short hint on a layer of its own that can be hidden. The three time-lapse tours (evening into night, shadows over a day, a year in the garden) read the computer's clock and are made for Central European Time.
 
 **To open one:** start the app and pick it on the Welcome window's **Examples & templates** tab, or choose **File > New from example...**. It opens as an untitled copy, so the original stays as it is. Switch to **3D** or **Split** at the top right of the plan; in the 3D view, **Capture > Camera Tour...** plays the stored tour.
 

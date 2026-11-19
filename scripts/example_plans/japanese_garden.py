@@ -86,12 +86,12 @@ def build():
     plan.plant("betula pendula", 1085, 190, planted=SET, size=(700, 280))
     plan.plant("pinus sylvestris", 930, 400, planted=SET, size=(300, 220))
     plan.row("fargesia murielae", (520, 950), (1130, 950), 8, planted=SET, size=(330, 85))
-    for x, y in ((1130, 560), (1150, 880), (640, 890)):
+    for x, y in ((1125, 490), (1125, 835), (650, 835)):
         plan.plant("rhododendron ponticum", x, y, planted=SET, size=(120, 130))
-    for x, y in ((120, 560), (60, 470), (560, 880), (930, 150)):
+    for x, y in ((120, 560), (60, 470), (540, 860), (930, 150)):
         plan.plant("buxus sempervirens", x, y, planted=SET, size=(70, 85))
-    plan.row("miscanthus sinensis", (760, 500), (950, 500), 3, planted=SET, size=(150, 90))
-    for x, y in ((690, 600), (820, 540), (980, 545), (1105, 610), (1140, 780), (960, 915)):
+    plan.row("miscanthus sinensis", (760, 470), (950, 470), 3, planted=SET, size=(150, 90))
+    for x, y in ((690, 600), (820, 540), (980, 545), (1105, 610), (1155, 660), (900, 548)):
         plan.plant("iris germanica", x, y, planted="2024-04-20")
     plan.plant("juniperus communis", 60, 70, planted=SET, size=(160, 110))
     lantern = text("Stone lantern", "Steinlaterne", "Linterna de piedra")
@@ -107,6 +107,6 @@ def build():
         "3  Plan & Sonne: auf Juni gehen. Die Ahorne bleiben rot, die Birke wird grün. Referenz Düsseldorf.",
         "20 oct 2026 · 1  Abra la vista 3D: arena, pizarra, guijarros, musgo y agua, uno junto a otro.\n"
         "2  Seleccione una superficie → Propiedades: cambie el relleno y véalo en 2D y 3D a la vez.\n"
-        "3  Plan y sol: vaya a junio. Los arces siguen rojos, el abedul se vuelve verde. Referencia Düsseldorf."),
+        "3  Plano y sol: vaya a junio. Los arces siguen rojos, el abedul se vuelve verde. Referencia Düsseldorf."),
         size=0.3)
     return plan.done()

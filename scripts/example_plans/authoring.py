@@ -3,6 +3,8 @@
 from __future__ import annotations
 
 import math
+import tempfile
+from pathlib import Path
 from uuid import NAMESPACE_URL, uuid5
 
 from PyQt6.QtCore import QPointF
@@ -82,6 +84,11 @@ NOTE_ON_PALE, NOTE_ON_LAWN = "#243528", "#fdfbee"
 #: ready for a picture. Its id is its own, so that giving a plan the layer changes no
 #: other id (the ids of the three first plans are numbered in the order they appear).
 HINTS = text("Hints", "Hinweise", "Indicaciones")
+
+
+#: Where ``GuildLibrary`` looks for the user's own guild templates while a plan is
+#: authored: an empty folder outside the package (the library creates the folder).
+NO_USER_GUILDS = Path(tempfile.gettempdir()) / "ogp-example-plans-no-user-guilds"
 
 
 def runs(points, longest: float = 800.0) -> list[list[tuple[float, float]]]:

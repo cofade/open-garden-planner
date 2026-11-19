@@ -5083,7 +5083,7 @@ survives is pinned in `tests/unit/test_plant_art.py`: "Lemon Balm", "Bean
 (Bush)" and "Sweet Potato" still take a fruit or vegetable sprite, because their
 names contain a whole word that is another plant's name - a curated alias table
 would fix them and was declined. The golden
-(`tests/fixtures/plant_art/sprite_resolution_golden.json`, 1,562 answers) is
+(`tests/fixtures/plant_art/sprite_resolution_golden.json`, 1,624 answers) is
 regenerated from the rule, and the rule it replaced is kept as `legacy_resolve`
 in the golden's generator. Changing the rule changes what users see on the plan.
 What the 3D view builds for a plant is the recipe of the sprite the plan shows;
@@ -5102,7 +5102,7 @@ assigned species is the one both views draw and build.
 
 **The golden has a generator.** `scripts/make_sprite_resolution_golden.py` keeps
 the rule statement for statement, with the question list; `--check` regenerates
-the 1,562 rows, and `--differential` holds the production rule AND the renderer
+the 1,624 rows, and `--differential` holds the production rule AND the renderer
 (with `Path.exists` patched) against that copy with sprite files missing — each
 of the 123 in turn, random sets, all species, all categories: 481,096
 comparisons, none different. The rule #446 REPLACED is kept there as
@@ -8529,7 +8529,7 @@ the drapes, the sun path and Cutaway (`scripts/render_beauty_board.py --analysis
 
 ### 8.29.11 Plant Forge — procedural 3D species models, LODs and phenology (L3, #387, ADR-064)
 
-All 123 sprite recipes (108 species, 15 categories) feed the same resolver and
+All 126 sprite recipes (111 species, 15 categories) feed the same resolver and
 `Traits3D` table in 2D and 3D. The forge covers 13 archetypes: canopy, conifer,
 palm, mound, hedge, rosette, grass, feathery, allium, head, ground, flower and
 climber. It uses no external model assets. Object sprite colours likewise live
@@ -9436,7 +9436,9 @@ Authoring rules (#940), each with what holds it:
 | The builder refuses a shape and type pair the Properties panel does not offer (`get_valid_types_for_shape`). A lawn, a terrace or a hedge is a polygon; a round table, a planter pot or a water tap is a circle; a string of lights is a polyline. | Nobody could have drawn the other pair. A `HEDGE_SECTION` rectangle is an older form the loader converts to a `HEDGE_POLYGON`, which renumbers its anchors: a constraint on it did not survive the load. | `Plan._add`; `test_the_cottage_garden_is_drawn_to_measure` |
 | A distance constraint's length is read off the drawing (`Plan.distance`). | A constraint that disagreed with the drawing would move an item on the user's first edit. | the same test |
 | A woody plant's size on the showcase date comes from the growth model, not from the size it is given. Give an established plant a recent planting date and the size it has; give a plant that must be old enough for a harvest its real planting year and check its grown size. | A walnut planted in 2014 as a nursery tree is 20 m wide in 2026; an olive in a tub planted in 2021 was 8 m tall. | the author's eyes; `Plan.done` |
-| Orchard and specimen trees stand as far apart as their grown crowns need. | The spacing check reports a true overlap, and a teaching plan must not open with warnings. | `test_the_spacing_diagnostics_of_the_four_examples` |
+| An example opens without a warning: no plant closer than it is meant to be, no container fuller than it holds, no soil that does not suit. The family garden's 22 true spacing overlaps and the food forest's open guild role are stated in the table with their reason (`ExampleSpec.warnings`). | A plan made to be shown must not open with red rings, and a picture must not hide what a user gets. | `test_an_example_opens_with_the_warnings_its_table_row_names_and_no_other` |
+| A row, a grid and a drift state their planting distance, and a plant given a size is kept at that spread: the builder stores it as the plant's own spacing radius where it is less than the species' (`Plan.plant(apart=)`). Orchard trees of the food forest keep the species' radius and stand as far apart as their grown crowns need. A later drift gives way to an earlier one. | The spacing check compares the species' grown spread: a lavender edging, a bamboo screen and a sown row are planted closer on purpose, and a check that reports all of them reports nothing. | the same test |
+| Every item of every plan builds in 3D with the production builders. | A type or a fill no builder knows is a hole in the 3D view. | `test_every_item_of_an_example_builds_in_3d` |
 | The hint is the plan's only text and lies alone on the top layer `Hints`. | Hide that layer and the plan is ready for a picture. | `test_the_hint_lies_alone_on_the_top_layer_and_is_the_plans_only_text`; `test_hiding_the_hint_layer_leaves_the_plan_ready_for_a_picture` |
 | Every plan stores an eased orbit computed from its own bounds and its showcase sun (`tours.Framing`), with every number rounded; a plan may add a time-lapse of the day or the year. | No view is open when a plan is authored, and `--check` compares JSON. A tour's time range is a wall time on the computer's clock. | `test_an_examples_stored_tours_are_there_and_can_be_flown` |
 | A plan may give its orbit a pitch of its own (`ORBIT_PITCH_DEG`) and a start of its own (`ORBIT_SUN_OFFSET_DEG`). | At the dialog's 18 degrees a wall or a hedge hides the garden behind it; the allotment starts over its see-through front. Values were set from renders. | `Framing`; `test_an_example_is_first_seen_in_3d_from_where_its_stored_orbit_starts` |

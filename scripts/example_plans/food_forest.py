@@ -20,7 +20,6 @@ from open_garden_planner.core.object_types import ObjectType, PathFenceStyle
 from open_garden_planner.core.project import ProjectManager
 from open_garden_planner.models.layer import Layer
 from open_garden_planner.models.plant_data import PermacultureLayer
-from open_garden_planner.services.example_library import BUNDLED_EXAMPLES
 from open_garden_planner.services.guild_library import GuildLibrary
 from open_garden_planner.ui.canvas.canvas_scene import CanvasScene
 from open_garden_planner.ui.canvas.items import PolygonItem
@@ -74,7 +73,7 @@ def build():
     for x in (180, 950, 1800):
         a.plant(scene, "ribes rubrum", x, 650, parent=main_bed, layer=layers[2], planted="2019-11-10", nursery_size=(40, 30))
     guild_id = str(uuid5(NAMESPACE_URL, "ogp-example/apple-guild"))
-    template = deepcopy(GuildLibrary(user_dir=BUNDLED_EXAMPLES / "_no_user_guilds").templates["apple-guild"].to_dict())
+    template = deepcopy(GuildLibrary(user_dir=a.NO_USER_GUILDS).templates["apple-guild"].to_dict())
     text(template["description"],
          "Ein Apfelbaum mit Feuerbohne, Borretsch und Erdbeere. Die erfassten Funktionen beschreiben Rollen, keine Erfolgsgarantie.",
          "Un manzano con judía escarlata, borraja y fresa. Las funciones registradas describen roles previstos, no garantizan el éxito del cultivo.")
@@ -116,7 +115,7 @@ def build():
     a.note(scene, 70, 95, text(
         "21 Sep 2026 · 1  Apple guild: select apple → Guilds; inspect grouped plants and the unfilled fixer role.\n2  Plan & Sun: scrub 2014–2026; inspect the established trees (planted 2014 / 2016).\n3  Hours of Sun: compare the south edge with the tree shade. Bonn reference; frost dates are fictional.  4  Orchard meadow: select the walnut → Guilds; asters stand at its canopy edge.",
         "21.09.2026 · 1  Apfelgilde: Apfelbaum → Gilden; Pflanzgruppen und die unbesetzte Stickstoffbinder-Rolle prüfen.\n2  Plan & Sonne: 2014–2026 durchgehen; alte Bäume prüfen (gepflanzt 2014 / 2016).\n3  Sonnenstunden: Südsaum mit Baumschatten vergleichen. Referenz Bonn; Frostdaten sind fiktiv.  4  Streuobstwiese: Walnuss wählen → Gilden; Astern stehen an ihrem Kronenrand.",
-        "21 sep 2026 · 1  Gremio: manzano → Gremios; observe los grupos y el rol de fijador sin cubrir.\n2  Plan y sol: recorra 2014–2026; observe los árboles establecidos (plantados en 2014 / 2016).\n3  Horas de sol: compare el borde sur y la sombra. Referencia Bonn; heladas ficticias.  4  Pradera de frutales: seleccione el nogal → Gremios; ásteres en el borde de su copa."), 0.65, a.NOTE_ON_LAWN, bold=True, layer=a.hint_layer(scene, SLUG))
+        "21 sep 2026 · 1  Gremio: manzano → Gremios; observe los grupos y el rol de fijador sin cubrir.\n2  Plano y sol: recorra 2014–2026; observe los árboles establecidos (plantados en 2014 / 2016).\n3  Horas de sol: compare el borde sur y la sombra. Referencia Bonn; heladas ficticias.  4  Pradera de frutales: seleccione el nogal → Gremios; ásteres en el borde de su copa."), 0.65, a.NOTE_ON_LAWN, bold=True, layer=a.hint_layer(scene, SLUG))
     _orchard_meadow(scene, layers)
     manager = ProjectManager()
     a.site(manager, "Bonn", 50.7374, 7.0982)
@@ -193,7 +192,7 @@ def _orchard_meadow(scene, layers):
     # the walnut and the company it tolerates: asters at its canopy edge
     walnut = a.plant(scene, "juglans regia", 2520, 1520, layer=layers[0], planted="2025-11-05",
                      nursery_size=(220, 130), item_id=_own("walnut"))
-    template = deepcopy(GuildLibrary(user_dir=BUNDLED_EXAMPLES / "_no_user_guilds")
+    template = deepcopy(GuildLibrary(user_dir=a.NO_USER_GUILDS)
                         .templates["walnut-tolerant-guild"].to_dict())
     for field, (german, spanish) in GUILD_WORDS["walnut-tolerant-guild"].items():
         text(template[field], german, spanish)

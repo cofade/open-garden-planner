@@ -642,7 +642,7 @@ def test_the_opening_side_is_the_first_stored_orbits_start():
     tours hold no orbit has no side of its own."""
     from open_garden_planner.core.camera_path import CameraKey, DroneOrbit
     from open_garden_planner.core.camera_tours import SavedTour, opening_side
-    from open_garden_planner.core.scene3d.camera import CameraPose
+    from open_garden_planner.core.scene3d.camera import DEFAULT_PITCH_DEG, CameraPose
 
     held = SavedTour(name="held", motion="hold", held=CameraKey((0.0, -900.0, 400.0), (0.0, 0.0, 0.0)),
                      time_range=(time(6, 0), time(21, 0)))
@@ -651,3 +651,7 @@ def test_the_opening_side_is_the_first_stored_orbits_start():
     assert opening_side(()) is None
     assert opening_side((held,)) is None
     assert opening_side((held, orbit)) == (212.5, 34.0)
+    low = SavedTour(name="low", motion="orbit",
+                    orbit=DroneOrbit(CameraPose((600.0, 500.0), 2400.0, 40.0, 18.0)))
+    yaw, pitch = opening_side((low,))
+    assert yaw == 40.0 and pitch == DEFAULT_PITCH_DEG > 18.0, "never flatter than the default view"

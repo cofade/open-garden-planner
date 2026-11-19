@@ -77,10 +77,10 @@ def build():
     palm_bed = plan.circle(1130, 540, 55, T.GARDEN_BED, bed, fill=FillPattern.GRAVEL)
     plan.plant("trachycarpus fortunei", 1130, 540, parent=palm_bed, size=(380, 220))
     tub = text("Terracotta tub", "Terrakottakübel", "Macetón de terracota")
-    lemon_tub = plan.circle(610, 730, 45, T.CONTAINER_ROUND, tub, tall=60, meta={"container_material": "terracotta"})
-    plan.plant("citrus limon", 610, 730, parent=lemon_tub, size=(190, 140))
-    orange_tub = plan.circle(1085, 725, 45, T.CONTAINER_ROUND, tub, tall=60, meta={"container_material": "terracotta"})
-    plan.plant("citrus sinensis", 1085, 725, parent=orange_tub, size=(210, 150))
+    lemon_tub = plan.circle(610, 730, 62, T.CONTAINER_ROUND, tub, tall=60, meta={"container_material": "terracotta"})
+    plan.plant("citrus limon", 610, 730, parent=lemon_tub, size=(190, 120))
+    orange_tub = plan.circle(1085, 725, 62, T.CONTAINER_ROUND, tub, tall=60, meta={"container_material": "terracotta"})
+    plan.plant("citrus sinensis", 1085, 725, parent=orange_tub, size=(210, 120))
     pot = text("Planter pot", "Pflanztopf", "Maceta")
     for x, y in ((90, 790), (560, 460), (790, 800), (960, 800)):
         clay = plan.circle(x, y - 30, 26, T.CONTAINER_ROUND, pot, tall=35,
@@ -108,7 +108,7 @@ def build():
         "2  Plan & Sonne: auf 14 Uhr gehen. Auf 39° Nord steht die Mittagssonne 74° hoch, die Schatten sind kurz.\n"
         "3  Uhr über den Sonnenuntergang stellen: Laternen und Lichterkette gehen an. Valencia; Einträge sind fiktiv.",
         "21 jun 2026, hora dorada · 1  Abra la vista 3D: el sol bajo entra por encima del muro oeste.\n"
-        "2  Plan y sol: vaya a las 14:00. A 39° norte el sol del mediodía está a 74° y las sombras son cortas.\n"
+        "2  Plano y sol: vaya a las 14:00. A 39° norte el sol del mediodía está a 74° y las sombras son cortas.\n"
         "3  Pase el reloj de la puesta de sol: se encienden los faroles y la guirnalda. Valencia; registros ficticios."),
         size=0.44)
 

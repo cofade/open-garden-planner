@@ -3483,7 +3483,7 @@ class GardenPlannerApp(QMainWindow):
 
         moment = example_showcase_moment(Path(file_path)) if as_template else None
         # ... and its 3D view opens on the side its stored orbit starts from (#940)
-        self._workspace.open_from(
+        self._workspace.set_opening_side(
             opening_side(self._project_manager.camera_tours) if moment is not None else None)
         self._showcase_moment.document_opened(moment)
 

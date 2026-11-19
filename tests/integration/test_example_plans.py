@@ -199,3 +199,67 @@ def test_a_plan_of_ones_own_opens_in_3d_from_the_default_side(window, qtbot, tmp
     assert window._project_manager.camera_tours, "the copy kept its tours"
     pose = workspace.camera.pose
     assert (pose.yaw_deg, pose.pitch_deg) == (DEFAULT_YAW_DEG, DEFAULT_PITCH_DEG)
+
+
+@pytest.mark.parametrize("slug", sorted(SPECS))
+def test_an_example_opens_with_the_warnings_its_table_row_names_and_no_other(window, qtbot, slug):
+    """A plan made to be shown opens clean: no plant closer than it is meant to be, no
+    container fuller than it holds, no soil that does not suit. The two exceptions are
+    stated in the table with their reason. (The sun diagnostics only say that Hours of
+    Sun has not been run on the plan yet.)"""
+    from collections import Counter
+
+    from open_garden_planner.services.diagnostics import diagnostics_from_records
+
+    open_example(window, slug)
+    qtbot.wait(200)  # the guild warnings are worked out with the next turns of the event loop
+    window._update_spacing_overlaps()
+    records = window._project_manager.diagnostics_snapshot(window.canvas_scene)
+    found = Counter(d.kind for d in diagnostics_from_records(records) if not d.kind.startswith("sun_"))
+    assert dict(found) == dict(SPECS[slug].warnings)
+
+
+@pytest.mark.parametrize("slug", sorted(SPECS))
+def test_every_item_of_an_example_builds_in_3d(qtbot, slug):
+    """The production builders take every item of every plan at its showcase date: a
+    type or a fill that no builder knows would be a hole in the 3D view."""
+    from open_garden_planner.core import ProjectManager
+    from open_garden_planner.core.scene3d import RecordingSink, SceneSync
+    from open_garden_planner.core.scene3d.builders import production_registry
+    from open_garden_planner.ui.canvas.canvas_scene import CanvasScene
+    from open_garden_planner.ui.view3d.snapshot import snapshot_records
+
+    scene = CanvasScene()
+    ProjectManager().load(scene, BUNDLED_EXAMPLES / f"{slug}.ogp", as_template=True)
+    records = snapshot_records(scene, SPECS[slug].day)
+    sink = RecordingSink()
+    sync = SceneSync(sink, production_registry(), validate=True)
+    sync.apply(records)
+    assert sync.failures == {}
+    assert len(records) >= SPECS[slug].plants
+    scene.clear()
+
+
+def test_the_spring_garden_flowers_on_its_day_although_its_last_frost_is_still_to_come(qtbot):
+    """18 April lies before the plan's last frost (25 April): bulbs, magnolia, forsythia
+    and fruit trees are hardy and flower by their own months; the plan's one promise."""
+    from open_garden_planner.core import ProjectManager
+    from open_garden_planner.core.phenology import evaluate_phenology_for_records
+    from open_garden_planner.ui.canvas.canvas_scene import CanvasScene
+    from open_garden_planner.ui.view3d.snapshot import snapshot_records
+
+    scene, manager = CanvasScene(), ProjectManager()
+    manager.load(scene, BUNDLED_EXAMPLES / "spring-garden.ogp", as_template=True)
+    day, place = SPECS["spring-garden"].day, manager.location
+    assert place["frost_dates"]["last_spring_frost"] == "04-25", "the day is before the last frost"
+    records = snapshot_records(scene, day)
+    seasons = evaluate_phenology_for_records(tuple(records.values()), day, latitude_deg=place["latitude"],
+                                             frost_dates=place["frost_dates"])
+    bloom: dict[str, float] = {}
+    for item_id, state in seasons.items():
+        key = str(dict(records[item_id].params or {}).get("species_key") or "")
+        bloom[key] = max(bloom.get(key, 0.0), state.bloom)
+    for genus in ("crocus", "narcissus", "tulipa", "magnolia", "forsythia", "malus", "prunus"):
+        flowering = [key for key, value in bloom.items() if key.startswith(genus) and value > 0.5]
+        assert flowering, f"{genus} does not flower on {day}: {sorted(bloom)}"
+    scene.clear()

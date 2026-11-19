@@ -10973,7 +10973,7 @@ rotated north, stored camera tours and 61 of the 118 species.
     a dusk tour that ends in twilight. Its engine findings became #953 to #966, except two
     that the pictures needed: flowers that can be seen at garden scale, and decision 14.
 14. **A bundled example opens in 3D on the side its stored orbit starts from**
-    (`core/camera_tours.opening_side`, `Workspace.open_from`). The default side looks into an
+    (`core/camera_tours.opening_side`, `Workspace.set_opening_side`). The default side looks into an
     afternoon sun and, over a garden wall, at the wall. The distance stays the pane's own;
     "Reset 3D View" and every plan that is not a bundled example keep the default side.
 15. **The README's pictures come from the shipped plans through a script** (#564):

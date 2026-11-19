@@ -59,14 +59,14 @@ def build():
 
     # ── two trees in tubs, a raised bed, the wall planters, a climber
     tub = text("Tub", "Kübel", "Macetón")
-    olive_tub = plan.circle(620, 665, 42, T.CONTAINER_ROUND, tub, tall=60)
+    olive_tub = plan.circle(620, 665, 58, T.CONTAINER_ROUND, tub, tall=60)
     plan.plant("olea europaea", 620, 665, parent=olive_tub, size=(170, 110))
-    fig_tub = plan.circle(360, 700, 42, T.CONTAINER_ROUND, tub, tall=60)
-    plan.plant("ficus carica", 360, 700, parent=fig_tub, size=(150, 120))
+    fig_tub = plan.circle(360, 700, 58, T.CONTAINER_ROUND, tub, tall=60)
+    plan.plant("ficus carica", 360, 700, parent=fig_tub, size=(150, 110))
     bed = plan.rect(700, 420, 230, 95, T.RAISED_BED, text("Raised bed", "Hochbeet", "Bancal elevado"), tall=60)
     plan.row("solanum lycopersicum", (745, 480), (885, 480), 2, parent=bed, planted="2026-05-16", size=(60, 55))
-    plan.row("ocimum basilicum", (730, 440), (900, 440), 4, parent=bed, planted="2026-05-16")
-    plan.soil(bed, ph=6.4, day="2026-04-25", texture="loamy")
+    plan.row("ocimum basilicum", (730, 432), (900, 432), 4, parent=bed, planted="2026-05-16")
+    plan.soil(bed, ph=6.4, day="2026-04-25", texture="loamy", levels=(3, 3, 3))
     planter = text("Wall planter", "Wandpflanzgefäß", "Jardinera de pared")
     for x, key in ((330, "petroselinum crispum"), (520, "allium schoenoprasum"), (710, "lactuca sativa")):
         box = plan.rect(x, 750, 150, 32, T.WALL_PLANTER, planter, tall=90)
@@ -99,7 +99,7 @@ def build():
         "3  Plan & Sonne: Uhr auf den Abend stellen, in 3D gehen die Laternen an. Wien; Einträge sind fiktiv.",
         "12 jul 2026 · 1  Arrastre una planta fuera de su jardinera: deja el recipiente. Suéltela dentro y vuelve a pertenecer.\n"
         "2  Clic derecho en el bancal → Análisis de suelo: un recipiente tiene su propia tierra (muestra ficticia).\n"
-        "3  Plan y sol: lleve el reloj a la tarde y los faroles se encienden en 3D. Viena; registros ficticios."),
+        "3  Plano y sol: lleve el reloj a la tarde y los faroles se encienden en 3D. Viena; registros ficticios."),
         size=0.34)
 
     for key, entries in (

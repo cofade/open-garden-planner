@@ -24,7 +24,7 @@ so the word "lemon" cannot turn that herb into a citrus tree. Bean (Bush) and
 Sweet Potato retain their existing species recipes; those broader art changes
 remain outside L3's three resolver examples.
 
-``tests/fixtures/plant_art/sprite_resolution_golden.json`` holds 1,562 answers
+``tests/fixtures/plant_art/sprite_resolution_golden.json`` holds 1,624 answers
 of the resolver — the golden is regenerated from the rule, and
 ``scripts/make_sprite_resolution_golden.py`` keeps a statement-for-statement
 copy of it as the fixture's provenance (and of the rule it replaced, as

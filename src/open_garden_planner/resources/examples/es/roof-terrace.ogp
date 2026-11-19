@@ -235,6 +235,7 @@
       "stroke_style": "SOLID",
       "plant_category": "FLOWERING_PERENNIAL",
       "plant_species": "Lavender",
+      "spacing_radius_cm": 24.0,
       "parent_bed_id": "5856c761-a923-50c9-a92f-d0dd0f40290a",
       "stack_order": 6144
     },
@@ -306,6 +307,7 @@
       "stroke_style": "SOLID",
       "plant_category": "FLOWERING_PERENNIAL",
       "plant_species": "Lavender",
+      "spacing_radius_cm": 24.0,
       "parent_bed_id": "5856c761-a923-50c9-a92f-d0dd0f40290a",
       "stack_order": 7168
     },
@@ -377,6 +379,7 @@
       "stroke_style": "SOLID",
       "plant_category": "FLOWERING_PERENNIAL",
       "plant_species": "Lavender",
+      "spacing_radius_cm": 24.0,
       "parent_bed_id": "5856c761-a923-50c9-a92f-d0dd0f40290a",
       "stack_order": 8192
     },
@@ -475,6 +478,7 @@
       "stroke_style": "SOLID",
       "plant_category": "SPREADING_SHRUB",
       "plant_species": "Rosemary",
+      "spacing_radius_cm": 24.0,
       "parent_bed_id": "a80a9128-9861-59a6-b77a-08d13d1d00f9",
       "stack_order": 10240
     },
@@ -546,6 +550,7 @@
       "stroke_style": "SOLID",
       "plant_category": "SPREADING_SHRUB",
       "plant_species": "Rosemary",
+      "spacing_radius_cm": 24.0,
       "parent_bed_id": "a80a9128-9861-59a6-b77a-08d13d1d00f9",
       "stack_order": 11264
     },
@@ -617,6 +622,7 @@
       "stroke_style": "SOLID",
       "plant_category": "SPREADING_SHRUB",
       "plant_species": "Rosemary",
+      "spacing_radius_cm": 24.0,
       "parent_bed_id": "a80a9128-9861-59a6-b77a-08d13d1d00f9",
       "stack_order": 12288
     },
@@ -714,6 +720,7 @@
       "stroke_style": "SOLID",
       "plant_category": "FLOWERING_PERENNIAL",
       "plant_species": "Thyme",
+      "spacing_radius_cm": 19.0,
       "parent_bed_id": "3309c256-af68-5dc5-b913-e4dc792269b3",
       "stack_order": 14336
     },
@@ -783,6 +790,7 @@
       "stroke_style": "SOLID",
       "plant_category": "FLOWERING_PERENNIAL",
       "plant_species": "Thyme",
+      "spacing_radius_cm": 19.0,
       "parent_bed_id": "3309c256-af68-5dc5-b913-e4dc792269b3",
       "stack_order": 15360
     },
@@ -852,6 +860,7 @@
       "stroke_style": "SOLID",
       "plant_category": "FLOWERING_PERENNIAL",
       "plant_species": "Thyme",
+      "spacing_radius_cm": 19.0,
       "parent_bed_id": "3309c256-af68-5dc5-b913-e4dc792269b3",
       "stack_order": 16384
     },
@@ -921,6 +930,7 @@
       "stroke_style": "SOLID",
       "plant_category": "FLOWERING_PERENNIAL",
       "plant_species": "Thyme",
+      "spacing_radius_cm": 19.0,
       "parent_bed_id": "3309c256-af68-5dc5-b913-e4dc792269b3",
       "stack_order": 17408
     },
@@ -1020,6 +1030,7 @@
       "stroke_style": "SOLID",
       "plant_category": "FLOWERING_PERENNIAL",
       "plant_species": "Strawberry",
+      "spacing_radius_cm": 29.0,
       "parent_bed_id": "2530cbc7-91d6-51d0-9bb5-a62ebb39dcb8",
       "stack_order": 19456
     },
@@ -1092,6 +1103,7 @@
       "stroke_style": "SOLID",
       "plant_category": "FLOWERING_PERENNIAL",
       "plant_species": "Strawberry",
+      "spacing_radius_cm": 29.0,
       "parent_bed_id": "2530cbc7-91d6-51d0-9bb5-a62ebb39dcb8",
       "stack_order": 20480
     },
@@ -1164,6 +1176,7 @@
       "stroke_style": "SOLID",
       "plant_category": "FLOWERING_PERENNIAL",
       "plant_species": "Strawberry",
+      "spacing_radius_cm": 29.0,
       "parent_bed_id": "2530cbc7-91d6-51d0-9bb5-a62ebb39dcb8",
       "stack_order": 21504
     },
@@ -1172,7 +1185,7 @@
       "item_id": "0ddb0703-4aa0-50d5-810b-e53e7f24093f",
       "center_x": 620.0,
       "center_y": 665.0,
-      "radius": 42,
+      "radius": 58,
       "object_type": "CONTAINER_ROUND",
       "name": "Macet\u00f3n",
       "metadata": {
@@ -1246,6 +1259,7 @@
       "stroke_style": "SOLID",
       "plant_category": "ROUND_DECIDUOUS",
       "plant_species": "Olive Tree",
+      "spacing_radius_cm": 54.0,
       "parent_bed_id": "0ddb0703-4aa0-50d5-810b-e53e7f24093f",
       "stack_order": 23552
     },
@@ -1254,7 +1268,7 @@
       "item_id": "256eaf9e-5570-5ac1-8d9f-3cb3d82f17be",
       "center_x": 360.0,
       "center_y": 700.0,
-      "radius": 42,
+      "radius": 58,
       "object_type": "CONTAINER_ROUND",
       "name": "Macet\u00f3n",
       "metadata": {
@@ -1277,7 +1291,7 @@
       "item_id": "a2235c8b-05cb-5431-ae65-129011c4b41f",
       "center_x": 360.0,
       "center_y": 700.0,
-      "radius": 60.0,
+      "radius": 55.0,
       "object_type": "TREE",
       "name": "Higuera",
       "metadata": {
@@ -1316,7 +1330,7 @@
         "plant_instance": {
           "planting_date": "2026-04-18",
           "current_height_cm": 150.0,
-          "current_spread_cm": 120.0
+          "current_spread_cm": 110.0
         }
       },
       "layer_id": "c3894511-db8d-507c-9f23-1585bcd8a1f5",
@@ -1328,6 +1342,7 @@
       "stroke_style": "SOLID",
       "plant_category": "ROUND_DECIDUOUS",
       "plant_species": "Fig Tree",
+      "spacing_radius_cm": 54.0,
       "parent_bed_id": "256eaf9e-5570-5ac1-8d9f-3cb3d82f17be",
       "stack_order": 25600
     },
@@ -1353,10 +1368,10 @@
       "child_item_ids": [
         "ba76334c-22d2-5e59-9cd2-e70947d53878",
         "ce2e89c4-cd5e-5d5e-b437-8f20eae90e08",
-        "aed1e4d7-6928-5a32-b9c4-fd73df0fb9cf",
-        "e69574bf-7875-51b6-9b8a-5d322ffd37d9",
-        "a61f6487-d927-519c-8a06-3b245d15fa98",
-        "786a2f2f-df29-51a5-b890-3c6cf2b7a79d"
+        "03ac3efb-b658-5aea-8989-da4ec08715ae",
+        "b2476251-deab-5ae6-8007-5f57ab50fcd7",
+        "99232883-e7d2-53a0-8b2f-4fbcd0ff5ff6",
+        "239ca617-cd56-5a12-ab91-394d08ee6936"
       ],
       "stack_order": 26624
     },
@@ -1430,6 +1445,7 @@
       "stroke_style": "SOLID",
       "plant_category": "SPREADING_SHRUB",
       "plant_species": "Tomato",
+      "spacing_radius_cm": 26.5,
       "parent_bed_id": "af98b03a-f13c-542a-86d1-e42772286700",
       "stack_order": 27648
     },
@@ -1503,14 +1519,15 @@
       "stroke_style": "SOLID",
       "plant_category": "SPREADING_SHRUB",
       "plant_species": "Tomato",
+      "spacing_radius_cm": 26.5,
       "parent_bed_id": "af98b03a-f13c-542a-86d1-e42772286700",
       "stack_order": 28672
     },
     {
       "type": "circle",
-      "item_id": "aed1e4d7-6928-5a32-b9c4-fd73df0fb9cf",
+      "item_id": "03ac3efb-b658-5aea-8989-da4ec08715ae",
       "center_x": 730.0,
-      "center_y": 440.0,
+      "center_y": 432.0,
       "radius": 20.0,
       "object_type": "PERENNIAL",
       "name": "Albahaca",
@@ -1581,9 +1598,9 @@
     },
     {
       "type": "circle",
-      "item_id": "e69574bf-7875-51b6-9b8a-5d322ffd37d9",
+      "item_id": "b2476251-deab-5ae6-8007-5f57ab50fcd7",
       "center_x": 786.7,
-      "center_y": 440.0,
+      "center_y": 432.0,
       "radius": 20.0,
       "object_type": "PERENNIAL",
       "name": "Albahaca",
@@ -1654,9 +1671,9 @@
     },
     {
       "type": "circle",
-      "item_id": "a61f6487-d927-519c-8a06-3b245d15fa98",
+      "item_id": "99232883-e7d2-53a0-8b2f-4fbcd0ff5ff6",
       "center_x": 843.3,
-      "center_y": 440.0,
+      "center_y": 432.0,
       "radius": 20.0,
       "object_type": "PERENNIAL",
       "name": "Albahaca",
@@ -1727,9 +1744,9 @@
     },
     {
       "type": "circle",
-      "item_id": "786a2f2f-df29-51a5-b890-3c6cf2b7a79d",
+      "item_id": "239ca617-cd56-5a12-ab91-394d08ee6936",
       "center_x": 900.0,
-      "center_y": 440.0,
+      "center_y": 432.0,
       "radius": 20.0,
       "object_type": "PERENNIAL",
       "name": "Albahaca",
@@ -2606,6 +2623,7 @@
       "stroke_style": "SOLID",
       "plant_category": "ROUND_DECIDUOUS",
       "plant_species": "Clematis",
+      "spacing_radius_cm": 29.0,
       "parent_bed_id": "0f75c73e-8cc9-5313-968e-a0a69b33503b",
       "stack_order": 47104
     },
@@ -2663,6 +2681,7 @@
       "stroke_style": "SOLID",
       "plant_category": "ROUND_DECIDUOUS",
       "plant_species": "Clematis",
+      "spacing_radius_cm": 29.0,
       "parent_bed_id": "0f75c73e-8cc9-5313-968e-a0a69b33503b",
       "stack_order": 48128
     },
@@ -2876,6 +2895,7 @@
       "stroke_style": "SOLID",
       "plant_category": "FLOWERING_PERENNIAL",
       "plant_species": "Geranium",
+      "spacing_radius_cm": 19.0,
       "parent_bed_id": "dc45e248-4d65-51de-9b61-15e5c8a71ab4",
       "stack_order": 57344
     },
@@ -2957,6 +2977,7 @@
       "stroke_style": "SOLID",
       "plant_category": "FLOWERING_PERENNIAL",
       "plant_species": "Geranium",
+      "spacing_radius_cm": 19.0,
       "parent_bed_id": "793353d5-3cd6-533f-a1f9-93fdbd60e895",
       "stack_order": 59392
     },
@@ -2965,7 +2986,7 @@
       "item_id": "9922bea7-5d99-5ff9-896b-77ad5097c1da",
       "x": 40.0,
       "y": 262.0,
-      "content": "12 jul 2026 \u00b7 1  Arrastre una planta fuera de su jardinera: deja el recipiente. Su\u00e9ltela dentro y vuelve a pertenecer.\n2  Clic derecho en el bancal \u2192 An\u00e1lisis de suelo: un recipiente tiene su propia tierra (muestra ficticia).\n3  Plan y sol: lleve el reloj a la tarde y los faroles se encienden en 3D. Viena; registros ficticios.",
+      "content": "12 jul 2026 \u00b7 1  Arrastre una planta fuera de su jardinera: deja el recipiente. Su\u00e9ltela dentro y vuelve a pertenecer.\n2  Clic derecho en el bancal \u2192 An\u00e1lisis de suelo: un recipiente tiene su propia tierra (muestra ficticia).\n3  Plano y sol: lleve el reloj a la tarde y los faroles se encienden en 3D. Viena; registros ficticios.",
       "font_family": "Arial",
       "font_size": 0.34,
       "bold": false,
@@ -2993,8 +3014,8 @@
           "id": "eb4cf6b9-19ae-5fdc-8058-94faf25401fd",
           "date": "2026-04-25",
           "ph": 6.4,
-          "n_level": 1,
-          "p_level": 2,
+          "n_level": 3,
+          "p_level": 3,
           "k_level": 3,
           "notes": "Muestra ficticia; no es un an\u00e1lisis real.",
           "soil_texture": "loamy"
@@ -3032,8 +3053,8 @@
       "species_key": "fragaria ananassa",
       "species_name": "Fresa"
     },
-    "aed1e4d7-6928-5a32-b9c4-fd73df0fb9cf": {
-      "target_id": "aed1e4d7-6928-5a32-b9c4-fd73df0fb9cf",
+    "03ac3efb-b658-5aea-8989-da4ec08715ae": {
+      "target_id": "03ac3efb-b658-5aea-8989-da4ec08715ae",
       "records": [
         {
           "id": "8d50778a-3a19-5b36-b226-4606b2b0bae2",

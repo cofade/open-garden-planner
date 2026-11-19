@@ -522,6 +522,7 @@
       "stroke_style": "SOLID",
       "plant_category": "ROUND_DECIDUOUS",
       "plant_species": "Grape Vine",
+      "spacing_radius_cm": 79.0,
       "stack_order": 11264
     },
     {
@@ -583,6 +584,7 @@
       "stroke_style": "SOLID",
       "plant_category": "ROUND_DECIDUOUS",
       "plant_species": "Grape Vine",
+      "spacing_radius_cm": 79.0,
       "stack_order": 12288
     },
     {
@@ -789,6 +791,7 @@
       "stroke_style": "SOLID",
       "plant_category": "ROUND_DECIDUOUS",
       "plant_species": "Olive Tree",
+      "spacing_radius_cm": 159.0,
       "parent_bed_id": "4c8db535-bd10-549b-967a-680257e6e211",
       "stack_order": 24576
     },
@@ -848,6 +851,7 @@
       "stroke_style": "SOLID",
       "plant_category": "ROUND_DECIDUOUS",
       "plant_species": "Fig Tree",
+      "spacing_radius_cm": 124.0,
       "parent_bed_id": "b749d7cb-401e-5a2f-bc4d-5bdd4fe938d9",
       "stack_order": 26624
     },
@@ -905,6 +909,7 @@
       "stroke_style": "SOLID",
       "plant_category": "ROUND_DECIDUOUS",
       "plant_species": "Windmill Palm",
+      "spacing_radius_cm": 109.0,
       "parent_bed_id": "7bf90ef4-7b46-50c0-a0b5-0997b2ec1f1c",
       "stack_order": 28672
     },
@@ -913,7 +918,7 @@
       "item_id": "f5b56941-7850-53ec-acd3-8a5fd11076db",
       "center_x": 610.0,
       "center_y": 730.0,
-      "radius": 45,
+      "radius": 62,
       "object_type": "CONTAINER_ROUND",
       "name": "Macet\u00f3n de terracota",
       "metadata": {
@@ -937,7 +942,7 @@
       "item_id": "0969cf7a-76da-59a0-9996-6206ada2e39c",
       "center_x": 610.0,
       "center_y": 730.0,
-      "radius": 70.0,
+      "radius": 60.0,
       "object_type": "TREE",
       "name": "Limonero",
       "metadata": {
@@ -976,7 +981,7 @@
         "plant_instance": {
           "planting_date": "2026-03-01",
           "current_height_cm": 190.0,
-          "current_spread_cm": 140.0
+          "current_spread_cm": 120.0
         }
       },
       "layer_id": "93f5d03e-c0c0-536c-b7c4-a9aa554543a9",
@@ -988,6 +993,7 @@
       "stroke_style": "SOLID",
       "plant_category": "ROUND_DECIDUOUS",
       "plant_species": "Lemon Tree",
+      "spacing_radius_cm": 59.0,
       "parent_bed_id": "f5b56941-7850-53ec-acd3-8a5fd11076db",
       "stack_order": 30720
     },
@@ -996,7 +1002,7 @@
       "item_id": "144ecb50-f653-5e26-9d6c-6dad0076ab5b",
       "center_x": 1085.0,
       "center_y": 725.0,
-      "radius": 45,
+      "radius": 62,
       "object_type": "CONTAINER_ROUND",
       "name": "Macet\u00f3n de terracota",
       "metadata": {
@@ -1020,7 +1026,7 @@
       "item_id": "9086b910-b895-591e-aa52-aa4379b12d4d",
       "center_x": 1085.0,
       "center_y": 725.0,
-      "radius": 75.0,
+      "radius": 60.0,
       "object_type": "TREE",
       "name": "Naranjo",
       "metadata": {
@@ -1059,7 +1065,7 @@
         "plant_instance": {
           "planting_date": "2026-03-01",
           "current_height_cm": 210.0,
-          "current_spread_cm": 150.0
+          "current_spread_cm": 120.0
         }
       },
       "layer_id": "93f5d03e-c0c0-536c-b7c4-a9aa554543a9",
@@ -1071,6 +1077,7 @@
       "stroke_style": "SOLID",
       "plant_category": "ROUND_DECIDUOUS",
       "plant_species": "Orange Tree",
+      "spacing_radius_cm": 59.0,
       "parent_bed_id": "144ecb50-f653-5e26-9d6c-6dad0076ab5b",
       "stack_order": 32768
     },
@@ -1152,6 +1159,7 @@
       "stroke_style": "SOLID",
       "plant_category": "FLOWERING_PERENNIAL",
       "plant_species": "Geranium",
+      "spacing_radius_cm": 19.0,
       "parent_bed_id": "f16a0124-eb7f-548b-b0e7-07393ad5cc2a",
       "stack_order": 34816
     },
@@ -1233,6 +1241,7 @@
       "stroke_style": "SOLID",
       "plant_category": "FLOWERING_PERENNIAL",
       "plant_species": "Geranium",
+      "spacing_radius_cm": 19.0,
       "parent_bed_id": "2cf08770-ceee-588b-b68f-e32f5a658d14",
       "stack_order": 36864
     },
@@ -1314,6 +1323,7 @@
       "stroke_style": "SOLID",
       "plant_category": "FLOWERING_PERENNIAL",
       "plant_species": "Geranium",
+      "spacing_radius_cm": 19.0,
       "parent_bed_id": "df61a7c8-4101-5357-919e-3bee21e069ee",
       "stack_order": 38912
     },
@@ -1395,6 +1405,7 @@
       "stroke_style": "SOLID",
       "plant_category": "FLOWERING_PERENNIAL",
       "plant_species": "Geranium",
+      "spacing_radius_cm": 19.0,
       "parent_bed_id": "784678ea-b4cc-50b8-8df0-136a7391bdde",
       "stack_order": 40960
     },
@@ -1466,6 +1477,7 @@
       "stroke_style": "SOLID",
       "plant_category": "FLOWERING_PERENNIAL",
       "plant_species": "Lavender",
+      "spacing_radius_cm": 24.0,
       "parent_bed_id": "3d297787-2939-50cc-867a-1371673293f1",
       "stack_order": 43008
     },
@@ -1537,6 +1549,7 @@
       "stroke_style": "SOLID",
       "plant_category": "FLOWERING_PERENNIAL",
       "plant_species": "Lavender",
+      "spacing_radius_cm": 24.0,
       "parent_bed_id": "3d297787-2939-50cc-867a-1371673293f1",
       "stack_order": 44032
     },
@@ -1608,6 +1621,7 @@
       "stroke_style": "SOLID",
       "plant_category": "FLOWERING_PERENNIAL",
       "plant_species": "Lavender",
+      "spacing_radius_cm": 24.0,
       "parent_bed_id": "3d297787-2939-50cc-867a-1371673293f1",
       "stack_order": 45056
     },
@@ -1679,6 +1693,7 @@
       "stroke_style": "SOLID",
       "plant_category": "FLOWERING_PERENNIAL",
       "plant_species": "Lavender",
+      "spacing_radius_cm": 24.0,
       "parent_bed_id": "3d297787-2939-50cc-867a-1371673293f1",
       "stack_order": 46080
     },
@@ -1750,6 +1765,7 @@
       "stroke_style": "SOLID",
       "plant_category": "FLOWERING_PERENNIAL",
       "plant_species": "Lavender",
+      "spacing_radius_cm": 24.0,
       "parent_bed_id": "3d297787-2939-50cc-867a-1371673293f1",
       "stack_order": 47104
     },
@@ -1821,6 +1837,7 @@
       "stroke_style": "SOLID",
       "plant_category": "SPREADING_SHRUB",
       "plant_species": "Rosemary",
+      "spacing_radius_cm": 26.5,
       "parent_bed_id": "7b475d11-acac-5e33-bdb0-434b7978c084",
       "stack_order": 49152
     },
@@ -1892,6 +1909,7 @@
       "stroke_style": "SOLID",
       "plant_category": "SPREADING_SHRUB",
       "plant_species": "Rosemary",
+      "spacing_radius_cm": 26.5,
       "parent_bed_id": "7b475d11-acac-5e33-bdb0-434b7978c084",
       "stack_order": 50176
     },
@@ -1963,6 +1981,7 @@
       "stroke_style": "SOLID",
       "plant_category": "SPREADING_SHRUB",
       "plant_species": "Rosemary",
+      "spacing_radius_cm": 26.5,
       "parent_bed_id": "7b475d11-acac-5e33-bdb0-434b7978c084",
       "stack_order": 51200
     },
@@ -2034,6 +2053,7 @@
       "stroke_style": "SOLID",
       "plant_category": "FLOWERING_PERENNIAL",
       "plant_species": "Sage",
+      "spacing_radius_cm": 24.0,
       "parent_bed_id": "99cab7d8-d191-59c2-88b5-7864c569c82e",
       "stack_order": 53248
     },
@@ -2105,6 +2125,7 @@
       "stroke_style": "SOLID",
       "plant_category": "FLOWERING_PERENNIAL",
       "plant_species": "Sage",
+      "spacing_radius_cm": 24.0,
       "parent_bed_id": "99cab7d8-d191-59c2-88b5-7864c569c82e",
       "stack_order": 54272
     },
@@ -2174,6 +2195,7 @@
       "stroke_style": "SOLID",
       "plant_category": "FLOWERING_PERENNIAL",
       "plant_species": "Thyme",
+      "spacing_radius_cm": 19.0,
       "parent_bed_id": "99cab7d8-d191-59c2-88b5-7864c569c82e",
       "stack_order": 55296
     },
@@ -2243,6 +2265,7 @@
       "stroke_style": "SOLID",
       "plant_category": "FLOWERING_PERENNIAL",
       "plant_species": "Thyme",
+      "spacing_radius_cm": 19.0,
       "parent_bed_id": "99cab7d8-d191-59c2-88b5-7864c569c82e",
       "stack_order": 56320
     },
@@ -2269,7 +2292,7 @@
       "item_id": "0b0b4da1-ed49-521a-9c0d-3aa7cbdb8c91",
       "x": 300.0,
       "y": 105.0,
-      "content": "21 jun 2026, hora dorada \u00b7 1  Abra la vista 3D: el sol bajo entra por encima del muro oeste.\n2  Plan y sol: vaya a las 14:00. A 39\u00b0 norte el sol del mediod\u00eda est\u00e1 a 74\u00b0 y las sombras son cortas.\n3  Pase el reloj de la puesta de sol: se encienden los faroles y la guirnalda. Valencia; registros ficticios.",
+      "content": "21 jun 2026, hora dorada \u00b7 1  Abra la vista 3D: el sol bajo entra por encima del muro oeste.\n2  Plano y sol: vaya a las 14:00. A 39\u00b0 norte el sol del mediod\u00eda est\u00e1 a 74\u00b0 y las sombras son cortas.\n3  Pase el reloj de la puesta de sol: se encienden los faroles y la guirnalda. Valencia; registros ficticios.",
       "font_family": "Arial",
       "font_size": 0.44,
       "bold": false,

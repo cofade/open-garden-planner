@@ -232,8 +232,8 @@
         "efba3bdc-27eb-5381-a298-082c72ec1303",
         "246164b0-09af-5ecd-a668-bd00360ccd27",
         "6341b842-9c89-5bcd-86c9-680d8348453e",
-        "dd3d606c-5180-5a81-b2b8-8bc7ba0118bc",
-        "38359fe1-402b-5cff-afdf-009a1c0c501b",
+        "f9702988-200c-587b-b4f3-7a917e22f857",
+        "39eb70a8-8439-5c92-aaf6-9cb06f526761",
         "34587fe1-1856-5949-8ed5-623585f674c9",
         "2beb05a2-4ca9-56d5-9210-ccd16908da07",
         "5249a5f9-15e8-5f2a-94fa-f6d7c86b6366",
@@ -822,6 +822,7 @@
       "stroke_style": "SOLID",
       "plant_category": "FLOWERING_PERENNIAL",
       "plant_species": "Lavender",
+      "spacing_radius_cm": 21.0,
       "parent_bed_id": "21244823-87a9-5b2c-9542-5a53d349eaba",
       "stack_order": 17408
     },
@@ -893,6 +894,7 @@
       "stroke_style": "SOLID",
       "plant_category": "FLOWERING_PERENNIAL",
       "plant_species": "Lavender",
+      "spacing_radius_cm": 21.0,
       "parent_bed_id": "21244823-87a9-5b2c-9542-5a53d349eaba",
       "stack_order": 18432
     },
@@ -964,6 +966,7 @@
       "stroke_style": "SOLID",
       "plant_category": "FLOWERING_PERENNIAL",
       "plant_species": "Lavender",
+      "spacing_radius_cm": 21.0,
       "parent_bed_id": "21244823-87a9-5b2c-9542-5a53d349eaba",
       "stack_order": 19456
     },
@@ -1035,6 +1038,7 @@
       "stroke_style": "SOLID",
       "plant_category": "FLOWERING_PERENNIAL",
       "plant_species": "Lavender",
+      "spacing_radius_cm": 21.0,
       "parent_bed_id": "21244823-87a9-5b2c-9542-5a53d349eaba",
       "stack_order": 20480
     },
@@ -1106,6 +1110,7 @@
       "stroke_style": "SOLID",
       "plant_category": "FLOWERING_PERENNIAL",
       "plant_species": "Lavender",
+      "spacing_radius_cm": 21.0,
       "parent_bed_id": "21244823-87a9-5b2c-9542-5a53d349eaba",
       "stack_order": 21504
     },
@@ -1177,6 +1182,7 @@
       "stroke_style": "SOLID",
       "plant_category": "FLOWERING_PERENNIAL",
       "plant_species": "Lavender",
+      "spacing_radius_cm": 21.0,
       "parent_bed_id": "21244823-87a9-5b2c-9542-5a53d349eaba",
       "stack_order": 22528
     },
@@ -1236,6 +1242,7 @@
       "stroke_style": "SOLID",
       "plant_category": "SPREADING_SHRUB",
       "plant_species": "Rose",
+      "spacing_radius_cm": 54.0,
       "parent_bed_id": "21244823-87a9-5b2c-9542-5a53d349eaba",
       "stack_order": 23552
     },
@@ -5418,6 +5425,7 @@
       "stroke_style": "SOLID",
       "plant_category": "FLOWERING_PERENNIAL",
       "plant_species": "Cabbage",
+      "spacing_radius_cm": 44.0,
       "parent_bed_id": "5685bb9e-b005-5c15-9c07-24e33ace119e",
       "stack_order": 84992
     },
@@ -5489,6 +5497,7 @@
       "stroke_style": "SOLID",
       "plant_category": "FLOWERING_PERENNIAL",
       "plant_species": "Cabbage",
+      "spacing_radius_cm": 44.0,
       "parent_bed_id": "5685bb9e-b005-5c15-9c07-24e33ace119e",
       "stack_order": 86016
     },
@@ -5560,6 +5569,7 @@
       "stroke_style": "SOLID",
       "plant_category": "FLOWERING_PERENNIAL",
       "plant_species": "Cabbage",
+      "spacing_radius_cm": 44.0,
       "parent_bed_id": "5685bb9e-b005-5c15-9c07-24e33ace119e",
       "stack_order": 87040
     },
@@ -5631,6 +5641,7 @@
       "stroke_style": "SOLID",
       "plant_category": "FLOWERING_PERENNIAL",
       "plant_species": "Cabbage",
+      "spacing_radius_cm": 44.0,
       "parent_bed_id": "5685bb9e-b005-5c15-9c07-24e33ace119e",
       "stack_order": 88064
     },
@@ -6921,6 +6932,7 @@
       "stroke_style": "SOLID",
       "plant_category": "FLOWERING_PERENNIAL",
       "plant_species": "Nasturtium",
+      "spacing_radius_cm": 34.0,
       "parent_bed_id": "5685bb9e-b005-5c15-9c07-24e33ace119e",
       "stack_order": 106496
     },
@@ -6992,6 +7004,7 @@
       "stroke_style": "SOLID",
       "plant_category": "FLOWERING_PERENNIAL",
       "plant_species": "Nasturtium",
+      "spacing_radius_cm": 34.0,
       "parent_bed_id": "5685bb9e-b005-5c15-9c07-24e33ace119e",
       "stack_order": 107520
     },
@@ -7065,6 +7078,7 @@
       "stroke_style": "SOLID",
       "plant_category": "SPREADING_SHRUB",
       "plant_species": "Sunflower",
+      "spacing_radius_cm": 4.0,
       "parent_bed_id": "82fae597-d327-5b96-9761-601cfeb32e00",
       "stack_order": 108544
     },
@@ -7138,6 +7152,7 @@
       "stroke_style": "SOLID",
       "plant_category": "SPREADING_SHRUB",
       "plant_species": "Sunflower",
+      "spacing_radius_cm": 4.0,
       "parent_bed_id": "82fae597-d327-5b96-9761-601cfeb32e00",
       "stack_order": 109568
     },
@@ -7211,6 +7226,7 @@
       "stroke_style": "SOLID",
       "plant_category": "SPREADING_SHRUB",
       "plant_species": "Sunflower",
+      "spacing_radius_cm": 4.0,
       "parent_bed_id": "82fae597-d327-5b96-9761-601cfeb32e00",
       "stack_order": 110592
     },
@@ -7284,6 +7300,7 @@
       "stroke_style": "SOLID",
       "plant_category": "SPREADING_SHRUB",
       "plant_species": "Sunflower",
+      "spacing_radius_cm": 4.0,
       "parent_bed_id": "82fae597-d327-5b96-9761-601cfeb32e00",
       "stack_order": 111616
     },
@@ -7341,6 +7358,7 @@
       "stroke_style": "SOLID",
       "plant_category": "SPREADING_SHRUB",
       "plant_species": "Dahlia",
+      "spacing_radius_cm": 34.0,
       "parent_bed_id": "82fae597-d327-5b96-9761-601cfeb32e00",
       "stack_order": 112640
     },
@@ -7398,6 +7416,7 @@
       "stroke_style": "SOLID",
       "plant_category": "SPREADING_SHRUB",
       "plant_species": "Dahlia",
+      "spacing_radius_cm": 34.0,
       "parent_bed_id": "82fae597-d327-5b96-9761-601cfeb32e00",
       "stack_order": 113664
     },
@@ -7455,6 +7474,7 @@
       "stroke_style": "SOLID",
       "plant_category": "SPREADING_SHRUB",
       "plant_species": "Dahlia",
+      "spacing_radius_cm": 34.0,
       "parent_bed_id": "82fae597-d327-5b96-9761-601cfeb32e00",
       "stack_order": 114688
     },
@@ -7512,6 +7532,7 @@
       "stroke_style": "SOLID",
       "plant_category": "SPREADING_SHRUB",
       "plant_species": "Dahlia",
+      "spacing_radius_cm": 34.0,
       "parent_bed_id": "82fae597-d327-5b96-9761-601cfeb32e00",
       "stack_order": 115712
     },
@@ -7569,13 +7590,14 @@
       "stroke_style": "SOLID",
       "plant_category": "SPREADING_SHRUB",
       "plant_species": "Peony",
+      "spacing_radius_cm": 39.0,
       "parent_bed_id": "82fae597-d327-5b96-9761-601cfeb32e00",
       "stack_order": 116736
     },
     {
       "type": "circle",
-      "item_id": "dd3d606c-5180-5a81-b2b8-8bc7ba0118bc",
-      "center_x": 330.0,
+      "item_id": "f9702988-200c-587b-b4f3-7a917e22f857",
+      "center_x": 320.0,
       "center_y": 860.0,
       "radius": 40.0,
       "object_type": "SHRUB",
@@ -7626,13 +7648,14 @@
       "stroke_style": "SOLID",
       "plant_category": "SPREADING_SHRUB",
       "plant_species": "Peony",
+      "spacing_radius_cm": 39.0,
       "parent_bed_id": "82fae597-d327-5b96-9761-601cfeb32e00",
       "stack_order": 117760
     },
     {
       "type": "circle",
-      "item_id": "38359fe1-402b-5cff-afdf-009a1c0c501b",
-      "center_x": 460.0,
+      "item_id": "39eb70a8-8439-5c92-aaf6-9cb06f526761",
+      "center_x": 440.0,
       "center_y": 860.0,
       "radius": 40.0,
       "object_type": "SHRUB",
@@ -7683,6 +7706,7 @@
       "stroke_style": "SOLID",
       "plant_category": "SPREADING_SHRUB",
       "plant_species": "Peony",
+      "spacing_radius_cm": 39.0,
       "parent_bed_id": "82fae597-d327-5b96-9761-601cfeb32e00",
       "stack_order": 118784
     },
@@ -8128,6 +8152,7 @@
       "stroke_style": "SOLID",
       "plant_category": "SPREADING_SHRUB",
       "plant_species": "Currant",
+      "spacing_radius_cm": 24.0,
       "parent_bed_id": "234013c1-397a-5e16-ab77-4bdaceab33f3",
       "stack_order": 125952
     },
@@ -8187,6 +8212,7 @@
       "stroke_style": "SOLID",
       "plant_category": "SPREADING_SHRUB",
       "plant_species": "Currant",
+      "spacing_radius_cm": 24.0,
       "parent_bed_id": "234013c1-397a-5e16-ab77-4bdaceab33f3",
       "stack_order": 126976
     },
@@ -8259,6 +8285,7 @@
       "stroke_style": "SOLID",
       "plant_category": "FLOWERING_PERENNIAL",
       "plant_species": "Strawberry",
+      "spacing_radius_cm": 29.0,
       "parent_bed_id": "234013c1-397a-5e16-ab77-4bdaceab33f3",
       "stack_order": 128000
     },
@@ -8331,6 +8358,7 @@
       "stroke_style": "SOLID",
       "plant_category": "FLOWERING_PERENNIAL",
       "plant_species": "Strawberry",
+      "spacing_radius_cm": 29.0,
       "parent_bed_id": "234013c1-397a-5e16-ab77-4bdaceab33f3",
       "stack_order": 129024
     },
@@ -8403,6 +8431,7 @@
       "stroke_style": "SOLID",
       "plant_category": "FLOWERING_PERENNIAL",
       "plant_species": "Strawberry",
+      "spacing_radius_cm": 29.0,
       "parent_bed_id": "234013c1-397a-5e16-ab77-4bdaceab33f3",
       "stack_order": 130048
     },
@@ -8475,6 +8504,7 @@
       "stroke_style": "SOLID",
       "plant_category": "FLOWERING_PERENNIAL",
       "plant_species": "Strawberry",
+      "spacing_radius_cm": 29.0,
       "parent_bed_id": "234013c1-397a-5e16-ab77-4bdaceab33f3",
       "stack_order": 131072
     },
@@ -8547,6 +8577,7 @@
       "stroke_style": "SOLID",
       "plant_category": "FLOWERING_PERENNIAL",
       "plant_species": "Strawberry",
+      "spacing_radius_cm": 29.0,
       "parent_bed_id": "234013c1-397a-5e16-ab77-4bdaceab33f3",
       "stack_order": 132096
     },
@@ -8619,6 +8650,7 @@
       "stroke_style": "SOLID",
       "plant_category": "FLOWERING_PERENNIAL",
       "plant_species": "Strawberry",
+      "spacing_radius_cm": 29.0,
       "parent_bed_id": "234013c1-397a-5e16-ab77-4bdaceab33f3",
       "stack_order": 133120
     },
@@ -8690,6 +8722,7 @@
       "stroke_style": "SOLID",
       "plant_category": "FLOWERING_PERENNIAL",
       "plant_species": "Sage",
+      "spacing_radius_cm": 29.0,
       "parent_bed_id": "234013c1-397a-5e16-ab77-4bdaceab33f3",
       "stack_order": 134144
     },
@@ -8830,6 +8863,7 @@
       "stroke_style": "SOLID",
       "plant_category": "FLOWERING_PERENNIAL",
       "plant_species": "Oregano",
+      "spacing_radius_cm": 24.0,
       "parent_bed_id": "234013c1-397a-5e16-ab77-4bdaceab33f3",
       "stack_order": 136192
     },

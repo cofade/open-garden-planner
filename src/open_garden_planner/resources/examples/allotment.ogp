@@ -1188,6 +1188,7 @@
       "stroke_style": "SOLID",
       "plant_category": "SPREADING_SHRUB",
       "plant_species": "Potato",
+      "spacing_radius_cm": 29.0,
       "parent_bed_id": "2a580463-2ccf-5092-be14-1fb2db91eac4",
       "stack_order": 30720
     },
@@ -1255,6 +1256,7 @@
       "stroke_style": "SOLID",
       "plant_category": "SPREADING_SHRUB",
       "plant_species": "Potato",
+      "spacing_radius_cm": 29.0,
       "parent_bed_id": "2a580463-2ccf-5092-be14-1fb2db91eac4",
       "stack_order": 31744
     },
@@ -1322,6 +1324,7 @@
       "stroke_style": "SOLID",
       "plant_category": "SPREADING_SHRUB",
       "plant_species": "Potato",
+      "spacing_radius_cm": 29.0,
       "parent_bed_id": "2a580463-2ccf-5092-be14-1fb2db91eac4",
       "stack_order": 32768
     },
@@ -1389,6 +1392,7 @@
       "stroke_style": "SOLID",
       "plant_category": "SPREADING_SHRUB",
       "plant_species": "Potato",
+      "spacing_radius_cm": 29.0,
       "parent_bed_id": "2a580463-2ccf-5092-be14-1fb2db91eac4",
       "stack_order": 33792
     },
@@ -1456,6 +1460,7 @@
       "stroke_style": "SOLID",
       "plant_category": "SPREADING_SHRUB",
       "plant_species": "Potato",
+      "spacing_radius_cm": 29.0,
       "parent_bed_id": "2a580463-2ccf-5092-be14-1fb2db91eac4",
       "stack_order": 34816
     },
@@ -1523,6 +1528,7 @@
       "stroke_style": "SOLID",
       "plant_category": "SPREADING_SHRUB",
       "plant_species": "Potato",
+      "spacing_radius_cm": 29.0,
       "parent_bed_id": "2a580463-2ccf-5092-be14-1fb2db91eac4",
       "stack_order": 35840
     },
@@ -1590,6 +1596,7 @@
       "stroke_style": "SOLID",
       "plant_category": "SPREADING_SHRUB",
       "plant_species": "Potato",
+      "spacing_radius_cm": 29.0,
       "parent_bed_id": "2a580463-2ccf-5092-be14-1fb2db91eac4",
       "stack_order": 36864
     },
@@ -1657,6 +1664,7 @@
       "stroke_style": "SOLID",
       "plant_category": "SPREADING_SHRUB",
       "plant_species": "Potato",
+      "spacing_radius_cm": 29.0,
       "parent_bed_id": "2a580463-2ccf-5092-be14-1fb2db91eac4",
       "stack_order": 37888
     },
@@ -1724,6 +1732,7 @@
       "stroke_style": "SOLID",
       "plant_category": "SPREADING_SHRUB",
       "plant_species": "Potato",
+      "spacing_radius_cm": 29.0,
       "parent_bed_id": "2a580463-2ccf-5092-be14-1fb2db91eac4",
       "stack_order": 38912
     },
@@ -1791,6 +1800,7 @@
       "stroke_style": "SOLID",
       "plant_category": "SPREADING_SHRUB",
       "plant_species": "Potato",
+      "spacing_radius_cm": 29.0,
       "parent_bed_id": "2a580463-2ccf-5092-be14-1fb2db91eac4",
       "stack_order": 39936
     },
@@ -1858,6 +1868,7 @@
       "stroke_style": "SOLID",
       "plant_category": "SPREADING_SHRUB",
       "plant_species": "Potato",
+      "spacing_radius_cm": 29.0,
       "parent_bed_id": "2a580463-2ccf-5092-be14-1fb2db91eac4",
       "stack_order": 40960
     },
@@ -1925,6 +1936,7 @@
       "stroke_style": "SOLID",
       "plant_category": "SPREADING_SHRUB",
       "plant_species": "Potato",
+      "spacing_radius_cm": 29.0,
       "parent_bed_id": "2a580463-2ccf-5092-be14-1fb2db91eac4",
       "stack_order": 41984
     },
@@ -1992,6 +2004,7 @@
       "stroke_style": "SOLID",
       "plant_category": "SPREADING_SHRUB",
       "plant_species": "Potato",
+      "spacing_radius_cm": 29.0,
       "parent_bed_id": "2a580463-2ccf-5092-be14-1fb2db91eac4",
       "stack_order": 43008
     },
@@ -2059,6 +2072,7 @@
       "stroke_style": "SOLID",
       "plant_category": "SPREADING_SHRUB",
       "plant_species": "Potato",
+      "spacing_radius_cm": 29.0,
       "parent_bed_id": "2a580463-2ccf-5092-be14-1fb2db91eac4",
       "stack_order": 44032
     },
@@ -2126,6 +2140,7 @@
       "stroke_style": "SOLID",
       "plant_category": "SPREADING_SHRUB",
       "plant_species": "Potato",
+      "spacing_radius_cm": 29.0,
       "parent_bed_id": "2a580463-2ccf-5092-be14-1fb2db91eac4",
       "stack_order": 45056
     },
@@ -2193,6 +2208,7 @@
       "stroke_style": "SOLID",
       "plant_category": "SPREADING_SHRUB",
       "plant_species": "Potato",
+      "spacing_radius_cm": 29.0,
       "parent_bed_id": "2a580463-2ccf-5092-be14-1fb2db91eac4",
       "stack_order": 46080
     },
@@ -2260,6 +2276,7 @@
       "stroke_style": "SOLID",
       "plant_category": "SPREADING_SHRUB",
       "plant_species": "Potato",
+      "spacing_radius_cm": 29.0,
       "parent_bed_id": "2a580463-2ccf-5092-be14-1fb2db91eac4",
       "stack_order": 47104
     },
@@ -2327,6 +2344,7 @@
       "stroke_style": "SOLID",
       "plant_category": "SPREADING_SHRUB",
       "plant_species": "Potato",
+      "spacing_radius_cm": 29.0,
       "parent_bed_id": "2a580463-2ccf-5092-be14-1fb2db91eac4",
       "stack_order": 48128
     },
@@ -9117,6 +9135,7 @@
       "stroke_style": "SOLID",
       "plant_category": "FLOWERING_PERENNIAL",
       "plant_species": "Strawberry",
+      "spacing_radius_cm": 29.0,
       "parent_bed_id": "cfdd4a83-25e4-5cca-a021-000669386803",
       "stack_order": 151552
     },
@@ -9189,6 +9208,7 @@
       "stroke_style": "SOLID",
       "plant_category": "FLOWERING_PERENNIAL",
       "plant_species": "Strawberry",
+      "spacing_radius_cm": 29.0,
       "parent_bed_id": "cfdd4a83-25e4-5cca-a021-000669386803",
       "stack_order": 152576
     },
@@ -9261,6 +9281,7 @@
       "stroke_style": "SOLID",
       "plant_category": "FLOWERING_PERENNIAL",
       "plant_species": "Strawberry",
+      "spacing_radius_cm": 29.0,
       "parent_bed_id": "cfdd4a83-25e4-5cca-a021-000669386803",
       "stack_order": 153600
     },
@@ -9333,6 +9354,7 @@
       "stroke_style": "SOLID",
       "plant_category": "FLOWERING_PERENNIAL",
       "plant_species": "Strawberry",
+      "spacing_radius_cm": 29.0,
       "parent_bed_id": "cfdd4a83-25e4-5cca-a021-000669386803",
       "stack_order": 154624
     },
@@ -9405,6 +9427,7 @@
       "stroke_style": "SOLID",
       "plant_category": "FLOWERING_PERENNIAL",
       "plant_species": "Strawberry",
+      "spacing_radius_cm": 29.0,
       "parent_bed_id": "cfdd4a83-25e4-5cca-a021-000669386803",
       "stack_order": 155648
     },
@@ -9477,6 +9500,7 @@
       "stroke_style": "SOLID",
       "plant_category": "FLOWERING_PERENNIAL",
       "plant_species": "Strawberry",
+      "spacing_radius_cm": 29.0,
       "parent_bed_id": "cfdd4a83-25e4-5cca-a021-000669386803",
       "stack_order": 156672
     },
@@ -9549,6 +9573,7 @@
       "stroke_style": "SOLID",
       "plant_category": "FLOWERING_PERENNIAL",
       "plant_species": "Strawberry",
+      "spacing_radius_cm": 29.0,
       "parent_bed_id": "cfdd4a83-25e4-5cca-a021-000669386803",
       "stack_order": 157696
     },
@@ -9621,6 +9646,7 @@
       "stroke_style": "SOLID",
       "plant_category": "FLOWERING_PERENNIAL",
       "plant_species": "Strawberry",
+      "spacing_radius_cm": 29.0,
       "parent_bed_id": "cfdd4a83-25e4-5cca-a021-000669386803",
       "stack_order": 158720
     },
@@ -9693,6 +9719,7 @@
       "stroke_style": "SOLID",
       "plant_category": "FLOWERING_PERENNIAL",
       "plant_species": "Strawberry",
+      "spacing_radius_cm": 29.0,
       "parent_bed_id": "cfdd4a83-25e4-5cca-a021-000669386803",
       "stack_order": 159744
     },
@@ -9765,6 +9792,7 @@
       "stroke_style": "SOLID",
       "plant_category": "FLOWERING_PERENNIAL",
       "plant_species": "Strawberry",
+      "spacing_radius_cm": 29.0,
       "parent_bed_id": "cfdd4a83-25e4-5cca-a021-000669386803",
       "stack_order": 160768
     },
@@ -9837,6 +9865,7 @@
       "stroke_style": "SOLID",
       "plant_category": "FLOWERING_PERENNIAL",
       "plant_species": "Strawberry",
+      "spacing_radius_cm": 29.0,
       "parent_bed_id": "cfdd4a83-25e4-5cca-a021-000669386803",
       "stack_order": 161792
     },
@@ -9909,6 +9938,7 @@
       "stroke_style": "SOLID",
       "plant_category": "FLOWERING_PERENNIAL",
       "plant_species": "Strawberry",
+      "spacing_radius_cm": 29.0,
       "parent_bed_id": "cfdd4a83-25e4-5cca-a021-000669386803",
       "stack_order": 162816
     },
@@ -9981,6 +10011,7 @@
       "stroke_style": "SOLID",
       "plant_category": "FLOWERING_PERENNIAL",
       "plant_species": "Strawberry",
+      "spacing_radius_cm": 29.0,
       "parent_bed_id": "cfdd4a83-25e4-5cca-a021-000669386803",
       "stack_order": 163840
     },
@@ -10053,6 +10084,7 @@
       "stroke_style": "SOLID",
       "plant_category": "FLOWERING_PERENNIAL",
       "plant_species": "Strawberry",
+      "spacing_radius_cm": 29.0,
       "parent_bed_id": "cfdd4a83-25e4-5cca-a021-000669386803",
       "stack_order": 164864
     },
@@ -10125,6 +10157,7 @@
       "stroke_style": "SOLID",
       "plant_category": "FLOWERING_PERENNIAL",
       "plant_species": "Strawberry",
+      "spacing_radius_cm": 29.0,
       "parent_bed_id": "cfdd4a83-25e4-5cca-a021-000669386803",
       "stack_order": 165888
     },
@@ -10197,6 +10230,7 @@
       "stroke_style": "SOLID",
       "plant_category": "FLOWERING_PERENNIAL",
       "plant_species": "Strawberry",
+      "spacing_radius_cm": 29.0,
       "parent_bed_id": "cfdd4a83-25e4-5cca-a021-000669386803",
       "stack_order": 166912
     },
@@ -10269,6 +10303,7 @@
       "stroke_style": "SOLID",
       "plant_category": "FLOWERING_PERENNIAL",
       "plant_species": "Strawberry",
+      "spacing_radius_cm": 29.0,
       "parent_bed_id": "cfdd4a83-25e4-5cca-a021-000669386803",
       "stack_order": 167936
     },
@@ -10341,6 +10376,7 @@
       "stroke_style": "SOLID",
       "plant_category": "FLOWERING_PERENNIAL",
       "plant_species": "Strawberry",
+      "spacing_radius_cm": 29.0,
       "parent_bed_id": "cfdd4a83-25e4-5cca-a021-000669386803",
       "stack_order": 168960
     },
@@ -10412,6 +10448,7 @@
       "stroke_style": "SOLID",
       "plant_category": "SPREADING_SHRUB",
       "plant_species": "Rhubarb",
+      "spacing_radius_cm": 59.0,
       "parent_bed_id": "cd1c064a-f46e-5d21-abd3-5fd099169dec",
       "stack_order": 171008
     },
@@ -10483,6 +10520,7 @@
       "stroke_style": "SOLID",
       "plant_category": "SPREADING_SHRUB",
       "plant_species": "Rhubarb",
+      "spacing_radius_cm": 59.0,
       "parent_bed_id": "cd1c064a-f46e-5d21-abd3-5fd099169dec",
       "stack_order": 172032
     },
@@ -14808,6 +14846,7 @@
       "stroke_style": "SOLID",
       "plant_category": "FLOWERING_PERENNIAL",
       "plant_species": "Sage",
+      "spacing_radius_cm": 29.0,
       "parent_bed_id": "7900a11e-01ad-5e5e-9682-707863ca2611",
       "stack_order": 239616
     },
@@ -14948,6 +14987,7 @@
       "stroke_style": "SOLID",
       "plant_category": "FLOWERING_PERENNIAL",
       "plant_species": "Oregano",
+      "spacing_radius_cm": 24.0,
       "parent_bed_id": "7900a11e-01ad-5e5e-9682-707863ca2611",
       "stack_order": 241664
     },
@@ -15434,6 +15474,7 @@
       "stroke_style": "SOLID",
       "plant_category": "SPREADING_SHRUB",
       "plant_species": "Runner Bean",
+      "spacing_radius_cm": 14.0,
       "parent_bed_id": "2b5d0ae6-84d8-5bbc-84a4-15b5ce4b73ff",
       "stack_order": 248832
     },
@@ -15513,6 +15554,7 @@
       "stroke_style": "SOLID",
       "plant_category": "SPREADING_SHRUB",
       "plant_species": "Runner Bean",
+      "spacing_radius_cm": 14.0,
       "parent_bed_id": "2b5d0ae6-84d8-5bbc-84a4-15b5ce4b73ff",
       "stack_order": 249856
     },
@@ -15598,6 +15640,7 @@
       "stroke_style": "SOLID",
       "plant_category": "FLOWERING_PERENNIAL",
       "plant_species": "Winter Squash",
+      "spacing_radius_cm": 58.0,
       "parent_bed_id": "2b5d0ae6-84d8-5bbc-84a4-15b5ce4b73ff",
       "stack_order": 250880
     },
@@ -15657,6 +15700,7 @@
       "stroke_style": "SOLID",
       "plant_category": "SPREADING_SHRUB",
       "plant_species": "Raspberry",
+      "spacing_radius_cm": 19.0,
       "stack_order": 251904
     },
     {
@@ -15715,6 +15759,7 @@
       "stroke_style": "SOLID",
       "plant_category": "SPREADING_SHRUB",
       "plant_species": "Raspberry",
+      "spacing_radius_cm": 19.0,
       "stack_order": 252928
     },
     {
@@ -15773,6 +15818,7 @@
       "stroke_style": "SOLID",
       "plant_category": "SPREADING_SHRUB",
       "plant_species": "Raspberry",
+      "spacing_radius_cm": 19.0,
       "stack_order": 253952
     },
     {
@@ -15831,6 +15877,7 @@
       "stroke_style": "SOLID",
       "plant_category": "SPREADING_SHRUB",
       "plant_species": "Currant",
+      "spacing_radius_cm": 19.0,
       "stack_order": 254976
     },
     {
@@ -15889,6 +15936,7 @@
       "stroke_style": "SOLID",
       "plant_category": "SPREADING_SHRUB",
       "plant_species": "Currant",
+      "spacing_radius_cm": 19.0,
       "stack_order": 256000
     },
     {
@@ -15947,6 +15995,7 @@
       "stroke_style": "SOLID",
       "plant_category": "SPREADING_SHRUB",
       "plant_species": "Gooseberry",
+      "spacing_radius_cm": 19.0,
       "stack_order": 257024
     },
     {
@@ -16005,6 +16054,7 @@
       "stroke_style": "SOLID",
       "plant_category": "SPREADING_SHRUB",
       "plant_species": "Gooseberry",
+      "spacing_radius_cm": 19.0,
       "stack_order": 258048
     },
     {
@@ -16063,6 +16113,7 @@
       "stroke_style": "SOLID",
       "plant_category": "ROUND_DECIDUOUS",
       "plant_species": "Plum Tree",
+      "spacing_radius_cm": 49.0,
       "stack_order": 259072
     },
     {
@@ -16153,6 +16204,7 @@
       "stroke_style": "SOLID",
       "plant_category": "SPREADING_SHRUB",
       "plant_species": "Sunflower",
+      "spacing_radius_cm": 4.0,
       "parent_bed_id": "3a7d5b3c-a762-550f-86ad-251762b913aa",
       "stack_order": 262144
     },
@@ -16226,6 +16278,7 @@
       "stroke_style": "SOLID",
       "plant_category": "SPREADING_SHRUB",
       "plant_species": "Sunflower",
+      "spacing_radius_cm": 4.0,
       "parent_bed_id": "3a7d5b3c-a762-550f-86ad-251762b913aa",
       "stack_order": 263168
     },
@@ -16299,6 +16352,7 @@
       "stroke_style": "SOLID",
       "plant_category": "SPREADING_SHRUB",
       "plant_species": "Sunflower",
+      "spacing_radius_cm": 4.0,
       "parent_bed_id": "3a7d5b3c-a762-550f-86ad-251762b913aa",
       "stack_order": 264192
     },

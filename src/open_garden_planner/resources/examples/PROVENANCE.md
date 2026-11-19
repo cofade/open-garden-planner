@@ -56,7 +56,7 @@ computer set to it, the local times below are what the toolbar shows.
 | Japanese garden | Düsseldorf, 51.2277° N, 6.7735° E | 20 October 2026, 13:50; 15:50 | 20° up, south-west | 10 April / 5 November |
 | Modern garden | Munich, 48.1351° N, 11.5820° E | 15 August 2026, 17:40; 19:40 | 7° up, west | 1 May / 15 October |
 | Cottage garden | Bamberg, 49.8988° N, 10.9028° E | 20 June 2026, 09:00; 11:00 | 52° up, south-east | 5 May / 12 October |
-| Spring garden | Heidelberg, 49.3988° N, 8.6724° E | 18 April 2026, 11:00; 13:00 | 51° up, south | 8 April / 1 November |
+| Spring garden | Heidelberg, 49.3988° N, 8.6724° E | 18 April 2026, 11:00; 13:00 | 51° up, south | 25 April / 1 November |
 | Terraced-house garden | Cologne, 50.9375° N, 6.9603° E | 21 June 2026, 16:15; 18:15 | 30° up, west | 10 April / 5 November |
 | Allotment | Leipzig, 51.3397° N, 12.3731° E | 18 July 2026, 07:00; 09:00 | 32° up, east | 25 April / 20 October |
 | Food forest | Bonn, 50.7374° N, 7.0982° E | 21 September 2026, 11:00; 13:00 | 40° up, south | 15 May / 15 October |
@@ -143,6 +143,13 @@ a nursery size years back that the growth model would turn into a full-grown tre
 tub. Sown annuals carry their sowing date and a seedling's size. These dates describe
 how the plan is drawn, not a planting recommendation. The food forest's walnut is a
 young tree planted on 5 November 2025; its six asters stand at its canopy edge.
+
+A row, a grid and a drift of plants carry their planting distance as the plants' own
+spacing radius, and a plant drawn at a kept size (a clipped box, a tree in a tub) carries
+that spread. The spacing check then reports a plant that stands closer than it was meant
+to, not every hedge and every sown row; the plans open without a warning, except the two
+stated in `tests/example_specs.py`. The spring garden's last frost (25 April) lies after
+its showcase day on purpose: what flowers there on 18 April is hardy.
 
 A long hedge is drawn as runs of at most 8 m, which is how it keeps its leaves in the
 3D view; the runs carry the same name.
