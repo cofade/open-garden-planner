@@ -30,6 +30,7 @@ from open_garden_planner.core.plant_forge import (
     LOD1,
     LOD2,
     PART_FOLIAGE,
+    PART_WOOD,
     forge_plant,
     triangle_budget_for_lod,
 )
@@ -42,7 +43,8 @@ from open_garden_planner.core.plant_forge.accents import (
     flowers_geo,
 )
 from open_garden_planner.core.plant_forge.foliage import crown_surface_cm2
-from open_garden_planner.core.plant_forge.herbaceous import BULB_LEAF_TOP
+from open_garden_planner.core.plant_forge.herbaceous import BULB_LEAF_TOP, BULB_NECK
+from open_garden_planner.core.plant_forge.trees import bark_linear_rgba
 
 FLOWERING: tuple[SpriteRef, ...] = tuple(
     SpriteRef(group, name)
@@ -144,9 +146,15 @@ def test_bulb_flowers_stand_on_scapes_above_their_leaves(
     flowers = _part(parts, FLOWER_PART)
     leaf_top = float(leaves.positions[:, 2].max())
     assert leaf_top <= BULB_LEAF_TOP * height + 1e-3
-    assert float(flowers.positions[:, 2].min()) > leaf_top
+    # the part holds the scapes (stem green) and the flowers: every petal above the leaves
+    stem = np.asarray(bark_linear_rgba(traits_for(sprite).branching)[:3], dtype=np.float32)
+    is_stem = np.abs(flowers.colors[:, :3] - stem).max(axis=1) < 1e-4
+    assert is_stem.any() and (~is_stem).any()
+    assert float(flowers.positions[~is_stem, 2].min()) > leaf_top
     # the plant's top is a flower's, at its height
     assert float(flowers.positions[:, 2].max()) == pytest.approx(height, abs=1e-3)
+    # out of bloom (the flowers part hidden) no bare stalk stands: the wood is the neck
+    assert float(_part(parts, PART_WOOD).positions[:, 2].max()) <= BULB_NECK * height * 1.05  # the fit
 
 
 def test_a_bulb_at_lod2_keeps_its_scapes_to_the_top() -> None:

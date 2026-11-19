@@ -360,6 +360,9 @@ def build_forged_grass(
 #: its flowers above them to the plant's full height (#940). Before, the blades and
 #: the leaf sprays at the culm tips reached the top, and the flowers sat among them.
 BULB_LEAF_TOP: float = 0.6
+#: A bulb's neck - its wood all year, the scapes going with its flowers - as a share of
+#: its height.
+BULB_NECK: float = 0.05
 #: The most flowers one bulb clump shows (a big drift of one item stays affordable).
 BULB_FLOWERS_MAX: int = 24
 #: Per LOD: strap leaves, segments per leaf, scape sides.
@@ -384,9 +387,9 @@ def _forged_flowering_bulb(
 ) -> tuple[MeshPart, ...]:
     """A flowering bulb (tulip, daffodil, crocus, iris, lily; #940): a tuft of strap
     leaves up to ``BULB_LEAF_TOP`` of its height and one leafless scape per flower, the
-    flower on its tip at the top. Its flowers are inside the fit, so the plant's top is
-    a flower's (``fit_forged_parts(..., accents_name=FLOWER_PART)``); at LOD2 no flower
-    is built and the scapes reach the top."""
+    flower on its tip at the top. Scapes and flowers are one ``flowers`` part inside the
+    fit, so the plant's top is a flower's and out of bloom the bulb is its leaves on its
+    neck (its wood); at LOD2 no flower is built and the scapes, wood, reach the top."""
     flower = traits.flower
     assert flower is not None
     rng = _seed_rng(seed, 0xB01B5CA9)
@@ -408,8 +411,13 @@ def _forged_flowering_bulb(
     roots = np.column_stack([np.cos(az) * radius_cm * 0.06, np.sin(az) * radius_cm * 0.06,
                              np.zeros(n_flowers)])
     scape_r = max(min(height_cm, radius_cm) * 0.02, 0.22)
-    wood = frustum_tubes(roots, tips, np.full(n_flowers, scape_r), np.full(n_flowers, scape_r * 0.7),
-                         sides=sides, color_rgba=bark_linear_rgba(traits.branching))
+    stem_rgba = bark_linear_rgba(traits.branching)
+    scapes = frustum_tubes(roots, tips, np.full(n_flowers, scape_r), np.full(n_flowers, scape_r * 0.7),
+                           sides=sides, color_rgba=stem_rgba)
+    # the bulb's neck, where its leaves and scapes leave the ground: its wood all year
+    neck = frustum_tubes(np.zeros((1, 3)), np.array([[0.0, 0.0, max(height_cm * BULB_NECK, 0.5)]]),
+                         np.array([scape_r * 2.4]), np.array([scape_r * 1.6]),
+                         sides=sides, color_rgba=stem_rgba)
 
     # The leaves: broad straps arching from the base, below the flowers
     idx = np.arange(n_blades, dtype=np.float64)
@@ -430,12 +438,15 @@ def _forged_flowering_bulb(
                                  segs, cols, rng, center=center, cup=0.10)
 
     if lod == LOD2:
-        return fit_forged_parts(wood, foliage, empty_geo(), height_cm, radius_cm)
+        return fit_forged_parts(concat_geo([neck, scapes]), foliage, empty_geo(), height_cm, radius_cm)
     out = np.column_stack([np.cos(az), np.sin(az), np.zeros(n_flowers)])
     facing = normalize_vec((1.0 - flower.face_up) * out + flower.face_up * np.array([0.0, 0.0, 1.0])
                            + rng.normal(0.0, 0.10, size=(n_flowers, 3)))
     flowers = flowers_geo(flower, str(traits.blossom_spec or "white"), tips, facing, r_f, rng, lod=lod)
-    return fit_forged_parts(wood, foliage, flowers, height_cm, radius_cm, accents_name=FLOWER_PART)
+    # A scape is its flower's stalk: it rises with the flower and goes with it, so ten
+    # months a year a bulb is its leaves, not a bunch of bare stalks (#940, review 2).
+    return fit_forged_parts(neck, foliage, concat_geo([scapes, flowers]), height_cm, radius_cm,
+                            accents_name=FLOWER_PART)
 
 
 #: Per LOD: culms, segments per culm, tube sides, the most leaves.
