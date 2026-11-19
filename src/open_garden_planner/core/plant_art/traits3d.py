@@ -16,8 +16,13 @@ sprite never needed:
 - **Season & phenology** (on ``Traits3D``): ``deciduous`` flag, Northern-Hemisphere
   illustrative ``bloom_months`` (1..12) and ``blossom_spec``, ``harvest_weeks``
   (weeks relative to last spring frost from ``plant_species.json``), ``fruit_months``
-  derived from the harvest window via ``fruit_months_from_harvest_window``, and
-  ``autumn_palette`` (always a key of ``recipes.PALETTES``).
+  derived from the harvest window via ``fruit_months_from_harvest_window``,
+  ``autumn_palette`` (always a key of ``recipes.PALETTES``) and ``frost_hardy_bloom``
+  (does the plant flower before the last frost and after the first one: #940).
+- **Flowers** (``FlowerTraits``, #940): where they stand (on the crown's surface, on
+  scapes above a bulb's leaves, on stem tips), their real size, cup and facing, and the
+  share of the crown they cover in full bloom; ``bloom_leaf_density``: the leaves a
+  plant that flowers before or with them carries while it is in flower.
 
 Standard library only (no Qt, no numpy — pinned by ``tests/unit/test_plant_art.py``).
 """
@@ -25,7 +30,7 @@ Standard library only (no Qt, no numpy — pinned by ``tests/unit/test_plant_art
 from __future__ import annotations
 
 import datetime
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from typing import Final
 
 from .recipes import CATEGORIES, FLOWERS, PALETTES, SPECIES, Recipe, palette_key
@@ -131,6 +136,46 @@ class LeafTraits:
     narrow: bool = False
 
 
+#: Where a plant's flowers stand (``FlowerTraits.habit``, #940).
+FLOWER_HABITS: Final[frozenset[str]] = frozenset({"crown", "scape", "head"})
+
+
+@dataclass(frozen=True, slots=True)
+class FlowerTraits:
+    """How a plant's flowers stand in 3D (#940). The 2D recipe draws them from above only.
+
+    ``habit``: ``"crown"`` - on the crown's outer surface; ``"scape"`` - one flower on each
+    leafless stalk above the leaves (a bulb); ``"head"`` - one on each stem tip (the
+    ``flower`` archetype). ``cover``: the share of the crown's outer surface in flower at
+    full bloom (crown), or of the clump's ground seen from above (scape) - it sets how
+    many flowers there are (``plant_forge.accents.blossom_count``). ``radius_cm``: one
+    flower's real radius - for a blossom tree, one spur's cluster of flowers. ``cup``:
+    how far the petals rise (0 a flat star, ~1 a goblet); ``face_up`` turns the flower
+    from straight out of the crown (0) to the sky (1). ``disc_radius`` / ``disc_depth``:
+    its centre (stamens, a daisy's eye, a daffodil's trumpet) as shares of ``radius_cm``
+    across and along its facing; 0: no visible centre. ``tip_light``: how far a petal's
+    tip turns toward the 2D light colour (the sprite's 0.45). ``shade``: a scalar on the
+    petal's linear colour, hue kept (as ``WHITE_BARK_SHADE`` keeps white from clipping): a
+    bright purple goblet facing the sun went magenta under the filmic curve - a crocus read
+    pale lilac, its hue rising from 268 to 280 degrees with its brightness (review 2).
+    ``wedge``: one triangle a petal at every LOD - a mass of small flowers (a fruit tree's
+    spurs, a forsythia) buys twice the flowers within its triangle budget.
+    """
+
+    habit: str = "crown"
+    radius_cm: float = 3.0
+    petals: int = 5
+    double: bool = False
+    cup: float = 0.28
+    face_up: float = 0.45
+    disc_radius: float = 0.26
+    disc_depth: float = 0.16
+    cover: float = 0.10
+    tip_light: float = 0.45
+    shade: float = 1.0
+    wedge: bool = False
+
+
 @dataclass(frozen=True, slots=True)
 class Traits3D:
     """Complete 3D morphological and phenological traits for one sprite recipe."""
@@ -147,6 +192,19 @@ class Traits3D:
     fruit_months: tuple[int, ...]
     harvest_weeks: tuple[int, int] | None
     autumn_palette: str
+    #: The plant flowers by its own ``bloom_months``, frost season or not: it stays in
+    #: the ground over winter (``_FROST_HARDY_BLOOM_STEMS``). False: its flowers wait
+    #: for the plan's frost-free season (``core/phenology.py``), as a tender plant is
+    #: planted out after the last frost.
+    frost_hardy_bloom: bool = False
+    #: How its flowers stand in 3D, or None: no ``flowers`` recipe and no fruit-tree
+    #: blossom (``FlowerTraits``; clusters, puffs and umbels have their own builders).
+    flower: FlowerTraits | None = None
+    #: The share of its leaves a deciduous plant carries while it flowers (#940): below
+    #: 1.0 it flowers before or with its leaves (``_PRECOCIOUS_BLOOM_LEAF_DENSITY``), and
+    #: ``core/phenology.py`` holds its leaves at this share until the last quarter of the
+    #: bloom window, when they unfold. 1.0: flowering does not change its leaves.
+    bloom_leaf_density: float = 1.0
 
     @property
     def evergreen(self) -> bool:
@@ -247,6 +305,7 @@ _PERENNIAL_FRUIT_MONTHS: Final[dict[str, tuple[int, ...]]] = {
     "blackberry": (7, 8, 9),
     "gooseberry": (6, 7, 8),
     "currant": (6, 7, 8),
+    "grape_vine": (9, 10),
     "fruit_tree": (8, 9, 10),
 }
 
@@ -354,14 +413,137 @@ _FRUIT_BLOSSOM_SPEC: Final[dict[str, str]] = {
     "fruit_tree": "pink",
 }
 
+#: Species that flower by their own bloom months even outside the plan's frost-free
+#: season (#940): bulbs, hardy perennials and herbs, shrubs, climbers and fruit trees
+#: that stay in the ground over winter. Crocus and daffodil flower before the last
+#: frost, apple and magnolia blossom often does, asters and chrysanthemums go on
+#: after the first. Every other plant is tender or planted out after the last frost,
+#: and its flowers wait for the frost-free season. Species stems only: a category
+#: says nothing about a plant's hardiness. No bundled record that draws one of these
+#: is ``frost_tolerance: "tender"`` (drift-guarded, ``tests/unit/test_phenology.py``).
+_FROST_HARDY_BLOOM_STEMS: Final[frozenset[str]] = frozenset({
+    # fruit and ornamental trees
+    "apple_tree", "pear_tree", "plum_tree", "peach_tree", "cherry_tree", "olive_tree",
+    "magnolia",
+    # flowering and berry shrubs
+    "forsythia", "camellia", "rhododendron", "lilac", "viburnum", "spirea", "elderberry",
+    "privet", "barberry", "blueberry", "raspberry", "blackberry", "gooseberry", "currant",
+    "rose", "hydrangea", "hibiscus",
+    # woody climbers
+    "wisteria", "clematis", "jasmine",
+    # bulbs and hardy perennials
+    "crocus", "daffodil", "tulip", "pansy", "peony", "iris", "lily", "aster", "chrysanthemum",
+    # perennial herbs and the frost-hardy pea
+    "lavender", "rosemary", "thyme", "sage", "oregano", "chives", "chamomile", "pea",
+})
+
+#: Deciduous plants that flower before or with their leaves, and the share of their
+#: leaves out while they flower (#940): magnolia and forsythia flower on bare wood,
+#: peach, plum and cherry as their buds break. The share is of leaf AREA: the leaves
+#: that have broken by then are a few centimetres long, the model's are full-grown.
+#: Apple and pear flower among leaves that are already unfolding, so their spring flush
+#: stands as it is.
+_PRECOCIOUS_BLOOM_LEAF_DENSITY: Final[dict[str, float]] = {
+    "magnolia": 0.08,
+    "forsythia": 0.06,
+    "peach_tree": 0.10,
+    "plum_tree": 0.12,
+    "cherry_tree": 0.18,
+}
+
+#: One flower's real radius is half its recipe radius: the 2D recipes draw a flower
+#: about as many sprite units across as it measures in centimetres (#940).
+FLOWER_CM_PER_RECIPE_RADIUS: Final[float] = 0.5
+
+#: The share of a crown's outer surface in flower at full bloom, per archetype (#940).
+#: A blossom tree is a cloud of flowers; a shrub or a perennial shows one flower in ten.
+_BLOOM_COVER: Final[dict[str, float]] = {
+    "canopy": 0.30,
+    "mound": 0.10,
+    "feathery": 0.10,
+    "climber": 0.10,
+    "ground": 0.15,
+    "rosette": 0.10,
+}
+
+#: The blossom of a fruit tree (or a berry shrub) whose recipe draws fruit, not flowers:
+#: one spur's cluster of three to five flowers on a tree, single small flowers on a shrub.
+_TREE_SPUR_BLOSSOM: Final[FlowerTraits] = FlowerTraits(
+    radius_cm=3.5, petals=5, cup=0.35, face_up=0.45, disc_radius=0.0,
+    cover=_BLOOM_COVER["canopy"], wedge=True,
+)
+_SHRUB_SPUR_BLOSSOM: Final[FlowerTraits] = FlowerTraits(
+    radius_cm=1.5, petals=5, cup=0.30, face_up=0.45, disc_radius=0.0, cover=0.08, wedge=True,
+)
+#: A bulb's flowers cover this share of its clump's ground seen from above (#940): five
+#: tulips on a clump of 10 cm radius, two crocuses on one of 5 cm.
+SCAPE_COVER: Final[float] = 0.45
+
+#: Per-species departures from the habit's flower (#940). Masses of small flowers cover
+#: more of a crown (forsythia, spirea, asters), a few big ones less (peony, hibiscus);
+#: bulbs hold goblets to the sky, while the daffodil's trumpet and the lily look out
+#: sideways; a magnolia's flower is twice its recipe radius (15-25 cm across).
+_FLOWER_OVERRIDES: Final[dict[str, dict[str, float | int | bool]]] = {
+    "magnolia": {"radius_cm": 8.0, "petals": 6, "cup": 1.0, "face_up": 0.75, "disc_radius": 0.0,
+                 "cover": 0.14},
+    "olive_tree": {"radius_cm": 1.5, "cover": 0.06},
+    "lemon_tree": {"cover": 0.10},
+    "orange_tree": {"cover": 0.10},
+    "forsythia": {"petals": 4, "cup": 0.2, "face_up": 0.2, "disc_radius": 0.0, "cover": 0.45,
+                  "wedge": True},
+    "spirea": {"disc_radius": 0.0, "cover": 0.30},
+    "rose": {"cup": 0.55, "cover": 0.18},
+    "peony": {"cup": 0.6, "cover": 0.06},
+    "hibiscus": {"cover": 0.05},
+    "dahlia": {"cover": 0.06},
+    "aster": {"cup": 0.12, "cover": 0.25},
+    "chrysanthemum": {"cover": 0.25},
+    "pansy": {"cover": 0.25},
+    "petunia": {"cover": 0.20},
+    "thyme": {"cover": 0.20},
+    "chamomile": {"cover": 0.20},
+    "tulip": {"cup": 1.15, "disc_radius": 0.2},
+    "crocus": {"cup": 1.0, "tip_light": 0.25, "shade": 0.5},
+    "daffodil": {"cup": 0.12, "face_up": 0.15, "disc_radius": 0.34, "disc_depth": 0.55},
+    "iris": {"cup": 0.7, "face_up": 0.6},
+    "lily": {"cup": 0.45, "face_up": 0.25},
+    "sunflower": {"radius_cm": 11.0, "cup": 0.05, "disc_radius": 0.45, "disc_depth": 0.12},
+}
+
+
+def _flower_traits_for(stem: str, recipe: Recipe, archetype: str,
+                       blossom_spec: str | None) -> FlowerTraits | None:
+    """The 3D flower of a recipe (#940): its ``flowers`` key read as real sizes, or a
+    fruit tree's spur blossom; None for clusters, puffs and umbels (their own builders)."""
+    flowers = recipe.get("flowers")
+    if isinstance(flowers, dict):
+        habit = "scape" if archetype == "grass" else "head" if archetype == "flower" else "crown"
+        flower = FlowerTraits(
+            habit=habit,
+            radius_cm=FLOWER_CM_PER_RECIPE_RADIUS * float(flowers.get("radius", 5.0)),
+            petals=int(flowers.get("petals", 5)),
+            double=bool(flowers.get("double", False)),
+            cup=0.8 if habit == "scape" else 0.28,
+            face_up={"scape": 1.0, "head": 0.35}.get(habit, 0.45),
+            cover=SCAPE_COVER if habit == "scape" else _BLOOM_COVER.get(archetype, 0.10),
+        )
+    elif stem in _FRUIT_BLOSSOM_SPEC and blossom_spec is not None:
+        flower = _TREE_SPUR_BLOSSOM if archetype == "canopy" else _SHRUB_SPUR_BLOSSOM
+    else:
+        return None
+    override = _FLOWER_OVERRIDES.get(stem)
+    return replace(flower, **override) if override else flower  # type: ignore[arg-type]
+
+
 #: Evergreen recipes (never shed leaves in winter).
 _EVERGREEN_STEMS: Final[frozenset[str]] = frozenset({
-    # conifers & palms
+    # conifers, palms & bamboo
     "pine",
     "spruce",
     "juniper",
     "conifer",
     "palm",
+    "bamboo",
     # evergreen trees
     "olive_tree",
     "lemon_tree",
@@ -396,6 +578,7 @@ _DECIDUOUS_WOODY_STEMS: Final[frozenset[str]] = frozenset({
     "birch",
     "willow",
     "magnolia",
+    "japanese_maple",
     "round_deciduous",
     "columnar_tree",
     "weeping_tree",
@@ -420,6 +603,7 @@ _DECIDUOUS_WOODY_STEMS: Final[frozenset[str]] = frozenset({
     "jasmine",
     "clematis",
     "wisteria",
+    "grape_vine",
     "climbing_plant",
 })
 
@@ -517,6 +701,15 @@ _TREE_OVERRIDES: Final[dict[str, tuple[CrownTraits, BranchingTraits, str, str]]]
         "ovate",
         "autumn",
     ),
+    # #940: low-branched and layered, as wide as tall; twisting limbs, fine lobed
+    # leaves. Its summer palette is already red (the red-leaved garden forms), so its
+    # autumn palette is the same one: the season tint warms it, never muddies it.
+    "japanese_maple": (
+        CrownTraits("spreading", trunk_share=0.14, taper=-0.20, droop=0.30, aspect_xy=1.06),
+        BranchingTraits(500, 2.4, 0.016, 0.06, 0.13, BARK_GREY, 1.0),
+        "lobed",
+        "redleaf",
+    ),
     "round_deciduous": (
         CrownTraits("round", trunk_share=0.30, taper=0.0, droop=0.15, aspect_xy=1.0),
         BranchingTraits(520, 2.5, 0.018, 0.12, 0.08, BARK_WALNUT, 1.0),
@@ -542,6 +735,16 @@ _TREE_OVERRIDES: Final[dict[str, tuple[CrownTraits, BranchingTraits, str, str]]]
         "autumn",
     ),
 }
+
+
+#: Grass recipes that are a clump of woody culms, not a tuft of basal blades (#940).
+#: Their crown is a ``vase`` — what ``plant_forge.herbaceous.build_forged_grass``
+#: builds as culms with leaf sprays: the lowest fifth of each culm bare, arching over
+#: at the top under its leaves.
+_CULM_CLUMP_STEMS: Final[frozenset[str]] = frozenset({"bamboo"})
+_CULM_CLUMP_CROWN: Final[CrownTraits] = CrownTraits(
+    "vase", trunk_share=0.20, taper=-0.30, droop=0.45, aspect_xy=1.0,
+)
 
 
 def _blossom_spec_for(stem: str, recipe: Recipe) -> str | None:
@@ -678,7 +881,8 @@ def _build_traits(group: str, stem: str, recipe: Recipe) -> Traits3D:
         )
 
     if archetype in ("grass", "allium"):
-        crown = CrownTraits("upright", trunk_share=0.0, taper=-0.20, droop=0.35, aspect_xy=1.0)
+        crown = (_CULM_CLUMP_CROWN if stem in _CULM_CLUMP_STEMS
+                 else CrownTraits("upright", trunk_share=0.0, taper=-0.20, droop=0.35, aspect_xy=1.0))
         branching = BranchingTraits(0, 2.2, 0.010, 0.35, 0.03, BARK_STEM, 1.0)
         leaf = LeafTraits("strap", round(18.0 * leaf_scale, 2), 0.18, leaf_scale, frilly, narrow)
         return Traits3D(
@@ -750,14 +954,30 @@ def _build_traits(group: str, stem: str, recipe: Recipe) -> Traits3D:
     )
 
 
-#: 3D traits for every species recipe (108).
+def _with_flowering(traits: Traits3D, stem: str, recipe: Recipe) -> Traits3D:
+    """``traits`` with how it flowers in 3D (#940): its flower and its leaves in bloom."""
+    return replace(
+        traits,
+        flower=_flower_traits_for(stem, recipe, traits.archetype, traits.blossom_spec),
+        bloom_leaf_density=(_PRECOCIOUS_BLOOM_LEAF_DENSITY.get(stem, 1.0)
+                            if traits.deciduous else 1.0),
+    )
+
+
+def _species_traits(stem: str, recipe: Recipe) -> Traits3D:
+    traits = _with_flowering(_build_traits(GROUP_SPECIES, stem, recipe), stem, recipe)
+    return replace(traits, frost_hardy_bloom=True) if stem in _FROST_HARDY_BLOOM_STEMS else traits
+
+
+#: 3D traits for every species recipe (111).
 SPECIES_TRAITS: Final[dict[str, Traits3D]] = {
-    stem: _build_traits(GROUP_SPECIES, stem, recipe) for stem, recipe in SPECIES.items()
+    stem: _species_traits(stem, recipe) for stem, recipe in SPECIES.items()
 }
 
 #: 3D traits for every category recipe (15).
 CATEGORY_TRAITS: Final[dict[str, Traits3D]] = {
-    stem: _build_traits(GROUP_CATEGORIES, stem, recipe) for stem, recipe in CATEGORIES.items()
+    stem: _with_flowering(_build_traits(GROUP_CATEGORIES, stem, recipe), stem, recipe)
+    for stem, recipe in CATEGORIES.items()
 }
 
 
@@ -793,6 +1013,10 @@ __all__ = [
     "BARK_WALNUT_DARK",
     "CATEGORY_TRAITS",
     "CROWN_SHAPES",
+    "FLOWER_CM_PER_RECIPE_RADIUS",
+    "FLOWER_HABITS",
+    "SCAPE_COVER",
+    "FlowerTraits",
     "HARVEST_WINDOWS_WEEKS",
     "LEAF_SHAPES",
     "REFERENCE_LAST_FROST",

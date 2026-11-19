@@ -824,6 +824,11 @@
     "state": "CLOSED",
     "title": "Windows offscreen Plan & Sun layout checks depend on font discovery and test order"
   },
+  "564": {
+    "is_pr": false,
+    "state": "OPEN",
+    "title": "Overhaul the repository showcase: README visuals, example plans, and GitHub metadata"
+  },
   "565": {
     "is_pr": true,
     "state": "MERGED",
@@ -1329,6 +1334,11 @@
     "state": "MERGED",
     "title": "feat(#698, #782, #784-#796, #836): 2D visual polish - sharp canvas, legible overlays, exports, theme and locale"
   },
+  "839": {
+    "is_pr": false,
+    "state": "OPEN",
+    "title": "2D plan: plants look the same in every season (trees in full leaf and fruit on 21 December)"
+  },
   "840": {
     "is_pr": false,
     "state": "CLOSED",
@@ -1538,6 +1548,11 @@
     "is_pr": false,
     "state": "CLOSED",
     "title": "Flaky unmeasured sun selection test waits for evaluations from an earlier refresh"
+  },
+  "940": {
+    "is_pr": false,
+    "state": "OPEN",
+    "title": "Ship 13 bundled example plans as showcase material (nine new, food forest enlarged)"
   },
   "951": {
     "is_pr": false,

@@ -19,8 +19,10 @@ from itertools import pairwise
 from pathlib import Path
 
 import pytest
+from PyQt6.QtCore import QTranslator
 
 from open_garden_planner.core.cad_geometry import point_to_segment_distance
+from open_garden_planner.core.i18n import _TRANSLATIONS_DIR
 from open_garden_planner.core.project import ProjectManager
 from open_garden_planner.core.scene3d.record import PARAM_RADIUS_CM
 from open_garden_planner.services.example_library import BUNDLED_EXAMPLES
@@ -28,6 +30,7 @@ from open_garden_planner.ui.canvas.canvas_scene import CanvasScene
 from open_garden_planner.ui.canvas.footprints import standing_point
 from open_garden_planner.ui.canvas.items import CircleItem, PolylineItem
 from open_garden_planner.ui.view3d.snapshot import snapshot_records
+from tests.example_specs import SPECS
 
 SCRIPTS = Path(__file__).resolve().parents[2] / "scripts"
 
@@ -41,7 +44,13 @@ def generator():
         sys.path.remove(str(SCRIPTS))
 
 
-@pytest.mark.parametrize("slug", ["food-forest", "raised-bed", "balcony", "family-garden"])
+def test_the_generator_authors_the_plans_of_the_table_and_no_other(generator):
+    """A plan that is in the generator and not in ``tests/example_specs.py`` would ship
+    with none of the rules checked on it."""
+    assert set(generator.AUTHORS) == set(SPECS)
+
+
+@pytest.mark.parametrize("slug", sorted(SPECS))
 def test_the_shipped_files_are_what_the_generator_makes(qtbot, generator, slug):
     content = generator.example_content(slug)
     assert set(content) == {f"{slug}.ogp", f"{slug}.meta.json", f"de/{slug}.ogp", f"es/{slug}.ogp"}
@@ -69,6 +78,20 @@ def test_family_garden_gravel_clears_the_projected_birch_canopy(qtbot):
     assert distance - radius - gravel.stroke_width / 2 >= 2.5
 
 
+@pytest.mark.parametrize("language", ("de", "es"))
+def test_example_species_names_match_the_translated_gallery(qtbot, generator, language):
+    from example_plans.i18n import localized_plan
+
+    translator = QTranslator()
+    assert translator.load(str(_TRANSLATIONS_DIR / f"open_garden_planner_{language}.qm"))
+    names = ("Geranium", "Marigold")
+    plan = {"objects": [{"metadata": {"plant_species": {"common_name": name}}} for name in names]}
+    localized = localized_plan(plan, language)
+    assert [
+        item["metadata"]["plant_species"]["common_name"] for item in localized["objects"]
+    ] == [translator.translate("GalleryData", name) for name in names]
+
+
 def test_the_check_mode_names_a_stale_file(qtbot, generator, monkeypatch, tmp_path):
     """``--check`` is this comparison for a person: it must not pass on a stale file."""
     for source in BUNDLED_EXAMPLES.glob("balcony.*"):
@@ -85,3 +108,16 @@ def test_the_check_mode_names_a_stale_file(qtbot, generator, monkeypatch, tmp_pa
     (tmp_path / "es" / "balcony.ogp").write_text(json.dumps(plan), encoding="utf-8")
     (tmp_path / "balcony.meta.json").unlink()
     assert generator.stale_files(["balcony"]) == ["balcony.meta.json", "es/balcony.ogp"]
+
+
+def test_a_word_without_a_translation_stops_the_generation(generator):
+    """It fell back to English silently, and the translated plan shipped with an English
+    name in it. A word outside the translated fields is never touched, even one the table
+    knows: a registered word must not rewrite a value that only reads the same."""
+    from example_plans.i18n import MissingTranslation, localized_plan
+
+    with pytest.raises(MissingTranslation, match="objects/name"):
+        localized_plan({"objects": [{"name": "A name nobody translated"}]}, "de", "demo")
+    untouched = {"objects": [{"object_type": "Compost", "name": ""}], "canvas": {"note": "Compost"}}
+    assert localized_plan(untouched, "de") == untouched
+    assert localized_plan({"objects": [{"name": "Compost"}]}, "es") == {"objects": [{"name": "Compostador"}]}

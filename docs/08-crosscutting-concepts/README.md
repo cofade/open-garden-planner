@@ -215,7 +215,7 @@ A stylesheet's box rules beat the sizes widget code sets, silently (PF-UI-38, PF
 - Gates: `scripts/normalize_icons.py` (idempotent canonicalizer) + `scripts/check_icon_conformance.py` + per-icon PROVENANCE — no entry, no merge
 
 ### Plant SVGs (`resources/plants/`, ADR-040)
-- **Generated, never hand-edited**: all 108 species + 15 category sprites are emitted by `scripts/generate_plant_sprites.py` in the user-approved "Lush Sprite" style; committed files must byte-match regeneration (`--check` + determinism test). See §8.22.
+- **Generated, never hand-edited**: all 111 species + 15 category sprites are emitted by `scripts/generate_plant_sprites.py` in the user-approved "Lush Sprite" style; committed files must byte-match regeneration (`--check` + determinism test). See §8.22.
 - Top-down, rotation-safe radial shading; QtSvg-subset only; contract in `resources/plants/README.md`, provenance in `resources/plants/PROVENANCE.md`
 - Consumed unchanged by `core/plant_renderer.py` (stable per-item rotation, optional tint); the canvas paints them through `paint_plant`, rasterised at the painter's resolution (§8.9.14)
 
@@ -4125,7 +4125,7 @@ confirmation, accepted under the loopback-trust model. See ADR-034 addendum
 **Resources & prompts (US-D1.5).** Five read-only resources — `garden://plan`
 (curated `PlanSummary`), `garden://plan/raw` (uncurated snapshot dict),
 `garden://canvas.png` (full-canvas PNG, no region/layer args), `garden://
-diagnostics`, `garden://species` (bundled species DB, 118 records) — and two
+diagnostics`, `garden://species` (bundled species DB, 123 records) — and two
 read-analysis prompts, `audit-plan` and `describe-garden` (new Qt-free
 `agent_api/prompts.py`), round out the epic's "tools + resources + prompts"
 MCP surface. Four of the five resources are one-line reuses of existing
@@ -5100,7 +5100,7 @@ survives is pinned in `tests/unit/test_plant_art.py`: "Lemon Balm", "Bean
 (Bush)" and "Sweet Potato" still take a fruit or vegetable sprite, because their
 names contain a whole word that is another plant's name - a curated alias table
 would fix them and was declined. The golden
-(`tests/fixtures/plant_art/sprite_resolution_golden.json`, 1,562 answers) is
+(`tests/fixtures/plant_art/sprite_resolution_golden.json`, 1,624 answers) is
 regenerated from the rule, and the rule it replaced is kept as `legacy_resolve`
 in the golden's generator. Changing the rule changes what users see on the plan.
 What the 3D view builds for a plant is the recipe of the sprite the plan shows;
@@ -5119,7 +5119,7 @@ assigned species is the one both views draw and build.
 
 **The golden has a generator.** `scripts/make_sprite_resolution_golden.py` keeps
 the rule statement for statement, with the question list; `--check` regenerates
-the 1,562 rows, and `--differential` holds the production rule AND the renderer
+the 1,624 rows, and `--differential` holds the production rule AND the renderer
 (with `Path.exists` patched) against that copy with sprite files missing — each
 of the 123 in turn, random sets, all species, all categories: 481,096
 comparisons, none different. The rule #446 REPLACED is kept there as
@@ -5616,7 +5616,7 @@ only subdivides the same band, it does not widen it).
 
 ## 8.26 Recorded permaculture traits and guild templates
 
-Species traits are curated facts/design annotations, not a planting-success score. `unknown` and empty functions mean no recorded fact. Botanical niche is independent of the illustration category and drawing layer. `scripts/curate_permaculture_traits.py` is the explicit reviewable assignment table for all 118 bundled species: tall woodland/walnut trees use canopy; fruit/smaller ornamental trees sub-canopy; woody bushes/subshrubs shrub; selected low spreading plants ground-cover; harvested underground crops root; climbing/trailing crops vine; remaining herbaceous crops/bulbs/flowers herbaceous. This is a representative food-forest niche, not a universal cultivar height prediction. A bulb grown for flowers stays herbaceous, while garlic grown underground is root. User snapshots can be edited independently.
+Species traits are curated facts/design annotations, not a planting-success score. `unknown` and empty functions mean no recorded fact. Botanical niche is independent of the illustration category and drawing layer. `scripts/curate_permaculture_traits.py` is the explicit reviewable assignment table for all 123 bundled species: tall woodland/walnut trees use canopy; fruit/smaller ornamental trees sub-canopy; woody bushes/subshrubs shrub; selected low spreading plants ground-cover; harvested underground crops root; climbing/trailing crops vine; remaining herbaceous crops/bulbs/flowers herbaceous. This is a representative food-forest niche, not a universal cultivar height prediction. A bulb grown for flowers stays herbaceous, while garlic grown underground is root. User snapshots can be edited independently.
 
 ### Function evidence and limitations
 
@@ -8546,7 +8546,7 @@ the drapes, the sun path and Cutaway (`scripts/render_beauty_board.py --analysis
 
 ### 8.29.11 Plant Forge — procedural 3D species models, LODs and phenology (L3, #387, ADR-064)
 
-All 123 sprite recipes (108 species, 15 categories) feed the same resolver and
+All 126 sprite recipes (111 species, 15 categories) feed the same resolver and
 `Traits3D` table in 2D and 3D. The forge covers 13 archetypes: canopy, conifer,
 palm, mound, hedge, rosette, grass, feathery, allium, head, ground, flower and
 climber. It uses no external model assets. Object sprite colours likewise live
@@ -8571,8 +8571,46 @@ Flower, fruit/pod and tuber parts have independent seasonal controls. Recorded
 harvest windows use `core/calendar_windows.py` and the plan's local frost dates,
 including cross-year and leap-day anchors. Illustrative bloom/leaf seasons shift
 six months in the southern hemisphere; the recorded frost calendar does not.
+Outside the plan's frost-free season only a tender plant's flowers are held back,
+because it is planted out after the last frost. A hardy species
+(`Traits3D.frost_hardy_bloom`: bulbs, hardy perennials and herbs, shrubs, woody
+climbers, fruit trees) flowers by its own bloom months, so crocus and daffodil bloom
+before the last frost and asters after the first (#940). Category fallbacks stay
+gated; the curated set is drift-guarded against the species file's `frost_tolerance`.
 Seasonal state changes update shader/Model values without copying mesh buffers.
 Plant existence remains the shared lifetime clock's responsibility (#315).
+
+**Flowers (#940).** `Traits3D.flower` (`FlowerTraits`) says where a plant's flowers
+stand and how big they really are: half the recipe radius (a fruit tree's spur cluster
+3.5 cm, a magnolia's 8 cm), never scaled by the plant. A crown's flowers - and its
+clusters (a lilac's panicles, a rhododendron's trusses, 0.6 of the recipe radius) - are
+counted by its surface, like its leaves (`foliage.crown_surface_cm2` times the cover,
+`accents.blossom_count`), inside the LOD's triangle budget and at most 0.4 of it
+(`accents.FLOWER_BUDGET_SHARE`): a LOD that cannot afford them gets fewer, larger ones
+(at most 1.8× at LOD0, 3× at LOD1), anchored on the crown's outer shell
+(`accents.crown_flower_anchors`). A tree that flowers before its leaves carries them on
+its outer twigs (`accents.wood_flower_anchors`), a shrub that does (forsythia) on its
+shell, each on a LOD0 twig from its nearest wood. A flowering bulb (tulip, daffodil,
+crocus, iris, lily) is a tuft of strap leaves up to 60 % of its height on its neck (its
+wood), with one leafless scape per flower in its flowers part - the flower inside the
+fit, so the plant's top is a flower's, and out of bloom the bulb is its leaves; its four
+outermost leaves (and an allium's) point along the plan's axes, so the fit's pull onto
+`REACH_MAX` keeps its spread. A sunflower's builder puts one head on each stem tip. Every
+petal is double-sided with normals bent along it and to the sky, an open petal's back
+lit like its front: the plant's `vc` material culls back faces, and before #940 every
+petal was wound toward the ground. Bloom opens over the first ten days of its window and
+fades over the last (`phenology.BLOOM_RAMP_DAYS`): every vertex of one flower carries
+the flower's phase in UV.y (`accents.with_phase`), and while the bloom is below 1
+`qml/screen.vert` collapses each flower whose phase is not below it, in every pass, its
+shadow too - flowers open one by one and no plant pops in or out of flower on the 1st
+(the door hands `COLOR` on, as `built_snow.vert` does, so it draws the principled look's
+colours). A deciduous plant that
+flowers before or with its leaves (`Traits3D.bloom_leaf_density`: magnolia, forsythia,
+peach, plum, cherry) carries only that share of its leaf area from budburst until it has
+flowered; its leaves unfold over the last quarter of the bloom window
+(`phenology.BLOOM_LEAF_UNFOLD_FROM`), and after it nothing changes. A perennial's recorded
+harvest window ripens only inside its curated fruit months. Pinned by
+`tests/unit/test_plant_forge_bloom.py`.
 
 Tests exercise actual workspace scheduling and render flags, asynchronous stale
 results, camera-only LOD, recovery invalidation, shader-only seasonal updates,
@@ -8580,7 +8618,8 @@ exact calendar dates, winter wood bounds and sparse tall crowns. They live in
 `tests/integration/test_plant_forge.py`, `test_plant_forge_workspace.py`,
 `test_plant_forge_calendar.py`, and the `test_plant_forge_l31.py` through
 `test_plant_forge_l34.py`, `test_phenology.py`, `test_plant_forge_review.py`,
-`test_plant_art.py` and `test_object_sprite_conformance.py` unit files.
+`test_plant_forge_bloom.py`, `test_plant_art.py` and `test_object_sprite_conformance.py`
+unit files.
 The production Beauty Board and frozen self-test also exercise forged models.
 
 The 300-plant / 100-support callback budget is **typical per-date wall time**,
@@ -8668,6 +8707,24 @@ tilts the normal by the tile texture's own luminance gradient (clamped ±0.35). 
 flips `v` itself: a `CustomMaterial`'s `TextureInput` ignores `Texture.flipV`
 (measured: the tiles drew mirrored north–south). Scene-wide OIT is not used: it broke
 L2's multiply drapes (ADR-065 decision 9).
+
+**A flower meadow (#940, ADR-065 addendum).** A LAWN whose fill pattern is WILDFLOWER is a
+meadow in 3D; no other lawn and no other kind changes. The snapshot writes `surface_pattern`
+into a LAWN's record for that pattern only, so every other lawn's record, mesh and baseline
+stays byte for byte. `surfaces._lawn` grows the lawn's own blade share as taller, looser
+blades (`MEADOW_BLADE_CM` 24 before variation, 12–38 cm; a tip at most 7 cm off its root; a
+darker foot and a mottle following patches of tall and short grass) and puts a flower head on
+one blade in `MEADOW_FLOWER_EVERY` (6) on average: a flat, tilted five-cornered polygon in a
+`plant_art.FLOWERS` entry's petal colour with a triangle eye in its centre colour (white,
+yellow, lilac, blue, red), each kind growing in drifts. A head has one normal and each of its
+triangles one colour: a far head is a sub-pixel sliver, and a centre-to-rim gradient that a
+multisampled pixel extrapolated came out as pure red, blue or black pixels (PF-L3D-36). The heads are a second, untinted `grass` part under the blades' name
+`lawn_blades`, so `lawnBlades` (High and Ultra only), `lawn.frag` and the grass sway apply with
+no QML change; a meadow blade's wind weight grows with its height (at the tip `uv.x² = √(h /
+7 cm)`). Relief reaches `MEADOW_TOP_CM` (44 cm) and stays inside the footprint plus 10 cm; the
+sward memory keys a meadow apart from a lawn. The flowers do not follow the season (the lawn
+has no phenology, #943). Pinned by the meadow cases of `test_scene3d_l4_surfaces.py`,
+`tests/integration/test_scene3d_meadow.py` and `tests/perf/test_scene3d_meadow_budget.py`.
 
 **The meadow's grass (#798, ADR-048 addendum "the meadow's grass").** The meadow and the plan's
 open ground are no longer one flat colour (73–80 % of the default framing was flat green): ONE
@@ -9376,10 +9433,23 @@ existing scheduler. Date navigation remains available without a location.
 
 ## 8.33 Offline examples and template authoring (US-F5, ADR-066)
 
-Four examples ship: three teaching plans and `family-garden`, the 3D view's showcase (the plan of
-the Beauty Board, ADR-066 addendum). `scripts/generate_examples.py [slug ...]` regenerates the
-named ones, or all; `--check` compares the shipped plans and sidecars with what the generator
-makes and writes nothing.
+Thirteen examples ship (#940). `family-garden` is the 3D view's showcase (the plan of the Beauty
+Board, ADR-066 addendum) and has no hint; the other twelve each show one side of the app and say so
+in a hint. `scripts/generate_examples.py [slug ...]` regenerates the named ones, or all; `--check`
+compares the shipped plans and sidecars with what the generator makes and writes nothing.
+
+| Where | What it holds |
+|---|---|
+| `scripts/generate_examples.py` | the command line, ids, tours, the three shipped files per plan |
+| `scripts/example_plans/<plan>.py` | one plan: `SLUG`, the sidecar's `META`, `build()`; optional `more_tours(framing)`, `THUMBNAIL`, `IDS` |
+| `scripts/example_plans/plan.py` | `Plan`, the builder of a new plan (shapes, buildings, plants, guild, succession, guide, distance, hint) |
+| `scripts/example_plans/authoring.py` | the helpers of the first three plans, kept as they were |
+| `scripts/example_plans/i18n.py`, `sites.py`, `tours.py`, `thumbnails.py` | the words, the places, the stored tours, the gallery picture |
+| `tests/example_specs.py` | what each plan is meant to be, stated a second time by hand |
+
+The sidecar's `order` is the gallery's order (`services/example_library.bundled_examples`), the same
+in every language. One thumbnail serves every language: it is rendered at the plan's showcase moment
+with the hint layer hidden, so it shows no text.
 
 Welcome's Examples & templates tab and File > New from example share
 `TemplateGallery`; File > New from template accepts any `.ogp`. Both call the one
@@ -9393,23 +9463,53 @@ bundled example takes the same copy semantics** (#865): `_load_project_file` ask
 in the install tree, Recent is untouched, and the report cover carries the sidecar's
 name.
 
-To author a bundled example, edit `scripts/generate_examples.py`, run it in the
-locked environment, inspect all three rendered previews and add its provenance.
+To author a bundled example, add a module to `scripts/example_plans/`, register it in the
+package's `PLANS`, add its row to `tests/example_specs.py` and to `PROVENANCE.md`, run the
+generator in the locked environment and look at the plan in 2D and in 3D.
 The shipped `.ogp` and `.meta.json` files are never edited by hand:
 `tests/integration/test_example_generation.py` fails when one differs from the
-generator's `example_content(slug)`. Thumbnails are written by the plain run and
-are not compared (they are rendered with the machine's fonts).
+generator's `example_content(slug)`, and when the generator and the table of
+`tests/example_specs.py` do not name the same plans. Thumbnails are written by the plain run
+and are not compared (they are rendered with the machine's fonts).
 Use the ordinary constructors and CreateItemsCommand so bed links and child lists
-agree. Parents and children must share a layer for the z-order clamp. IDs are
-normalized before the saved plan is reloaded and rendered. Every registered locale
+agree. Parents and children must share a layer for the z-order clamp. Every registered locale
 needs sidecar name/description text. These content strings follow the existing
 localized-data convention; widget text goes through Qt translation as usual.
+
+Authoring rules (#940), each with what holds it:
+
+| Rule | Why | Held by |
+|---|---|---|
+| A new plan's item id is made from the item's kind, name and place (`Plan._id`). The first three plans keep ids numbered in the order they appear (`IDS = "serial"`); an item added to one of them gets an id of its own (`OWN_IDS`). | A plant's sprite turn and 3D shape are seeded by its id. Tuning one item must not reshuffle a plan, and the food forest's 122 first items kept their ids when the orchard was added. | `_own_ids` in the generator; `test_example_generation.py` |
+| A word at a translated field (`i18n.TRANSLATED`) that is not in the table stops the generation. A word anywhere else is never touched. | The translation fell back to English silently; a registered word could have rewritten a value that only read the same. | `test_a_word_without_a_translation_stops_the_generation` |
+| A species is named as the plant gallery names it (`GalleryData`), except the names the first plans already shipped. | A plant in an example reads like the same plant dragged from the gallery. | `i18n.SPECIES_NAMES` |
+| The builder refuses a shape and type pair the Properties panel does not offer (`get_valid_types_for_shape`). A lawn, a terrace or a hedge is a polygon; a round table, a planter pot or a water tap is a circle; a string of lights is a polyline. | Nobody could have drawn the other pair. A `HEDGE_SECTION` rectangle is an older form the loader converts to a `HEDGE_POLYGON`, which renumbers its anchors: a constraint on it did not survive the load. | `Plan._add`; `test_the_cottage_garden_is_drawn_to_measure` |
+| A distance constraint's length is read off the drawing (`Plan.distance`). | A constraint that disagreed with the drawing would move an item on the user's first edit. | the same test |
+| A woody plant's size on the showcase date comes from the growth model, not from the size it is given. Give an established plant a recent planting date and the size it has; give a plant that must be old enough for a harvest its real planting year and check its grown size. | A walnut planted in 2014 as a nursery tree is 20 m wide in 2026; an olive in a tub planted in 2021 was 8 m tall. | the author's eyes; `Plan.done` |
+| An example opens without a warning: no plant closer than it is meant to be, no container fuller than it holds, no soil that does not suit. The family garden's 22 true spacing overlaps and the food forest's open guild role are stated in the table with their reason (`ExampleSpec.warnings`). | A plan made to be shown must not open with red rings, and a picture must not hide what a user gets. | `test_an_example_opens_with_the_warnings_its_table_row_names_and_no_other` |
+| A row, a grid and a drift state their planting distance, and a plant given a size is kept at that spread: the builder stores it as the plant's own spacing radius where it is less than the species' (`Plan.plant(apart=)`). Orchard trees of the food forest keep the species' radius and stand as far apart as their grown crowns need. A later drift gives way to an earlier one. | The spacing check compares the species' grown spread: a lavender edging, a bamboo screen and a sown row are planted closer on purpose, and a check that reports all of them reports nothing. | the same test |
+| Every item of every plan builds in 3D with the production builders. | A type or a fill no builder knows is a hole in the 3D view. | `test_every_item_of_an_example_builds_in_3d` |
+| The hint is the plan's only text and lies alone on the top layer `Hints`. | Hide that layer and the plan is ready for a picture. | `test_the_hint_lies_alone_on_the_top_layer_and_is_the_plans_only_text`; `test_hiding_the_hint_layer_leaves_the_plan_ready_for_a_picture` |
+| Every plan stores an eased orbit computed from its own bounds and its showcase sun (`tours.Framing`), with every number rounded; a plan may add a time-lapse of the day or the year. | No view is open when a plan is authored, and `--check` compares JSON. A tour's time range is a wall time on the computer's clock. | `test_an_examples_stored_tours_are_there_and_can_be_flown` |
+| A plan may give its orbit a pitch of its own (`ORBIT_PITCH_DEG`), a start of its own (`ORBIT_SUN_OFFSET_DEG`) and a nearer distance (`ORBIT_CLOSER`). | At the dialog's 18 degrees a wall or a hedge hides the garden behind it; the allotment starts over its see-through front. Values were set from renders. | `Framing`; `test_an_example_is_first_seen_in_3d_from_where_its_stored_orbit_starts` |
+| A hedge longer than 8 m is drawn as runs (`authoring.runs`). | A hedge has one budget of leaves per item, and a long one renders as a painted wall (#954). | the generation gate |
+| A plant in a pot stands in a container that is its parent, never on a `PLANTER_POT`. | A planter pot is furniture: the plant sinks into it and the pot looks empty. | 3D review of #940 |
+| Every place is in Central European Time. | The clock and a tour's time range read the computer's zone; the plan's `timezone` is not read (#945). | `test_an_example_has_its_place_its_plants_and_its_north` |
 
 Keep the field-classification test aligned with ProjectData. New project fields
 must be explicitly kept or stripped; unknown serialized top-level keys are dropped.
 The filter is not a free-text anonymizer. Succession dates are retained calendar
 dates, so authors state their example year rather than claiming climate adaptation.
 See `resources/examples/PROVENANCE.md` and `tests/integration/test_templates_gallery.py`.
+
+**The README's pictures (#564).** `scripts/capture_readme_media.py` takes every picture under
+`docs/images/readme/` from the app's own main window on the bundled plans: English interface,
+light theme, High quality, a temporary profile. The 3D pane is a native window that
+`QWidget.grab()` leaves empty, so the script grabs the window and paints the engine's own frame
+of the pane into it. It is run by hand on a machine with a graphics card, after a change to the
+look or to a plan; `tests/unit/test_readme_showcase.py` holds that every picture the README
+shows exists, has alt text, is written by the script and weighs at most 600 KiB, and that no
+picture is left over.
 
 ### Showcase state (#795)
 
@@ -9424,8 +9524,12 @@ An example opens as it is meant to be seen, however late it is on the wall clock
 
 The moment is a UTC time of day on the plan's LOCAL reference date, not a wall
 time: the clock reads wall time in the computer's zone (ADR-053), and midday on a
-wall clock in Auckland is night over a garden in Berlin. All four examples use
-11:00 UTC, which is 13:00 on a wall clock in their own place.
+wall clock in Auckland is night over a garden in Berlin. The first four examples use
+11:00 UTC, which is 13:00 on a wall clock in their own place. Since #940 a plan names the
+light it is meant to be seen in (`tests/example_specs.LIGHT`: day, morning, afternoon or
+golden hour), and the tests read that light off the sun over the plan's own place at its
+moment. No plan opens after sunset: the 2D canvas would show its night overlay
+(FR-EXAMPLE-08). The modern garden opens at golden hour and stores dusk as a tour.
 
 Data rules the content tests hold (`tests/unit/test_example_content.py`):
 
@@ -9446,8 +9550,10 @@ Data rules the content tests hold (`tests/unit/test_example_content.py`):
 - One English string has one translation per language in the generator's table
   (`text()` asserts it).
 
-End to end: `tests/integration/test_example_showcase.py` opens every example
-through the gallery's path in a window whose clock was seeded at 22:30. It saves
+End to end: `tests/integration/test_example_plans.py` opens every example through the
+gallery's path and checks its day, its light, its hint layer and its stored tours.
+`tests/integration/test_example_showcase.py` opens the first four
+through the same path in a window whose clock was seeded at 22:30. It saves
 the copy through File > Save, drops a plant through the canvas's creation path and
 reads the planting date back from the file; a test of "nothing of the example is
 saved" that only looks for key names cannot fail and was replaced by these.

@@ -167,8 +167,9 @@ def forge_plant(
         else:
             return build_silhouette(recipe_for(sprite), int(seed), h, r)
         if include_accents:
-            parts = attach_accents(parts, traits, h, r, seed, lod=lod)
-        return parts
+            return attach_accents(parts, traits, h, r, seed, lod=lod)
+        # a bulb's or a stemmed flower's builder placed its own flowers (#940)
+        return tuple(p for p in parts if p.name not in SEASONAL_PARTS)
 
     if cache is None:
         return _build()

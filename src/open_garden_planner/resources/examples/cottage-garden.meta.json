@@ -1,0 +1,24 @@
+{
+  "name_en": "Cottage garden - 12 x 12 m",
+  "name_de": "Bauerngarten - 12 x 12 m",
+  "name_es": "Jardín campesino - 12 x 12 m",
+  "name_ru": "Крестьянский сад - 12 x 12 м",
+  "description_en": "A formal four-square garden inside a picket fence: gravel cross paths, a rose roundel, four beds edged with box. Vegetables, herbs and flowers are mixed. Guide lines mark the two axes and distance constraints hold the path and bed measures. Fictional harvest log. Bamberg reference; opens on 20 June 2026 in daylight. Illustrative layout.",
+  "description_de": "Ein formaler Bauerngarten im Lattenzaun: Wegekreuz aus Kies, Rosenrondell, vier Beete mit Buchseinfassung. Gemüse, Kräuter und Blumen stehen gemischt. Hilfslinien markieren die beiden Achsen, Abstandsbedingungen halten Weg- und Beetmaße. Fiktives Erntebuch. Referenz Bamberg; öffnet am 20. Juni 2026 bei Tageslicht. Beispielentwurf.",
+  "description_es": "Un jardín formal de cuatro cuadros dentro de una valla de listones: caminos de grava en cruz, un rondel de rosas, cuatro bancales con borde de boj. Hortalizas, hierbas y flores se mezclan. Las guías marcan los dos ejes y las restricciones de distancia fijan las medidas. Cosechas ficticias. Referencia Bamberg; se abre el 20 de junio de 2026 con luz de día. Diseño ilustrativo.",
+  "description_ru": "Регулярный сад из четырёх квадратов за штакетником: гравийные дорожки крестом, розовая клумба в центре, четыре грядки с бордюром из самшита. Овощи, травы и цветы растут вперемешку. Направляющие отмечают две оси, а ограничения расстояний удерживают размеры дорожек и грядок. Условный журнал урожая. Ориентир: Бамберг; открывается 20 июня 2026 года при дневном свете. Примерный проект.",
+  "order": 6,
+  "tags": [
+    "cottage-garden",
+    "formal",
+    "guides"
+  ],
+  "showcase_date": "2026-06-20",
+  "showcase_utc_time": "09:00",
+  "license": "CC-BY-SA-4.0",
+  "attribution": "Open Garden Planner contributors; CC-BY-SA-4.0; see PROVENANCE.md.",
+  "attribution_en": "Open Garden Planner contributors; bundled CC-BY-SA-4.0 species data; see PROVENANCE.md.",
+  "attribution_de": "Mitwirkende von Open Garden Planner; mitgelieferte Artendaten unter CC-BY-SA-4.0; siehe PROVENANCE.md.",
+  "attribution_es": "Colaboradores de Open Garden Planner; datos de especies incluidos bajo CC-BY-SA-4.0; véase PROVENANCE.md.",
+  "attribution_ru": "Авторы Open Garden Planner; встроенные данные видов под лицензией CC-BY-SA-4.0; см. PROVENANCE.md."
+}

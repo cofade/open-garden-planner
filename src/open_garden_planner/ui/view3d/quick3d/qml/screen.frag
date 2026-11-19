@@ -17,11 +17,13 @@ float screenDoor(vec2 a)
     return screenDoor2(0.5 * a) * 0.25 + screenDoor2(a);   // 0 .. 15/16, Bayer 4 x 4
 }
 
+VARYING vec4 vColor;   // screen.vert hands COLOR on (VAR_COLOR came out darker)
+
 void MAIN()
 {
     if (screenDoor(FRAGCOORD.xy) >= uOpacity)
         discard;
-    BASE_COLOR = vec4(VAR_COLOR.rgb * uTint, 1.0);
+    BASE_COLOR = vec4(vColor.rgb * uTint, 1.0);
     ROUGHNESS = uRough;
     METALNESS = 0.0;
     SPECULAR_AMOUNT = uSpecular;

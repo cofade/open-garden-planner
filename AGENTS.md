@@ -252,7 +252,7 @@ Full how-to (step-by-step, `.ts` format, recompile command): see `docs/08-crossc
 
 - The issue tracker is the only work list. Read the issue and the roadmap's
   "Current work" section, then `git status` and `git log --oneline -20`.
-- Current release: **v1.40.8** (2026-11-18). No roadmap phase is active.
+- Current release: **v1.40.9** (2026-11-19). No roadmap phase is active.
   The plant gallery and 2D plan package is in review. Other work is in the open issues.
 - Live decisions that constrain the next change:
   - Measurement units (#673, ADR-078): geometry and Agent API units stay cm;
@@ -282,6 +282,11 @@ Full how-to (step-by-step, `.ts` format, recompile command): see `docs/08-crossc
     `ogp-lush-cinematic` references 013-019 before touching `ground.frag`, a built
     part's surface (`core/scene3d/materials.SURFACES`), the twilight fill, wind or
     the tour video. One shader draws all ground; a still fits its own shadow map.
+  - Bundled examples and README pictures (#940/#564): read the ADR-066 addendum and
+    §8.33 before touching `scripts/example_plans/`. The shipped files are generated
+    (`scripts/generate_examples.py`, `--check` in the suite); a plan's row in
+    `tests/example_specs.py` is stated by hand. After a change to the look, re-shoot
+    the README with `scripts/capture_readme_media.py` (real window, graphics card).
 - Docs of record: `docs/roadmap.md` (current work and status), the ADRs (decisions),
   `docs/functional-requirements.md` (capabilities), and the `ogp-architecture-contract`
   skill (invariants). If a fact is not there, it does not belong in this file.

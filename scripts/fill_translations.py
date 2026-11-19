@@ -712,11 +712,13 @@ TRANSLATIONS: dict[str, dict[str, str]] = {
         "Walnut Tree": "Walnussbaum",
         "Oak": "Eiche",
         "Maple": "Ahorn",
+        "Japanese Maple": "Fächerahorn",
         "Birch": "Birke",
         "Willow": "Weide",
         "Magnolia": "Magnolie",
         "Pine": "Kiefer",
         "Spruce": "Fichte",
+        "Windmill Palm": "Hanfpalme",
         # Shrub categories + species + hedge
         "Spreading Shrub": "Ausladender Strauch",
         "Compact Shrub": "Kompakter Strauch",
@@ -766,6 +768,9 @@ TRANSLATIONS: dict[str, dict[str, str]] = {
         "Jasmine": "Jasmin",
         "Hibiscus": "Hibiskus",
         "Crocus": "Krokus",
+        "Miscanthus": "Chinaschilf",
+        "Bamboo": "Bambus",
+        "Grape Vine": "Weinrebe",
         # Vegetable / herb categories + species
         "Vegetable": "Gemüse",
         "Herb": "Kräuter",

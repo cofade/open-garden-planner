@@ -440,14 +440,14 @@ def test_every_gallery_plant_is_built_as_the_sprite_the_canvas_draws(canvas: Can
 
 
 def test_every_species_string_is_built_as_the_sprite_the_canvas_draws(canvas: CanvasView) -> None:
-    """Every key of the species map — 222 strings, on a tree, a shrub and a
+    """Every key of the species map — 232 strings, on a tree, a shrub and a
     perennial in turn — and the strings the 2D rule is odd about (title case,
     blanks around, blanks ONLY, a name that partially matches another plant's
     key, a name the tables do not know): drawn and built from the same sprite."""
     odd = [" Rose ", "ROSE", "   ", " \t ", "Lemon Balm", "Melon", "Bean (Bush)", "Sweet Cherry",
            "no such plant", "e", "Wild Rose Hip", "sweet potato", "Winter Squash", "Watermelon"]
     strings = [*SPECIES_SPRITES, *(key.title() for key in list(SPECIES_SPRITES)[::9]), *odd]
-    assert len(SPECIES_SPRITES) == 222 and not any(":" in text for text in strings)
+    assert len(SPECIES_SPRITES) == 232 and not any(":" in text for text in strings)
     tools = ("TREE", "SHRUB", "PERENNIAL")
     items = [drop(canvas, f"{tools[n % 3]}:species={text}",
                   QPointF(80.0 + 110.0 * (n % 40), 200.0 + 300.0 * (n // 40)))
@@ -456,10 +456,12 @@ def test_every_species_string_is_built_as_the_sprite_the_canvas_draws(canvas: Ca
     assert _drawn_and_built(canvas, items) == []
     # ... and a string of blanks is no species at all: it takes the category's
     # sprite (#446 - the old substring rule answered the rose for it)
+    # (its kind follows its place in the list: the category is the kind's own)
     blanks = items[strings.index("   ")]
     drawn = plant_renderer._resolve_svg_path(blanks.object_type, blanks.plant_species, None)
-    assert drawn is not None and (drawn.parent.name, drawn.stem) == (
-        "categories", "round_deciduous")
+    kind_category = {"TREE": "round_deciduous", "SHRUB": "spreading_shrub",
+                     "PERENNIAL": "flowering_perennial"}[blanks.object_type.name]
+    assert drawn is not None and (drawn.parent.name, drawn.stem) == ("categories", kind_category)
 
 
 # ── the story's measuring script, run as documented, outside pytest ───────────

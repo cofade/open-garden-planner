@@ -97,6 +97,7 @@ from open_garden_planner.core.scene3d import (
     quantize_cm,
     ring_area,
 )
+from open_garden_planner.core.scene3d.builders.surfaces import MEADOW_PATTERN
 from open_garden_planner.core.scene3d.context import with_context
 from open_garden_planner.core.scene3d.polygon import (
     MAX_ITEM_VERTICES,
@@ -1120,7 +1121,8 @@ def _record_of(item: Any, object_type: Any, item_id: str, at_date: date | None,
     if refused is not None and (paint is None or height is not None):
         raise refused  # a solid needs regions: left out and reported, as before
     pattern = getattr(item, "fill_pattern", None)
-    if kind in _PATTERNED_SURFACES and pattern is not None:  # a deck's boards are geometry (L4.2)
+    if pattern is not None and (kind in _PATTERNED_SURFACES  # a deck's boards are geometry (L4.2)
+                                or (kind == "LAWN" and pattern.name == MEADOW_PATTERN)):  # a meadow (#940)
         params[PARAM_SURFACE_PATTERN] = pattern.name
     parent = getattr(item, "parent_bed_id", None)
     base = item_base_cm(item, lookup, at_date) if parent is not None else 0.0

@@ -460,7 +460,7 @@ assumes. UI ships English + German; German-facing quirks flagged inline.
 All facts verified 2026-07-04 against the working tree. Re-verify:
 
 ```bash
-# Species record count (expect 118)
+# Species record count (expect 123)
 python3 -c "import json;print(len(json.load(open('src/open_garden_planner/resources/data/plant_species.json'))['plants']))"
 
 # ObjectType member count (expect 43) + predicate sets

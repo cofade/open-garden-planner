@@ -19,7 +19,7 @@ from __future__ import annotations
 
 import logging
 import math
-from collections.abc import Iterable
+from collections.abc import Iterable, Sequence
 from dataclasses import dataclass
 from datetime import date, time
 from typing import Any, Final
@@ -38,7 +38,7 @@ from .camera_path import (
     distinct_keys,
 )
 from .plain_text import REPLACEMENT, log_text, normalise_text
-from .scene3d.camera import FOV_DEG, CameraPose
+from .scene3d.camera import DEFAULT_PITCH_DEG, FOV_DEG, CameraPose
 
 __all__ = ["DEFAULT_DURATION_S", "DEFAULT_ORBIT_PITCH_DEG", "DEFAULT_SIZE", "MAX_NAME_LENGTH",
            "MAX_REACH_CM", "MAX_TOURS", "MAX_TOUR_KEYS", "MOTIONS", "ORBIT_SECONDS_PER_TURN",
@@ -322,6 +322,19 @@ def checked_tours(tours: Iterable[SavedTour]) -> tuple[SavedTour, ...]:
     if len({tour.name.casefold() for tour in kept}) != len(kept):
         raise ValueError("Two tours of a plan have the same name")
     return kept
+
+
+def opening_side(tours: Sequence[SavedTour]) -> tuple[float, float] | None:
+    """The (yaw, pitch) a view of the plan opens from: the side the first stored orbit
+    starts on, never flatter than the view's own default pitch. None without an orbit.
+
+    A bundled example's orbit is authored for the plan's showcase light and over its
+    walls and hedges; the 3D view opens on that side (#940). An orbit may fly lower
+    than a view that is worked in should look, so the steeper of the two is taken."""
+    for tour in tours:
+        if tour.orbit is not None:
+            return tour.orbit.pose.yaw_deg, max(tour.orbit.pose.pitch_deg, DEFAULT_PITCH_DEG)
+    return None
 
 
 def load_tours(raw: Any) -> tuple[tuple[SavedTour, ...], int]:

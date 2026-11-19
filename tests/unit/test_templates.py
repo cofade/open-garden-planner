@@ -15,6 +15,7 @@ from open_garden_planner.core.templates import (
     template_plan,
 )
 from open_garden_planner.services.example_library import BUNDLED_EXAMPLES, bundled_examples
+from tests.example_specs import SPECS
 
 
 def test_every_project_field_has_one_explicit_policy(qtbot):
@@ -69,7 +70,7 @@ def test_portable_content_and_unknown_key_tolerance(qtbot):
 
 def test_catalog_content_is_localized_and_has_provenance(qtbot):
     entries = bundled_examples()
-    assert len(entries) >= 3
+    assert {entry.path.stem for entry in entries} == set(SPECS)
     provenance = (BUNDLED_EXAMPLES / "PROVENANCE.md").read_text(encoding="utf-8")
     for entry in entries:
         assert entry.path.name in provenance
@@ -81,7 +82,8 @@ def test_catalog_content_is_localized_and_has_provenance(qtbot):
         plan = json.loads(entry.path.read_text(encoding="utf-8"))
         clean = template_plan(plan)
         assert not {"location", "soil_tests", "harvest_logs", "metadata"} & clean.keys()
-        assert {"location", "harvest_logs"} <= plan.keys(), "the example's own demonstration state"
+        assert "location" in plan, "the example's own demonstration state"
+        assert ("harvest_logs" in plan) == (SPECS[entry.path.stem].harvests[1] > 0)
         assert clean["objects"] == plan["objects"]
         assert example_copy_plan(plan, entry.path) == {k: v for k, v in plan.items() if k != "metadata"}
 
@@ -101,18 +103,19 @@ def test_bundled_parent_links_and_forest_layers_follow_render_order(qtbot):
                     assert layers[obj["layer_id"]] >= layers[bed["layer_id"]]
                 assert obj["item_id"] in bed["child_item_ids"]
         if entry.path.stem == "food-forest":
-            assert len({layer["permaculture_layer"] for layer in plan["layers"]}) == 7
+            # the hint layer is no storey of the forest
+            assert len({layer["permaculture_layer"] for layer in plan["layers"]} - {None}) == 7
             assert any(obj.get("metadata", {}).get("guild") for obj in objects.values())
 
 
-@pytest.mark.parametrize("language", ["de", "es"])
-def test_localized_catalog_uses_localized_thumbnail_with_tutorial_text(language):
+@pytest.mark.parametrize("language", ["en", "de", "es", "ru"])
+def test_one_picture_serves_an_example_in_every_language(language):
+    """The picture shows the plan without its hint layer, the only text in a plan, so it
+    says nothing to translate. A picture per language cost 8 MB for the same image."""
     for entry in bundled_examples(language):
-        assert entry.thumbnail == entry.path.with_suffix(".png")
+        assert entry.thumbnail == BUNDLED_EXAMPLES / f"{entry.path.stem}.png"
         assert entry.thumbnail.is_file()
-        if entry.path.stem == "family-garden":
-            continue   # the showcase has no tutorial text: its picture says nothing to translate
-        assert entry.thumbnail.read_bytes() != (BUNDLED_EXAMPLES / entry.thumbnail.name).read_bytes()
+    assert not [*BUNDLED_EXAMPLES.glob("*/*.png")]
 
 
 def test_local_template_listing_never_parses_untrusted_plan_content(qtbot, tmp_path, monkeypatch):

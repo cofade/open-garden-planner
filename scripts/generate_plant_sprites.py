@@ -1,4 +1,4 @@
-"""Generate all plant sprite SVGs (108 species + 15 categories) — issue #281.
+"""Generate all plant sprite SVGs (111 species + 15 categories) — issue #281.
 
 This script IS the provenance record for every file under
 `src/open_garden_planner/resources/plants/` (see PROVENANCE.md there).
@@ -954,7 +954,7 @@ def main(argv: list[str] | None = None) -> int:
                         help="restrict to these sprite names (stems)")
     args = parser.parse_args(argv)
 
-    assert len(SPECIES) == 108, f"species table has {len(SPECIES)} entries, expected 108"
+    assert len(SPECIES) == 111, f"species table has {len(SPECIES)} entries, expected 111"
     assert len(CATEGORIES) == 15, f"category table has {len(CATEGORIES)} entries, expected 15"
 
     files = generate_all()

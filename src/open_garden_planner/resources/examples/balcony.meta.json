@@ -7,6 +7,7 @@
   "description_de": "Ein möblierter 5 x 3 m Balkon: 4 Basilikum-, 6 Petersilien- und 4 Thymianpflanzen, drei Geländerseiten, Nordwand und Schirm. Bodentest- und Schattenübung; Referenz Freiburg. Öffnet am Übungsdatum, dem 21. September 2026, bei Tageslicht. Beispielentwurf; Licht und Tragfähigkeit vor Ort prüfen.",
   "description_es": "Un balcón amueblado de 5 x 3 m: 4 albahacas, 6 perejiles y 4 tomillos, tres barandillas, pared norte y sombrilla. Tutorial de suelo y sombras; referencia Friburgo. Se abre en su fecha didáctica, el 21 de septiembre de 2026, con luz de día. Diseño ilustrativo; compruebe la luz y la capacidad de carga del lugar.",
   "description_ru": "Обустроенный балкон 5 x 3 м: 4 базилика, 6 петрушек и 4 тимьяна, три ограждения, северная стена и зонт. Обучение анализу почвы и теням; координаты Фрайбурга. Открывается на учебную дату, 21 сентября 2026 года, при дневном свете. Пример планировки; проверьте освещенность и допустимую нагрузку на месте.",
+  "order": 13,
   "tags": [
     "balcony",
     "containers",

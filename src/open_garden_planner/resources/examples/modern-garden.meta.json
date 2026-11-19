@@ -1,0 +1,24 @@
+{
+  "name_en": "Modern garden - 15 x 12 m",
+  "name_de": "Designgarten - 15 x 12 m",
+  "name_es": "Jardín moderno - 15 x 12 m",
+  "name_ru": "Современный сад - 15 x 12 м",
+  "description_en": "Straight lines and few materials: a flat-roofed bungalow, a slate terrace with hot tub, loungers and fire pit, a reflecting pool in the lawn, corten-steel beds with miscanthus and lavender, a bamboo screen and a red Japanese maple. Guide lines carry the grid. Lanterns and a string of lights: play the stored tour from evening into night and they come on. Munich reference; opens at golden hour on 15 August 2026. Illustrative layout.",
+  "description_de": "Klare Linien und wenige Materialien: Flachdach-Bungalow, Schieferterrasse mit Whirlpool, Liegen und Feuerstelle, ein Wasserbecken im Rasen, Cortenstahl-Beete mit Chinaschilf und Lavendel, ein Bambus-Sichtschutz und ein roter Fächerahorn. Hilfslinien tragen das Raster. Laternen und Lichterkette: die gespeicherte Fahrt vom Abend in die Nacht abspielen, dann gehen sie an. Referenz München; öffnet zur goldenen Stunde am 15. August 2026. Beispielentwurf.",
+  "description_es": "Líneas rectas y pocos materiales: un bungaló de cubierta plana, una terraza de pizarra con bañera de hidromasaje, tumbonas y hoguera, un estanque espejo en el césped, bancales de acero corten con eulalia y lavanda, una pantalla de bambú y un arce japonés rojo. Las guías marcan la retícula. Faroles y guirnalda: reproduzca el recorrido del atardecer a la noche y se encienden. Referencia Múnich; se abre a la hora dorada del 15 de agosto de 2026. Diseño ilustrativo.",
+  "description_ru": "Прямые линии и немного материалов: бунгало с плоской крышей, сланцевая терраса с джакузи, шезлонгами и очагом, зеркальный бассейн на газоне, грядки из кортеновской стали с мискантусом и лавандой, ширма из бамбука и красный японский клён. Направляющие задают сетку. Фонари и гирлянда: запустите сохранённый облёт от вечера к ночи, и они зажгутся. Ориентир: Мюнхен; открывается в золотой час 15 августа 2026 года. Примерный проект.",
+  "order": 5,
+  "tags": [
+    "modern",
+    "lights",
+    "dusk"
+  ],
+  "showcase_date": "2026-08-15",
+  "showcase_utc_time": "17:40",
+  "license": "CC-BY-SA-4.0",
+  "attribution": "Open Garden Planner contributors; CC-BY-SA-4.0; see PROVENANCE.md.",
+  "attribution_en": "Open Garden Planner contributors; bundled CC-BY-SA-4.0 species data; see PROVENANCE.md.",
+  "attribution_de": "Mitwirkende von Open Garden Planner; mitgelieferte Artendaten unter CC-BY-SA-4.0; siehe PROVENANCE.md.",
+  "attribution_es": "Colaboradores de Open Garden Planner; datos de especies incluidos bajo CC-BY-SA-4.0; véase PROVENANCE.md.",
+  "attribution_ru": "Авторы Open Garden Planner; встроенные данные видов под лицензией CC-BY-SA-4.0; см. PROVENANCE.md."
+}

@@ -18,7 +18,22 @@ if __package__ in (None, ""):
 from scripts.check_dependency_lock import EXPORT_ARGS
 
 ROOT = Path(__file__).resolve().parents[1]
-SYNC_FILES = ("pyproject.toml", "src/open_garden_planner/__init__.py", "uv.lock", "pylock.toml")
+SYNC_FILES = ("pyproject.toml", "src/open_garden_planner/__init__.py", "uv.lock", "pylock.toml",
+              "README.md")
+#: The README's download button: a link to the installer of one release. The release
+#: workflow names the installer after its version, so "the latest installer" has no fixed
+#: address; this sync moves the link to each new release instead (#564).
+INSTALLER_LINK = re.compile(
+    r"(releases/download/v)\d+\.\d+\.\d+(/OpenGardenPlanner-v)\d+\.\d+\.\d+(-Setup\.exe)")
+
+
+def replace_installer_link(readme: str, version: str) -> str:
+    """The README with every installer download link pointing at ``version``."""
+    updated, count = INSTALLER_LINK.subn(
+        lambda m: f"{m.group(1)}{version}{m.group(2)}{version}{m.group(3)}", readme)
+    if count == 0:
+        raise ValueError("README has no installer download link to sync")
+    return updated
 
 
 def third_party_packages(content: bytes) -> list[str]:
@@ -78,6 +93,7 @@ def prepare(root: Path, tag: str, source_pr: int, uv: str) -> dict[str, bytes]:
         raise ValueError("Expected vMAJOR.MINOR.PATCH and a positive source PR")
     version = match.group(1)
     originals = {name: (root / name).read_bytes() for name in SYNC_FILES}
+    readme = replace_installer_link(originals["README.md"].decode("utf-8"), version)
     manifest = originals["pyproject.toml"].decode("utf-8")
     current = tomllib.loads(manifest)["project"]["version"]
     if tuple(map(int, version.split("."))) < tuple(map(int, current.split("."))):
@@ -92,6 +108,8 @@ def prepare(root: Path, tag: str, source_pr: int, uv: str) -> dict[str, bytes]:
     with tempfile.TemporaryDirectory(prefix="ogp-version-sync-") as tmp:
         stage = Path(tmp)
         for name, content in originals.items():
+            if name == "README.md":
+                continue          # uv only needs one to exist: the stand-in below
             target = stage / name
             target.parent.mkdir(parents=True, exist_ok=True)
             target.write_bytes(content)
@@ -108,7 +126,8 @@ def prepare(root: Path, tag: str, source_pr: int, uv: str) -> dict[str, bytes]:
         subprocess.run([uv, *EXPORT_ARGS, "--offline", "--output-file", "pylock.toml"],
                        cwd=stage, check=True, capture_output=True, text=True,
                        encoding="utf-8", timeout=180)
-        prepared = {name: (stage / name).read_bytes() for name in SYNC_FILES}
+        prepared = {name: (stage / name).read_bytes() for name in SYNC_FILES if name != "README.md"}
+    prepared["README.md"] = readme.encode("utf-8")
     if third_party_packages(prepared["uv.lock"]) != third_party_packages(originals["uv.lock"]):
         raise ValueError("Version sync changed a third-party package record")
     return prepared

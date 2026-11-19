@@ -12,6 +12,9 @@ import pytest
 from PyQt6.QtCore import QPointF, Qt
 from PyQt6.QtGui import QPolygonF
 
+from open_garden_planner.core.solar import solar_position
+from tests.example_specs import COGNATES, LIGHT, SPECS, showcase_utc
+
 RESOURCES = Path(__file__).parents[2] / "src/open_garden_planner/resources"
 EXAMPLES = RESOURCES / "examples"
 SLUGS = ("raised-bed", "food-forest", "balcony")   # the teaching plans
@@ -54,9 +57,38 @@ def test_main_raised_bed_is_full_and_mature_footprints_clear_the_actual_sprite_s
         assert (reference - planted).days == ages[species(plant)]
 
 
+def in_the_forest_garden(obj):
+    """The dense half of the food forest plan: the 20 x 10 m it was before the orchard."""
+    return obj["center_x"] < 2000 and obj["center_y"] < 1000
+
+
+def test_the_orchard_meadow_holds_standard_trees_and_a_walnut_guild():
+    """The open half (#940): no beds, trees far enough apart for their grown crowns, and
+    the walnut with the asters it tolerates."""
+    plan = load("food-forest")
+    orchard = [o for o in plan["objects"] if species(o) and not in_the_forest_garden(o)]
+    assert Counter(map(species, orchard)) == {
+        "pyrus communis": 1, "malus domestica": 1, "prunus domestica": 1, "juglans regia": 1,
+        "symphyotrichum novi-belgii": 6,
+    }
+    assert not any(o.get("parent_bed_id") for o in orchard)
+    walnut = next(o for o in orchard if species(o) == "juglans regia")
+    members = [o for o in orchard if o["metadata"].get("guild")]
+    assert Counter(o["metadata"]["guild"]["role"] for o in members) == {
+        "centre": 1, "pollinator_attractor": 6}
+    assert len({o["metadata"]["guild"]["guild_id"] for o in members}) == 1
+    for aster in (o for o in members if o is not walnut):
+        distance = math.hypot(aster["center_x"] - walnut["center_x"], aster["center_y"] - walnut["center_y"])
+        assert 160 <= distance <= 200, "at the young walnut's canopy edge"
+    meadows = [o for o in plan["objects"] if o.get("object_type") == "LAWN" and o.get("fill_pattern") == "WILDFLOWER"]
+    # one meadow round the forest garden: two that touch show their seam in 3D
+    assert len(meadows) == 1 and meadows[0]["type"] == "polygon"
+    assert plan["canvas"] == {"width": 3000, "height": 2000}
+
+
 def test_forest_uses_established_trees_grouped_ground_cover_and_local_guild_members():
     plan = load("food-forest")
-    plants = [o for o in plan["objects"] if species(o)]
+    plants = [o for o in plan["objects"] if species(o) and in_the_forest_garden(o)]
     assert not any(species(o) == "solanum tuberosum" for o in plants)
     assert Counter(map(species, plants)) == {
         "malus domestica": 1, "prunus persica": 1, "ribes rubrum": 3,
@@ -342,7 +374,8 @@ def test_localized_examples_keep_geometry_ids_art_and_botanical_truth(slug, lang
             before, after = old["metadata"]["plant_species"], new["metadata"]["plant_species"]
             assert {k: v for k, v in before.items() if k != "common_name"} == {
                 k: v for k, v in after.items() if k != "common_name"}
-            assert before["common_name"] != after["common_name"]
+            assert (before["common_name"] != after["common_name"]
+                    or before["common_name"] in COGNATES[language])
             assert old["metadata"]["plant_instance"] == new["metadata"]["plant_instance"]
         if old["type"] == "text":
             assert old["content"] != new["content"]
@@ -371,9 +404,8 @@ def test_the_showcases_trees_stand_before_a_time_lapse_starts_and_the_beds_come_
 
 # ── #795: the showcase state ────────────────────────────────────────────────
 
-EVERY = (*SLUGS, SHOWCASE)
-REFERENCE = {"family-garden": "2026-06-21", "food-forest": "2026-09-21",
-             "raised-bed": "2026-09-21", "balcony": "2026-09-21"}
+EVERY = tuple(SPECS)
+REFERENCE = {slug: spec.reference for slug, spec in SPECS.items()}
 
 
 @pytest.mark.parametrize("language", ("", "de", "es"))
@@ -390,7 +422,7 @@ def test_the_showcases_paths_are_as_wide_as_a_path_one_walks_on(language):
 @pytest.mark.parametrize("slug", EVERY)
 def test_no_example_path_is_a_hairline(slug):
     paths = [o for o in load(slug)["objects"] if o.get("object_type") == "PATH"]
-    assert paths or slug == "balcony"
+    assert bool(paths) == SPECS[slug].paths
     for path in paths:
         width = path["stroke_width"] if path["type"] == "polyline" else min(path["width"], path["height"])
         assert width >= 40, (slug, path.get("name"), width)
@@ -398,10 +430,17 @@ def test_no_example_path_is_a_hairline(slug):
 
 @pytest.mark.parametrize("slug", EVERY)
 def test_the_sidecar_names_a_daytime_moment_on_the_reference_date(slug):
+    """The light the plan is meant to be seen in, read off the sun over the plan's own
+    place: a time of day says nothing about the light in another season or city."""
     meta = json.loads((EXAMPLES / f"{slug}.meta.json").read_text(encoding="utf-8"))
-    assert meta["showcase_date"] == REFERENCE[slug]
-    hour, minute = map(int, meta["showcase_utc_time"].split(":"))
-    assert 9 <= hour <= 13 and 0 <= minute < 60     # 11:00 to 15:00 on a Berlin summer-time clock
+    spec = SPECS[slug]
+    assert meta["showcase_date"] == spec.reference
+    latitude, longitude = spec.place
+    sun = solar_position(latitude, longitude, showcase_utc(spec, meta["showcase_utc_time"]))
+    low, high, side = LIGHT[spec.light]
+    assert low <= sun.elevation_deg <= high, (slug, spec.light, round(sun.elevation_deg, 1))
+    if side:
+        assert (sun.azimuth_deg < 180.0) == (side == "east"), (slug, round(sun.azimuth_deg, 1))
     for language in ("en", "de", "es", "ru"):
         assert str(date.fromisoformat(REFERENCE[slug]).year) in meta[f"description_{language}"]
         assert meta[f"attribution_{language}"]
@@ -412,8 +451,9 @@ def test_the_sidecar_names_a_daytime_moment_on_the_reference_date(slug):
 def test_the_harvest_history_is_fictional_and_fits_its_plants_and_the_reference_date(slug, language):
     plan, original = load(slug, language), load(slug)
     by_id = {o["item_id"]: o for o in plan["objects"]}
-    logs = plan["harvest_logs"]
-    assert 3 <= len(logs) <= 8, "a small history"
+    logs = plan.get("harvest_logs", {})
+    low, high = SPECS[slug].harvests
+    assert low <= len(logs) <= high, "a small history"
     seen = set()
     for target, history in logs.items():
         plant = by_id[target]
@@ -458,7 +498,7 @@ def test_a_harvest_fits_the_age_of_the_plant_that_gave_it(slug):
     plan = load(slug)
     by_id = {o["item_id"]: o for o in plan["objects"]}
     woody = 0
-    for target, history in plan["harvest_logs"].items():
+    for target, history in plan.get("harvest_logs", {}).items():
         plant = by_id[target]
         kind = plant.get("object_type", "")
         wait = BEARS_AFTER_YEARS.get(kind)
@@ -479,7 +519,7 @@ def test_a_harvest_fits_the_age_of_the_plant_that_gave_it(slug):
         for year, kilograms in per_year.items():
             age = (date(int(year), 12, 31) - planted).days / 365.25
             assert kilograms <= 7.0 * age, (slug, history["species_name"], year, kilograms, age)
-    assert woody == {"family-garden": 1, "food-forest": 3}.get(slug, 0)
+    assert woody == SPECS[slug].woody_harvests
 
 
 def test_the_showcases_cherry_is_a_tree_of_several_years_with_the_crown_it_had():

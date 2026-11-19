@@ -1,0 +1,24 @@
+{
+  "name_en": "Japanese garden - 12 x 10 m",
+  "name_de": "Japangarten - 12 x 10 m",
+  "name_es": "Jardín japonés - 12 x 10 m",
+  "name_ru": "Японский сад - 12 x 10 м",
+  "description_en": "Sand, stone and water on an October afternoon: a raked sand court with moss islands and rocks, a pond with a plank bridge, a tea house with a hip roof and a timber veranda, stepping stones and slate. Red Japanese maples, a birch in autumn yellow, pine, bamboo, rhododendron and box. Nearly every ground material lies side by side here. Düsseldorf reference; opens on 20 October 2026 in low afternoon light. Illustrative layout.",
+  "description_de": "Sand, Stein und Wasser an einem Oktobernachmittag: ein geharkter Sandhof mit Moosinseln und Steinen, ein Teich mit Bohlenbrücke, ein Teehaus mit Walmdach und Holzveranda, Trittsteine und Schiefer. Rote Fächerahorne, eine Birke in Herbstgelb, Kiefer, Bambus, Rhododendron und Buchs. Fast jedes Bodenmaterial liegt hier nebeneinander. Referenz Düsseldorf; öffnet am 20. Oktober 2026 im tiefen Nachmittagslicht. Beispielentwurf.",
+  "description_es": "Arena, piedra y agua en una tarde de octubre: un patio de arena rastrillada con islas de musgo y rocas, un estanque con puente de tablones, una casa de té con tejado a cuatro aguas y galería de madera, pasaderas y pizarra. Arces japoneses rojos, un abedul amarillo de otoño, pino, bambú, rododendro y boj. Casi todos los materiales de suelo están aquí juntos. Referencia Düsseldorf; se abre el 20 de octubre de 2026 con luz baja de tarde. Diseño ilustrativo.",
+  "description_ru": "Песок, камень и вода октябрьским днём: двор из граблёного песка с островками мха и камнями, пруд с дощатым мостиком, чайный домик с вальмовой крышей и деревянной верандой, шаговые камни и сланец. Красные японские клёны, берёза в осенней желтизне, сосна, бамбук, рододендрон и самшит. Здесь рядом лежат почти все материалы покрытий. Ориентир: Дюссельдорф; открывается 20 октября 2026 года при низком послеполуденном свете. Примерный проект.",
+  "order": 4,
+  "tags": [
+    "japanese",
+    "materials",
+    "autumn"
+  ],
+  "showcase_date": "2026-10-20",
+  "showcase_utc_time": "13:50",
+  "license": "CC-BY-SA-4.0",
+  "attribution": "Open Garden Planner contributors; CC-BY-SA-4.0; see PROVENANCE.md.",
+  "attribution_en": "Open Garden Planner contributors; bundled CC-BY-SA-4.0 species data; see PROVENANCE.md.",
+  "attribution_de": "Mitwirkende von Open Garden Planner; mitgelieferte Artendaten unter CC-BY-SA-4.0; siehe PROVENANCE.md.",
+  "attribution_es": "Colaboradores de Open Garden Planner; datos de especies incluidos bajo CC-BY-SA-4.0; véase PROVENANCE.md.",
+  "attribution_ru": "Авторы Open Garden Planner; встроенные данные видов под лицензией CC-BY-SA-4.0; см. PROVENANCE.md."
+}

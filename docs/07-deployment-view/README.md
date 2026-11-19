@@ -828,7 +828,10 @@ After owner manual-test approval, `finalize-us` verifies the current head and al
 checks, marks the feature ready and merges normally. It waits for the successful Release run
 and tag belonging to that merge SHA, then prepares `chore/sync-vX.Y.Z-pr-N`. The helper
 `scripts/prepare_version_sync.py` updates both source versions and refreshes the lock offline
-without changing third-party selections. A reviewed draft chore PR is checked and merged under
+without changing third-party selections. It also moves the README's download button to the new
+release's installer (#564): the release workflow names the installer after its version, so the
+latest installer has no fixed address, and the button links to one release's file. Between a
+release and its sync the button offers the previous installer. A reviewed draft chore PR is checked and merged under
 the same authorization, followed by wiki sync and cleanup; no second confirmation is needed.
 The chore squash prefix skips Release. A chore-only finalization never waits for a new tag.
 
