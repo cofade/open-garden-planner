@@ -8565,21 +8565,35 @@ Plant existence remains the shared lifetime clock's responsibility (#315).
 
 **Flowers (#940).** `Traits3D.flower` (`FlowerTraits`) says where a plant's flowers
 stand and how big they really are: half the recipe radius (a fruit tree's spur cluster
-3.5 cm, a magnolia's 8 cm), never scaled by the plant. A crown's flowers are counted by
-its surface, like its leaves (`foliage.crown_surface_cm2` times `FlowerTraits.cover`,
-`accents.blossom_count`), inside the LOD's triangle budget: a LOD that cannot afford
-them gets fewer, larger ones (at most 1.8× at LOD0, 3× at LOD1), anchored on the
-crown's outer shell (`accents.crown_flower_anchors`). A flowering bulb (tulip,
-daffodil, crocus, iris, lily) is a tuft of strap leaves up to 60 % of its height with
-one leafless scape per flower, the flower inside the fit so the plant's top is a
-flower's; a sunflower's builder puts one head on each stem tip. Every petal is
-double-sided with normals bent to the sky: the plant's `vc` material culls back faces,
-and before #940 every petal was wound toward the ground. A deciduous plant that flowers
-before or with its leaves (`Traits3D.bloom_leaf_density`: magnolia, forsythia, peach,
-plum, cherry) carries only that share of its leaf area while it flowers; its leaves
-unfold over the last quarter of the bloom window (`phenology.BLOOM_LEAF_UNFOLD_FROM`),
-and outside it nothing changes. A perennial's recorded harvest window ripens only inside
-its curated fruit months. Pinned by `tests/unit/test_plant_forge_bloom.py`.
+3.5 cm, a magnolia's 8 cm), never scaled by the plant. A crown's flowers - and its
+clusters (a lilac's panicles, a rhododendron's trusses, 0.6 of the recipe radius) - are
+counted by its surface, like its leaves (`foliage.crown_surface_cm2` times the cover,
+`accents.blossom_count`), inside the LOD's triangle budget and at most 0.4 of it
+(`accents.FLOWER_BUDGET_SHARE`): a LOD that cannot afford them gets fewer, larger ones
+(at most 1.8× at LOD0, 3× at LOD1), anchored on the crown's outer shell
+(`accents.crown_flower_anchors`). A tree that flowers before its leaves carries them on
+its outer twigs (`accents.wood_flower_anchors`), a shrub that does (forsythia) on its
+shell, each on a LOD0 twig from its nearest wood. A flowering bulb (tulip, daffodil,
+crocus, iris, lily) is a tuft of strap leaves up to 60 % of its height on its neck (its
+wood), with one leafless scape per flower in its flowers part - the flower inside the
+fit, so the plant's top is a flower's, and out of bloom the bulb is its leaves; its four
+outermost leaves (and an allium's) point along the plan's axes, so the fit's pull onto
+`REACH_MAX` keeps its spread. A sunflower's builder puts one head on each stem tip. Every
+petal is double-sided with normals bent along it and to the sky, an open petal's back
+lit like its front: the plant's `vc` material culls back faces, and before #940 every
+petal was wound toward the ground. Bloom opens over the first ten days of its window and
+fades over the last (`phenology.BLOOM_RAMP_DAYS`): every vertex of one flower carries
+the flower's phase in UV.y (`accents.with_phase`), and while the bloom is below 1
+`qml/screen.vert` collapses each flower whose phase is not below it, in every pass, its
+shadow too - flowers open one by one and no plant pops in or out of flower on the 1st
+(the door hands `COLOR` on, as `built_snow.vert` does, so it draws the principled look's
+colours). A deciduous plant that
+flowers before or with its leaves (`Traits3D.bloom_leaf_density`: magnolia, forsythia,
+peach, plum, cherry) carries only that share of its leaf area from budburst until it has
+flowered; its leaves unfold over the last quarter of the bloom window
+(`phenology.BLOOM_LEAF_UNFOLD_FROM`), and after it nothing changes. A perennial's recorded
+harvest window ripens only inside its curated fruit months. Pinned by
+`tests/unit/test_plant_forge_bloom.py`.
 
 Tests exercise actual workspace scheduling and render flags, asynchronous stale
 results, camera-only LOD, recovery invalidation, shader-only seasonal updates,

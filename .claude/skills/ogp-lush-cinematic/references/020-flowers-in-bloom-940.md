@@ -1,4 +1,4 @@
-# Flowers in bloom — counted by the crown, double-sided, above a bulb's leaves (#940)
+# Flowers in bloom — counted by the crown, on their wood, opening one by one (#940)
 
 The rules #940 gave a plant's flowers (`core/plant_art/traits3d.FlowerTraits`,
 `core/plant_forge/accents.py`, the bulb and stemmed-flower builders in `herbaceous.py`,
@@ -25,7 +25,7 @@ first not visible in the code's numbers at all:
 5. **Leaves of July in April:** the budburst ramp gave magnolia, cherry, plum and forsythia
    a leaf density of 0.943 on 18 April.
 
-## The values
+## The values (round 1; review 2 below changes some)
 
 | What | Value | Why |
 |---|---|---|
@@ -55,7 +55,7 @@ than 25°, whose saturation moved by more than 0.2, or whose value ROSE by more 
 flower's shadow only darkens and keeps the hue. The life (butterflies) is the noise floor,
 about 0.01 %. Clusters and puffs (lavender, rhododendron) are part of `flowers` and count.
 
-## Measured (High, 1600 × 900, each plan at its showcase moment, LOD0)
+## Measured after round 1 (High, 1600 × 900, each plan at its showcase moment, LOD0)
 
 The share of the frame the flowers make (the method above), the same cameras before and
 after #940 (eye → target in plan cm):
@@ -84,16 +84,56 @@ July as green summer crowns with cherries — before #940 the two frames were al
 LOD1 (forced on every plant) the trees' flowers are fewer and up to 3× larger: the cherry
 244 instead of 813, the rose a clearly pink dome from the cottage orbit.
 
+## Review 2: what changed and why
+
+The second independent review (frames and probes measured on the merged branch) found one
+truth gate failing and five P1. The values that moved:
+
+| What | Was | Now | Why |
+|---|---|---|---|
+| A bulb's and an allium's spread | the box of a few blades, fitted to 2 r, then every vertex past `REACH_MAX` pulled onto the circle | the four outermost leaves along the plan's axes (within 0.15 rad) at the clump's longest reach (`herbaceous._pin_spread_to_axes`) | with the box's extremes on diagonals the pull took them in: a daffodil 0.868 of 2 r at LOD2, a crocus 0.870, an onion 0.847 - the spread gate failed. Now 0.95-1.03 over seeds 0-63 |
+| A bulb's scapes | its wood, shown all year | in its flowers part with the flowers; its wood is its neck (5 % of the height) | ten months a year the bulb stood as bare dark stalks |
+| Bloom in its window | a step: 1 on the window's first day, 0 the day after its last | opens over the first `BLOOM_RAMP_DAYS` (10) of its run of months, fades over the last | "A year in the garden" popped whole trees in and out of flower on the 1st |
+| How flowers fade | the part's visibility, then the colour pass's dither | each flower collapses by its own phase (UV.y, `accents.with_phase`) in `qml/screen.vert`, in every pass, its shadow too | the dither left whole crowns under the shadows of flowers barely drawn |
+| The screen door's colour | `VAR_COLOR` | `COLOR` handed on through `vColor` | read as `VAR_COLOR` the door drew darker and more saturated than the principled look (`ogp-3d-renderer` 24): a crown of blossom brightened the day its bloom reached 1 |
+| A precocious bloomer's leaves | held at `bloom_leaf_density` from the window's first day | held from budburst until it has flowered | a cherry's leaves fell from 0.54 on 31 March to 0.18 on 1 April |
+| Clusters (lilac, rhododendron, hydrangea, pelargonium) | `max(3, n × 2)` at `ref_r × 0.55 × plant_scale` | counted by the crown's surface (`CLUSTER_COVER` 0.15) at 0.6 of the recipe radius, on the crown's shell (an allium's top third) | the two rules retired for crown flowers in round 1 hid every truss in a green crown |
+| A precocious tree's flowers | on leaves that are screen-doored down to 6-18 % in bloom | on its outer twigs (`accents.wood_flower_anchors`: points on the wood's outer 30 % in the crown's box) | a cherry's flowers floated a median 26.9 cm from any wood |
+| A precocious shrub's flowers (forsythia) | as a tree's | on its crown's shell, each tied to its nearest wood by a LOD0 twig (6 triangles, 0.2 cm, in the flowers part) | its seven stems cannot carry them: along them the flowers read as yellow bottle-brushes |
+| Petal normals | bent out from the flower's centre; an open petal's back its own | bent along the petal only; an open petal's back takes its front's normal; a bulb's goblet keeps its outside normal and leans to the sky by a quarter (`GOBLET_SKY_SHARE`) | the bend across a petal drew pinwheels; the backs read dark violet (cherry 2.93 % of a close-up) |
+| The crocus | the "purple" petal colour, tip 0.45 to the light | `FlowerTraits.shade` 0.5 and `tip_light` 0.25 | its hue rose with its brightness under the filmic curve - 268 degrees at value 0.62, 280 at 0.98 - not with the light tip: +12 degrees, pale lilac |
+| A plant's flowers' triangles | the LOD's budget left over | at most 0.4 of the LOD's budget (`FLOWER_BUDGET_SHARE`); a fruit tree's spur blossom and the forsythia draw wedge petals (`FlowerTraits.wedge`) | built all year, they had grown the food forest's plant triangles by 80 % (354k to 639k at LOD0) |
+
+Measured on the second round's cameras (High, 1600 × 900, LOD0):
+
+- Flower to nearest wood (`float_check.py`, cm, median / p90 / over 30 cm): cherry 26.9 /
+  69.8 / 42.6 % before, 3.1 / 7.6 / 0 % after; magnolia 2.9 / 12.2 / 0 %; plum 2.4 / 5.8 /
+  0 %; forsythia 2.7 / 5.8 / 0 % counting its twigs.
+- Petal hue against the 2D sprite: cherry -3.5, apple -3.6, magnolia -3.6, tulip +3.0, daffodil +3.8, forsythia +5.2, crocus +7.4 (was +12.1), roses and peonies -0.5, asters +5.8 degrees; dark violet
+  undersides 0.30 % of the cherry close-up (was 2.93 %), apple 0.20 % (2.66 %).
+- The year tour's held pose, changed pixels between consecutive days, with the flowers and
+  with them stripped: 31 Mar to 1 Apr 3.79 / 3.56 %, 31 May to 1 Jun 5.15 / 5.14 %, 10 to
+  11 Apr (bloom reaching 1) 1.76 / 0.98 %. The flowers add 0.6-0.9 points on an ordinary day;
+  the rest is the growth model rebuilding the trees at their new height and, on 1 June, the
+  cherries ripening.
+- Plant triangles at LOD0 (all plants built, in bloom or not; before #940 / round 1 /
+  now): spring garden 347k / 382k / 310k, cottage garden 281k / 423k / 393k, food forest
+  354k / 639k / 580k, wildlife garden 466k / 627k / 607k.
+
 ## Open questions
 
-- A bulb keeps its leaves and bare scapes all year: the model has no die-back, so July
-  shows green straps and thin stalks where real tulips have gone.
+- A bulb out of bloom is its leaves on its neck, green all year: the model has no die-back,
+  so July shows green straps where real tulips have gone.
+- The forsythia's twigs fan out from its seven stems' ends (its leaf lobes sit there): read
+  as fine twigs from the garden, as spokes from a 3 m camera.
 - The magnolia's goblets read as paper fans from a 3 m camera; the tulip's as cones on
   70 cm stalks (the plan's own height).
-- A blossom tree's flowers are budget-bound at LOD0 (the 529 cm cherry: 813 spur clusters
-  at 6.3 cm instead of 3,608 at 3.5 cm — the flower part takes the whole remaining budget,
-  so the tree reaches 25,000 triangles in bloom season and out of it).
-- The Mediterranean courtyard's vine never ripens since #940: its record's harvest window
-  after a 1 February frost (June-July) and its fruit months (September-October) never meet.
-  The frost-anchored window does not fit a Mediterranean vine; the data, not the look, is
-  the open question.
+- The flower budget share (0.4) keeps a blossom tree at about 500 wedge spurs, not the 3,600
+  its crown asks for: enlarged 1.8 times, a cherry in full bloom is still a green crown with
+  pink along its branches from 25 m, more than a pink cloud.
+- The food forest's plant triangles are still 64 % over their count before #940: its many
+  small flowering plants (24 perennials, 12 chives, 10 borage) each stay under the share.
+  Built all year, shown only in bloom: memory and upload, not frame time.
+- LOD2 trees, climbers and the sunflower can land 0.87-0.89 of their spread on some seeds:
+  the same pull onto `REACH_MAX` after the box fit, identical before #940 (LOD2 builds no
+  flowers); the bulbs' and alliums' axis pins are the pattern for a fix.
