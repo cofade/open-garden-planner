@@ -209,9 +209,19 @@ def test_a_faded_or_cut_part_is_a_screen_door_not_a_blend() -> None:
     # #801: a detail picture first (its shader carries the snow); #800: a plant's wood sways
     # while the wind blows; #687: snow swaps in only where no screen door is drawn
     # (test_snow_lies_on_the_built_tops...)
-    assert ("materials: fade < 1.0 ? [vcScreen] : detailMap ? [vcDetail] : swayFrame.x > 0.0 "
+    assert ("materials: fade < 1.0 || seasonOpacity < 1.0 ? [vcScreen] : detailMap ? [vcDetail] : swayFrame.x > 0.0 "
             "&& root.windBlowing ? [vcSway] : root.builtSnow > 0.0 && partName !== \"floor\" "
             "? [vcSnow] : [vcLook]") in " ".join(blocks["vcPart"].split())
+    # #940: a plant's flowers open and fade one by one with their bloom - screen.vert
+    # collapses each by its phase (UV.y) in every pass; every user of screen.vert declares
+    # the season, the built parts and the water at 1 (nothing collapses)
+    assert "property real uSeason: seasonOpacity" in blocks["vcPart"]
+    assert re.search(r"property real uOpacity: fade\s*$", blocks["vcPart"], re.M)
+    assert code.count("property real uSeason") == code.count('vertexShader: "screen.vert"')
+    door = (QML_DIR / "screen.vert").read_text(encoding="utf-8")
+    assert "if (uSeason < 1.0 && UV0.y >= uSeason)" in door and "vColor = COLOR;" in door
+    assert "BASE_COLOR = vec4(vColor.rgb * uTint, 1.0);" in (QML_DIR / "screen.frag").read_text(
+        encoding="utf-8")
     for name, door in (("waterPart", "waterDoor"), ("foliagePart", "foliageDoor"),
                        ("grassPart", "grassDoor")):
         assert f"materials: fade < 1.0 ? [{door}] : [" in blocks[name], name
@@ -862,7 +872,7 @@ def test_snow_lies_on_the_built_tops_through_one_shader_only_while_it_snows() ->
     vc, roof = blocks["vcPart"], blocks["roofPart"]
     # #801: a part with a detail picture (a roof's tiles, a wall) shades by built_detail.frag,
     # which lays the SAME snow (below) - so the snowy look is the rest's
-    assert ("materials: fade < 1.0 ? [vcScreen] : detailMap ? [vcDetail] : swayFrame.x > 0.0 "
+    assert ("materials: fade < 1.0 || seasonOpacity < 1.0 ? [vcScreen] : detailMap ? [vcDetail] : swayFrame.x > 0.0 "
             "&& root.windBlowing ? [vcSway] : root.builtSnow > 0.0 && partName !== \"floor\" "
             "? [vcSnow] : [vcLook]") in " ".join(vc.split())
     assert ("materials: root.roofsHidden || fade < 1.0 ? [roofScreen] : detailMap ? [roofDetail] "

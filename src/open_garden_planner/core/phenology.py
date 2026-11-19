@@ -22,6 +22,7 @@ Qt-free: standard library + NumPy + `core.plant_art` + `core.scene3d` only.
 
 from __future__ import annotations
 
+import calendar
 import datetime
 import math
 from collections.abc import Mapping, Sequence
@@ -185,6 +186,47 @@ def _month_window_weight(
     return float(min(max(ramp_from + (1.0 - ramp_from) * progress, 0.0), 1.0))
 
 
+#: Flowers open over this many days at the start of their bloom window and fade over as
+#: many at its end (#940, review 2): the window's months are whole, a plant's flowering is
+#: not - a step on the 1st of the month popped a whole tree in or out of flower.
+BLOOM_RAMP_DAYS: Final[float] = 10.0
+#: A month's mean length, for the whole months of a window before and after the current.
+_MEAN_MONTH_DAYS: Final[float] = 365.25 / 12.0
+
+
+def _month_run_days(
+    plan_date: datetime.date, latitude_deg: float, months_nh: tuple[int, ...],
+) -> tuple[float, float] | None:
+    """``(days since, days until)`` the run of consecutive window months holding
+    ``plan_date`` began / ends (cyclic: a December runs into January); None outside the
+    window; both infinite for a window of all twelve months."""
+    months = set(months_nh)
+    s_month = seasonal_month(plan_date, latitude_deg)
+    if s_month not in months:
+        return None
+    if len(months) >= 12:
+        return math.inf, math.inf
+    before = after = 0
+    while ((s_month - 2 - before) % 12) + 1 in months:
+        before += 1
+    while ((s_month + after) % 12) + 1 in months:
+        after += 1
+    month_days = calendar.monthrange(plan_date.year, plan_date.month)[1]
+    return (before * _MEAN_MONTH_DAYS + (plan_date.day - 1),
+            after * _MEAN_MONTH_DAYS + (month_days - plan_date.day))
+
+
+def _bloom_weight(plan_date: datetime.date, latitude_deg: float, months_nh: tuple[int, ...]) -> float:
+    """``0..1``: 1 inside the bloom window, opening over its first ``BLOOM_RAMP_DAYS``
+    and fading over its last (a gap in the months closes one run and opens the next)."""
+    run = _month_run_days(plan_date, latitude_deg, months_nh)
+    if run is None:
+        return 0.0
+    since, until = run
+    return (_smoothstep(0.0, BLOOM_RAMP_DAYS, since + 0.5)
+            * _smoothstep(0.0, BLOOM_RAMP_DAYS, until + 0.5))
+
+
 def _month_window_progress(
     plan_date: datetime.date, latitude_deg: float, months_nh: tuple[int, ...],
 ) -> float:
@@ -301,7 +343,7 @@ def _evaluate_cached(
     autumn_mult = _palette_autumn_multiplier(traits.palette, traits.autumn_palette)
 
     # 2. Bloom (0..1)
-    bloom = _month_window_weight(plan_date, lat_q, traits.bloom_months, ramp_from=1.0)
+    bloom = _bloom_weight(plan_date, lat_q, traits.bloom_months)
 
     # 3. Ripeness (0..1)
     harvest_weeks = harvest_override if harvest_override is not None else traits.harvest_weeks
@@ -329,13 +371,18 @@ def _evaluate_cached(
             ripeness = 0.0
 
     # A plant that flowers before or with its leaves (magnolia, forsythia, plum, cherry)
-    # carries only its bloom share of them while it flowers, so that April reads as
-    # blossom and not as July (#940). Its leaves unfold over the window's last quarter.
-    if bloom > 0.0 and traits.deciduous and traits.bloom_leaf_density < 1.0:
-        unfold = _smoothstep(BLOOM_LEAF_UNFOLD_FROM, 1.0,
-                             _month_window_progress(plan_date, lat_q, traits.bloom_months))
-        held = traits.bloom_leaf_density + (1.0 - traits.bloom_leaf_density) * unfold
-        leaf_density = min(leaf_density, held)
+    # carries only its bloom share of them from budburst until it has flowered, so that
+    # April reads as blossom and not as July (#940); its leaves unfold over the window's
+    # last quarter. Held from budburst, not from the window's first day: a cherry's
+    # leaves dropped from 0.54 on 31 March to 0.18 on 1 April (review 2).
+    if traits.deciduous and traits.bloom_leaf_density < 1.0 and traits.bloom_months:
+        if s_month in traits.bloom_months:
+            unfold = _smoothstep(BLOOM_LEAF_UNFOLD_FROM, 1.0,
+                                 _month_window_progress(plan_date, lat_q, traits.bloom_months))
+            held = traits.bloom_leaf_density + (1.0 - traits.bloom_leaf_density) * unfold
+            leaf_density = min(leaf_density, held)
+        elif s_month < traits.bloom_months[0]:
+            leaf_density = min(leaf_density, traits.bloom_leaf_density)
 
     # 4. Snow (0..1)
     if snow_q is not None:
@@ -475,6 +522,7 @@ def evaluate_phenology_for_records(
 
 __all__ = [
     "BLOOM_LEAF_UNFOLD_FROM",
+    "BLOOM_RAMP_DAYS",
     "DEFAULT_LATITUDE_DEG",
     "plan_latitude",
     "SNOW_LINEAR_RGB",

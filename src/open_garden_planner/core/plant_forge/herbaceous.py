@@ -18,7 +18,14 @@ from ..plant_art import recipe_for
 from ..plant_art.traits3d import Traits3D
 from ..scene3d.color import srgb_to_linear
 from ..scene3d.mesh import MeshPart
-from .accents import FLOWER_PART, PETAL_RISE_PER_CUP, flower_part, flowers_geo
+from .accents import (
+    FLOWER_PART,
+    FLOWER_PHASE_MAX,
+    PETAL_RISE_PER_CUP,
+    flower_part,
+    flowers_geo,
+    with_phase,
+)
 from .assemble import PART_WOOD, fit_forged_parts
 from .foliage import (
     RawGeo,
@@ -34,6 +41,23 @@ from .trees import bark_linear_rgba
 from .tube import frustum_tubes
 
 GOLDEN_ANGLE: float = math.pi * (3.0 - math.sqrt(5.0))
+
+
+#: How far a pinned leaf may turn off its plan axis (rad): within it the leaf's tip stays
+#: inside REACH_MAX once the fit has scaled the box to the canopy (cos 0.15 = 0.989).
+_AXIS_PIN_JITTER: float = 0.15
+
+
+def _pin_spread_to_axes(azimuths: np.ndarray, reaches: np.ndarray, rng: np.random.Generator) -> None:
+    """Turn the last four leaves (the outermost) onto the plan's four axes at the
+    clump's longest reach, in place (#940). The fit scales the clump's BOX to the canopy
+    diameter and then pulls every vertex beyond ``REACH_MAX`` back onto the circle: with
+    a few leaves the box's extremes sit on diagonals, the pull takes them in, and the
+    clump came out at 0.87 of its spread (a daffodil at LOD2). Leaves along the axes
+    hold the box's extremes where the pull never reaches."""
+    k = min(4, len(azimuths))
+    azimuths[-k:] = np.arange(k) * (math.pi / 2.0) + rng.uniform(-_AXIS_PIN_JITTER, _AXIS_PIN_JITTER, size=k)
+    reaches[-k:] = float(reaches.max())
 
 
 def _seed_rng(seed: int, salt: int) -> np.random.Generator:
@@ -343,6 +367,9 @@ def build_forged_grass(
 #: its flowers above them to the plant's full height (#940). Before, the blades and
 #: the leaf sprays at the culm tips reached the top, and the flowers sat among them.
 BULB_LEAF_TOP: float = 0.6
+#: A bulb's neck - its wood all year, the scapes going with its flowers - as a share of
+#: its height.
+BULB_NECK: float = 0.05
 #: The most flowers one bulb clump shows (a big drift of one item stays affordable).
 BULB_FLOWERS_MAX: int = 24
 #: Per LOD: strap leaves, segments per leaf, scape sides.
@@ -367,9 +394,9 @@ def _forged_flowering_bulb(
 ) -> tuple[MeshPart, ...]:
     """A flowering bulb (tulip, daffodil, crocus, iris, lily; #940): a tuft of strap
     leaves up to ``BULB_LEAF_TOP`` of its height and one leafless scape per flower, the
-    flower on its tip at the top. Its flowers are inside the fit, so the plant's top is
-    a flower's (``fit_forged_parts(..., accents_name=FLOWER_PART)``); at LOD2 no flower
-    is built and the scapes reach the top."""
+    flower on its tip at the top. Scapes and flowers are one ``flowers`` part inside the
+    fit, so the plant's top is a flower's and out of bloom the bulb is its leaves on its
+    neck (its wood); at LOD2 no flower is built and the scapes, wood, reach the top."""
     flower = traits.flower
     assert flower is not None
     rng = _seed_rng(seed, 0xB01B5CA9)
@@ -391,14 +418,20 @@ def _forged_flowering_bulb(
     roots = np.column_stack([np.cos(az) * radius_cm * 0.06, np.sin(az) * radius_cm * 0.06,
                              np.zeros(n_flowers)])
     scape_r = max(min(height_cm, radius_cm) * 0.02, 0.22)
-    wood = frustum_tubes(roots, tips, np.full(n_flowers, scape_r), np.full(n_flowers, scape_r * 0.7),
-                         sides=sides, color_rgba=bark_linear_rgba(traits.branching))
+    stem_rgba = bark_linear_rgba(traits.branching)
+    scapes = frustum_tubes(roots, tips, np.full(n_flowers, scape_r), np.full(n_flowers, scape_r * 0.7),
+                           sides=sides, color_rgba=stem_rgba)
+    # the bulb's neck, where its leaves and scapes leave the ground: its wood all year
+    neck = frustum_tubes(np.zeros((1, 3)), np.array([[0.0, 0.0, max(height_cm * BULB_NECK, 0.5)]]),
+                         np.array([scape_r * 2.4]), np.array([scape_r * 1.6]),
+                         sides=sides, color_rgba=stem_rgba)
 
     # The leaves: broad straps arching from the base, below the flowers
     idx = np.arange(n_blades, dtype=np.float64)
     frac = idx / max(n_blades - 1, 1)
     b_az = float(rng.uniform(0.0, 2.0 * math.pi)) + idx * GOLDEN_ANGLE + rng.uniform(-0.22, 0.22, size=n_blades)
     reaches = radius_cm * (0.35 + 0.65 * (frac ** 0.7)) * rng.uniform(0.80, 1.10, size=n_blades)
+    _pin_spread_to_axes(b_az, reaches, rng)
     leaf_top = BULB_LEAF_TOP * height_cm
     peak_z = leaf_top * (1.0 - 0.35 * frac) * rng.uniform(0.80, 1.0, size=n_blades)
     blade_tip_z = leaf_top * (0.75 - 0.55 * frac) * rng.uniform(0.70, 1.0, size=n_blades)
@@ -412,12 +445,17 @@ def _forged_flowering_bulb(
                                  segs, cols, rng, center=center, cup=0.10)
 
     if lod == LOD2:
-        return fit_forged_parts(wood, foliage, empty_geo(), height_cm, radius_cm)
+        return fit_forged_parts(concat_geo([neck, scapes]), foliage, empty_geo(), height_cm, radius_cm)
     out = np.column_stack([np.cos(az), np.sin(az), np.zeros(n_flowers)])
     facing = normalize_vec((1.0 - flower.face_up) * out + flower.face_up * np.array([0.0, 0.0, 1.0])
                            + rng.normal(0.0, 0.10, size=(n_flowers, 3)))
-    flowers = flowers_geo(flower, str(traits.blossom_spec or "white"), tips, facing, r_f, rng, lod=lod)
-    return fit_forged_parts(wood, foliage, flowers, height_cm, radius_cm, accents_name=FLOWER_PART)
+    phase = rng.random(n_flowers) * FLOWER_PHASE_MAX
+    flowers = flowers_geo(flower, str(traits.blossom_spec or "white"), tips, facing, r_f, rng,
+                          lod=lod, phase=phase)
+    # A scape is its flower's stalk: it rises with the flower and goes with it, so ten
+    # months a year a bulb is its leaves, not a bunch of bare stalks (#940, review 2).
+    return fit_forged_parts(neck, foliage, concat_geo([with_phase(scapes, phase), flowers]),
+                            height_cm, radius_cm, accents_name=FLOWER_PART)
 
 
 #: Per LOD: culms, segments per culm, tube sides, the most leaves.
@@ -649,6 +687,7 @@ def build_forged_allium(
     az = float(rng.uniform(0.0, 2.0 * math.pi)) + idx * GOLDEN_ANGLE + rng.uniform(-0.20, 0.20, size=n_blades)
     asym = 1.0 + 0.32 * np.cos(az - dom_az)
     reaches = radius_cm * (0.25 + 0.75 * (frac**0.8)) * asym * rng.uniform(0.82, 1.15, size=n_blades)
+    _pin_spread_to_axes(az, reaches, rng)
     peak_z = height_cm * (0.98 - 0.32 * frac) * rng.uniform(0.82, 1.04, size=n_blades)
     tip_z = height_cm * (0.90 - 0.48 * frac) * rng.uniform(0.75, 1.04, size=n_blades)
     widths = max(radius_cm * 0.095, 0.9) * rng.uniform(0.8, 1.2, size=n_blades)
