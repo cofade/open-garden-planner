@@ -13,11 +13,12 @@ everything", so a fix is only real if it missed nothing *and* added nothing.
 
 Two harnesses, and the count depends on which:
 
-* default -- the 65 bundled species that carry calendar offsets x 6 frost dates x
-  every 10th day of 2026 (222 cases): **1,862 / 0 / 0** (1,836 with 64 species,
-  before #940 gave the grape vine its harvest window).
+* default -- the 64 bundled species that carry calendar offsets x 6 frost dates x
+  every 10th day of 2026 (222 cases): **1,836 / 0 / 0**.
 * ``--wide`` -- all 123 bundled species x 6 frost dates x every day of 2026
-  (2,190 cases): **18,138 / 0 / 0** (17,884 over 118 species before #940).
+  (2,190 cases): **17,884 / 0 / 0**. The five species added with #940 carry no
+  calendar offsets: the grape vine ripens by its fruit months like every woody fruit,
+  not by weeks after the last frost.
 
 Quote the harness with the number. (An earlier revision of these documents quoted
 "2,669", which matched neither sweep and was simply wrong; the round-4 review

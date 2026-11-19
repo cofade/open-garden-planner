@@ -4740,8 +4740,6 @@
       ],
       "data_source": "bundled",
       "frost_tolerance": "hardy",
-      "harvest_start": 18,
-      "harvest_end": 24,
       "nutrient_demand": "medium",
       "n_demand": "medium",
       "p_demand": "medium",
