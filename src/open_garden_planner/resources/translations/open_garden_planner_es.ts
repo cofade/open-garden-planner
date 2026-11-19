@@ -12446,9 +12446,9 @@ marcado = proteger siempre, desmarcado = no proteger nunca, indeterminado = usar
             <translation>Enviar al fondo</translation>
         </message>
         <message>
-            <location filename="../../ui/panels/properties_panel.py" line="1846" />
-            <source>Roof shape in the 2D plan, sun study, and 3D view.</source>
-            <translation>Forma del tejado en el plano 2D, el estudio solar y la vista 3D.</translation>
+            <location filename="../../ui/panels/properties_panel.py" line="1831" />
+            <source>The 2D plan draws the roof style. The sun study and 3D view also use pitch and overhang.</source>
+            <translation>El plano 2D muestra la forma del tejado. El estudio solar y la vista 3D también tienen en cuenta la pendiente y el voladizo.</translation>
         </message>
         <message>
             <location filename="../../ui/panels/properties_panel.py" line="1404" />

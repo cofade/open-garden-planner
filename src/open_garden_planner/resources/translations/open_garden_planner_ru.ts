@@ -12601,9 +12601,9 @@ checked = always protect, unchecked = never protect, indeterminate = use the pla
             <translation>На задний план</translation>
         </message>
         <message>
-            <location filename="../../ui/panels/properties_panel.py" line="1846" />
-            <source>Roof shape in the 2D plan, sun study, and 3D view.</source>
-            <translation>????? ????? ?? 2D-?????, ? ??????? ????????? ? ? 3D-????.</translation>
+            <location filename="../../ui/panels/properties_panel.py" line="1831" />
+            <source>The 2D plan draws the roof style. The sun study and 3D view also use pitch and overhang.</source>
+            <translation>На 2D-плане показана форма крыши. При анализе инсоляции и в 3D-виде также учитываются уклон и свес крыши.</translation>
         </message>
         <message>
             <location filename="../../ui/panels/properties_panel.py" line="1404" />

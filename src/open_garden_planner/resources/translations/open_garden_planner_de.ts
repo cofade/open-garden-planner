@@ -12877,9 +12877,9 @@ angehakt = immer schützen, nicht angehakt = nie schützen, unbestimmt = Standar
             <translation>Ganz nach hinten</translation>
         </message>
         <message>
-            <location filename="../../ui/panels/properties_panel.py" line="1846" />
-            <source>Roof shape in the 2D plan, sun study, and 3D view.</source>
-            <translation>Dachform im 2D-Plan, in der Sonnenstudie und in der 3D-Ansicht.</translation>
+            <location filename="../../ui/panels/properties_panel.py" line="1831" />
+            <source>The 2D plan draws the roof style. The sun study and 3D view also use pitch and overhang.</source>
+            <translation>Der 2D-Plan zeigt die Dachform. Sonnenstudie und 3D-Ansicht berücksichtigen auch Dachneigung und Dachüberstand.</translation>
         </message>
         <message>
             <location filename="../../ui/panels/properties_panel.py" line="1404" />
