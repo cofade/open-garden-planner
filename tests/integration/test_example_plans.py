@@ -212,11 +212,17 @@ def test_an_example_opens_with_the_warnings_its_table_row_names_and_no_other(win
     from open_garden_planner.services.diagnostics import diagnostics_from_records
 
     open_example(window, slug)
-    qtbot.wait(200)  # the guild warnings are worked out with the next turns of the event loop
-    window._update_spacing_overlaps()
-    records = window._project_manager.diagnostics_snapshot(window.canvas_scene)
-    found = Counter(d.kind for d in diagnostics_from_records(records) if not d.kind.startswith("sun_"))
-    assert dict(found) == dict(SPECS[slug].warnings)
+
+    def warnings():
+        window._update_spacing_overlaps()
+        records = window._project_manager.diagnostics_snapshot(window.canvas_scene)
+        return dict(Counter(d.kind for d in diagnostics_from_records(records) if not d.kind.startswith("sun_")))
+
+    expected = dict(SPECS[slug].warnings)
+    # the guild warnings are worked out with the next turns of the event loop
+    qtbot.waitUntil(lambda: warnings() == expected, timeout=5000)
+    qtbot.wait(50)
+    assert warnings() == expected, "and no warning arrives late"
 
 
 @pytest.mark.parametrize("slug", sorted(SPECS))

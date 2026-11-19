@@ -2,7 +2,9 @@
 
 from __future__ import annotations
 
+import atexit
 import math
+import shutil
 import tempfile
 from pathlib import Path
 from uuid import NAMESPACE_URL, uuid5
@@ -87,8 +89,10 @@ HINTS = text("Hints", "Hinweise", "Indicaciones")
 
 
 #: Where ``GuildLibrary`` looks for the user's own guild templates while a plan is
-#: authored: an empty folder outside the package (the library creates the folder).
-NO_USER_GUILDS = Path(tempfile.gettempdir()) / "ogp-example-plans-no-user-guilds"
+#: authored: a new, empty folder outside the package, removed when the process ends
+#: (a fixed folder could hold a template somebody left there).
+NO_USER_GUILDS = Path(tempfile.mkdtemp(prefix="ogp-example-plans-no-user-guilds-"))
+atexit.register(shutil.rmtree, NO_USER_GUILDS, ignore_errors=True)
 
 
 def runs(points, longest: float = 800.0) -> list[list[tuple[float, float]]]:

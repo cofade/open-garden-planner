@@ -64,7 +64,7 @@ EXAMPLE_WIDTH = 960
 #: How much nearer than "the whole plan with its highest tree" an example is shown:
 #: a plan with one tall tree is small in a picture that keeps the tree's top.
 CLOSER = {"japanese-garden": 0.7, "wildlife-garden": 0.75, "terraced-house-garden": 0.75,
-          "food-forest": 0.85}
+          "food-forest": 1.0, "spring-garden": 1.0}
 #: The width of a picture that stands in a row of three.
 PANEL_WIDTH = 960
 #: JPEG quality of the pictures. Measured on the hero: 88 keeps the interface's text clean.

@@ -840,7 +840,9 @@ Plant Forge: procedural species models, LODs and phenology (L3, #387, ADR-064).
 - **FR-3D-FORGE-01:** All 126 sprite recipes (111 species and 15 categories)
   have procedural 3D models in 13 archetypes, using shared art traits and no
   external models. Known heights remain within 3% and crown spread within 10%;
-  winter structural wood retains ground contact and recorded height.
+  winter structural wood retains ground contact and recorded height. A bulb
+  (tulip, daffodil, crocus, iris, lily) reaches its height with its flower: out of
+  bloom it stands as its strap leaves, at about 40-60% of that height (#940).
 - **FR-3D-FORGE-02:** Total triangle caps are 25,000/6,000/800 at distance LODs
   up to 18 m / up to 45 m / beyond 45 m. A256-entry, 64 MiB LRU bounds mesh storage.
 - **FR-3D-FORGE-03:** Initial silhouettes precede background synthesis. Camera
@@ -850,11 +852,16 @@ Plant Forge: procedural species models, LODs and phenology (L3, #387, ADR-064).
   within 50 cm of the canopy edge, then a three-pole bamboo tripod.
 - **FR-3D-FORGE-05:** Separate flower, fruit/pod and tuber geometry permits
   independent bloom and ripeness. Recorded harvest windows follow the shared
-  day-level task calendar and the plan's local frost dates.
+  day-level task calendar and the plan's local frost dates; a perennial's fruit
+  shows only inside its fruit months (#940). Flowers are counted by the crown's
+  surface and show from every side.
 - **FR-3D-FORGE-06:** Existing Models respond to seasonal date changes through
   shader/material values. Deciduous leaves and their shadows disappear in
   winter, evergreens retain foliage; illustrative seasons shift in the southern
-  hemisphere. Plant existence stays on the shared lifetime rule.
+  hemisphere. Plant existence stays on the shared lifetime rule. Bloom opens over
+  the first ten days of its window and fades over the last ten, flower by flower;
+  a hardy plant flowers before the last frost, a tender one waits for it; magnolia,
+  forsythia, peach, plum and cherry carry few leaves until their bloom ends (#940).
 
 Acceptance: `tests/integration/test_plant_forge.py`,
 `tests/integration/test_plant_forge_workspace.py`,
