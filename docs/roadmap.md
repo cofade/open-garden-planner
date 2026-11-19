@@ -37,7 +37,7 @@ No roadmap phase is active. Open work is tracked in GitHub issues; the current t
 | 3D rendering quality and performance | #744, #534, #531, #883, #894 | The 3D view's trust and frame budget. |
 | CAD and drawing tools | #828, #666 | Precision and editing depth. |
 | Architecture and tech debt | #829, #667 | Remove redundant surfaces and make tests repeatable. |
-| 2D canvas follow-ups | #845, #879 | Plan precision, repaint cost and embedded-window rendering. |
+| 2D canvas follow-ups | #845 | First-zoom sprite rasterization cost. |
 
 This table is a pointer, not a tracker. Each issue owns its scope and acceptance criteria.
 
@@ -45,7 +45,7 @@ This table is a pointer, not a tracker. Each issue owns its scope and acceptance
 
 | Status | ID | Scope | Version / reference |
 |--------|----|-------|---------------------|
-| In review | Plant gallery and 2D plan reliability (#951, #950, #946, #862, #879, #861, #866, #880) | Scrollable plant categories, distinct species names, roof styles, native repaint comparison, live theme, clearer example paths and the shadow display contract | ADR-037, ADR-076; §8.4 |
+| ✅ | Plant gallery and 2D plan reliability (#951, #950, #946, #862, #879, #861, #866, #880) | Plant browsing, roof styles, repaint coverage, live theme and example plans | v1.40.10; [PR #978](https://github.com/cofade/open-garden-planner/pull/978); ADR-037, ADR-076; §8.4 |
 | ✅ | 2D canvas, sun overlay & export fixes (#846, #847, #849, #851, #854, #873, #919, #928) | BSP-indexed labels, bounded selected dense polylines & text notes, sun-shadow outline compensation & scrub deferral, 300-dpi/SVG contour pens, anti-moire zoom fills | v1.40.8; [PR #936](https://github.com/cofade/open-garden-planner/pull/936); §8.37; PF-CAN-64–66 |
 | ✅ | 3D render verification (#885, #886, #892, #893) | Flat shadow samples, unobstructed sunset samples, per-phase board watchdogs and explicit foliage driver teardown | v1.40.7; [PR #937](https://github.com/cofade/open-garden-planner/pull/937); §8.10.8 |
 | ✅ | Canvas editing precision (#840, #841, #843, #844, #853, #867, #872, #874) | Geometric anchors, screen-sized handles, contained labels/tags, fixed plan text size and a clear balcony note | v1.40.6; [PR #934](https://github.com/cofade/open-garden-planner/pull/934); ADR-076 editing addendum |
