@@ -108,7 +108,8 @@ def example_content(slug):
             item.label_visible = False
     framing = Framing(scene, manager, module.META,
                       pitch_deg=getattr(module, "ORBIT_PITCH_DEG", DEFAULT_ORBIT_PITCH_DEG),
-                      sun_offset_deg=getattr(module, "ORBIT_SUN_OFFSET_DEG", SUN_BEHIND_DEG))
+                      sun_offset_deg=getattr(module, "ORBIT_SUN_OFFSET_DEG", SUN_BEHIND_DEG),
+                      closer=getattr(module, "ORBIT_CLOSER", 1.0))
     manager.set_camera_tours([orbit_tour(framing.orbit()),
                               *getattr(module, "more_tours", lambda _framing: [])(framing)])
     raw = manager._build_project_data(scene).to_dict()

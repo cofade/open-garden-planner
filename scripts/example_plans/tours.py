@@ -48,10 +48,14 @@ class Framing:
     """How the plan fits a 16:9 picture: what a plan module is given to build its tours."""
 
     def __init__(self, scene, manager, meta: dict, *, pitch_deg: float = DEFAULT_ORBIT_PITCH_DEG,
-                 sun_offset_deg: float = SUN_BEHIND_DEG) -> None:
+                 sun_offset_deg: float = SUN_BEHIND_DEG, closer: float = 1.0) -> None:
         #: The plan's own orbit: how steeply it looks down (a walled garden needs more
         #: than the dialog's default to be seen over its wall) and where it starts.
         self.pitch_deg, self.sun_offset_deg = float(pitch_deg), float(sun_offset_deg)
+        #: ... and how much nearer than "everything in the picture all the way round": the
+        #: box that is fitted reaches up to the plan's highest tree at all four corners,
+        #: so one tall birch makes a small garden small in its own orbit.
+        self.closer = float(closer)
         self.day, self.utc_time = showcase_moment(meta)
         self.bounds = plan_bounds(scene, self.day)
         self.aspect = DEFAULT_SIZE[0] / DEFAULT_SIZE[1]
@@ -76,6 +80,7 @@ class Framing:
                                   pitch_deg=self.pitch_deg).distance_cm
                        for yaw in range(0, 360, 5))
         east, north = self.bounds.center
+        distance *= self.closer
         return CameraPose((round(east, 1), round(north, 1)), float(round(distance)),
                           round((self.sun_bearing + self.sun_offset_deg) % 360.0, 1),
                           round(clamp_orbit_pitch(self.pitch_deg, distance), 1))

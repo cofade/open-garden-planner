@@ -16,6 +16,8 @@ SLUG = "japanese-garden"
 #: The stored orbit looks down more steeply than the dialog's 18 degrees: from there
 #: the fence hid the garden behind it (3D review of #940).
 ORBIT_PITCH_DEG = 34.0
+#: ... and nearer: fitted to the 8.8 m birch, the garden filled a third of the picture.
+ORBIT_CLOSER = 0.8
 #: Everything was planted last autumn at the size it has, so it stands all year.
 SET = "2025-10-25"
 

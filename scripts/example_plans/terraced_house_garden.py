@@ -19,6 +19,8 @@ SLUG = "terraced-house-garden"
 #: The stored orbit looks down more steeply than the dialog's 18 degrees: from there
 #: the hedge hid the garden behind it (3D review of #940).
 ORBIT_PITCH_DEG = 45.0
+#: ... and nearer: fitted to the house, the garden filled a third of the picture.
+ORBIT_CLOSER = 0.85
 #: The gallery picture: the deck, the extension and the top of the lawn, not an 18 m sliver.
 THUMBNAIL = (0, 760, 600, 760)
 NORTH_DEG = 35.0
