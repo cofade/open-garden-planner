@@ -4,7 +4,7 @@ globalThis.DOWNLOAD_DATA = {
   "timezone": "UTC",
   "repo": "cofade/open-garden-planner",
   "baseline_at": "2026-10-28T17:19:46Z",
-  "updated_at": "2026-11-18T07:30:28Z",
+  "updated_at": "2026-11-19T07:27:35Z",
   "days": [
     {
       "date": "2026-02-14",
@@ -2308,6 +2308,20 @@ globalThis.DOWNLOAD_DATA = {
         {
           "from": "2026-11-17T22:15:38Z",
           "to": "2026-11-18T07:30:28Z",
+          "kind": "new"
+        }
+      ]
+    },
+    {
+      "date": "2026-11-18",
+      "historical": 0.0,
+      "observed": 1.0,
+      "gap": 0.0,
+      "partial": false,
+      "windows": [
+        {
+          "from": "2026-11-18T22:13:54Z",
+          "to": "2026-11-19T07:27:35Z",
           "kind": "new"
         }
       ]
