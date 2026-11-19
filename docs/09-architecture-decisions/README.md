@@ -1450,6 +1450,8 @@ Phase 14's sun/shade features (shadow overlay US-E3, hours-of-sun heatmap US-E4,
 
 ### ADR-037 addendum — narrow gaps in the 2D soft edge (#880)
 
+**Status.** Shipped in v1.40.10 (PR #978).
+
 Keep the 7 cm reach confirmed in the #838 manual test. A gap up to 4 cm
 and an enclosed hole of 8 cm can show at full shade tone because neighboring
 feathers overlap. The overlay is a display of computed shade with a visual
@@ -13690,6 +13692,8 @@ on each of those revisions. The new comparison gates the shipped behavior
 and records the event regions. The original 131-pixel capture was unavailable.
 
 ### ADR-076 addendum — roof style in the plan (#946, #862)
+
+**Status.** Shipped in v1.40.10 (PR #978, owner acceptance 2026-11-19).
 
 The rectangle and polygon roof painters share the plan footprint and the
 stored roof style. The 3D builder supplies the hip's nearest-eave partition
