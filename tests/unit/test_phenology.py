@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import ast
+import dataclasses
 import datetime
 import math
 import time
@@ -208,6 +209,14 @@ class TestL35SeasonalAccents:
             traits = traits_for(sprite)
             if (set(recipe) & FEATURE_KEYS) or traits.blossom_spec is not None:
                 featured_count += 1
+                if traits.flower is not None and traits.flower.habit != "crown":
+                    # a bulb's scapes and a stemmed flower's heads: its own builder
+                    # places the flowers (#940), not ``build_accents``
+                    parts = forge_plant(sprite, 120.0, 50.0, seed=42, lod=LOD0, cache=None)
+                    flowers = [p for p in parts if p.name == "flowers"]
+                    assert flowers and flowers[0].mesh.triangle_count > 0, sprite
+                    flowers[0].validate()
+                    continue
                 geo = build_accents(traits, 120.0, 50.0, seed=42, lod=LOD0)
                 assert geo.triangle_count > 0, f"{sprite} failed to build accent geometry"
                 part = MeshPart(mesh=geo.to_mesh(), material_kind="vc", casts_shadow=True, tinted=False, name=PART_ACCENTS)
@@ -310,6 +319,31 @@ class TestL35PhenologyAndHemispheres:
         )
         assert st_apr_early.ripeness > 0.0
         assert st_apr_late.ripeness == 0.0
+
+    def test_a_perennials_recorded_harvest_ripens_only_in_its_fruit_months(self) -> None:
+        """#940: a grape vine's record carries harvest weeks 18-24 after the last frost.
+        After a 1 February frost (Valencia) that window is June-July, but grapes ripen in
+        the vine's own months (9, 10): no ripe grapes on 21 June. After a 15 May frost the
+        window (18 September - 30 October) lies inside them and still ripens. An annual's
+        months ARE its window, so a tomato's recorded harvest is not cut."""
+        vine = _plant_record(SpriteRef("species", "grape_vine"))
+        vine = dataclasses.replace(
+            vine, params=Params({**vine.params, "harvest_start": 18, "harvest_end": 24}))
+        valencia = {"last_spring_frost": "02-01", "first_fall_frost": "12-15"}
+        berlin = {"last_spring_frost": "05-15", "first_fall_frost": "10-15"}
+        june = evaluate_phenology(vine, datetime.date(2026, 6, 21), latitude_deg=39.5,
+                                  frost_dates=valencia)
+        assert june.ripeness == 0.0 and june.accent_opacity == 0.0
+        october = evaluate_phenology(vine, datetime.date(2026, 10, 1), latitude_deg=52.5,
+                                     frost_dates=berlin)
+        assert october.ripeness > 0.5
+        tomato = _plant_record(SpriteRef("species", "tomato"))
+        tomato = dataclasses.replace(
+            tomato, params=Params({**tomato.params, "harvest_start": 6, "harvest_end": 30}))
+        november = evaluate_phenology(tomato, datetime.date(2026, 11, 10), latitude_deg=52.5,
+                                      frost_dates={"last_spring_frost": "05-15",
+                                                   "first_fall_frost": "12-31"})
+        assert november.ripeness > 0.0   # outside the tomato's derived months, inside its record
 
     def test_phenology_never_decides_plant_existence(self) -> None:
         """Whether a plant exists on plan_date is decided only by #315, never by phenology.py."""

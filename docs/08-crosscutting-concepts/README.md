@@ -8563,13 +8563,32 @@ gated; the curated set is drift-guarded against the species file's `frost_tolera
 Seasonal state changes update shader/Model values without copying mesh buffers.
 Plant existence remains the shared lifetime clock's responsibility (#315).
 
+**Flowers (#940).** `Traits3D.flower` (`FlowerTraits`) says where a plant's flowers
+stand and how big they really are: half the recipe radius (a fruit tree's spur cluster
+3.5 cm, a magnolia's 8 cm), never scaled by the plant. A crown's flowers are counted by
+its surface, like its leaves (`foliage.crown_surface_cm2` times `FlowerTraits.cover`,
+`accents.blossom_count`), inside the LOD's triangle budget: a LOD that cannot afford
+them gets fewer, larger ones (at most 1.8× at LOD0, 3× at LOD1), anchored on the
+crown's outer shell (`accents.crown_flower_anchors`). A flowering bulb (tulip,
+daffodil, crocus, iris, lily) is a tuft of strap leaves up to 60 % of its height with
+one leafless scape per flower, the flower inside the fit so the plant's top is a
+flower's; a sunflower's builder puts one head on each stem tip. Every petal is
+double-sided with normals bent to the sky: the plant's `vc` material culls back faces,
+and before #940 every petal was wound toward the ground. A deciduous plant that flowers
+before or with its leaves (`Traits3D.bloom_leaf_density`: magnolia, forsythia, peach,
+plum, cherry) carries only that share of its leaf area while it flowers; its leaves
+unfold over the last quarter of the bloom window (`phenology.BLOOM_LEAF_UNFOLD_FROM`),
+and outside it nothing changes. A perennial's recorded harvest window ripens only inside
+its curated fruit months. Pinned by `tests/unit/test_plant_forge_bloom.py`.
+
 Tests exercise actual workspace scheduling and render flags, asynchronous stale
 results, camera-only LOD, recovery invalidation, shader-only seasonal updates,
 exact calendar dates, winter wood bounds and sparse tall crowns. They live in
 `tests/integration/test_plant_forge.py`, `test_plant_forge_workspace.py`,
 `test_plant_forge_calendar.py`, and the `test_plant_forge_l31.py` through
 `test_plant_forge_l34.py`, `test_phenology.py`, `test_plant_forge_review.py`,
-`test_plant_art.py` and `test_object_sprite_conformance.py` unit files.
+`test_plant_forge_bloom.py`, `test_plant_art.py` and `test_object_sprite_conformance.py`
+unit files.
 The production Beauty Board and frozen self-test also exercise forged models.
 
 The 300-plant / 100-support callback budget is **typical per-date wall time**,
