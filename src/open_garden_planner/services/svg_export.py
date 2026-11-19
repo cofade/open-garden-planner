@@ -68,11 +68,12 @@ SVG_UNITS_PER_INCH = 300
 #: The canvas rasterises a sprite at ``core.raster_resolution.raster_level``,
 #: which rounds the painter's scale UP to a power of two so one pixmap serves a
 #: whole zoom level. Right for a canvas, wasteful for a print file: measured on
-#: the bundled examples at a 30 cm page (#850), every plant sprite carried
-#: 1.33-1.37x the pixels the page shows in the family garden, 1.26-1.69x in the
-#: food forest, and 1.00-1.13x in the raised bed and the balcony (whose page
-#: scale is already above their level). A picture is fitted to this ratio before
-#: it is written; a shadow feather, already one pixel per unit, is untouched.
+#: the bundled examples at a 30 cm page (#850), the level sat above the page's own
+#: scale, so every plant sprite carried 1.33-1.37x the pixels that page shows in
+#: the family garden, 1.26-1.69x in the food forest, and 1.00-1.13x (nearly
+#: nothing to cut) in the raised bed and the balcony. A picture is fitted to this
+#: ratio before it is written; a shadow feather, already one pixel per unit, is
+#: untouched.
 PICTURE_PIXELS_PER_UNIT = 1.0
 
 _FALLBACK_LOGICAL_DPI = 96.0

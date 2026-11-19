@@ -237,8 +237,8 @@ class TestExportsAreSharp:
         """The SVG export records the plan in 1/300-inch units (#787), so the
         sprite it embeds is the one a 300-dpi PNG of that width gets: on 40 cm of
         paper 3.94 units per cm, and no more bitmap pixels than that page shows
-        (#850: the canvas's power-of-two level used to be written as it was, up to
-        8x the pixels).
+        (#850: the canvas's power-of-two level could be written as it was, up to
+        2x per axis — measured 1.33-1.69x across the bundled examples).
 
         Read from the file, not from ``QSvgRenderer``'s raster of it: that
         enlarges an embedded picture without smoothing, and the blocks of a

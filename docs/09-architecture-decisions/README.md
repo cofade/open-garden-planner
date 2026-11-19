@@ -9381,6 +9381,23 @@ feedback loop. The structural decision selected by the owner on 2026-10-24 is ex
    - Detailed body files: `PITFALL_MAX_BYTES = 64_000` (unchanged)
 4. Closes #588.
 
+### ADR-061 addendum: a second CAN index, forced by the 24 KB budget (#850, 2026-11-19)
+
+**Context.** The 2026-10-26 addendum fixed one index file per logical area and said an
+area's body-file splits do not add an index. The CAN area has since filled
+`index/01-canvas-geometry.md` to 23,815 bytes against its 24,000-byte budget: the next
+canvas lesson (PF-CAN-68, #850) would have pushed it over, and the gate's own message
+points at the structural split rather than at compressing a rule.
+
+**Decision.** The CAN area carries **two** index files, split by body file, not by rule:
+`index/01-canvas-geometry.md` keeps PF-CAN-01–48 (the body file `01-canvas-geometry.md`)
+and `index/01b-canvas-rendering.md` holds PF-CAN-49 onwards (the body file
+`01b-canvas-rendering.md`). Both are `CAN` in `AREA_INDEX_MAP`, both are linked from the
+§11.4 navigation row, and every row keeps its five columns and its rebased
+`../01b-canvas-rendering.md#pf-can-…` link. 18 existing rows were moved byte-identically;
+no rule, pin or status changed to fit. The split is also the mechanism for the next area
+that reaches its budget (`04-ui-panels-dialogs.md`, 63,440 of 64,000, is next).
+
 ## ADR-062: Plant lifetimes on the shared plan date (US-F4, #315)
 
 **Status**: Accepted (US-F4); the plan-date task-reminder change shipped in v1.39.1
