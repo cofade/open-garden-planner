@@ -1160,14 +1160,14 @@ def build_accents(
             return empty_geo()
         # Keep whole triangles within budget
         kept_tri = combined.tri[:max_tris]
-        used = np.zeros(combined.vertex_count, dtype=bool)
-        used[kept_tri.ravel()] = True
-        remap = np.cumsum(used, dtype=np.uint32) - 1
+        kept = np.zeros(combined.vertex_count, dtype=bool)
+        kept[kept_tri.ravel()] = True
+        remap = np.cumsum(kept, dtype=np.uint32) - 1
         combined = RawGeo(
-            pos=combined.pos[used],
-            nrm=combined.nrm[used],
-            col=combined.col[used],
-            uv=combined.uv[used],
+            pos=combined.pos[kept],
+            nrm=combined.nrm[kept],
+            col=combined.col[kept],
+            uv=combined.uv[kept],
             tri=remap[kept_tri],
         )
 

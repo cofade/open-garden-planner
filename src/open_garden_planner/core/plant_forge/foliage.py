@@ -28,7 +28,7 @@ def crown_surface_cm2(height_cm: float, radius_cm: float, trunk_share: float) ->
     Leaves (``crown_leaf_budget``) and flowers (``accents.blossom_count``) count by it."""
     rz = max(height_cm * (1.0 - trunk_share) * 0.5, 1.0)
     p = 1.6075
-    return 4.0 * math.pi * ((radius_cm**(2*p) + 2*(radius_cm*rz)**p) / 3)**(1/p)
+    return float(4.0 * math.pi * ((radius_cm**(2*p) + 2*(radius_cm*rz)**p) / 3)**(1/p))
 
 
 def crown_leaf_budget(

@@ -835,7 +835,8 @@ def _grow(roots: F64, height: F64, heading: F64, lean: F64, width: F64, shade: F
     colors = np.stack([weight, weight, weight, np.ones_like(weight)], axis=-1)
     uvs = np.stack([np.broadcast_to(_BLADE_FRACTIONS, (k, 5)), np.repeat(phase[:, None], 5, axis=1)],
                    axis=-1)
-    return _Sward(roots, *_f32(positions, normals, colors, uvs))
+    blade_positions, blade_normals, blade_colors, blade_uvs = _f32(positions, normals, colors, uvs)
+    return _Sward(roots, blade_positions, blade_normals, blade_colors, blade_uvs)
 
 
 def _patches(points: F64, rng: np.random.Generator, waves_cm: tuple[float, ...] = MEADOW_PATCH_WAVES_CM) -> F64:
