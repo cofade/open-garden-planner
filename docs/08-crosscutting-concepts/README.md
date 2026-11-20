@@ -9280,7 +9280,7 @@ control must pass. Plugins do not rewrite production source. Reports go to
 
 The shared SimClock local date is the plan date. One permanent Plan & Sun strip
 holds the exact calendar and monthly slider, which preserves the preferred day
-(clamping short months). Today preserves wall time.
+(clamping short months). Today resets the date and time to the current instant.
 Neither date navigation nor visibility filtering adds history or persists a date.
 
 CanvasScene is the layer/date visibility seam: a plant is visible only when its
@@ -9631,7 +9631,7 @@ shape (polygon, rectangle, circle, ellipse). It asks the view's
 `CanvasView.start_split_shape`, which scopes the gesture to that shape. The CAD
 toolbar places the same tool next to Trim/Extend, and `Shift+S` reaches it;
 both capture the effective selection when activated. The first canvas click
-is the line's first point. `SplitShapeTool` resolves the selected IDs, or freezes the
+is the line's first point. `SplitShapeTool` uses the selected items, or freezes the
 visible closed shapes when started without a selection. Each `mouse_move` tests them with
 `shape_split.segment_crosses_item` before previewing pieces. Only the shapes the
 DRAWN SEGMENT passes through are candidates — a shape lying on the line's

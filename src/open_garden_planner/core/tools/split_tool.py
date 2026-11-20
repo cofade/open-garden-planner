@@ -83,7 +83,7 @@ class SplitShapeTool(BaseTool):
     def __init__(self, view: CanvasView) -> None:
         super().__init__(view)
         # An explicit scope stays scoped even if every target disappears.
-        self._source_ids: tuple[UUID, ...] | None = None
+        self._sources: list[QGraphicsItem] | None = None
         self._start: QPointF | None = None
         self._candidates: list[QGraphicsItem] = []
         self._refusal_cache: dict[QGraphicsItem, str | None] = {}
@@ -107,10 +107,10 @@ class SplitShapeTool(BaseTool):
             )
         )
 
-    def prepare(self, source_ids: tuple[UUID, ...] | None) -> None:
-        """Scope the next cut to the given IDs, or the whole scene with None."""
+    def prepare(self, sources: list[QGraphicsItem] | None) -> None:
+        """Scope the next cut to the given items, or the whole scene with None."""
         self.cancel()
-        self._source_ids = source_ids
+        self._sources = sources
 
     def mouse_press(self, event: QMouseEvent, scene_pos: QPointF) -> bool:
         """Take the first or second cutting point."""
@@ -119,7 +119,7 @@ class SplitShapeTool(BaseTool):
 
         if self._start is None:
             self._candidates = self._collect_candidates()
-        if self._source_ids is not None and not any(map(self._is_live_candidate, self._candidates)):
+        if self._sources is not None and not any(map(self._is_live_candidate, self._candidates)):
             self._view.set_active_tool(ToolType.SELECT)
             self._view.set_status_message(
                 QCoreApplication.translate(
@@ -183,7 +183,7 @@ class SplitShapeTool(BaseTool):
         """Remove every preview and forget the armed source and gesture."""
         self._clear_previews()
         self._start = None
-        self._source_ids = None
+        self._sources = None
         self._candidates = []
         self._refusal_cache.clear()
 
@@ -201,12 +201,8 @@ class SplitShapeTool(BaseTool):
         including grouped children: a grouped child is still reported by the
         refusal check (with "ungroup first") instead of vanishing silently.
         """
-        if self._source_ids is not None:
-            return [
-                item
-                for source_id in self._source_ids
-                if (item := self._scene.find_item_by_id(source_id)) is not None
-            ]
+        if self._sources is not None:
+            return self._sources
 
         from open_garden_planner.ui.canvas.items import (
             CircleItem,
@@ -345,7 +341,7 @@ class SplitShapeTool(BaseTool):
             )
         )
 
-        scoped = self._source_ids is not None
+        scoped = self._sources is not None
         pieces = [piece for _source, split_pieces in splits for piece in split_pieces]
         self.cancel()
         self._view.command_manager.execute(command)
@@ -492,7 +488,7 @@ class SplitShapeTool(BaseTool):
         )
 
     def _show_piece_preview(self, end: QPointF) -> None:
-        if self._source_ids is not None and not any(map(self._is_live_candidate, self._candidates)):
+        if self._sources is not None and not any(map(self._is_live_candidate, self._candidates)):
             self._clear_previews()
             return
         if self._start is None:

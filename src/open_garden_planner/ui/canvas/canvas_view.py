@@ -1231,10 +1231,7 @@ class CanvasView(QGraphicsView):
         if tool_type is ToolType.SPLIT:
             selected = self.effective_selection()
             self._activate_tool_direct(ToolType.SPLIT)
-            source_ids = tuple(
-                item_id for item in selected if (item_id := getattr(item, "item_id", None))
-            )
-            self._split_tool.prepare(source_ids if selected else None)
+            self._split_tool.prepare(selected or None)
             return
         self._activate_tool_direct(tool_type)
 
@@ -5816,7 +5813,7 @@ class CanvasView(QGraphicsView):
         if item.item_id is None:
             return False
         self._activate_tool_direct(ToolType.SPLIT)
-        self._split_tool.prepare((item.item_id,))
+        self._split_tool.prepare([item])
         self._canvas_scene.clearSelection()
         item.setSelected(True)
         self.set_status_message(

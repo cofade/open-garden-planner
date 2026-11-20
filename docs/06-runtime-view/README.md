@@ -1249,7 +1249,7 @@ sequenceDiagram
     participant H as CommandManager
     U->>TB: Split
     TB->>V: set_active_tool(SPLIT)
-    V->>T: activate + capture selected IDs (empty selection means scene-wide)
+    V->>T: activate + capture selection (empty selection means scene-wide)
     U->>T: first snapped point (anywhere)
     T->>T: resolve scoped targets or freeze visible closed shapes; line preview
     U->>T: mouse move

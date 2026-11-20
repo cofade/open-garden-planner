@@ -9488,7 +9488,7 @@ map status takes no space. Complete control groups centre vertically within each
 row and wrap at narrow widths;
 the calendar's width derives from font metrics. Page steps remain twelve months.
 Within a continuous month drag a preferred 31st survives February; direct calendar
-edits establish a new preferred day. Today preserves time and daily animation keeps
+edits establish a new preferred day. Today sets the current date and time. Daily animation keeps
 running while the user changes the date. No independent date state is introduced.
 
 Decorative shadows and solar simulation are always on, including night/no-location
