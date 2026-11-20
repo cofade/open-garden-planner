@@ -642,8 +642,12 @@ def main_window_on_plan(clock_zone: Any = None, plan: Path = PLAN) -> tuple[Any,
         import open_garden_planner.core.sim_clock as sim_clock_module
         from open_garden_planner.core.sim_clock import SimClock
 
-        # application.py imports SimClock INSIDE __init__, so patch the module it reads
-        sim_clock_module.SimClock = lambda: SimClock(tz=clock_zone)  # type: ignore[assignment]
+        # application.py imports SimClock INSIDE __init__, so patch the module it
+        # reads. The app now asks the plan for a ``tz`` (#945); this seam keeps
+        # its own and merges the keyword rather than duplicating it.
+        sim_clock_module.SimClock = lambda *args, **kwargs: SimClock(  # type: ignore[assignment]
+            *args, **{**kwargs, "tz": clock_zone}
+        )
 
     # nobody clicks here: as in tests/conftest.py, no modal Welcome dialog over the plan, and no
     # Unsaved Changes on close (a dirty plan held a probe for ever, in front of the owner)
