@@ -557,8 +557,8 @@ class TestThePlansTimeZone:
         assert win._sim_clock.tz.key == "Asia/Tokyo"
         assert win._sim_clock.utc == datetime(2026, 6, 21, 6, 0, tzinfo=UTC)
         assert win._sun_toolbar.current_wall_datetime() == _local(2026, 6, 21, 15, 0)
-        # "Today" is the garden's date, not the computer's.
-        assert win._sun_toolbar._today() == plan_today(
+        # The toolbar reads the current date in the garden's zone.
+        assert win._sun_toolbar._now().date() == plan_today(
             win._project_manager.location
         )
 
