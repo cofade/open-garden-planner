@@ -287,8 +287,9 @@ class TestNfrPerf01LinePaintBudgets:
             for line in lines:
                 line.setVisible(False)
             QApplication.processEvents()
+            measured_without: list[float] = []
             without_started = time.perf_counter()
-            without_lines = _best_median(view)
+            without_lines = _best_median(view, medians=measured_without)
             without_seconds = time.perf_counter() - without_started
 
             delta = with_lines - without_lines
@@ -297,6 +298,7 @@ class TestNfrPerf01LinePaintBudgets:
                 "with_lines_medians": [round(value, 3) for value in measured_with],
                 "with_lines_seconds": round(with_lines_seconds, 2),
                 "without_lines_ms": round(without_lines, 3),
+                "without_lines_medians": [round(value, 3) for value in measured_without],
                 "without_lines_seconds": round(without_seconds, 2),
             }
             assert delta <= 40.0, (

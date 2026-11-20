@@ -6,8 +6,8 @@ round's median, the spread between them, and the conditions the runner was under
 were thrown away. ``_assert_repaint_budget`` kept only the *best* median, and
 only if it failed.
 
-Every perf assertion that evaluates rounds reports itself here instead. The
-summary is printed at the end of the session (``pytest_terminal_summary`` in
+Every NFR budget assertion in ``tests/perf/test_nfr_budgets.py`` that evaluates
+rounds reports itself here instead. The summary is printed at the end of the session (``pytest_terminal_summary`` in
 ``tests/perf/conftest.py``) and written as JSON when ``OGP_PERF_REPORT`` names a
 file, so a workflow can keep it beside the job log.
 

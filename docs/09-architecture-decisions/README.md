@@ -9422,7 +9422,7 @@ feedback loop. The structural decision selected by the owner on 2026-10-24 is ex
 
 **Context.** The 2026-10-26 addendum fixed one index file per logical area and said an
 area's body-file splits do not add an index. The CAN area has since filled
-`index/01-canvas-geometry.md` to 23,815 bytes against its 24,000-byte budget: the next
+`index/01-canvas-geometry.md` to 23,951 bytes against its 24,000-byte budget: the next
 canvas lesson (PF-CAN-68, #850) would have pushed it over, and the gate's own message
 points at the structural split rather than at compressing a rule.
 
@@ -9431,7 +9431,7 @@ points at the structural split rather than at compressing a rule.
 and `index/01b-canvas-rendering.md` holds PF-CAN-49 onwards (the body file
 `01b-canvas-rendering.md`). Both are `CAN` in `AREA_INDEX_MAP`, both are linked from the
 §11.4 navigation row, and every row keeps its five columns and its rebased
-`../01b-canvas-rendering.md#pf-can-…` link. 18 existing rows were moved byte-identically;
+`../01b-canvas-rendering.md#pf-can-…` link. 19 existing rows were moved byte-identically;
 no rule, pin or status changed to fit. This is the remedy for an **index** that reaches
 `INDEX_MAX_BYTES`; a **body** file that reaches `PITFALL_MAX_BYTES` is split as the
 catalogue already does. The next file in line is a body file, `04-ui-panels-dialogs.md`
