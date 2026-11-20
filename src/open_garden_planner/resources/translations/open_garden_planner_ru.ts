@@ -12941,6 +12941,11 @@ checked = always protect, unchecked = never protect, indeterminate = use the pla
     <context>
         <name>ReferencePoints</name>
         <message>
+            <location filename="../../ui/reference_points.py" line="158" />
+            <source>A reference point can be attached to a parent or used in a geometric constraint.</source>
+            <translation>Опорную точку можно привязать к родительскому объекту или использовать в геометрическом ограничении.</translation>
+        </message>
+        <message>
             <location filename="../../ui/reference_points.py" line="239" />
             <source> cm</source>
             <translation> см</translation>

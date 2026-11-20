@@ -13986,5 +13986,8 @@ or locked layer prevents this implicit move. A point and its parent copied
 together rebind by UUID even when nested. An ordinary translation of a Qt group
 also moves its members. Constraints treat reference points as stationary
 anchors during the solve. If the solve moves a binding parent, its unlocked
-points follow that parent in the same command. The datum's rendered perimeter
+points follow that parent in the same command. A datum may have an attachment or
+participate in a geometric constraint. Attachment still permits centre snapping,
+measurement and a position lock. The dialog offers only persistent rectangles
+and polygons for new bindings; construction guides remain snap aids. The datum's rendered perimeter
 does not participate in snapping or rectangle-based geometry editors.

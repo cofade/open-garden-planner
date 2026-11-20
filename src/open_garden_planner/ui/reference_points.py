@@ -28,9 +28,11 @@ from PyQt6.QtWidgets import (
 
 from open_garden_planner.core import reference_points as ref
 from open_garden_planner.core.commands import ChangePropertyCommand, CreateItemCommand
+from open_garden_planner.core.constraints import ConstraintType
 from open_garden_planner.core.i18n import format_trimmed
 from open_garden_planner.core.object_types import get_translated_display_name
 from open_garden_planner.core.snap.geometry import item_edges
+from open_garden_planner.ui.canvas.items import PolygonItem, RectangleItem
 from open_garden_planner.ui.canvas.items.reference_point_item import (
     ReferencePointItem,
     nearest_contour_position,
@@ -80,9 +82,8 @@ class PointProperties:
 
 def parent_name(item: Any) -> str:
     """A stable, readable label for the attachment combo."""
-    label = item.name or (
-        get_translated_display_name(item.object_type) if item.object_type else ""
-    )
+    kind = getattr(item, "object_type", None)
+    label = getattr(item, "name", "") or (get_translated_display_name(kind) if kind else "")
     return f"{label} [{str(item.item_id)[:8]}]"
 
 
@@ -125,7 +126,7 @@ def _contour_parents(
             continue
         if candidate.parentItem() is not None:
             continue
-        if ref.is_reference_point(candidate):
+        if not isinstance(candidate, (RectangleItem, PolygonItem)):
             continue
         if not (candidate.flags() & QGraphicsItem.GraphicsItemFlag.ItemIsSelectable):
             continue
@@ -151,6 +152,22 @@ def _nearest_parent(
         if best is None or projection[1] < best[1]:
             best = (candidate.item_id, projection[1])
     return (best[0], True) if best is not None else (None, False)
+
+
+def attachment_constraint_message() -> str:
+    return QCoreApplication.translate(
+        "ReferencePoints",
+        "A reference point can be attached to a parent or used in a geometric constraint.",
+    )
+
+
+def _has_geometric_constraint(item: ReferencePointItem) -> bool:
+    scene = item.scene()
+    graph = getattr(scene, "constraint_graph", None)
+    return graph is not None and any(
+        constraint.constraint_type != ConstraintType.FIXED
+        for constraint in graph.get_item_constraints(item.item_id)
+    )
 
 
 def point_dialog(
@@ -234,6 +251,11 @@ def point_dialog(
     form.addRow(status)
 
     locked = item is not None and item.is_position_locked()
+    constrained = item is not None and _has_geometric_constraint(item)
+    if constrained:
+        for index in range(1, parents.count()):
+            parents.model().item(index).setEnabled(False)  # type: ignore[attr-defined]
+        parents.setToolTip(attachment_constraint_message())
     parents.setEnabled(not locked)
     sizes = {
         ref.SIZE_MODE_PLAN: ref.DEFAULT_SIZE_CM,
@@ -404,6 +426,9 @@ def edit_reference_point(item: ReferencePointItem) -> None:
     old_position = item.mapToScene(item.rect().center())
     new_position = QPointF(old_position)
     previous = PointProperties.from_item(item)
+    if options.parent_id is not None and options.parent_id != previous.parent_id and _has_geometric_constraint(item):
+        view.set_status_message(attachment_constraint_message())
+        return
     if options.on_contour and options.parent_id is not None and (
         options.parent_id != previous.parent_id or not previous.on_contour
     ):

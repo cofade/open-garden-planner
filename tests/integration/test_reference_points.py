@@ -714,3 +714,66 @@ def test_reference_size_defaults_are_per_mode_and_keep_fractional_edits(canvas, 
     monkeypatch.setattr(QDialog, "exec", accept)
     options = reference_points.point_dialog(view)
     assert options is not None and options.size == 7.25
+
+
+def test_construction_line_does_not_prevent_point_placement(canvas, monkeypatch):
+    from PyQt6.QtWidgets import QComboBox, QDialog
+
+    from open_garden_planner.ui.canvas.items.construction_item import ConstructionLineItem
+
+    scene, view = canvas
+    scene.addItem(ConstructionLineItem(QPointF(100, 100), QPointF(450, 100)))
+    def accept(dialog):
+        parents = dialog.findChild(QComboBox, "reference_point_parent")
+        assert parents.count() == 1
+        return QDialog.DialogCode.Accepted
+    monkeypatch.setattr(QDialog, "exec", accept)
+
+    assert reference_points.place_reference_point(view, QPointF(300, 100))
+
+
+def test_attached_datum_can_measure_but_cannot_enter_geometric_constraint(canvas, monkeypatch):
+    from open_garden_planner.core.commands import AddConstraintCommand
+    from open_garden_planner.core.constraints import AnchorRef, ConstraintType
+
+    scene, view = canvas
+    parent = RectangleItem(100, 100, 400, 200, object_type=ObjectType.GENERIC_RECTANGLE)
+    scene.addItem(parent)
+    point = _place(monkeypatch, view, _options(parent_id=parent.item_id, on_contour=True),
+                   QPointF(200, 100))
+    circle = CircleItem(700, 100, 10, object_type=ObjectType.GENERIC_CIRCLE)
+    scene.addItem(circle)
+    a = AnchorRef(point.item_id, AnchorType.CENTER)
+    b = AnchorRef(circle.item_id, AnchorType.CENTER)
+    assert get_anchor_points(point)[0].point == QPointF(200, 100)
+    assert not view.is_constraint_feasible(a, b, 500, ConstraintType.DISTANCE)
+
+    graph = scene.constraint_graph
+    depth = view.command_manager.undo_depth
+    view._execute_constraint_with_solve(AddConstraintCommand(graph, a, b, 500))
+    assert not graph.constraints
+    assert view.command_manager.undo_depth == depth
+
+
+def test_a_constrained_independent_datum_cannot_be_attached(canvas, monkeypatch):
+    from open_garden_planner.core.constraints import AnchorRef, ConstraintType
+
+    scene, view = canvas
+    parent = RectangleItem(100, 100, 400, 200, object_type=ObjectType.GENERIC_RECTANGLE)
+    scene.addItem(parent)
+    start = QPointF(250, 70)
+    point = _place(monkeypatch, view, _options(), start)
+    circle = CircleItem(650, 70, 10, object_type=ObjectType.GENERIC_CIRCLE)
+    scene.addItem(circle)
+    a = AnchorRef(point.item_id, AnchorType.CENTER)
+    b = AnchorRef(circle.item_id, AnchorType.CENTER)
+    scene.constraint_graph.add_constraint(a, b, 400, constraint_type=ConstraintType.DISTANCE)
+    depth = view.command_manager.undo_depth
+    monkeypatch.setattr(reference_points, "point_dialog", lambda *_args: _options(
+        parent_id=parent.item_id, on_contour=True,
+    ))
+
+    reference_points.edit_reference_point(point)
+    assert parent_id(point.metadata) is None
+    assert point.pos() == start
+    assert view.command_manager.undo_depth == depth

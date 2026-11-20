@@ -276,3 +276,4 @@
 | Case study: Split cut the lawn under a selected raised bed (PR #981) | [Read](276-split-preselection-and-tracking-records.md) |
 | Case study: a reference-point branch crashed the suite once every ten app windows (#666) | [Read](277-reference-point-teardown-0xc0000374.md) |
 | Case study: Undo shifted a reference point (#666) | [Read](278-reference-point-projected-undo.md) |
+| Case study: A construction guide blocked reference-point placement (#666) | [Read](279-reference-point-construction-parent.md) |

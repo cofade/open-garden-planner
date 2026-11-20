@@ -12511,6 +12511,11 @@ coché = toujours protéger, décoché = ne jamais protéger, indéterminé = va
     <context>
         <name>ReferencePoints</name>
         <message>
+            <location filename="../../ui/reference_points.py" line="158" />
+            <source>A reference point can be attached to a parent or used in a geometric constraint.</source>
+            <translation>Un point de référence peut être rattaché à un objet parent ou utilisé dans une contrainte géométrique.</translation>
+        </message>
+        <message>
             <location filename="../../ui/reference_points.py" line="239" />
             <source> cm</source>
             <translation> cm</translation>

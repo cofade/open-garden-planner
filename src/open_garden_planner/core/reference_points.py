@@ -61,6 +61,11 @@ def is_reference_point(item_or_metadata: Any) -> bool:
     return isinstance(metadata, dict) and metadata.get(MARKER) is True
 
 
+def is_attached_reference_point(item: QGraphicsItem | None) -> bool:
+    """Whether a reference point currently has a live binding parent."""
+    return is_reference_point(item) and getattr(item, "binding_parent", None) is not None
+
+
 def parent_id(metadata: dict[str, Any] | Any) -> UUID | None:
     """The attached parent's id, or ``None`` for an independent point."""
     raw = metadata.get(PARENT_ID) if isinstance(metadata, dict) else None

@@ -2107,6 +2107,18 @@ class CanvasView(QGraphicsView):
                 return item
         return None
 
+    def _constraint_uses_attached_datum(self, *anchors: object) -> bool:
+        from open_garden_planner.core.reference_points import is_attached_reference_point
+
+        for anchor in anchors:
+            item_id = getattr(anchor, "item_id", None)
+            if item_id is None:
+                continue
+            item = self._canvas_scene.find_item_by_id(item_id)
+            if is_attached_reference_point(item):
+                return True
+        return False
+
     def _execute_constraint_with_solve(
         self, command: AddConstraintCommand, *, conflicts_checked: bool = False
     ) -> None:
@@ -2118,6 +2130,14 @@ class CanvasView(QGraphicsView):
         addition + position changes) is a single Ctrl+Z step.
         """
         from open_garden_planner.core.constraints import ConstraintType as _CT
+
+        if command._constraint_type != _CT.FIXED and self._constraint_uses_attached_datum(
+            command._anchor_a, command._anchor_b, command._anchor_c,
+        ):
+            from open_garden_planner.ui.reference_points import attachment_constraint_message
+
+            self.set_status_message(attachment_constraint_message())
+            return
 
         # PARALLEL / PERPENDICULAR / EQUAL are rotation-only: the solver skips them.
         # Bundling solver moves from OTHER constraints would shift polygon vertices and
@@ -2183,6 +2203,7 @@ class CanvasView(QGraphicsView):
         from open_garden_planner.core.measure_snapper import (
             anchor_offset_table,
         )
+        from open_garden_planner.core.reference_points import constraint_pins
         from open_garden_planner.ui.canvas.items import GardenItemMixin
         from open_garden_planner.ui.canvas.items.construction_item import (
             ConstructionCircleItem,
@@ -2239,7 +2260,7 @@ class CanvasView(QGraphicsView):
                 tolerance=1.0,
                 # #670 review P1: the scan must pin what the application pins,
                 # or it reports a conflict the applied solve would not create.
-                pinned_items=construction_ids
+                pinned_items=construction_ids | constraint_pins(item_map)
                 | self._constraint_reference_pins(command._anchor_a, command._anchor_b),
             )
         except Exception:
@@ -2324,6 +2345,7 @@ class CanvasView(QGraphicsView):
             True  — the constraint is compatible with the existing system.
             False — adding it would create an irresolvable conflict.
         """
+        from open_garden_planner.core.constraints import ConstraintType
         from open_garden_planner.core.measure_snapper import anchor_offset_table
         from open_garden_planner.core.reference_points import constraint_pins
         from open_garden_planner.ui.canvas.items import GardenItemMixin
@@ -2331,6 +2353,11 @@ class CanvasView(QGraphicsView):
             ConstructionCircleItem,
             ConstructionLineItem,
         )
+
+        if constraint_type != ConstraintType.FIXED and self._constraint_uses_attached_datum(
+            anchor_a, anchor_b, anchor_c,
+        ):
+            return False
 
         graph = self._canvas_scene.constraint_graph
 
