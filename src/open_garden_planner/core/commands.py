@@ -1195,7 +1195,30 @@ def expand_with_bed_children(
     finder = getattr(scene, "find_item_by_id", None)
     if not callable(finder):
         return result
-    for item, delta in list(item_deltas):
+    # A bound point selected together with its parent must be carried by the
+    # parent, not moved once directly and again by the expansion. Dropping its
+    # direct delta makes the command move the parent first and the point after
+    # it, so the point's contour projection sees the parent's new place and
+    # undo restores both in the same order (#666 review).
+    from open_garden_planner.core.reference_points import attached_by_parent
+
+    points_by_parent = attached_by_parent(scene)
+
+    def attached(item: QGraphicsItem) -> tuple[QGraphicsItem, ...]:
+        item_id = getattr(item, "item_id", None)
+        return tuple(points_by_parent.get(item_id, ())) if isinstance(item_id, UUID) else ()
+
+    direct_items = {item for item, _delta in result}
+    carried = {
+        point
+        for item, _delta in result
+        for point in attached(item)
+        if point in direct_items
+    }
+    if carried:
+        result = [(item, delta) for item, delta in result if item not in carried]
+        moved = {item for item, _delta in result}
+    for item, delta in list(result):
         for parent in iter_plant_parents([item]):
             for child_id in parent.child_item_ids:
                 child = finder(child_id)
@@ -1207,11 +1230,8 @@ def expand_with_bed_children(
     # step (#666, ADR-080): the point's absolute position is derived from the
     # parent's translation, not a second user gesture. Build the map once; a
     # move command can carry many items.
-    from open_garden_planner.core.reference_points import attached_by_parent
-
-    points_by_parent = attached_by_parent(scene)
-    for item, delta in list(item_deltas):
-        for point in points_by_parent.get(getattr(item, "item_id", None), ()):
+    for item, delta in list(result):
+        for point in attached(item):
             if point in moved:
                 continue
             moved.add(point)

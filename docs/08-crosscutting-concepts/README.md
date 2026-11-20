@@ -45,6 +45,9 @@ English, German, Spanish, Russian, and French are currently shipped. Registratio
 the full source inventory mandatory for that locale. New UI keys require translations
 in every registered target locale in the same PR. The required `Test` CI check enforces
 this through `scripts/check_translations.py` and the normal pytest suite (#496).
+The bundled example plans' **content** is translated for German and Spanish; for
+Russian and French the gallery name/description is localized and the plan content
+remains English, as the generator's `LANGUAGES` table defines.
 
 The canonical inventory comes from fresh PyQt6 extraction plus audited AST/helper/table
 sources in `scripts/i18n_bindings.json`. Qt context, source and disambiguation identify a
@@ -1374,6 +1377,7 @@ drag propagation moves them like bed children and resets them before the command
 re-applies the delta. A parent move and its point are therefore one undo step on every
 path, with no scene watcher. `ItemIgnoresTransformations` is set only for `screen_px`
 size mode. A generic shape has no height, so nothing is added to the 3D scene.
+The tool is armed from **Garden > Reference point**; it has no main-toolbar button.
 
 ## 8.10 Integration Test Policy
 

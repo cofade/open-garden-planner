@@ -8,7 +8,7 @@ circle branch of ``ProjectManager``.
 
 from __future__ import annotations
 
-from typing import Any
+from typing import Any, cast
 
 from PyQt6.QtCore import QPointF, QRectF, Qt
 from PyQt6.QtGui import QBrush, QColor, QPainter, QPainterPath, QPen
@@ -104,16 +104,20 @@ class ReferencePointItem(CircleItem):
     @property
     def binding_parent(self) -> QGraphicsItem | None:
         """The item whose outline this point is attached to, if it is present."""
-        parent_uuid = ref.parent_id(self.metadata)
-        scene = self.scene()
-        if parent_uuid is None or scene is None:
+        try:
+            parent_uuid = ref.parent_id(self.metadata)
+            scene = self.scene()
+            if parent_uuid is None or scene is None:
+                return None
+            finder = getattr(scene, "find_item_by_id", None)
+            if callable(finder):
+                return cast("QGraphicsItem | None", finder(parent_uuid))
+            for item in scene.items():
+                if getattr(item, "item_id", None) == parent_uuid:
+                    return item
+        except RuntimeError:
+            # The scene is being torn down; a stale lookup must not abort it.
             return None
-        finder = getattr(scene, "find_item_by_id", None)
-        if callable(finder):
-            return finder(parent_uuid)
-        for item in scene.items():
-            if getattr(item, "item_id", None) == parent_uuid:
-                return item
         return None
 
     def _visual_radius(self) -> float:
@@ -133,11 +137,13 @@ class ReferencePointItem(CircleItem):
 
     def paint(
         self,
-        painter: QPainter,
-        option: QStyleOptionGraphicsItem,
+        painter: QPainter | None,
+        option: QStyleOptionGraphicsItem | None,
         widget: QWidget | None = None,
     ) -> None:
         del option, widget
+        if painter is None:
+            return
         scene = self.scene()
         if scene is not None and getattr(scene, "_rendering_minimap", False):
             pen = QPen(self.pen().color(), 2.0)
@@ -226,7 +232,16 @@ class ReferencePointItem(CircleItem):
     ) -> Any:
         self.handle_item_change(change, value)
         if change == QGraphicsItem.GraphicsItemChange.ItemPositionChange:
-            return self._projected_position(value)
+            parent_item = self.parentItem()
+            proposed = (
+                parent_item.mapToScene(value) if parent_item is not None else value
+            )
+            projected = self._projected_position(proposed)
+            return (
+                parent_item.mapFromScene(projected)
+                if parent_item is not None
+                else projected
+            )
         if change == QGraphicsItem.GraphicsItemChange.ItemSelectedChange:
             if not value:
                 self.hide_resize_handles()
@@ -242,7 +257,9 @@ class ReferencePointItem(CircleItem):
 
     # -- interaction ----------------------------------------------------
 
-    def mouseDoubleClickEvent(self, event: QGraphicsSceneMouseEvent) -> None:
+    def mouseDoubleClickEvent(self, event: QGraphicsSceneMouseEvent | None) -> None:
+        if event is None:
+            return
         if event.button() == Qt.MouseButton.LeftButton:
             from open_garden_planner.ui.reference_points import edit_reference_point
 
@@ -251,7 +268,9 @@ class ReferencePointItem(CircleItem):
             return
         super().mouseDoubleClickEvent(event)
 
-    def contextMenuEvent(self, event: QGraphicsSceneContextMenuEvent) -> None:
+    def contextMenuEvent(self, event: QGraphicsSceneContextMenuEvent | None) -> None:
+        if event is None:
+            return
         from open_garden_planner.ui.reference_points import reference_context_menu
 
         menu, lock_action = reference_context_menu(self)

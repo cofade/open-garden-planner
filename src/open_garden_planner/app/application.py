@@ -7,7 +7,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Any, Literal, NoReturn
 from uuid import UUID
 
-from PyQt6.QtCore import QEvent, Qt, QTimer
+from PyQt6.QtCore import QCoreApplication, QEvent, Qt, QTimer
 from PyQt6.QtGui import QAction, QCloseEvent, QKeySequence, QResizeEvent
 from PyQt6.QtWidgets import (
     QApplication,
@@ -1863,7 +1863,7 @@ class GardenPlannerApp(QMainWindow):
         menu.addAction(check_companion_action)
 
     def _setup_garden_menu(self, menu: QMenu) -> None:
-        """Set up the Garden menu actions (US-12.10a — soil)."""
+        """Set up the Garden menu actions (US-12.10a - soil)."""
         # Set default soil test (project-wide fallback when a bed has no own test)
         default_soil_action = QAction(self.tr("&Set default soil test…"), self)
         default_soil_action.setStatusTip(
@@ -1891,6 +1891,14 @@ class GardenPlannerApp(QMainWindow):
         shopping_list_action.triggered.connect(self._on_shopping_list)
         self._set_action_icon(shopping_list_action, "shopping_list")
         menu.addAction(shopping_list_action)
+
+        menu.addSeparator()
+        reference_point_action = QAction(
+            QCoreApplication.translate("ReferencePoints", "Reference point"), self
+        )
+        self._set_action_icon(reference_point_action, "reference_point")
+        reference_point_action.triggered.connect(self._on_reference_point_tool)
+        menu.addAction(reference_point_action)
 
     def _setup_help_menu(self, menu: QMenu) -> None:
         """Set up the Help menu actions."""
@@ -5337,6 +5345,10 @@ class GardenPlannerApp(QMainWindow):
                 "Please restart the application for the change to take effect."
             ).format(language=lang_name),
         )
+
+    def _on_reference_point_tool(self) -> None:
+        """Arm the Reference point tool from the Garden menu (#666)."""
+        self.canvas_view.set_active_tool(ToolType.REFERENCE_POINT)
 
     def _on_tool_selected(self, tool_type: ToolType) -> None:
         """Handle tool selection from toolbar.

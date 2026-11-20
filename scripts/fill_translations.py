@@ -2709,10 +2709,14 @@ TRANSLATIONS: dict[str, dict[str, str]] = {
         "Keep on the parent outline": "Auf der Kontur des Elternteils bleiben",
         "Name": "Name",
         "On outline of: {name}": "Auf der Kontur von: {name}",
+        "Place a survey stake or measurement datum":
+            "Setzt einen Messpunkt oder ein Bezugsmaß",
         "Reference point": "Referenzpunkt",
         "Size mode": "Größenmodus",
         "Stroke width": "Linienbreite",
         "Symbol size": "Symbolgröße",
+        "Unlock the layer to edit this reference point.":
+            "Entsperre die Ebene, um diesen Referenzpunkt zu bearbeiten.",
         "cm": "cm",
         "px": "px",
         "{name}\n{status}\nSymbol: {size} {unit}; stroke: {width} px":

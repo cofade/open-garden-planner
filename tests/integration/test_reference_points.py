@@ -116,6 +116,42 @@ def test_contour_bound_point_is_projected_and_follows_a_parent_move(canvas, monk
     assert point.pos() == QPointF(335, 160)
 
 
+def test_a_point_selected_with_its_parent_moves_once_and_undoes(canvas, monkeypatch):
+    scene, view = canvas
+    parent = RectangleItem(0, 100, 400, 200, object_type=ObjectType.GENERIC_RECTANGLE)
+    scene.addItem(parent)
+    point = _place(
+        monkeypatch,
+        view,
+        _options(parent_id=parent.item_id, on_contour=True),
+        QPointF(300, 100),
+    )
+    scene.clearSelection()
+    parent.setSelected(True)
+    point.setSelected(True)
+    # The drag bookkeeping: both are in the direct set, the point was moved
+    # live first and projected against the parent's old place.
+    view._drag_start_positions = {
+        point: QPointF(point.pos()),
+        parent: QPointF(parent.pos()),
+    }
+    point.setPos(335, 100)
+    parent.setPos(35, 60)
+    depth = view.command_manager.undo_depth
+    view._finalize_drag_move()
+
+    assert view.command_manager.undo_depth == depth + 1
+    assert parent.pos() == QPointF(35, 60)
+    assert point.pos() == QPointF(335, 160)  # on the moved top edge, not (370, 160)
+
+    view.command_manager.undo()
+    assert parent.pos() == QPointF(0, 0)
+    assert point.pos() == QPointF(300, 100)
+    view.command_manager.redo()
+    assert parent.pos() == QPointF(35, 60)
+    assert point.pos() == QPointF(335, 160)
+
+
 def test_bound_point_refuses_to_leave_the_contour_and_can_be_detached(canvas, monkeypatch):
     scene, view = canvas
     parent = RectangleItem(100, 100, 400, 200, object_type=ObjectType.GENERIC_RECTANGLE)
@@ -163,6 +199,46 @@ def test_edit_is_one_undo_step(canvas, monkeypatch):
     assert size_mode(point.metadata) == "plan_cm"
     assert not point.flags() & QGraphicsItem.GraphicsItemFlag.ItemIgnoresTransformations
     assert point.mapToScene(point.rect().center()) == QPointF(240, 180)
+
+
+def test_editing_a_point_on_a_locked_layer_is_refused(canvas, monkeypatch):
+    scene, view = canvas
+    point = _place(monkeypatch, view, _options(), QPointF(240, 180))
+    layer = scene.get_layer_by_id(point.layer_id)
+    assert layer is not None
+    layer.locked = True
+    monkeypatch.setattr(
+        reference_points, "point_dialog", lambda *_args: _options(name="Changed")
+    )
+    reference_points.edit_reference_point(point)
+    assert point.name == "Stake A"
+
+
+def test_the_dialog_preselects_a_contour_parent(canvas, monkeypatch):
+    from PyQt6.QtWidgets import QCheckBox, QComboBox, QDialog, QSpinBox
+
+    scene, view = canvas
+    parent = RectangleItem(100, 100, 400, 200, object_type=ObjectType.GENERIC_RECTANGLE)
+    scene.addItem(parent)
+
+    captured = {}
+
+    def accept(dialog):
+        parents = dialog.findChild(QComboBox, "reference_point_parent")
+        contour = dialog.findChild(QCheckBox, "reference_point_on_contour")
+        size = dialog.findChild(QSpinBox, "reference_point_size")
+        captured["parent"] = parents.currentData()
+        captured["contour"] = contour.isChecked()
+        captured["size"] = size.value()
+        return QDialog.DialogCode.Accepted
+
+    monkeypatch.setattr(QDialog, "exec", accept)
+    result = reference_points.point_dialog(view, None, QPointF(300, 102))
+    assert result is not None
+    assert captured == {"parent": parent.item_id, "contour": True, "size": 6}
+    assert result.parent_id == parent.item_id
+    assert result.on_contour
+    assert result.size == pytest.approx(6.0)
 
 
 def test_copy_and_layer_follow_the_ordinary_object_rules(canvas, monkeypatch):

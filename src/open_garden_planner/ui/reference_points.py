@@ -38,6 +38,7 @@ from open_garden_planner.ui.canvas.items.reference_point_item import (
 from open_garden_planner.ui.dialogs.properties_dialog import ColorButton
 
 if TYPE_CHECKING:
+    from open_garden_planner.ui.canvas.canvas_scene import CanvasScene
     from open_garden_planner.ui.canvas.canvas_view import CanvasView
 
 
@@ -91,7 +92,11 @@ def reference_status(item: ReferencePointItem) -> str:
     if parent_uuid is None:
         return QCoreApplication.translate("ReferencePoints", "Independent point")
     parent = item.binding_parent
-    name = parent_name(parent) if parent is not None else str(parent_uuid)[:8]
+    if parent is None:
+        # A deleted parent leaves the datum where it is; it reads as
+        # independent until its next edit clears the dangling key.
+        return QCoreApplication.translate("ReferencePoints", "Independent point")
+    name = parent_name(parent)
     if ref.on_contour(item.metadata):
         return QCoreApplication.translate("ReferencePoints", "On outline of: {name}").format(name=name)
     return QCoreApplication.translate("ReferencePoints", "Attached to: {name}").format(name=name)
@@ -111,10 +116,10 @@ def reference_summary(item: ReferencePointItem) -> str:
 
 def _contour_parents(
     view: CanvasView, item: ReferencePointItem | None
-) -> list[QGraphicsItem]:
+) -> list[Any]:
     """Top-level shapes with a straight outline that may own a point."""
     scene = view._canvas_scene
-    candidates: list[QGraphicsItem] = []
+    candidates: list[Any] = []
     for candidate in scene.items():
         if candidate is item or not candidate.isVisible():
             continue
@@ -134,7 +139,7 @@ def _contour_parents(
 
 
 def _nearest_parent(
-    view: CanvasView, position: QPointF, candidates: list[QGraphicsItem]
+    view: CanvasView, position: QPointF, candidates: list[Any]
 ) -> tuple[UUID | None, bool]:
     """The contour within eight screen pixels of *position*, if any."""
     threshold = 8.0 / max(view._zoom_factor, 0.01)
@@ -163,7 +168,20 @@ def point_dialog(
     form.addRow(QCoreApplication.translate("ReferencePoints", "Name"), name_edit)
 
     candidates = _contour_parents(view, item)
+    if item is not None:
+        current_parent = item.binding_parent
+        if current_parent is not None and current_parent not in candidates:
+            # A parent inside a group is still a valid binding; keep it in the
+            # combo so editing the point cannot silently detach it.
+            candidates.append(current_parent)
+            candidates.sort(
+                key=lambda candidate: (
+                    getattr(candidate, "name", ""),
+                    str(getattr(candidate, "item_id", "")),
+                )
+            )
     parents = QComboBox(dialog)
+    parents.setObjectName("reference_point_parent")
     parents.addItem(QCoreApplication.translate("ReferencePoints", "Independent point"), None)
     for candidate in candidates:
         parents.addItem(parent_name(candidate), candidate.item_id)
@@ -283,7 +301,10 @@ def _apply_properties(item: ReferencePointItem, value: tuple[PointProperties, QP
     pen.setColor(QColor(options.color))
     pen.setWidthF(options.stroke_width)
     item.setPen(pen)
-    item.setPos(position)
+    parent_item = item.parentItem()
+    item.setPos(
+        parent_item.mapFromScene(position) if parent_item is not None else position
+    )
     item.prepareGeometryChange()
     item.update()
 
@@ -291,9 +312,11 @@ def _apply_properties(item: ReferencePointItem, value: tuple[PointProperties, QP
 def _usable_layer(view: CanvasView, parent: QGraphicsItem | None) -> Any | None:
     scene = view._canvas_scene
     if parent is not None:
-        parent_layer = scene.get_layer_by_id(getattr(parent, "layer_id", None))
-        if parent_layer is not None and not parent_layer.locked and parent_layer.visible:
-            return parent_layer
+        layer_id = getattr(parent, "layer_id", None)
+        if isinstance(layer_id, UUID):
+            parent_layer = scene.get_layer_by_id(layer_id)
+            if parent_layer is not None and not parent_layer.locked and parent_layer.visible:
+                return parent_layer
     active = scene.active_layer
     if active is not None and not active.locked and active.visible:
         return active
@@ -343,14 +366,23 @@ def place_reference_point(view: CanvasView, position: QPointF) -> bool:
 
 def edit_reference_point(item: ReferencePointItem) -> None:
     """Edit an existing point; appearance, binding and position are one step."""
-    scene = item.scene()
-    if scene is None or not scene.views():
+    raw_scene = item.scene()
+    if raw_scene is None or not raw_scene.views():
         return
+    scene = cast("CanvasScene", raw_scene)
     view = cast("CanvasView", scene.views()[0])
+    layer = scene.get_layer_by_id(item.layer_id) if item.layer_id else None
+    if layer is not None and layer.locked:
+        view.set_status_message(
+            QCoreApplication.translate(
+                "ReferencePoints", "Unlock the layer to edit this reference point."
+            )
+        )
+        return
     options = point_dialog(view, item)
     if options is None:
         return
-    old_position = QPointF(item.pos())
+    old_position = item.mapToScene(item.rect().center())
     new_position = QPointF(old_position)
     if options.on_contour and options.parent_id is not None:
         parent = scene.find_item_by_id(options.parent_id)
@@ -375,10 +407,11 @@ def reference_context_menu(item: ReferencePointItem) -> tuple[QMenu, Any]:
     The lock action is returned so the caller can dispatch it after ``exec``
     (a menu-wide trigger hook would also fire for Edit, Copy and Delete).
     """
-    scene = item.scene()
+    raw_scene = item.scene()
     menu = QMenu()
-    if scene is None or not scene.views():
+    if raw_scene is None or not raw_scene.views():
         return menu, None
+    scene = cast("CanvasScene", raw_scene)
     view = cast("CanvasView", scene.views()[0])
     layer = scene.get_layer_by_id(item.layer_id) if item.layer_id else None
     editable = layer is not None and not layer.locked
@@ -387,6 +420,7 @@ def reference_context_menu(item: ReferencePointItem) -> tuple[QMenu, Any]:
         item.setSelected(True)
 
     edit = menu.addAction(QCoreApplication.translate("ReferencePoints", "Edit reference point…"))
+    assert edit is not None
     edit.setObjectName("reference_edit")
     edit.setEnabled(editable)
     edit.triggered.connect(lambda: edit_reference_point(item))
@@ -404,12 +438,13 @@ def reference_context_menu(item: ReferencePointItem) -> tuple[QMenu, Any]:
     menu.addSeparator()
 
     copy = menu.addAction(QCoreApplication.translate("GardenPlannerApp", "&Copy"))
+    duplicate = menu.addAction(QCoreApplication.translate("CircleItem", "Duplicate"))
+    delete = menu.addAction(QCoreApplication.translate("CircleItem", "Delete"))
+    assert copy is not None and duplicate is not None and delete is not None
     copy.setEnabled(editable)
     copy.triggered.connect(view.copy_selected)
-    duplicate = menu.addAction(QCoreApplication.translate("CircleItem", "Duplicate"))
     duplicate.setEnabled(editable)
     duplicate.triggered.connect(view.duplicate_selected)
-    delete = menu.addAction(QCoreApplication.translate("CircleItem", "Delete"))
     delete.setEnabled(editable)
     delete.triggered.connect(view._delete_selected_items)
     return menu, lock_action

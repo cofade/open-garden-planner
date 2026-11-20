@@ -27,10 +27,14 @@ TRANSLATIONS: dict[str, dict[str, str]] = {
         "Keep on the parent outline": "Mantener en el contorno del elemento padre",
         "Name": "Nombre",
         "On outline of: {name}": "En el contorno de: {name}",
+        "Place a survey stake or measurement datum":
+            "Colocar una estaca de medición o un dato de referencia",
         "Reference point": "Punto de referencia",
         "Size mode": "Modo de tamaño",
         "Stroke width": "Grosor del trazo",
         "Symbol size": "Tamaño del símbolo",
+        "Unlock the layer to edit this reference point.":
+            "Desbloquea la capa para editar este punto de referencia.",
         "cm": "cm",
         "px": "px",
         "{name}\n{status}\nSymbol: {size} {unit}; stroke: {width} px":

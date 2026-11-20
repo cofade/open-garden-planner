@@ -111,8 +111,6 @@ class ToolType(Enum):
     CALLOUT = auto()
     # Garden journal map-linked note pin (US-12.9)
     JOURNAL_PIN = auto()
-    # Named survey stake / measurement datum (#666)
-    REFERENCE_POINT = auto()
 
     # Construction geometry (helper lines/circles, not in exports)
     CONSTRUCTION_LINE = auto()
@@ -130,6 +128,9 @@ class ToolType(Enum):
     CHAMFER = auto()
     # Phase 13 Package B (US-B4) — reflect selection across an axis
     MIRROR = auto()
+    # Named survey stake / measurement datum (#666); appended so no existing
+    # ToolType value moves (settings and action data may carry the number).
+    REFERENCE_POINT = auto()
 
 
 class BaseTool(ABC):

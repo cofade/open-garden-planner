@@ -67,10 +67,6 @@ class MainToolbar(QToolBar):
             ToolType.JOURNAL_PIN, "journal_pin", self.tr("Journal Pin"),
             self.tr("Drop a garden-journal note pin"), "J",
         )
-        self._add_tool_button(
-            ToolType.REFERENCE_POINT, "reference_point", self.tr("Reference point"),
-            self.tr("Place a survey stake or measurement datum"), "",
-        )
 
         self._buttons[ToolType.SELECT].setChecked(True)
 
