@@ -581,4 +581,3 @@ def test_bloom_hardiness_has_one_source_the_bundled_record() -> None:
     without_record = sorted(set(SPECIES) - set(records))
     assert without_record, "the file now covers every species: say so and drop the note"
     assert set(without_record) & hardy == set()
-
