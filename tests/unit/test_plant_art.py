@@ -246,10 +246,29 @@ class TestTables:
 # ── the shared species → sprite resolution ───────────────────────────────────
 
 
+def test_the_norway_maple_is_green_and_the_japanese_one_red() -> None:
+    """#942: the Norway maple used the autumn palette as its base look.
+
+    A *Acer platanoides* is a green summer tree; `autumn` from leaf-out to leaf fall
+    made every plan that shows one look like an October capture on every date. The
+    red belongs to #940's Japanese maple, which is its own species and keeps it.
+    """
+    from open_garden_planner.core.plant_art.recipes import SPECIES
+    from open_garden_planner.core.plant_art.traits3d import SPECIES_TRAITS
+
+    assert SPECIES["maple"]["pal"] == "dark"
+    maple = SPECIES_TRAITS["maple"]
+    assert maple.palette == "dark"
+    assert maple.autumn_palette == "autumn"
+
+    assert SPECIES["japanese_maple"]["pal"] == "redleaf"
+    assert SPECIES_TRAITS["japanese_maple"].palette == "redleaf"
+
+
 class TestResolution:
     def test_the_golden_covers_the_whole_sprite_set(self) -> None:
         answers = {sprite for *_rest, sprite in GOLDEN_ROWS if sprite}
-        assert len(GOLDEN_ROWS) == 1624 and len(answers) == 126
+        assert len(GOLDEN_ROWS) == 1658 and len(answers) == 126
         assert any(sprite is None for *_rest, sprite in GOLDEN_ROWS)
 
     @pytest.mark.parametrize("available", [None, _file_exists, resolve.has_recipe],
@@ -272,7 +291,38 @@ class TestResolution:
         exactly the committed rows."""
         script = _load_golden_script()
         assert script.golden_text() == GOLDEN.read_text(encoding="utf-8")
-        assert len(script.cases()) == len(GOLDEN_ROWS) == 1624
+        assert len(script.cases()) == len(GOLDEN_ROWS) == 1658
+
+    def test_a_false_friend_of_a_culm_is_not_a_culm(self) -> None:
+        """#967: a bare "bamboo" key drew Nandina and Dracaena as culms (rule 2).
+
+        The two false friends were reported from the gallery by name. The culm
+        must still answer to "bamboo" itself (rule 3, through "umbrella bamboo")
+        and to the genera that really are woody grasses.
+        """
+        for name in (
+            "heavenly bamboo",
+            "lucky bamboo",
+            "Nandina domestica",
+            "Dracaena sanderiana",
+        ):
+            sprite = resolve_sprite("TREE", name)
+            assert sprite is not None, name
+            assert sprite.name != "bamboo", name
+        for name in (
+            "bamboo",
+            "Bamboo",
+            "fargesia",
+            "Fargesia nitida",
+            "Phyllostachys aurea",
+            "Bambusa vulgaris",
+            "Golden Bamboo",
+            "Black Bamboo",
+        ):
+            assert resolve_sprite("TREE", name) == SpriteRef("species", "bamboo"), name
+        # The rule that made the false friends: a bare key matches any name that
+        # contains it. Keeping "bamboo" out of the table is the whole fix.
+        assert "bamboo" not in resolve.SPECIES_SPRITES
 
     def test_the_2d_renderer_resolves_through_it(self, qtbot, monkeypatch) -> None:
         from open_garden_planner.core import plant_renderer

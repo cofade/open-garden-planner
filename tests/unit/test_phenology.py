@@ -521,26 +521,68 @@ def test_without_frost_dates_the_bloom_months_alone_decide() -> None:
     assert tomato.bloom == 1.0
 
 
-def test_the_hardy_set_never_names_a_tender_bundled_species() -> None:
-    """Drift guard against the species file: every bundled record that draws one of
-    the hardy stems (as a gallery drop names it) is hardy or half-hardy, never tender,
-    and every hardy stem is a species recipe that has bloom months to keep."""
+def test_the_bundled_rhododendron_flowers_in_may_not_april() -> None:
+    """#964: the spring example showed *Rhododendron ponticum* in bloom on 18 April.
+
+    The bundled record is the ponticum (a May-June species), so the shared
+    rhododendron sprite must not open before May. The sprite is also an azalea's
+    (an alias of the same recipe); the ponticum is the species the record names.
+    """
+    traits = traits_for(SpriteRef("species", "rhododendron"))
+    assert traits.bloom_months == (5, 6)
+    assert _bloom("rhododendron", datetime.date(2026, 4, 18)) == 0.0
+    assert _bloom("rhododendron", datetime.date(2026, 5, 20)) == 1.0
+
+
+def test_bloom_hardiness_has_one_source_the_bundled_record() -> None:
+    """#968: the flag lives in the species record, not in a list beside it.
+
+    It used to be a hand-kept set of stems beside ``frost_tolerance``, held to the
+    species file by a one-directional drift guard. Now the record carries
+    ``frost_hardy_bloom`` and the traits read it, so this test pins the mapping in
+    both directions: every flagged record reaches its species trait, every trait
+    that is hardy came from a record, a sprite with no record is not hardy, and no
+    tender record is flagged.
+    """
     import json
 
     from open_garden_planner.core.plant_art.resolve import resolve_sprite
+    from open_garden_planner.core.plant_art.traits3d import FROST_HARDY_BLOOM_STEMS
 
     plants = json.loads((REPO_ROOT / "src/open_garden_planner/resources/data/plant_species.json")
                         .read_text(encoding="utf-8"))["plants"]
+    records: dict[str, list[dict]] = {}
+    for record in plants:
+        for field in ("common_name", "scientific_name"):
+            name = str(record.get(field) or "")
+            if not name:
+                continue
+            sprite = resolve_sprite("PERENNIAL", name)
+            if sprite is not None and sprite.group == "species":
+                records.setdefault(sprite.name, []).append(record)
+                break
+
     hardy = {stem for stem in SPECIES if traits_for(SpriteRef("species", stem)).frost_hardy_bloom}
     assert hardy, "the hardy set is empty"
+    assert hardy == set(FROST_HARDY_BLOOM_STEMS)
     for stem in hardy:
         assert traits_for(SpriteRef("species", stem)).bloom_months, stem
-    tolerance_of: dict[str, set[str]] = {}
-    for record in plants:
-        sprite = resolve_sprite("PERENNIAL", record["common_name"])
-        if sprite is not None and sprite.group == "species":
-            tolerance_of.setdefault(sprite.name, set()).add(record["frost_tolerance"])
-    tender = sorted(stem for stem in hardy if "tender" in tolerance_of.get(stem, set()))
+
+    flagged = {
+        stem for stem, rows in records.items()
+        if any(row.get("frost_hardy_bloom") for row in rows)
+    }
+    assert flagged == hardy, sorted(flagged ^ hardy)
+
+    tender = sorted(
+        stem for stem in hardy
+        if any(row["frost_tolerance"] == "tender" for row in records[stem])
+    )
     assert tender == []
     # and the guard can fail: tomatoes are tender
-    assert "tender" in tolerance_of["tomato"]
+    assert records["tomato"][0]["frost_tolerance"] == "tender"
+    assert not any(row.get("frost_hardy_bloom") for row in records["tomato"])
+    # A sprite with no record cannot be flagged: the records are the only source.
+    without_record = sorted(set(SPECIES) - set(records))
+    assert without_record, "the file now covers every species: say so and drop the note"
+    assert set(without_record) & hardy == set()

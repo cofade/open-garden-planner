@@ -1,7 +1,7 @@
 {
   "version": "1.4",
   "metadata": {
-    "modified": "2026-11-05T16:02:09.771272+00:00"
+    "modified": "2026-10-26T00:00:00+00:00"
   },
   "canvas": {
     "width": 4000.0,
@@ -388,6 +388,7 @@
           ],
           "data_source": "bundled",
           "frost_tolerance": "half-hardy",
+          "frost_hardy_bloom": true,
           "indoor_sow_start": -12,
           "indoor_sow_end": -10,
           "transplant_start": 2,

@@ -20,6 +20,7 @@ on the file's structure instead of on pixels.
 
 from __future__ import annotations
 
+import math
 import re
 from datetime import UTC, datetime
 from pathlib import Path
@@ -36,6 +37,7 @@ from open_garden_planner.core.object_types import ObjectType
 from open_garden_planner.core.project import ProjectManager
 from open_garden_planner.services.example_library import BUNDLED_EXAMPLES
 from open_garden_planner.services.export_service import ExportService
+from open_garden_planner.services.svg_export import record_scene
 from open_garden_planner.ui.canvas.canvas_scene import CanvasScene
 from open_garden_planner.ui.canvas.items.rectangle_item import RectangleItem
 from open_garden_planner.ui.canvas.items.text_item import TextItem
@@ -270,6 +272,59 @@ def test_a_painter_nobody_taught_about_svg_exports_as_it_paints(qtbot, tmp_path:
     assert _near(_colour_at(raster, scene, 380, 150), canvas)      # so is the stroke
     assert _near(_colour_at(raster, scene, 90, 380), QColor("#a01080"))   # the cut-out half
     assert _near(_colour_at(raster, scene, 230, 380), QColor("#a01080"))
+
+
+@pytest.mark.parametrize("example", EXAMPLES)
+def test_no_picture_is_embedded_finer_than_the_export_can_show(
+    qtbot, tmp_path: Path, example: str
+) -> None:
+    """#850: a sprite carried up to 1.7x the pixels a 300-dpi page shows.
+
+    The canvas rasterises a sprite at ``raster_level``, which rounds the scale UP to
+    a power of two so one pixmap serves a whole zoom level; on a page whose scale
+    falls just above the previous level, the export then writes 1.3-1.7x the pixels
+    a viewer can see (measured: family garden 1.33-1.37x, food forest 1.26-1.69x,
+    raised bed and balcony 1.00-1.13x). Every picture is fitted to one pixel per
+    user unit before it is written, and one already at that size is left alone.
+
+    The scene is put in the exporter's own state first (``_disable_item_caches``):
+    with their ``DeviceCoordinateCache`` on, the items record Qt's cache pixmaps,
+    which are already device-sized, and this test could not fail.
+    """
+    from open_garden_planner.services.svg_export import SVG_UNITS_PER_INCH, _fit_picture, _PixmapOp
+
+    def limit_of(op) -> float:
+        transform = op.state.transform
+        edge_w = math.hypot(transform.m11(), transform.m12()) * op.target.width()
+        edge_h = math.hypot(transform.m21(), transform.m22()) * op.target.height()
+        return max(abs(edge_w), abs(edge_h))
+
+    scene = CanvasScene()
+    ProjectManager().load(scene, BUNDLED_EXAMPLES / f"{example}.ogp", as_template=True)
+    canvas = scene.canvas_rect
+    width = 30.0 / 2.54 * SVG_UNITS_PER_INCH
+    height = width * canvas.height() / canvas.width()
+    cached = ExportService._disable_item_caches(scene)
+    try:
+        ops = record_scene(scene, canvas, width, height)
+    finally:
+        ExportService._restore_item_caches(cached)
+    pictures = [op for op in ops if isinstance(op, _PixmapOp)]
+    assert pictures, example
+
+    over_before = [
+        op for op in pictures
+        if max(op.pixmap.width(), op.pixmap.height()) > limit_of(op) + 0.5
+    ]
+    assert over_before, f"{example}: the fixture no longer exercises the fit"
+
+    too_fine = []
+    for op in pictures:
+        fitted = _fit_picture(op)
+        longest = max(fitted.pixmap.width(), fitted.pixmap.height())
+        if longest > limit_of(op) + 1.0:
+            too_fine.append((longest, round(limit_of(op), 1)))
+    assert too_fine == [], (example, too_fine[:5])
 
 
 @pytest.mark.parametrize("example", EXAMPLES)

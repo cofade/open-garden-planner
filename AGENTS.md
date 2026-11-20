@@ -252,9 +252,12 @@ Full how-to (step-by-step, `.ts` format, recompile command): see `docs/08-crossc
 
 - The issue tracker is the only work list. Read the issue and the roadmap's
   "Current work" section, then `git status` and `git log --oneline -20`.
-- Current release: **v1.40.11** (2026-11-20). No roadmap phase is active.
+- Current release: **v1.40.12** (2026-11-20). No roadmap phase is active.
   See the roadmap's Current work table and the open issues for the next change.
 - Live decisions that constrain the next change:
+  - Bloom hardiness & CAN pitfall index (ADR-014 addendum, ADR-061 addendum, PF-CAN-68):
+    `frost_hardy_bloom` lives on `plant_species.json`; CAN pitfalls PF-CAN-49+
+    belong in `pitfalls/01b-canvas-rendering.md` and `index/01b-canvas-rendering.md`.
   - Plan time zone (#945, ADR-053 addendum, PF-DOM-35): `location["timezone"]`
     is read by the clock, the toolbar, a tour's wall-time range and "Today";
     `SimClock.set_timezone` keeps the wall reading, and a document boundary

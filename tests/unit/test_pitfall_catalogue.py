@@ -239,6 +239,7 @@ def test_every_index_row_links_to_its_entry_anchor() -> None:
 
 AREA_INDEX_MAP: dict[str, str] = {
     "01-canvas-geometry.md": "CAN",
+    "01b-canvas-rendering.md": "CAN",
     "02-lifecycle-threads.md": "LIF",
     "03-persistence-undo-layers.md": "PER",
     "04-ui-panels-dialogs.md": "UI",
