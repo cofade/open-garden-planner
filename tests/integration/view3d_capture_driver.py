@@ -659,6 +659,11 @@ def main_window_on_plan(clock_zone: Any = None, plan: Path = PLAN) -> tuple[Any,
     window.resize(1100, 700)
     window.show()
     window._project_manager.load(window.canvas_scene, plan)
+    if clock_zone is not None:
+        # The plan's own location zone arrives with the load and would replace the
+        # constructor seam; force the scenario's zone again, after the document is in.
+        window._sim_clock.set_timezone(clock_zone)
+        assert window._sim_clock.tz is clock_zone, "the document replaced the test zone"
     window._sim_clock.set_datetime(datetime(2026, 6, 21, 15, 0))
     workspace = window._workspace
     workspace.set_mode(WorkspaceMode.VIEW3D)

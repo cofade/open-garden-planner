@@ -28,6 +28,9 @@ from open_garden_planner.ui.canvas.sun_shadow_controller import STATE_ACTIVE, ST
 #: not an instant, is the contract (ADR-053): after an example the clock gives the user's
 #: reading back in the open plan's zone, so 22:30 is 22:30 on any machine and the tests
 #: stay independent of where the suite runs. The instant behind it differs by zone.
+#: Deliberately a naive seed: an aware instant would make the restored Berlin reading
+#: machine-dependent (daytime on a machine far west), and the aware-UTC seed path is
+#: pinned by tests/unit/test_sim_clock.py.
 LATE = datetime(2026, 11, 10, 22, 30)
 #: Each example's reference date (its sidecar's ``showcase_date``).
 REFERENCE = {"family-garden": date(2026, 6, 21), "food-forest": date(2026, 9, 21),

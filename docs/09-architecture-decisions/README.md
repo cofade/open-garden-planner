@@ -13696,9 +13696,10 @@ there and only appears on the product's primary platform.
 runtime dependency. The pinned `pyinstaller-hooks-contrib` hooks carry it into the frozen
 build: `hook-zoneinfo.py` adds `tzdata` as a hidden import on Windows and `hook-tzdata.py`
 collects its data and submodules. `--selftest` queries `available_timezones()` (at least
-400 names, including `Europe/Berlin` and `America/New_York`) and checks both zones'
-summer **and** winter offsets from the bundle, so a hook regression, a missing continent
-or a truncated zone list fails the frozen gate rather than a user's plan. No application
+400 names, including one representative per populated continent) and checks
+`Europe/Berlin` and `America/New_York` in summer **and** winter, so a hook regression, a
+missing continent or a truncated zone list fails the frozen gate rather than a user's
+plan. No application
 code imports `tzdata` at startup; the frozen graph includes it through those hooks. The
 data is versioned by the IANA release and refreshed by the normal dependency-update
 chore. A plan without a zone, or with an unknown name, still behaves exactly as before.

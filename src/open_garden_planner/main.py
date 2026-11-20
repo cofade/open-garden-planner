@@ -209,7 +209,14 @@ def _run_selftest(log: "RenderLog | None" = None) -> int:
         from zoneinfo import ZoneInfo, available_timezones
 
         available = available_timezones()
-        required = {"Europe/Berlin", "America/New_York"}
+        required = {
+            "Europe/Berlin",
+            "America/New_York",
+            "Asia/Tokyo",
+            "Australia/Sydney",
+            "Africa/Johannesburg",
+            "America/Sao_Paulo",
+        }
         if len(available) < 400 or not required <= available:
             raise AssertionError(
                 f"the bundled zone list has {len(available)} names and is "
@@ -230,11 +237,11 @@ def _run_selftest(log: "RenderLog | None" = None) -> int:
                         f"expected {timedelta(hours=hours)!r}"
                     )
         if log is not None:
-            log("selftest_timezone", zones="Europe/Berlin,America/New_York",
+            log("selftest_timezone", zones=",".join(sorted(required)),
                 available=len(available))
         print(
-            f"  OK   IANA time-zone data ({len(available)} zones; "
-            "Europe/Berlin and America/New_York, summer and winter)"
+            f"  OK   IANA time-zone data ({len(available)} zones; one per continent, "
+            "Europe/Berlin and America/New_York in summer and winter)"
         )
     except Exception as exc:
         ok = False
