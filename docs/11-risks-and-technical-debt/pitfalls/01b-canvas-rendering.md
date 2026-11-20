@@ -237,15 +237,14 @@ including replacing the selected shed with a glasshouse.
 
 Measured on the bundled examples at a 30 cm page (#850): the canvas's raster level sat above the page's own scale, so the family garden's sprites carried 1.33-1.37x the pixels the page shows, the food forest's 1.26-1.69x, and the raised bed's and balcony's 1.00-1.13x — the file fell 18.9 %, 27.4 %, 1.1 % and 6.4 % once each `_PixmapOp` picture was fitted. What stayed is the 300-dpi sprites themselves and the 11 repeating fill-texture brush tiles (3.69 MB base64 / 2.77 MB decoded across 512 x 512 `DETAIL_LEVEL` tiles in the 30 cm family-garden SVG), because `TexturePattern` `QBrush` tiles keep their periodic `fill_patterns.tile_level` tile rather than being non-periodically resampled. Two parts of the report were left alone on purpose — a clipped stroke stays a filled outline because `QSvgRenderer` ignores `clip-path` (the fidelity suite is rasterised with it), and de-duplicating identical payloads saves 0.13 MB of 6.1 MB.
 
+### PF-CAN-69
 
-## PF-CAN-69 Reference-point projection makes a movement delta non-invertible
+- **Rule:** Capture both coordinates of a projected datum move; replay them without projection.
+- **Pinned by:** `tests/integration/test_reference_points.py::test_projected_move_undo_restores_the_original_coordinate`
+- **Source:** #666, PR #985
+- **Status:** standing
+- **Legacy:** none (new entry)
 
-**Rule.** Undo a projected position edit using the original coordinate. Capture
-the result for redo. Both must bypass outline projection.
-
-**Pinned by.** \`tests/integration/test_reference_points.py\` moves a point from
-x=106 cm toward an edge ending at x=100 cm with a −20 cm delta. The previous
-undo added 20 cm and restored x=120 cm.
-
-**Fix.** Move and Align capture the first actual result. The reference
-properties command likewise replays exact coordinates.
+A requested −20 cm move from x=106 cm stopped at the edge endpoint x=100 cm.
+Adding 20 cm during undo restored x=120 cm. Move and Align capture the first
+actual result. The reference properties command likewise replays exact coordinates.
