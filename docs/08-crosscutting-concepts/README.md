@@ -41,7 +41,7 @@ class MoveObjectCommand(Command):
 ## 8.3 Internationalization (i18n)
 
 Qt Linguist remains the runtime format (ADR-008). English is the source language;
-English, German, Spanish, and Russian are currently shipped. Registration in `SUPPORTED_LANGUAGES` makes
+English, German, Spanish, Russian, and French are currently shipped. Registration in `SUPPORTED_LANGUAGES` makes
 the full source inventory mandatory for that locale. New UI keys require translations
 in every registered target locale in the same PR. The required `Test` CI check enforces
 this through `scripts/check_translations.py` and the normal pytest suite (#496).
@@ -1351,6 +1351,29 @@ save/reopen.
 foreign decimal marks, special text and silent switches. A whole-window test that
 edits a plan must handle the unsaved-changes prompt during pytest-qt cleanup; the
 unit surface fixture explicitly discards its own test document.
+
+### 8.9.20 Reference points - a datum with one coordinate (ADR-080, #666)
+
+A reference point is the ordinary `GENERIC_CIRCLE` record plus
+`metadata.reference_point`; do not add a serializer of its own or a new `ObjectType`.
+`ReferencePointItem` changes only paint, bounds and interaction. Its `rect()` is centred
+on `(0, 0)` and its `pos()` is the datum, so `mapToScene(rect().center())` is exact in
+both size modes. `core.measure_snapper.get_anchor_points` returns only
+`AnchorType.CENTER` for it - the halo arms are decoration, never snap targets.
+
+A bound point stores its parent in `reference_point_parent_id`, never in
+`parent_bed_id`, so plant/bed membership keeps its old meaning. `ItemPositionChange`
+projects the proposed position onto the parent's straight edges; an off-contour move is
+refused and the dialog's Independent point is the explicit detach. Parent rotation or
+vertex edits do not move an existing point (the documented limitation); parent
+translation does.
+
+Move commands expand with attached points in
+`core.commands.expand_with_bed_children`, carrying the parent's delta, and the live
+drag propagation moves them like bed children and resets them before the command
+re-applies the delta. A parent move and its point are therefore one undo step on every
+path, with no scene watcher. `ItemIgnoresTransformations` is set only for `screen_px`
+size mode. A generic shape has no height, so nothing is added to the 3D scene.
 
 ## 8.10 Integration Test Policy
 

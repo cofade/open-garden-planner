@@ -1408,3 +1408,26 @@ Pins: `tests/unit/test_shape_split.py`, `tests/integration/test_split_shapes.py`
 `tests/integration/test_group_drill_down.py`, `tests/unit/test_project.py::TestItemReferences`,
 `tests/integration/test_tool_switching.py::TestEscapeReturnsToSelect`,
 `tests/unit/test_object_height.py::TestHeightAcrossATypeChange`.
+
+## FR-36: Reference points for survey stakes and measurement datums (issue #666, ADR-080)
+
+- **FR-REF-01**: The Reference point tool places a named point at a clicked coordinate.
+  The point is the ordinary `GENERIC_CIRCLE` record with `metadata.reference_point =
+  true`; older versions read it as a small circle and no `FILE_VERSION` bump is needed.
+- **FR-REF-02**: The exact centre is `item.pos()` and `rect()` is centred on it. A
+  reference point exposes exactly one snap/measure anchor, `CENTER` at that coordinate;
+  its halo arms are never snap targets.
+- **FR-REF-03**: A point is independent or bound to a parent's outline through
+  `reference_point_parent_id` and `reference_point_on_contour`. A bound point is
+  projected onto the nearest straight parent edge when placed or moved, and an
+  off-contour move is refused; "Independent point" in the dialog is the explicit
+  detach. Parent translation moves the point in the same undo step; parent rotation or
+  vertex edits do not move an existing point.
+- **FR-REF-04**: The symbol is fixed in the plan (default 6 cm, scales with zoom) or
+  constant on screen (default 16 px). Colour and cosmetic stroke width are editable.
+  The symbol is a target/cross with a solid centre dot.
+- **FR-REF-05**: Placement and every edit are exactly one undo step. Layer, lock,
+  copy/duplicate, delete and save/reload follow the ordinary object rules. A reference
+  point has no 3D form.
+- **FR-REF-06**: Every user-visible string is complete in every registered locale
+  (en/de/es/ru/fr).

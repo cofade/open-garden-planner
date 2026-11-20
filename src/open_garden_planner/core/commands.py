@@ -1203,6 +1203,19 @@ def expand_with_bed_children(
                     continue
                 moved.add(child)
                 result.append((child, QPointF(delta)))
+    # A reference point bound to a moved object follows it in the same undo
+    # step (#666, ADR-080): the point's absolute position is derived from the
+    # parent's translation, not a second user gesture. Build the map once; a
+    # move command can carry many items.
+    from open_garden_planner.core.reference_points import attached_by_parent
+
+    points_by_parent = attached_by_parent(scene)
+    for item, delta in list(item_deltas):
+        for point in points_by_parent.get(getattr(item, "item_id", None), ()):
+            if point in moved:
+                continue
+            moved.add(point)
+            result.append((point, QPointF(delta)))
     return result
 
 

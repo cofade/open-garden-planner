@@ -2512,6 +2512,7 @@ class ProjectManager(QObject):
             PolygonItem,
             PolylineItem,
             RectangleItem,
+            ReferencePointItem,
         )
         from open_garden_planner.ui.canvas.items.construction_item import (
             ConstructionCircleItem,
@@ -2704,7 +2705,10 @@ class ProjectManager(QObject):
                 item.area_label_visible = True
             return item
         elif obj_type == "circle":
-            item = CircleItem(
+            from open_garden_planner.core.reference_points import is_reference_point
+
+            circle_class = ReferencePointItem if is_reference_point(metadata) else CircleItem
+            item = circle_class(
                 obj["center_x"],
                 obj["center_y"],
                 obj["radius"],
@@ -2735,7 +2739,7 @@ class ProjectManager(QObject):
             if not label_visible:
                 item.label_visible = False
             # Restore rotation angle
-            if "rotation_angle" in obj:
+            if "rotation_angle" in obj and not is_reference_point(metadata):
                 item._apply_rotation(obj["rotation_angle"])
             # Restore plant category and species
             if "plant_category" in obj:

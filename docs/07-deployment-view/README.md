@@ -132,7 +132,7 @@ build.
 | **Uninstaller** | Clean removal via Add/Remove Programs |
 | **User-Data Preservation** | Before wiping `$INSTDIR`, the uninstaller copies any `*.ogp` plans found there to `Documents\Open Garden Planner\Recovered Plans` (issue #199) |
 | **Installer Size** | v1.29.6 download: 178,834,358 bytes (~171 MiB), measured from release metadata on 2026-10-09. Local frozen folder: ~611 MiB. Allow at least 1 GiB for the application plus temporary/download and user-data storage. These are dated measurements, not fixed limits. |
-| **Languages** | English, German |
+| **Languages** | English, German, Spanish, Russian, French |
 
 > **Why user-data preservation matters (issue #199):** The uninstall section runs
 > `RMDir /r "$INSTDIR"`, and the upgrade path silently invokes the *old* uninstaller

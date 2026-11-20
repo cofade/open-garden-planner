@@ -67,13 +67,19 @@ def test_language_menu_persists_then_next_window_uses_translation(qtbot, monkeyp
             texts = {action.text() for action in second.menuBar().actions()}
             expected = QApplication.translate("GardenPlannerApp", "&View")
             assert expected in texts
-            if locale in ("de", "es"):
+            if locale != "en":
                 assert expected != "&View"
             app.processEvents()
             assert second._language_actions[locale].isChecked()
         finally:
             second.close()
     finally:
+        # Restore the suite's neutral language, not the value this case found:
+        # the parametrised cases run in sequence, so capturing the previous
+        # case's French would leave the last write in the shared test store and
+        # every later full-app window (including the native-pixel driver's
+        # subprocess) would open in French.
+        settings.language = "en"
         load_translator(app, "en")
 
 

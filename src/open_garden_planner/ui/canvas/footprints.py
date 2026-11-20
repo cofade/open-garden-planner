@@ -408,6 +408,11 @@ def item_has_footprint(item: Any) -> bool:
     if isinstance(item, EllipseItem):
         rect = item.rect()
         return rect.width() > 0 and rect.height() > 0
+    from open_garden_planner.core.reference_points import is_reference_point
+
+    if is_reference_point(getattr(item, "metadata", None)):
+        # A measurement datum is not ground: it has no height and no 3D form.
+        return False
     return isinstance(
         item, (CircleItem, RectangleItem, PolygonItem, PolylineItem)
     )
@@ -422,6 +427,10 @@ def item_outline(item: Any, at_date: date | None = None) -> ItemOutline | None:
     arcs …) and an ellipse without an area have none.
     """
     if isinstance(item, CircleItem):
+        from open_garden_planner.core.reference_points import is_reference_point
+
+        if is_reference_point(getattr(item, "metadata", None)):
+            return None
         center = item.center
         radius = plant_canopy_radius_cm(item, at_date)
         if radius is None:

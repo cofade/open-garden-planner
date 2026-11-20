@@ -111,6 +111,8 @@ class ToolType(Enum):
     CALLOUT = auto()
     # Garden journal map-linked note pin (US-12.9)
     JOURNAL_PIN = auto()
+    # Named survey stake / measurement datum (#666)
+    REFERENCE_POINT = auto()
 
     # Construction geometry (helper lines/circles, not in exports)
     CONSTRUCTION_LINE = auto()

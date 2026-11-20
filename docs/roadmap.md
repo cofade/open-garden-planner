@@ -33,6 +33,7 @@ No roadmap phase is active. Open work is tracked in GitHub issues; the current t
 | Theme | Open issues | Why it matters |
 |-------|-------------|----------------|
 | Measurement units | #907 | Temperature, precipitation, harvest mass and a Canadian mixed preset. |
+| Localisation and measurement datums | #553, #666 | A French locale and a first-class reference-point object. |
 | Store/MSIX readiness | #767, #764, #375 | Distribution and user-data safety on the second channel. |
 | 3D rendering quality and performance | #744, #534, #531, #883, #894 | The 3D view's trust and frame budget. |
 | CAD and drawing tools | #666 | Precision and editing depth. |

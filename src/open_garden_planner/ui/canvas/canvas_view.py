@@ -135,6 +135,7 @@ from open_garden_planner.core.tools import (
     PolygonTool,
     PolylineTool,
     RectangleTool,
+    ReferencePointTool,
     SelectTool,
     SplitShapeTool,
     SymmetryConstraintTool,
@@ -588,6 +589,8 @@ class CanvasView(QGraphicsView):
 
         journal_pin_tool = JournalPinTool(self)
         self._tool_manager.register_tool(journal_pin_tool)
+
+        self._tool_manager.register_tool(ReferencePointTool(self))
 
         # Register property object tools (polygon-based)
         house_tool = PolygonTool(self, object_type=ObjectType.HOUSE)
@@ -4242,6 +4245,18 @@ class CanvasView(QGraphicsView):
                     child_start_positions[child] = child_start_pos
                     item_deltas.append((child, delta))
 
+        # Bound reference points moved with a parent are reset here and moved
+        # again by the command's own expansion, so the whole gesture is one
+        # undo step (#666, ADR-080).
+        from open_garden_planner.core.reference_points import attached_by_parent
+
+        points_by_parent = attached_by_parent(self._canvas_scene)
+        for item, _delta in item_deltas:
+            for point in points_by_parent.get(getattr(item, "item_id", None), ()):
+                if point in self._drag_start_positions or point in child_start_positions:
+                    continue
+                child_start_positions[point] = self._child_drag_origins.get(point, point.pos())
+
         if item_deltas:
             # Ask the LINK question where the drag left everything - the FINAL
             # positions: a bed dragged in the same gesture is at its new place, and
@@ -4287,18 +4302,18 @@ class CanvasView(QGraphicsView):
             self._child_drag_origins.clear()
 
     def _propagate_bed_children_during_drag(self) -> None:
-        """Move child plants to follow their parent bed during a live drag."""
+        """Move child plants and bound reference points with their parent."""
         if not self._drag_start_positions:
             return
 
+        from open_garden_planner.core.reference_points import attached_by_parent
+
+        points_by_parent = attached_by_parent(self._canvas_scene)
         for item, start_pos in self._drag_start_positions.items():
-            parents = iter_plant_parents([item])
-            if not parents:
-                continue
             delta = item.pos() - start_pos
             if delta.x() == 0 and delta.y() == 0:
                 continue
-            for parent in parents:
+            for parent in iter_plant_parents([item]):
                 for child_id in parent.child_item_ids:
                     child = self._canvas_scene.find_item_by_id(child_id)
                     if (
@@ -4314,6 +4329,12 @@ class CanvasView(QGraphicsView):
                     if child not in self._child_drag_origins:
                         self._child_drag_origins[child] = child.pos()
                     child.setPos(self._child_drag_origins[child] + delta)
+            for point in points_by_parent.get(item.item_id, ()):
+                if point in self._drag_start_positions:
+                    continue
+                if point not in self._child_drag_origins:
+                    self._child_drag_origins[point] = point.pos()
+                point.setPos(self._child_drag_origins[point] + delta)
 
     def _update_plant_bed_relationships(self) -> None:
         """Re-evaluate parent-child links for all selected plants at their CURRENT

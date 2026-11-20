@@ -34,6 +34,16 @@ for sun-map contours. See the ADR-076 editing addendum and section 8.9.17.
 | `ui/units_notifier.py` | Qt signal adapter; destroyed widgets disconnect through Qt, without leaving dead signal emitters on the plain channel. |
 | `ui/widgets/unit_spin_box.py` | Length/volume fields keep their callers' metric value unit and preserve exact values while displaying native units. |
 
+### Reference points (ADR-080, #666)
+
+| Block | Responsibility |
+|---|---|
+| `core/reference_points.py` | Qt-free metadata contract: marker, parent binding, contour flag, size mode/value, colour and stroke; safe defaults for unknown values. |
+| `ui/canvas/items/reference_point_item.py` | The target/cross item on the plan: exact centre, one CENTER anchor, contour projection, screen- or plan-sized symbol, no 3D form. Serialized by the ordinary circle branch. |
+| `ui/reference_points.py` | Placement and edit dialog, parent candidates, one `CreateItemCommand` / `ChangePropertyCommand`, and the object context menu. |
+| `core/tools/reference_point_tool.py` | The toolbar's one-click placement tool; returns to Select when the dialog closes. |
+| `core/commands.py` | `expand_with_bed_children` carries annexed reference points with their parent's delta, so a parent move and its point are one undo step. |
+
 ```mermaid
 flowchart TD
     subgraph Pres["Presentation Layer"]

@@ -35,6 +35,7 @@ if TYPE_CHECKING:
     from .polygon_tool import PolygonTool
     from .polyline_tool import PolylineTool
     from .rectangle_tool import RectangleTool
+    from .reference_point_tool import ReferencePointTool
     from .select_tool import SelectTool
     from .split_tool import SplitShapeTool
     from .text_tool import TextTool
@@ -69,6 +70,7 @@ if TYPE_CHECKING:
         "PolygonTool",
         "PolylineTool",
         "RectangleTool",
+        "ReferencePointTool",
         "SelectTool",
         "SplitShapeTool",
         "SymmetryConstraintTool",
@@ -154,6 +156,10 @@ _EXPORTS = {
     "PolygonTool": ("open_garden_planner.core.tools.polygon_tool", "PolygonTool"),
     "PolylineTool": ("open_garden_planner.core.tools.polyline_tool", "PolylineTool"),
     "RectangleTool": ("open_garden_planner.core.tools.rectangle_tool", "RectangleTool"),
+    "ReferencePointTool": (
+        "open_garden_planner.core.tools.reference_point_tool",
+        "ReferencePointTool",
+    ),
     "SelectTool": ("open_garden_planner.core.tools.select_tool", "SelectTool"),
     "SplitShapeTool": (
         "open_garden_planner.core.tools.split_tool",
@@ -192,6 +198,7 @@ __all__ = [
     "PolygonTool",
     "PolylineTool",
     "RectangleTool",
+    "ReferencePointTool",
     "SelectTool",
     "SplitShapeTool",
     "SymmetryConstraintTool",

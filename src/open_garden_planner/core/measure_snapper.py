@@ -179,6 +179,19 @@ def get_anchor_points(item: QGraphicsItem) -> list[AnchorPoint]:
 
     anchors: list[AnchorPoint] = []
 
+    from open_garden_planner.core.reference_points import is_reference_point
+
+    if is_reference_point(getattr(item, "metadata", None)):
+        # A reference point has ONE meaningful coordinate: its exact centre.
+        # The halo/cross arms are decoration, not snap targets (#666).
+        return [
+            AnchorPoint(
+                point=item.mapToScene(item.rect().center()),
+                anchor_type=AnchorType.CENTER,
+                item=item,
+            )
+        ]
+
     if isinstance(item, RectangleItem):
         anchors = _rect_anchors(item)
     elif isinstance(item, EllipseItem):

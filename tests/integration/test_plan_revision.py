@@ -388,7 +388,7 @@ def test_every_plan_item_class_announces_through_the_one_hook() -> None:
     assert sorted(hooked) == [
         "ArcItem", "BezierItem", "CalloutItem", "CircleItem", "EditDecorationMixin", "EllipseItem", "GroupItem",
         "JournalPinItem", "PlanLabelItem", "PolygonItem", "PolylineItem", "RectangleItem",
-        "SuccessionBadgeItem", "TextItem"], hooked
+        "ReferencePointItem", "SuccessionBadgeItem", "TextItem"], hooked
 
     # every garden item class the running app knows resolves itemChange to one of those
     # (a class without one of its own — the smart symbol — inherits its parent's)
@@ -403,7 +403,7 @@ def test_every_plan_item_class_announces_through_the_one_hook() -> None:
               if cls.__module__.startswith("open_garden_planner.")}
     assert sorted(cls.__name__ for cls in garden) == [
         "CalloutItem", "CircleItem", "EllipseItem", "GroupItem", "JournalPinItem", "PolygonItem",
-        "PolylineItem", "RectangleItem", "SmartSymbolItem", "TextItem"]
+        "PolylineItem", "RectangleItem", "ReferencePointItem", "SmartSymbolItem", "TextItem"]
     for cls in garden:
         owner = next(base for base in cls.__mro__ if "itemChange" in vars(base))
         assert owner.__name__ in hooked, f"{cls.__name__} takes itemChange from {owner.__name__}"
