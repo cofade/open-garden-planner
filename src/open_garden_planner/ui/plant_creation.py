@@ -35,13 +35,28 @@ def build_plant(scene: Any, position: QPointF, object_type: ObjectType, radius: 
     return item
 
 
-def build_species_plant(scene: Any, position: QPointF, species: dict[str, Any], *, auto_assign: bool = False) -> CircleItem:
+def species_object_type(species: dict[str, Any]) -> ObjectType:
+    """Resolve the canvas object type used for a species."""
     height = species.get("max_height_cm") or 0
-    object_type = ObjectType.TREE if height >= 350 else ObjectType.SHRUB if height >= 100 else ObjectType.PERENNIAL
+    if height >= 350:
+        return ObjectType.TREE
+    if height >= 100:
+        return ObjectType.SHRUB
+    return ObjectType.PERENNIAL
+
+
+def build_species_plant(
+    scene: Any, position: QPointF, species: dict[str, Any], *,
+    auto_assign: bool = False, diameter_cm: float | None = None,
+) -> CircleItem:
+    object_type = species_object_type(species)
     category = {ObjectType.TREE: PlantCategory.ROUND_DECIDUOUS,
                 ObjectType.SHRUB: PlantCategory.SPREADING_SHRUB,
                 ObjectType.PERENNIAL: PlantCategory.FLOWERING_PERENNIAL}[object_type]
-    diameter = species_drop_diameter_cm(species, object_type.name)
-    return build_plant(scene, position, object_type, diameter / 2,
-                       species_name=species.get("common_name") or species.get("scientific_name", ""),
-                       plant_category=category, species_dict=species, auto_assign=auto_assign)
+    diameter = diameter_cm if diameter_cm is not None else species_drop_diameter_cm(species, object_type.name)
+    item = build_plant(scene, position, object_type, diameter / 2,
+                      species_name=species.get("common_name") or species.get("scientific_name", ""),
+                      plant_category=category, species_dict=species, auto_assign=auto_assign)
+    if diameter_cm is not None:
+        item.metadata.setdefault("plant_instance", {})["current_spread_cm"] = diameter_cm
+    return item

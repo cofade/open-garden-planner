@@ -1,0 +1,227 @@
+"""Plant-grid drafts only become real objects when confirmed."""
+
+import pytest
+from PyQt6.QtCore import QLineF, QPointF, Qt
+from PyQt6.QtGui import QTransform
+from PyQt6.QtWidgets import QDialog, QMessageBox, QSpinBox, QToolButton
+
+from open_garden_planner.app.settings import AppSettings
+from open_garden_planner.core.object_types import ObjectType
+from open_garden_planner.core.tools import ToolType
+from open_garden_planner.models.plant_data import PlantSpeciesData
+from open_garden_planner.ui.canvas.canvas_scene import CanvasScene
+from open_garden_planner.ui.canvas.canvas_view import CanvasView
+from open_garden_planner.ui.canvas.items.circle_item import CircleItem
+from open_garden_planner.ui.canvas.items.group_item import GroupItem
+from open_garden_planner.ui.canvas.items.rectangle_item import RectangleItem
+from open_garden_planner.ui.canvas.items.resize_handle import (
+    HANDLE_COLOR,
+    ROTATION_HANDLE_COLOR,
+    ROTATION_HANDLE_OFFSET,
+)
+from open_garden_planner.ui.dialogs.plant_search_dialog import PlantSearchDialog
+from open_garden_planner.ui.widgets.toolbar import MainToolbar
+
+
+@pytest.mark.parametrize(("grouped", "angle"), [(False, 27), (True, 142)])
+def test_plant_grid_preview_transform_commit_and_undo(qtbot, monkeypatch, grouped, angle):
+    scene = CanvasScene(width_cm=1500, height_cm=1500)
+    bed = RectangleItem(80, 80, 640, 600, object_type=ObjectType.RAISED_BED)
+    scene.addItem(bed)
+    view = CanvasView(scene)
+    view.set_snap_enabled(False)
+    qtbot.addWidget(view)
+    view.resize(1000, 800)
+    view.show()
+    view.set_zoom(1.0)
+    view.centerOn(300, 300)
+    viewport = view.viewport()
+    toolbar = MainToolbar()
+    qtbot.addWidget(toolbar)
+    toolbar.tool_selected.connect(view.set_active_tool)
+    grid_button = toolbar._buttons[ToolType.PLANT_GRID]
+    assert not grid_button.icon().isNull()
+    grid_button.click()
+    grid = view._plant_grid_tool
+    assert view.active_tool is grid
+    AppSettings().plant_grid_dimensions = (4, 5)
+    picked = PlantSpeciesData("Malus domestica", "Apple", max_height_cm=500)
+
+    def choose_dimensions(dialog):
+        rows, cols = dialog.findChildren(QSpinBox)
+        assert (rows.value(), cols.value()) == (4, 5)
+        rows.setValue(2)
+        cols.setValue(3)
+        return QDialog.DialogCode.Accepted
+
+    def choose_plant(dialog):
+        dialog._selected_plant = picked
+        dialog.accept()
+        return dialog.result()
+
+    monkeypatch.setattr(QDialog, "exec", choose_dimensions)
+    monkeypatch.setattr(PlantSearchDialog, "exec", choose_plant)
+
+    def click(point):
+        qtbot.mouseClick(viewport, Qt.MouseButton.LeftButton, pos=view.mapFromScene(point))
+
+    def drag(start, finish, *, handle=None, during=None):
+        qtbot.mousePress(viewport, Qt.MouseButton.LeftButton, pos=view.mapFromScene(start))
+        if handle is not None:
+            assert grid._drag == handle
+        qtbot.mouseMove(viewport, view.mapFromScene(finish))
+        if during is not None:
+            during()
+        qtbot.mouseRelease(viewport, Qt.MouseButton.LeftButton, pos=view.mapFromScene(finish))
+
+    click(QPointF(100, 100))
+    assert AppSettings().plant_grid_dimensions == (2, 3)
+    qtbot.mouseMove(viewport, view.mapFromScene(QPointF(400, 500)))
+    click(QPointF(400, 500))
+    assert grid._editing
+    assert grid._controls.isVisible()
+    preview = grid._controls.findChild(QToolButton, "eye")
+    assert not preview.isChecked()
+    previewed = []
+
+    def paint_preview(_painter, rect, _kind, *, species):
+        previewed.append((rect.width(), species))
+        return True
+
+    monkeypatch.setattr("open_garden_planner.ui.canvas.plant_grid_tool.paint_plant", paint_preview)
+    preview.click()
+    viewport.grab()
+    assert previewed[-6:] == [(grid._diameter, "Apple")] * 6
+    preview.click()
+    previewed.clear()
+    viewport.grab()
+    assert not previewed
+    assert not any(isinstance(item, CircleItem) for item in scene.items())
+
+    for zoom in (0.5, 1.0):
+        view.set_zoom(zoom)
+        view.centerOn(300, 300)
+        handles = grid._handles()
+        handle = QPointF(view.mapFromScene(handles["rotate"]))
+        edge = QPointF(view.mapFromScene(handles[(0, -1)]))
+        assert QLineF(handle, edge).length() == pytest.approx(ROTATION_HANDLE_OFFSET, abs=1)
+        frame = viewport.grab()
+        image = frame.toImage()
+        dpr = frame.devicePixelRatio()
+        for key, color in ((-1, HANDLE_COLOR), ("rotate", ROTATION_HANDLE_COLOR)):
+            point = view.mapFromScene(handles[key if key == "rotate" else (key, -1)])
+            assert image.pixelColor(round(point.x() * dpr), round(point.y() * dpr)) == color
+
+    # A second finger takes over an in-progress grid move. Keep the draft
+    # at its prior position while the view releases the synthetic press.
+    start = grid._center
+    press = view.mapFromScene(start)
+    qtbot.mousePress(viewport, Qt.MouseButton.LeftButton, pos=press)
+    qtbot.mouseMove(viewport, view.mapFromScene(start + QPointF(30, 0)))
+    assert grid._center != start
+    view._touch_mouse_press = (QPointF(press), Qt.MouseButton.LeftButton)
+    view._cancel_touch_press()
+    assert grid._editing and grid._center == start and grid._drag is None
+    assert view.command_manager.undo_depth == 0
+
+    def assert_live_move():
+        assert grid._center == QPointF(350, 350)
+
+    drag(QPointF(250, 300), QPointF(350, 350), handle="move", during=assert_live_move)
+    assert grid._center == QPointF(350, 350)
+    edge = grid._handles()[(1, 0)]
+    drag(edge, edge + QPointF(100, 0))
+    assert grid._width == pytest.approx(400)
+    assert grid._width / 2 + grid._center.x() == pytest.approx(600)
+    assert grid._center.x() - grid._width / 2 == pytest.approx(200)
+
+    def unexpected_dialog(_dialog):
+        pytest.fail("Transforming the grid should not open a dialog")
+
+    monkeypatch.setattr(QDialog, "exec", unexpected_dialog)
+    assert "diameter" in grid._handles()
+    assert grid._size_slider.isHidden()
+    grid._controls.findChild(QToolButton, "measure").click()
+    assert grid._size_slider.isVisible()
+    assert not grid._controls.findChild(QToolButton, "shrub").icon().isNull()
+    grid._size_slider.setValue(160)
+    assert grid._diameter == 160
+    size_handle = grid._handles()["diameter"]
+    increase = 20
+    expected_size = grid._diameter + 2 * increase
+    drag(size_handle, size_handle + QPointF(increase, 0), handle="diameter")
+    assert grid._diameter == pytest.approx(expected_size, abs=1)
+    assert grid._size_edited
+    assert grid._size_slider.value() == round(grid._diameter)
+    grid._controls.findChild(QToolButton, "measure").click()
+    assert grid._size_slider.isHidden()
+    assert "diameter" in grid._handles()
+
+    rotate = grid._handles()["rotate"]
+    offset = rotate - grid._center
+    drag(rotate, grid._center + QTransform().rotate(angle).map(offset))
+    assert grid._angle == pytest.approx(angle, abs=1)
+    diameter = grid._diameter
+    positions = [grid._transform().map(p) for p in grid._centers()]
+    expected = {(p.x(), p.y()) for p in positions}
+    confirm = grid._controls.findChild(QToolButton, "check")
+    monkeypatch.setattr(QMessageBox, "question", lambda *_args: QMessageBox.StandardButton.Cancel)
+    confirm.click()
+    assert grid._editing and grid._controls.isVisible()
+    assert not any(isinstance(item, CircleItem) for item in scene.items())
+    assert view.command_manager.undo_depth == 0
+
+    response = QMessageBox.StandardButton.Yes if grouped else QMessageBox.StandardButton.No
+    asked = []
+
+    def answer(*args):
+        asked.append(args)
+        return response
+
+    monkeypatch.setattr(QMessageBox, "question", answer)
+    confirm.click()
+    assert len(asked) == 1
+    planted = [item for item in scene.items() if isinstance(item, CircleItem)]
+    assert len(planted) == 6
+    assert sum(isinstance(item, GroupItem) for item in scene.items()) == int(grouped)
+    assert all(isinstance(item.parentItem(), GroupItem) == grouped for item in planted)
+    centers = [item.mapToScene(item.rect().center()) for item in planted]
+    for actual, target in zip(sorted((p.x(), p.y()) for p in centers), sorted(expected), strict=True):
+        assert actual == pytest.approx(target)
+    assert all(item.object_type == ObjectType.TREE and item.radius == diameter / 2 for item in planted)
+    assert all(item.parent_bed_id == bed.item_id for item in planted)
+    assert all(item.metadata["plant_instance"]["current_spread_cm"] == diameter for item in planted)
+    assert view.command_manager.undo_depth == 1
+    view.command_manager.undo()
+    assert not any(isinstance(item, CircleItem) for item in scene.items())
+    assert not any(isinstance(item, GroupItem) for item in scene.items())
+    view.command_manager.redo()
+    assert len([item for item in scene.items() if isinstance(item, CircleItem)]) == 6
+    assert sum(isinstance(item, GroupItem) for item in scene.items()) == int(grouped)
+
+    view.set_active_tool(ToolType.PLANT_GRID)
+    monkeypatch.setattr(QDialog, "exec", lambda _dialog: QDialog.DialogCode.Accepted)
+    click(QPointF(100, 100))
+    click(QPointF(400, 500))
+    grid._controls.findChild(QToolButton, "cross").click()
+    assert view.active_tool.tool_type == ToolType.SELECT
+    assert grid._origin is None
+    assert grid._controls.isHidden()
+    assert view.command_manager.undo_depth == 1
+
+
+    view.set_active_tool(ToolType.PLANT_GRID)
+    click(QPointF(100, 100))
+    click(QPointF(400, 500))
+
+    def replace_plan_during_confirmation(*_args):
+        scene.clear()
+        view.command_manager.clear()
+        return QMessageBox.StandardButton.Yes
+
+    monkeypatch.setattr(QMessageBox, "question", replace_plan_during_confirmation)
+    confirm.click()
+    assert not any(isinstance(item, CircleItem) for item in scene.items())
+    assert not any(isinstance(item, GroupItem) for item in scene.items())
+    assert grid._controls.isHidden()
+    assert view.command_manager.undo_depth == 0

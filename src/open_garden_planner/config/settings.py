@@ -213,6 +213,10 @@ class AppSettings:
     KEY_DYNAMIC_INPUT = "canvas/dynamic_input_enabled"
     # Touch gestures (#321): pinch-to-zoom and two-finger pan on the canvas.
     KEY_TOUCH_GESTURES = "canvas/touch_gestures_enabled"
+    KEY_PLANT_GRID_ROWS = "tools/plant_grid_rows"
+    KEY_PLANT_GRID_COLUMNS = "tools/plant_grid_columns"
+    DEFAULT_PLANT_GRID_SIZE = 3
+    PLANT_GRID_MAX_SIDE = 20
     KEY_LANGUAGE = "appearance/language"
     KEY_SHOW_SPACING_CIRCLES = "appearance/show_spacing_circles"
     KEY_SKIPPED_VERSION = "updates/skipped_version"
@@ -629,6 +633,24 @@ class AppSettings:
     @touch_gestures_enabled.setter
     def touch_gestures_enabled(self, enabled: bool) -> None:
         self._settings.setValue(self.KEY_TOUCH_GESTURES, enabled)
+
+    @property
+    def plant_grid_dimensions(self) -> tuple[int, int]:
+        """The most recently confirmed Plant Grid dimensions."""
+        default = self.DEFAULT_PLANT_GRID_SIZE
+        rows = cast(int, self._settings.value(self.KEY_PLANT_GRID_ROWS, default, type=int))
+        columns = cast(int, self._settings.value(self.KEY_PLANT_GRID_COLUMNS, default, type=int))
+        return self._clamp_grid_dimension(rows), self._clamp_grid_dimension(columns)
+
+    @plant_grid_dimensions.setter
+    def plant_grid_dimensions(self, dimensions: tuple[int, int]) -> None:
+        rows, columns = dimensions
+        self._settings.setValue(self.KEY_PLANT_GRID_ROWS, self._clamp_grid_dimension(rows))
+        self._settings.setValue(self.KEY_PLANT_GRID_COLUMNS, self._clamp_grid_dimension(columns))
+
+    @classmethod
+    def _clamp_grid_dimension(cls, value: int) -> int:
+        return min(cls.PLANT_GRID_MAX_SIDE, max(1, value))
 
     @property
     def language(self) -> str:

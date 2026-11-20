@@ -8712,6 +8712,14 @@ Look up your zone for any country at:
     </context>
     <context>
         <name>MainToolbar</name>
+    <message>
+        <source>Plant Grid</source>
+        <translation>Plant Grid</translation>
+    </message>
+    <message>
+        <source>Place a grid of plants</source>
+        <translation>Place a grid of plants</translation>
+    </message>
         <message>
             <location filename="../../ui/widgets/toolbar.py" line="63" />
             <source>Callout</source>
@@ -17637,4 +17645,55 @@ The file must be owned by your account with owner-only read and write access. Co
             <translation>Unexpected Error</translation>
         </message>
     </context>
+<context>
+    <name>PlantGridTool</name>
+    <message>
+        <source>Plant Grid</source>
+        <translation>Plant Grid</translation>
+    </message>
+    <message>
+        <source>Rows</source>
+        <translation>Rows</translation>
+    </message>
+    <message>
+        <source>Columns</source>
+        <translation>Columns</translation>
+    </message>
+    <message>
+        <source>Cancel grid</source>
+        <translation>Cancel grid</translation>
+    </message>
+    <message>
+        <source>Edit rows and columns</source>
+        <translation>Edit rows and columns</translation>
+    </message>
+    <message>
+        <source>Change plant</source>
+        <translation>Change plant</translation>
+    </message>
+    <message>
+        <source>Plant size slider</source>
+        <translation>Plant size slider</translation>
+    </message>
+    <message>
+        <source>Preview selected plant</source>
+        <translation>Preview selected plant</translation>
+    </message>
+    <message>
+        <source>Place plants</source>
+        <translation>Place plants</translation>
+    </message>
+    <message>
+        <source>plants</source>
+        <translation>plants</translation>
+    </message>
+    <message>
+        <source>Add all plants from this grid to one group?</source>
+        <translation>Add all plants from this grid to one group?</translation>
+    </message>
+    <message>
+        <source>All plant centres must be inside the plan</source>
+        <translation>All plant centres must be inside the plan</translation>
+    </message>
+</context>
 </TS>

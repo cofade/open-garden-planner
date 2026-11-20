@@ -8541,6 +8541,14 @@ Consulte su zona para cualquier país en:
     </context>
     <context>
         <name>MainToolbar</name>
+    <message>
+        <source>Plant Grid</source>
+        <translation>Cuadrícula de plantas</translation>
+    </message>
+    <message>
+        <source>Place a grid of plants</source>
+        <translation>Colocar una cuadrícula de plantas</translation>
+    </message>
         <message>
             <location filename="../../ui/widgets/toolbar.py" line="63" />
             <source>Callout</source>
@@ -17398,4 +17406,55 @@ El archivo debe pertenecer a su cuenta de usuario con acceso exclusivo de lectur
             <translation>Error inesperado</translation>
         </message>
     </context>
+<context>
+    <name>PlantGridTool</name>
+    <message>
+        <source>Plant Grid</source>
+        <translation>Cuadrícula de plantas</translation>
+    </message>
+    <message>
+        <source>Rows</source>
+        <translation>Filas</translation>
+    </message>
+    <message>
+        <source>Columns</source>
+        <translation>Columnas</translation>
+    </message>
+    <message>
+        <source>Cancel grid</source>
+        <translation>Cancelar cuadrícula</translation>
+    </message>
+    <message>
+        <source>Edit rows and columns</source>
+        <translation>Editar filas y columnas</translation>
+    </message>
+    <message>
+        <source>Change plant</source>
+        <translation>Cambiar planta</translation>
+    </message>
+    <message>
+        <source>Plant size slider</source>
+        <translation>Control deslizante del tamaño de las plantas</translation>
+    </message>
+    <message>
+        <source>Preview selected plant</source>
+        <translation>Vista previa de la planta seleccionada</translation>
+    </message>
+    <message>
+        <source>Place plants</source>
+        <translation>Colocar plantas</translation>
+    </message>
+    <message>
+        <source>plants</source>
+        <translation>plantas</translation>
+    </message>
+    <message>
+        <source>Add all plants from this grid to one group?</source>
+        <translation>¿Añadir todas las plantas de esta cuadrícula a un grupo?</translation>
+    </message>
+    <message>
+        <source>All plant centres must be inside the plan</source>
+        <translation>Todos los centros de las plantas deben quedar dentro del plano</translation>
+    </message>
+</context>
 </TS>

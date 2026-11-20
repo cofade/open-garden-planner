@@ -8668,6 +8668,14 @@ Look up your zone for any country at:
     </context>
     <context>
         <name>MainToolbar</name>
+    <message>
+        <source>Plant Grid</source>
+        <translation>Сетка растений</translation>
+    </message>
+    <message>
+        <source>Place a grid of plants</source>
+        <translation>Разместить сетку растений</translation>
+    </message>
         <message>
             <location filename="../../ui/widgets/toolbar.py" line="63" />
             <source>Callout</source>
@@ -17554,4 +17562,55 @@ The file must be owned by your account with owner-only read and write access. Co
             <translation>Непредвиденная ошибка</translation>
         </message>
     </context>
+<context>
+    <name>PlantGridTool</name>
+    <message>
+        <source>Plant Grid</source>
+        <translation>Сетка растений</translation>
+    </message>
+    <message>
+        <source>Rows</source>
+        <translation>Ряды</translation>
+    </message>
+    <message>
+        <source>Columns</source>
+        <translation>Столбцы</translation>
+    </message>
+    <message>
+        <source>Cancel grid</source>
+        <translation>Отменить сетку</translation>
+    </message>
+    <message>
+        <source>Edit rows and columns</source>
+        <translation>Изменить ряды и столбцы</translation>
+    </message>
+    <message>
+        <source>Change plant</source>
+        <translation>Заменить растение</translation>
+    </message>
+    <message>
+        <source>Plant size slider</source>
+        <translation>Ползунок размера растений</translation>
+    </message>
+    <message>
+        <source>Preview selected plant</source>
+        <translation>Предпросмотр выбранного растения</translation>
+    </message>
+    <message>
+        <source>Place plants</source>
+        <translation>Разместить растения</translation>
+    </message>
+    <message>
+        <source>plants</source>
+        <translation>растений</translation>
+    </message>
+    <message>
+        <source>Add all plants from this grid to one group?</source>
+        <translation>Добавить все растения этой сетки в одну группу?</translation>
+    </message>
+    <message>
+        <source>All plant centres must be inside the plan</source>
+        <translation>Центры всех растений должны находиться в пределах плана</translation>
+    </message>
+</context>
 </TS>

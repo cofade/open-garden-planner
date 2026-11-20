@@ -176,6 +176,22 @@ With no selectable target the tool returns unhandled and Qt applies its normal
 empty/locked-item behavior. Handle release registers the existing single edit
 command; selection toggles do not create history entries.
 
+### 6.1.2 Plant Grid placement
+
+The first canvas click captures the anchor and opens the dimensions and plant
+dialogs. The next click fixes the initial extent. The view paints the draft and
+its handles in the foreground while the tool keeps the rectangle, orientation,
+and plant size in memory. Switching tools, pressing Escape on the canvas, or
+replacing the plan ends the draft without creating any items. A pinch during
+an existing draft cancels only the pending pointer edit. A modal reply from
+a replaced document is discarded.
+
+On confirmation the tool maps each cell centre from grid coordinates to the
+scene. If all centres fit the plan, the grouping question offers Yes, No, or
+Cancel. Cancel returns to the draft. Yes or No creates the plants through
+`CreateItemsCommand`, which reconciles bed membership at the resulting centres.
+Yes adds `GroupCommand` to the same undo step.
+
 ## 6.2 Save/Load Flow
 
 Species assignment uses one command for metadata, footprint and sprite identity.

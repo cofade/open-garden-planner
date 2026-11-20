@@ -8816,6 +8816,14 @@ Ihre Zone für jedes Land nachschlagen unter:
     </context>
     <context>
         <name>MainToolbar</name>
+    <message>
+        <source>Plant Grid</source>
+        <translation>Pflanzenraster</translation>
+    </message>
+    <message>
+        <source>Place a grid of plants</source>
+        <translation>Pflanzenraster platzieren</translation>
+    </message>
         <message>
             <location filename="../../ui/widgets/toolbar.py" line="63" />
             <source>Callout</source>
@@ -17956,4 +17964,55 @@ Die Datei muss Ihrem Benutzerkonto gehören und darf nur für den Eigentümer le
             <translation>Unerwarteter Fehler</translation>
         </message>
     </context>
+<context>
+    <name>PlantGridTool</name>
+    <message>
+        <source>Plant Grid</source>
+        <translation>Pflanzenraster</translation>
+    </message>
+    <message>
+        <source>Rows</source>
+        <translation>Zeilen</translation>
+    </message>
+    <message>
+        <source>Columns</source>
+        <translation>Spalten</translation>
+    </message>
+    <message>
+        <source>Cancel grid</source>
+        <translation>Raster verwerfen</translation>
+    </message>
+    <message>
+        <source>Edit rows and columns</source>
+        <translation>Zeilen und Spalten bearbeiten</translation>
+    </message>
+    <message>
+        <source>Change plant</source>
+        <translation>Pflanze wechseln</translation>
+    </message>
+    <message>
+        <source>Plant size slider</source>
+        <translation>Regler für die Pflanzengröße</translation>
+    </message>
+    <message>
+        <source>Preview selected plant</source>
+        <translation>Vorschau der ausgewählten Pflanze</translation>
+    </message>
+    <message>
+        <source>Place plants</source>
+        <translation>Pflanzen platzieren</translation>
+    </message>
+    <message>
+        <source>plants</source>
+        <translation>Pflanzen</translation>
+    </message>
+    <message>
+        <source>Add all plants from this grid to one group?</source>
+        <translation>Alle Pflanzen dieses Rasters zu einer Gruppe hinzufügen?</translation>
+    </message>
+    <message>
+        <source>All plant centres must be inside the plan</source>
+        <translation>Alle Pflanzenmittelpunkte müssen innerhalb des Plans liegen</translation>
+    </message>
+</context>
 </TS>

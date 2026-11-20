@@ -9,6 +9,7 @@ from typing import TYPE_CHECKING, Any, cast
 from PyQt6.QtCore import QCoreApplication
 from PyQt6.QtWidgets import QGraphicsItem
 
+from open_garden_planner.core.grid_offsets import grid_offsets
 from open_garden_planner.core.object_types import (
     is_plant_parent_type,
 )
@@ -567,47 +568,43 @@ class ClipboardOperations:
         # Add original at grid position (0,0)
         grid.append((0, 0, source_item))
 
-        for r in range(rows):
-            for c in range(cols):
-                if r == 0 and c == 0:
-                    continue  # original
-                obj_copy = obj_data.copy()
-                # col → rightward = +x; row → downward on screen = -y (scene Y-flip)
-                offset_x = col_spacing * c
-                offset_y = -row_spacing * r
+        for r, c, offset_x, offset_y in grid_offsets(rows, cols, -row_spacing, col_spacing):
+            if r == 0 and c == 0:
+                continue  # original
+            obj_copy = obj_data.copy()
 
-                if "points" in obj_copy:
-                    pts = [
-                        {"x": p["x"] + offset_x, "y": p["y"] + offset_y}
-                        for p in obj_data["points"]
-                    ]
-                    min_x = min(p["x"] for p in pts)
-                    max_x = max(p["x"] for p in pts)
-                    min_y = min(p["y"] for p in pts)
-                    max_y = max(p["y"] for p in pts)
-                    cx = max(0.0, -min_x) - max(0.0, max_x - canvas_w)
-                    cy = max(0.0, -min_y) - max(0.0, max_y - canvas_h)
-                    obj_copy["points"] = [
-                        {"x": p["x"] + cx, "y": p["y"] + cy} for p in pts
-                    ]
-                elif "center_x" in obj_copy:
-                    rad = obj_data.get("radius", 0.0)
-                    cx = obj_data["center_x"] + offset_x
-                    cy = obj_data["center_y"] + offset_y
-                    obj_copy["center_x"] = max(rad, min(cx, canvas_w - rad))
-                    obj_copy["center_y"] = max(rad, min(cy, canvas_h - rad))
-                else:
-                    item_w = obj_data.get("width", 0.0)
-                    item_h = obj_data.get("height", 0.0)
-                    nx = obj_data["x"] + offset_x
-                    ny = obj_data["y"] + offset_y
-                    obj_copy["x"] = max(0.0, min(nx, canvas_w - item_w))
-                    obj_copy["y"] = max(0.0, min(ny, canvas_h - item_h))
+            if "points" in obj_copy:
+                pts = [
+                    {"x": p["x"] + offset_x, "y": p["y"] + offset_y}
+                    for p in obj_data["points"]
+                ]
+                min_x = min(p["x"] for p in pts)
+                max_x = max(p["x"] for p in pts)
+                min_y = min(p["y"] for p in pts)
+                max_y = max(p["y"] for p in pts)
+                cx = max(0.0, -min_x) - max(0.0, max_x - canvas_w)
+                cy = max(0.0, -min_y) - max(0.0, max_y - canvas_h)
+                obj_copy["points"] = [
+                    {"x": p["x"] + cx, "y": p["y"] + cy} for p in pts
+                ]
+            elif "center_x" in obj_copy:
+                rad = obj_data.get("radius", 0.0)
+                cx = obj_data["center_x"] + offset_x
+                cy = obj_data["center_y"] + offset_y
+                obj_copy["center_x"] = max(rad, min(cx, canvas_w - rad))
+                obj_copy["center_y"] = max(rad, min(cy, canvas_h - rad))
+            else:
+                item_w = obj_data.get("width", 0.0)
+                item_h = obj_data.get("height", 0.0)
+                nx = obj_data["x"] + offset_x
+                ny = obj_data["y"] + offset_y
+                obj_copy["x"] = max(0.0, min(nx, canvas_w - item_w))
+                obj_copy["y"] = max(0.0, min(ny, canvas_h - item_h))
 
-                item = host._deserialize_item(_strip_item_ids(host._remap_guild_copy([obj_copy])[0]))
-                if item:
-                    new_items.append(item)
-                    grid.append((r, c, item))
+            item = host._deserialize_item(_strip_item_ids(host._remap_guild_copy([obj_copy])[0]))
+            if item:
+                new_items.append(item)
+                grid.append((r, c, item))
 
         if not new_items:
             return

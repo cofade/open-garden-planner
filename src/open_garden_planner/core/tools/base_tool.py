@@ -56,6 +56,7 @@ class ToolType(Enum):
     TREE = auto()
     SHRUB = auto()
     PERENNIAL = auto()
+    PLANT_GRID = auto()
 
     # Hedge section (rectangle-based, SVG-rendered)
     HEDGE_SECTION = auto()
@@ -275,6 +276,10 @@ class BaseTool(ABC):
         Override in subclasses to clean up any in-progress operations.
         Default implementation does nothing.
         """
+
+    def cancel_pointer_press(self) -> None:
+        """Revert the first finger's press when a pinch begins."""
+        self.cancel()
 
     # ------------------------------------------------------------------
     # Typed coordinate input (Package A US-A1/A2/A4)

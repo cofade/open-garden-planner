@@ -69,6 +69,10 @@ class MainToolbar(QToolBar):
         )
 
         self._buttons[ToolType.SELECT].setChecked(True)
+        self._add_tool_button(
+            ToolType.PLANT_GRID, "grid", self.tr("Plant Grid"),
+            self.tr("Place a grid of plants"), "",
+        )
 
     def _add_tool_button(
         self,
