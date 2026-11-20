@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from calendar import monthrange
+from collections.abc import Callable
 from datetime import date, datetime, timedelta
 from typing import Any
 
@@ -215,8 +216,16 @@ class SunSimToolbar(QToolBar):
     date_requested = pyqtSignal(object)
     location_requested = pyqtSignal()
 
-    def __init__(self, parent: QWidget | None = None, *, scene: Any = None) -> None:
+    def __init__(
+        self,
+        parent: QWidget | None = None,
+        *,
+        scene: Any = None,
+        today_provider: Callable[[], date] | None = None,
+    ) -> None:
         super().__init__("", parent)
+        #: The plan's "today" (its own time zone, #945); the computer's by default.
+        self._today = today_provider if today_provider is not None else date.today
         self.setObjectName("SunSimToolbar")
         self.setWindowTitle(self.tr("Plan & Sun"))
         self.setMovable(False)
@@ -242,7 +251,9 @@ class SunSimToolbar(QToolBar):
         self._configure_button(self._today_button, self.tr("Today"), group)
         # the text says where the plan date is; what the button does stays the same
         self._today_button.setAccessibleName(self.tr("Go to today"))
-        self._today_button.clicked.connect(lambda: self.date_requested.emit(date.today()))
+        self._today_button.clicked.connect(
+            lambda: self.date_requested.emit(self._today())
+        )
 
         group = self._group()
         group.addWidget(QLabel(self.tr("Months"), self))
@@ -641,12 +652,12 @@ class SunSimToolbar(QToolBar):
             return
         plants = [] if self._scene is None else [item for item in self._scene.items()
                   if is_plant_type(getattr(item, "object_type", None))]
-        low, high = timeline_month_range((p.metadata for p in plants), date.today(), day)
+        low, high = timeline_month_range((p.metadata for p in plants), self._today(), day)
         self._month_slider.blockSignals(True)
         self._month_slider.setRange(low, high)
         self._month_slider.setValue(month_number(day))
         self._month_slider.blockSignals(False)
-        today = date.today()
+        today = self._today()
         if day < today:
             text, tip = self.tr("Past"), self.tr("The plan date is in the past. Click to go back to today.")
         elif day > today:

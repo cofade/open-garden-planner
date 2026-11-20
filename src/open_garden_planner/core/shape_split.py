@@ -225,6 +225,74 @@ def split_item_into_local_polygons(
     return split_path(local_path, local_first, local_second)
 
 
+#: A tenth of a millimetre of floating-point slack: the clipper works in floats,
+#: and a straight cut of an axis-parallel rectangle must still be recognised.
+_RECT_TOLERANCE_CM = 1e-2
+
+
+def _two_values(points: list[QPointF], *, axis: str) -> bool:
+    """Whether the points share exactly two values on one axis, within tolerance."""
+    values = sorted(
+        point.x() if axis == "x" else point.y() for point in points
+    )
+    groups = 1
+    for before, after in zip(values, values[1:], strict=False):
+        if after - before > _RECT_TOLERANCE_CM:
+            groups += 1
+    return groups == 2
+
+
+def axis_parallel_rect(
+    polygon: QPolygonF,
+) -> tuple[float, float, float, float] | None:
+    """The ``(x, y, width, height)`` of an axis-parallel rectangle, or ``None``.
+
+    A straight cut of an unrotated rectangle (or of a rotated one, cut along its
+    own local axes) gives one; the split then rebuilds the piece as a
+    ``RectangleItem`` of the source's type, so a raised bed keeps its wooden
+    frame (#828). A diagonal cut has no such form and keeps the polygon path.
+    """
+    if polygon.isEmpty():
+        return None
+    points: list[QPointF] = []
+    for index in range(polygon.count()):
+        point = polygon.at(index)
+        if (
+            not points
+            or abs(point.x() - points[-1].x()) > _RECT_TOLERANCE_CM
+            or abs(point.y() - points[-1].y()) > _RECT_TOLERANCE_CM
+        ):
+            points.append(point)
+    if (
+        len(points) > 1
+        and abs(points[0].x() - points[-1].x()) <= _RECT_TOLERANCE_CM
+        and abs(points[0].y() - points[-1].y()) <= _RECT_TOLERANCE_CM
+    ):
+        points.pop()
+    if len(points) != 4:
+        return None
+    xs = sorted(point.x() for point in points)
+    ys = sorted(point.y() for point in points)
+    x0, x1 = xs[0], xs[-1]
+    y0, y1 = ys[0], ys[-1]
+    if x1 - x0 <= _RECT_TOLERANCE_CM or y1 - y0 <= _RECT_TOLERANCE_CM:
+        return None
+    if not _two_values(points, axis="x") or not _two_values(points, axis="y"):
+        return None
+    for point in points:
+        on_x = (
+            abs(point.x() - x0) <= _RECT_TOLERANCE_CM
+            or abs(point.x() - x1) <= _RECT_TOLERANCE_CM
+        )
+        on_y = (
+            abs(point.y() - y0) <= _RECT_TOLERANCE_CM
+            or abs(point.y() - y1) <= _RECT_TOLERANCE_CM
+        )
+        if not (on_x and on_y):
+            return None
+    return (x0, y0, x1 - x0, y1 - y0)
+
+
 def polygon_type_for_split(source_type: object) -> ObjectType | None:
     """The type a split piece carries, or None when the source has no form.
 

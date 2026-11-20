@@ -71,9 +71,8 @@ class MinimapWidget(QWidget):
         # Scene rects the minimap itself dirtied by hiding/restoring overlay
         # items around its last render — see `_on_scene_changed` (issue #305).
         self._self_dirty_rects: list[QRectF] = []
-        # Items hidden by opacity instead of a flag for the current render, with
-        # the opacity to put back - see `_hide_overlay_items` (PF-CAN-48).
-        self._faded: dict[QGraphicsItem, float] = {}
+        # Items hidden by opacity instead of a flag carry the opacity to put
+        # back in the pair `_hide_overlay_items` returns (#829, PF-CAN-48).
 
         # Size is updated in _do_update() to match canvas aspect ratio
         self.resize(MINIMAP_WIDTH, MINIMAP_HEIGHT)
@@ -260,7 +259,7 @@ class MinimapWidget(QWidget):
         # recorded, which keeps the filter's blind spot to the curve-edit
         # connector lines. A slightly inflated copy absorbs the
         # anti-aliasing margin Qt adds to the dirty rect it reports.
-        hidden: list[QGraphicsItem] = []
+        hidden: list[tuple[QGraphicsItem, float | None]] = []
         ignore_flag = QGraphicsItem.GraphicsItemFlag.ItemIgnoresTransformations
         painter = QPainter()
         had_suppress = hasattr(self._canvas_scene, "_suppress_label_pass")
@@ -271,7 +270,7 @@ class MinimapWidget(QWidget):
             self._hide_overlay_items(hidden)
             self._self_dirty_rects = [
                 item.sceneBoundingRect().adjusted(-1, -1, 1, 1)
-                for item in hidden
+                for item, _restore in hidden
                 if not (
                     getattr(item, "_ignores_transformations", False)
                     or (item.flags() & ignore_flag)
@@ -303,8 +302,8 @@ class MinimapWidget(QWidget):
         self.update()
 
     def _hide_overlay_items(
-        self, hidden: list[QGraphicsItem] | None = None
-    ) -> list[QGraphicsItem]:
+        self, hidden: list[tuple[QGraphicsItem, float | None]] | None = None
+    ) -> list[tuple[QGraphicsItem, float | None]]:
         """Suppress screen-space and tool-overlay items before thumbnail render.
 
         Uses ``ItemHasNoContents`` rather than ``setVisible(False)``: Qt
@@ -323,10 +322,12 @@ class MinimapWidget(QWidget):
         (measured, Qt 6.12; PF-CAN-48). Those items are made fully transparent
         for the render instead: opacity has no selection side effect.
 
-        Returns the list of items that were suppressed (for later restore);
-        ``_faded`` remembers the opacity of the ones hidden that way. A caller
-        that must restore even when this loop raises passes its own ``hidden``
-        list, which is filled as the items are suppressed.
+        Returns one ``(item, restore_opacity)`` pair per suppressed item.
+        ``restore_opacity`` is ``None`` for the flag path and the previous
+        opacity for the transparent path, so the caller carries everything the
+        restore needs (#829; there is no side dictionary to fall out of sync).
+        A caller that must restore even when this loop raises passes its own
+        ``hidden`` list, which is filled as the items are suppressed.
         """
         if hidden is None:
             hidden = []
@@ -354,23 +355,23 @@ class MinimapWidget(QWidget):
                 if not (flags & selectable) and item.isSelected():
                     opacity = item.opacity()
                     if opacity > 0.0:
-                        self._faded[item] = opacity
                         item.setOpacity(0.0)
-                        hidden.append(item)
+                        hidden.append((item, opacity))
                     continue
                 item.setFlag(no_contents, True)
-                hidden.append(item)
+                hidden.append((item, None))
         return hidden
 
-    def _restore_overlay_items(self, hidden: list[QGraphicsItem]) -> None:
+    def _restore_overlay_items(
+        self, hidden: list[tuple[QGraphicsItem, float | None]]
+    ) -> None:
         """Restore items suppressed before thumbnail render."""
         no_contents = QGraphicsItem.GraphicsItemFlag.ItemHasNoContents
-        for item in hidden:
-            opacity = self._faded.pop(item, None)
-            if opacity is None:
+        for item, restore_opacity in hidden:
+            if restore_opacity is None:
                 item.setFlag(no_contents, False)
             else:
-                item.setOpacity(opacity)
+                item.setOpacity(restore_opacity)
 
     def paintEvent(self, _event: object) -> None:
         """Draw the minimap thumbnail, border, and viewport rectangle."""

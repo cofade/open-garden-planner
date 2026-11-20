@@ -826,7 +826,7 @@
   },
   "564": {
     "is_pr": false,
-    "state": "OPEN",
+    "state": "CLOSED",
     "title": "Overhaul the repository showcase: README visuals, example plans, and GitHub metadata"
   },
   "565": {
@@ -1319,6 +1319,16 @@
     "state": "CLOSED",
     "title": "Text tool: Esc on an empty annotation leaves a ghost item on the undo stack"
   },
+  "828": {
+    "is_pr": false,
+    "state": "OPEN",
+    "title": "Split pieces of a raised bed lose the wooden frame in 2D"
+  },
+  "829": {
+    "is_pr": false,
+    "state": "OPEN",
+    "title": "CAD editing follow-ups from the PR #783 review (Esc plumbing, overlay typing, minimap)"
+  },
   "831": {
     "is_pr": false,
     "state": "OPEN",
@@ -1386,7 +1396,7 @@
   },
   "861": {
     "is_pr": false,
-    "state": "OPEN",
+    "state": "CLOSED",
     "title": "Theme: no live follow of a Windows light/dark change in \"System\"; three calendar colours below 3:1 in the light theme; canvas surround is the same grey in both themes"
   },
   "865": {
@@ -1426,7 +1436,7 @@
   },
   "879": {
     "is_pr": false,
-    "state": "OPEN",
+    "state": "CLOSED",
     "title": "Partial and full repaint differ by a few pixels at a selected item's handles"
   },
   "885": {
@@ -1551,22 +1561,32 @@
   },
   "940": {
     "is_pr": false,
-    "state": "OPEN",
+    "state": "CLOSED",
     "title": "Ship 13 bundled example plans as showcase material (nine new, food forest enlarged)"
+  },
+  "945": {
+    "is_pr": false,
+    "state": "OPEN",
+    "title": "The plan's time zone is never read: the clock and a tour's time range use the computer's time zone"
   },
   "950": {
     "is_pr": false,
-    "state": "OPEN",
+    "state": "CLOSED",
     "title": "Plant gallery: Marigold (Tagetes) and Geranium (Pelargonium) carry another plant's name in German and Spanish"
   },
   "951": {
     "is_pr": false,
-    "state": "OPEN",
+    "state": "CLOSED",
     "title": "Selecting plants - View changes and unable to find and use desired plant."
+  },
+  "976": {
+    "is_pr": false,
+    "state": "OPEN",
+    "title": "docs: bring the documentation, user-facing parts first, up to date before the tool is advertised"
   },
   "978": {
     "is_pr": true,
-    "state": "OPEN",
+    "state": "MERGED",
     "title": "fix: restore plant browsing and improve 2D plan reliability"
   }
 }

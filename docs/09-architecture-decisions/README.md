@@ -5233,6 +5233,39 @@ date steps) and the render tier's two-week clock-change luma gate
 (`tests/integration/test_directors_cut_render.py::test_a_year_time_lapse_does_not_jump_at_the_clock_change`:
 largest step 1.53 levels after the fix against 18.07 before it).
 
+### Addendum #945 (2026-11-20): the plan's own time zone
+
+The "garden location's zone" alternative rejected above is now implemented, because the
+location does carry a zone: the example generator has written `location["timezone"]` all
+along, and the Location dialog now writes it too (an editable IANA-name picker, prefilled
+by the Open-Meteo lookup). The clock, the toolbar's wall time, a camera tour's time range
+and the "Today" button read it.
+
+- **The stored key is additive.** `location["timezone"]` sits inside the existing location
+  dict; a plan without it behaves exactly as before (the computer's zone), and an unknown
+  name is treated as absent rather than failing the load. No `FILE_VERSION` change.
+- **`core/plan_time.py`** is the one resolver: `plan_timezone_name`, `plan_timezone`
+  (an invalid name → `None`), `timezone_names` for the picker and `plan_today`, which
+  answers the garden's date for the toolbar's Past/Today/Future state. It is Qt-free.
+- **`SimClock.set_timezone(tz)` keeps the WALL reading and moves the instant.** The date
+  and time of day are the plan's local reading the user is looking at, so they are kept
+  (including `fold`); the sun is re-solved for the same reading at the garden's place.
+  A zone change is not a date change: `date_changed` does not fire and growth is untouched.
+  `None` returns to the computer's zone.
+- **Windows has no IANA database.** `tzdata` is now a runtime dependency, and
+  `installer/ogp.spec` collects its files: without them every named zone raises
+  `ZoneInfoNotFoundError` in a frozen build. The data package is Apache-2.0.
+- **"Today" follows the garden, not the computer.** The toolbar takes a `today_provider`
+  (the app passes `plan_today(project.location)`), so a plan in Tokyo on a Berlin computer
+  shows the correct Past/Today/Future state and jumps to the garden's date.
+- **Not changed:** a plan with no zone still uses the computer's; the 2D plant icon's
+  real-date rule (FR-SUN-08) and task/calendar `date.today()` reads are out of scope here.
+
+Pinned by `tests/unit/test_plan_time.py`, `tests/unit/test_sim_clock.py::TestPlanTimezone`,
+`tests/unit/test_location_dialog.py` and
+`tests/integration/test_sim_clock_wiring.py::TestThePlansTimeZone` (a location change, a
+save/reload round trip and clearing the zone).
+
 ## ADR-054: Recorded species traits and semantic food-forest layers (#312)
 
 **Status:** Accepted for Package F1, October 2026. Additive `.ogp` version 1.4.
@@ -13220,6 +13253,55 @@ decided and what was rejected.
    PF-UI-36). The focused inline editor receives the same Esc first.
 5. **The minimap hides a selected group's descendants by opacity** instead of a flag
    (PF-CAN-48).
+
+**Addendum 3 (2026-11-20) — the Esc plumbing and overlay typing are finished (#829).**
+The P2 findings of the PR #783 reviews are closed without changing any behaviour the
+owner tested.
+
+1. **One Esc rule, in preview too.** The main window's preview branch calls
+   `CanvasView.handle_escape()` before leaving the preview, so the first Esc ends a tool
+   picked inside the preview wherever the focus is (the canvas already handled it when it
+   had the key) and the second leaves the preview. `FR-TOOL-ESC-01` says so. The per-tool
+   Esc switches in the Split, Callout and Journal Pin tools are gone: the view's central
+   rule returns to Select, so a tool only cancels its own gesture.
+2. **The inline editor is declared, not guessed.** `TextItem`, `EditableLabel` and the
+   callout's text child carry `is_inline_text_editor = True`; the canvas tests that marker
+   instead of `hasattr(focus, "toPlainText")`, which agreed only because no fourth class
+   happened to hold scene focus.
+3. **Every tool switch goes through the view.** The four sites that called
+   `_tool_manager.set_active_tool` directly (the offset tool and the vertex-edit action of
+   the polygon, polyline and rectangle items) now call `CanvasView.set_active_tool`, so the
+   distance/angle prompt is hidden and the typed-input buffer is cleared there too. A drift
+   test fails if a new direct call appears outside `canvas_view.py`.
+4. **The dynamic overlay is typed.** `_dynamic_overlay` is `DynamicInputOverlay | None`
+   under `TYPE_CHECKING`; the former `object` annotation, its `getattr`/`callable` guard and
+   the mypy baseline entry are gone.
+5. **The split refusal names the ridge.** When the shape itself is editable but its derived
+   roof ridge is on a locked layer, the message says "The roof ridge is on a locked layer"
+   instead of blaming the shape.
+6. **The minimap's hide/restore is one value.** `_hide_overlay_items` returns
+   `(item, restore_opacity)` pairs (`None` for the flag path) and `_restore_overlay_items`
+   consumes them; the `_faded` side dictionary is gone, so a caller that restores in a
+   `finally` carries everything it needs.
+
+**Addendum 4 (2026-11-20) — a straight cut keeps the raised bed's frame (#828).**
+Addendum 2, item 3, said a piece is a garden bed because the wooden frame is a
+rectangle-only sprite. The owner asked for the frame back. The chosen option is the
+smaller of the two the issue offered: a piece that is an **axis-parallel rectangle in
+the source's own frame** and comes from a **sprite-painted type that a polygon cannot
+carry** (a raised bed, a hedge section) is rebuilt as a `RectangleItem` of the source's
+type, so it paints the same sprite and keeps its 40 cm type default. Every other case is
+unchanged: a diagonal cut of a raised bed still gives garden beds, and a house, a
+terrace or a generic rectangle still gives polygons that keep their type. The
+recognition is `shape_split.axis_parallel_rect` (tolerance 0.01 cm) and the decision is
+made once in `SplitShapeTool._make_piece`, so the live preview and the committed pieces
+agree. No `FILE_VERSION` change: both rebuilt types already exist and a rectangle was
+always a valid carrier.
+
+Pinned by `tests/unit/test_axis_parallel_rect.py` and
+`tests/integration/test_split_shapes.py::test_a_straight_cut_of_a_raised_bed_gives_two_raised_beds`,
+`::test_a_diagonal_cut_of_a_raised_bed_stays_a_pair_of_garden_beds` and
+`::test_a_split_raised_bed_keeps_its_frame_and_height`.
 ## ADR-076: Exports paint one picture — a recorded SVG, raster plan pages in the PDF, live SVG text (#787, #788, #789)
 
 **Status**: Accepted (visual-polish package, 2026-11-09); shipped in v1.38.0 (PR #838)

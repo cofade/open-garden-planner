@@ -255,6 +255,19 @@ Full how-to (step-by-step, `.ts` format, recompile command): see `docs/08-crossc
 - Current release: **v1.40.10** (2026-11-19). No roadmap phase is active.
   The next work is in the open issues.
 - Live decisions that constrain the next change:
+  - Plan time zone (#945, ADR-053 addendum, PF-DOM-35): `location["timezone"]`
+    is read by the clock, the toolbar, a tour's wall-time range and "Today";
+    `SimClock.set_timezone` keeps the wall reading, and a document boundary
+    stores the zone silently (`notify=False`) so a raising listener cannot
+    abort a load. `tzdata` is a runtime dependency and `ogp.spec` collects it.
+  - Split (#828, ADR-075 addendum 4): a straight cut of a sprite-painted,
+    rectangle-only object (a raised bed, a hedge section) keeps that type and
+    its picture; `shape_split.axis_parallel_rect` makes the decision once.
+  - CAD Esc plumbing (#829): one Esc rule in the view, explicit
+    `is_inline_text_editor` markers, and every tool switch through
+    `CanvasView.set_active_tool`.
+  - Documentation before advertising (#976): the user-facing documents
+    describe today's product; `tests/unit/test_docs_truth.py` guards them.
   - Measurement units (#673, ADR-078): geometry and Agent API units stay cm;
     display/input use the global preference and shared unit formatters.
   - Distribution trust (ADR-073): the Microsoft Store listing is pending the owner's

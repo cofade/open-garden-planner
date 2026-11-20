@@ -17,7 +17,7 @@ from unittest.mock import MagicMock
 
 import pytest
 from PyQt6.QtCore import QPointF, Qt
-from PyQt6.QtGui import QColor, QKeyEvent, QMouseEvent, QPainterPath
+from PyQt6.QtGui import QColor, QMouseEvent, QPainterPath
 from PyQt6.QtTest import QTest
 from PyQt6.QtWidgets import QGraphicsSceneContextMenuEvent, QMenu
 
@@ -51,6 +51,17 @@ def _add(canvas, item, *, select: bool = True):
 
 def _add_pieces(scene) -> list[PolygonItem]:
     return [item for item in scene.items() if isinstance(item, PolygonItem)]
+
+
+def _all_pieces(scene) -> list:
+    """Every piece, polygon or rectangle (#828: a straight cut may keep a frame)."""
+    from open_garden_planner.ui.canvas.items import RectangleItem
+
+    return [
+        item
+        for item in scene.items()
+        if isinstance(item, (PolygonItem, RectangleItem))
+    ]
 
 
 def _split(canvas, source, first: QPointF, second: QPointF, mouse_event) -> None:
@@ -637,9 +648,11 @@ def test_the_preview_follows_the_second_point_and_escape_leaves_no_command(
     assert len(tool._preview_pieces) == 2
     assert tool._preview_line is not None
 
-    escape = MagicMock(spec=QKeyEvent)
-    escape.key.return_value = Qt.Key.Key_Escape
-    assert tool.key_press(escape) is True
+    # The view's central Esc rule ends the tool (#829); the tool cancels its
+    # own preview and returns True.
+    from PyQt6.QtTest import QTest
+
+    QTest.keyClick(canvas, Qt.Key.Key_Escape)
 
     assert tool._preview_line is None
     assert tool._preview_pieces == []
@@ -840,25 +853,54 @@ def test_a_container_without_a_polygonal_form_is_refused(canvas) -> None:
     assert source.scene() is canvas.scene()
 
 
-def test_a_raised_bed_becomes_a_garden_bed(canvas, mouse_event) -> None:
+def test_a_straight_cut_of_a_raised_bed_gives_two_raised_beds(
+    canvas, mouse_event
+) -> None:
+    """#828, option 2: an axis-parallel piece keeps the source's shape class."""
+    from open_garden_planner.ui.canvas.items import RectangleItem
+
     source = _add(
         canvas,
         RectangleItem(100, 100, 200, 100, object_type=ObjectType.RAISED_BED),
     )
     _split(canvas, source, QPointF(200, 0), QPointF(200, 400), mouse_event)
 
+    pieces = _all_pieces(canvas.scene())
+    assert len(pieces) == 2
+    for piece in pieces:
+        assert isinstance(piece, RectangleItem)
+        assert piece.object_type is ObjectType.RAISED_BED
+        assert piece.paints_sprite, "the wooden frame is gone"
+
+
+def test_a_diagonal_cut_of_a_raised_bed_stays_a_pair_of_garden_beds(
+    canvas, mouse_event
+) -> None:
+    """The documented limit of option 2: a diagonal piece cannot carry the sprite."""
+    from open_garden_planner.ui.canvas.items import PolygonItem
+
+    source = _add(
+        canvas,
+        RectangleItem(100, 100, 200, 100, object_type=ObjectType.RAISED_BED),
+    )
+    _split(canvas, source, QPointF(100, 100), QPointF(300, 200), mouse_event)
+
     pieces = _add_pieces(canvas.scene())
     assert len(pieces) == 2
-    assert all(piece.object_type is ObjectType.GARDEN_BED for piece in pieces)
+    for piece in pieces:
+        assert isinstance(piece, PolygonItem)
+        assert piece.object_type is ObjectType.GARDEN_BED
+        assert piece.fill_pattern is FillPattern.SOIL
+        assert piece.brush().style() == Qt.BrushStyle.TexturePattern
 
 
-def test_a_split_raised_bed_keeps_its_height_and_gets_the_soil_texture(
+def test_a_split_raised_bed_keeps_its_frame_and_height(
     canvas, mouse_event, tmp_path
 ) -> None:
-    """Manual test 2 of PR #783: the pieces went flat brown and lost 40 cm.
+    """Manual test 2 of PR #783 + #828: pieces keep the frame and the 40 cm.
 
-    A raised bed is 40 cm by its TYPE default and painted as a sprite, so
-    neither survives a plain copy onto a garden-bed polygon.
+    A raised bed is 40 cm by its TYPE default and painted as a sprite; a
+    straight cut now keeps both instead of turning the pieces into flat beds.
     """
     from open_garden_planner.core.object_height import effective_height_cm
 
@@ -871,26 +913,26 @@ def test_a_split_raised_bed_keeps_its_height_and_gets_the_soil_texture(
     assert "object_height_cm" not in source.metadata
     assert effective_height_cm(source.object_type, source.metadata) == 40.0
 
-    _split(canvas, source, QPointF(150, 0), QPointF(250, 400), mouse_event)
+    _split(canvas, source, QPointF(200, 0), QPointF(200, 400), mouse_event)
 
-    pieces = _add_pieces(scene)
+    pieces = _all_pieces(scene)
     assert len(pieces) == 2
     for piece in pieces:
-        assert piece.object_type is ObjectType.GARDEN_BED
+        assert piece.object_type is ObjectType.RAISED_BED
+        assert piece.paints_sprite
         assert effective_height_cm(piece.object_type, piece.metadata) == 40.0
-        assert piece.fill_pattern is FillPattern.SOIL
-        assert piece.brush().style() == Qt.BrushStyle.TexturePattern
     assert "object_height_cm" not in source.metadata, "the source was mutated"
 
     target = tmp_path / "raised-bed.ogp"
     manager = ProjectManager()
     manager.save(scene, target)
     manager.load(scene, target)
-    reloaded = _add_pieces(scene)
+    reloaded = _all_pieces(scene)
     assert len(reloaded) == 2
     for piece in reloaded:
+        assert piece.object_type is ObjectType.RAISED_BED
+        assert piece.paints_sprite
         assert effective_height_cm(piece.object_type, piece.metadata) == 40.0
-        assert piece.fill_pattern is FillPattern.SOIL
 
 
 def test_a_split_raised_bed_keeps_a_height_the_user_set(canvas, mouse_event) -> None:
@@ -902,7 +944,7 @@ def test_a_split_raised_bed_keeps_a_height_the_user_set(canvas, mouse_event) -> 
 
     _split(canvas, source, QPointF(200, 0), QPointF(200, 400), mouse_event)
 
-    for piece in _add_pieces(canvas.scene()):
+    for piece in _all_pieces(canvas.scene()):
         assert piece.metadata["object_height_cm"] == 75.0
         assert effective_height_cm(piece.object_type, piece.metadata) == 75.0
 
@@ -1116,7 +1158,7 @@ def test_a_building_whose_ridge_is_on_a_locked_layer_is_not_split(canvas) -> Non
     scene.add_layer(locked)
     ridge.layer_id = locked.id
 
-    assert canvas.split_refusal_reason(source) == "The shape is on a locked layer"
+    assert canvas.split_refusal_reason(source) == "The roof ridge is on a locked layer"
     assert canvas.start_split_shape(source) is False
     assert ridge.scene() is scene and source.scene() is scene
 

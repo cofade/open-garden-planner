@@ -100,7 +100,7 @@ class CalloutTool(BaseTool):
     def key_press(self, event: QKeyEvent) -> bool:
         if event.key() == Qt.Key.Key_Escape:
             self.cancel()
-            self._view.set_active_tool(ToolType.SELECT)
+            # The view's central Esc rule returns to Select (#829).
             return True
         return False
 

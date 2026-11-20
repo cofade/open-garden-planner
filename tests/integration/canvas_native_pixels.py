@@ -151,8 +151,11 @@ def embedded_shed_repaints() -> dict:
     def settle() -> None:
         # Deliver queued scene changes, then the thumbnail's own 100 ms
         # throttle and backing-store update before comparing the same state.
+        # The wait is generous on purpose: in the full suite this child runs
+        # beside other pytest workers, and a 2-second deadline was observed to
+        # expire before a starved event loop delivered the timer's own tick.
         QTest.qWait(1)
-        deadline = time.monotonic() + 2
+        deadline = time.monotonic() + 10
         while window._minimap._update_timer.isActive() and time.monotonic() < deadline:
             QTest.qWait(10)
         assert not window._minimap._update_timer.isActive()

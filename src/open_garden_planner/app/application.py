@@ -48,6 +48,7 @@ from open_garden_planner.core import (
 )
 from open_garden_planner.core.i18n import format_decimal, format_trimmed, list_separator
 from open_garden_planner.core.measurement_display import area_text, length_text
+from open_garden_planner.core.plan_time import plan_timezone, plan_today
 from open_garden_planner.core.plant_renderer import is_plant_type
 from open_garden_planner.core.solar import plan_place
 from open_garden_planner.core.tools import ToolType
@@ -233,6 +234,10 @@ class GardenPlannerApp(QMainWindow):
 
         # Preview mode state
         self._preview_mode = False
+        #: True while a document boundary is rewiring the plan (#945): a plan
+        #: zone change is then stored silently, because a clock listener may
+        #: raise and a load must finish opening the document first.
+        self._document_loading = False
         self._pre_preview_state: dict | None = None
         self._active_satellite_picker: QWidget | None = None
         self._app_close_pending = False
@@ -2227,7 +2232,12 @@ class GardenPlannerApp(QMainWindow):
         # growth, its instant for the sun. Owned here. Its channels are Qt-free:
         # they hold bound methods weakly but do NOT disconnect a destroyed
         # QObject, so every subscriber lives as long as this window.
-        self._sim_clock = SimClock()
+        # The plan's own zone, when its location names one (#945): the toolbar's
+        # wall time, a tour's time range and the sun read the garden's clock,
+        # not the computer's. No zone keeps the computer's behaviour.
+        self._sim_clock = SimClock(
+            tz=plan_timezone(self._project_manager.location)
+        )
         # A shipped example is seen at its own moment and the user's reading
         # comes back with the next document or a save (#795); it writes this one
         # clock. A camera tour that moves the clock holds a reading too: the
@@ -2245,7 +2255,11 @@ class GardenPlannerApp(QMainWindow):
             north_provider=lambda: self._project_manager.north_angle_deg,
         )
         self._sun_controller.state_changed.connect(self._on_sun_state_changed)
-        self._sun_toolbar = SunSimToolbar(self, scene=self.canvas_scene)
+        self._sun_toolbar = SunSimToolbar(
+            self,
+            scene=self.canvas_scene,
+            today_provider=lambda: plan_today(self._project_manager.location),
+        )
         self.addToolBarBreak()
         self.addToolBar(self._sun_toolbar)
         self._sun_toolbar.setVisible(True)
@@ -3058,7 +3072,11 @@ class GardenPlannerApp(QMainWindow):
             recovery_path: Path to the recovery file
         """
         try:
-            self._project_manager.load(self.canvas_scene, recovery_path)
+            self._document_loading = True
+            try:
+                self._project_manager.load(self.canvas_scene, recovery_path)
+            finally:
+                self._document_loading = False
             self.canvas_view.command_manager.clear()
             self.canvas_view.fit_in_view()
             self.canvas_scene.update_dimension_lines()
@@ -3281,7 +3299,11 @@ class GardenPlannerApp(QMainWindow):
         # Clear undo history and reset project state
         self.canvas_view.command_manager.clear()
         self.constraints_panel.refresh()
-        self._project_manager.new_project()
+        self._document_loading = True
+        try:
+            self._project_manager.new_project()
+        finally:
+            self._document_loading = False
 
         # Apply optional garden year chosen in dialog
         if garden_year is not None:
@@ -3416,6 +3438,7 @@ class GardenPlannerApp(QMainWindow):
         has no wrapper to do it. A recovery that only the GUI ran would have
         been a #337-class bug waiting on the caller the extraction created.
         """
+        self._document_loading = True
         try:
             # #865: a shipped example opened by its path is a COPY, exactly as the
             # gallery opens it. Otherwise Save writes into the install tree and the
@@ -3433,6 +3456,8 @@ class GardenPlannerApp(QMainWindow):
             if hasattr(self, "_update_window_title"):
                 self._update_window_title()
             raise
+        finally:
+            self._document_loading = False
 
         if hasattr(self, 'calendar_view') and self.calendar_view is not None:
             self.calendar_view.clear_frost_alerts()
@@ -4334,9 +4359,19 @@ class GardenPlannerApp(QMainWindow):
         self._sun_hint_label.setVisible(bool(text))
 
     def _on_location_changed_for_sun(self, _location: object) -> None:
-        """Location edits re-solve the sun position immediately (no debounce)."""
+        """Location edits re-solve the sun position immediately (no debounce).
+
+        A new plan or a loaded file also arrives here (#945): the clock reads
+        the wall time it already shows in the new plan's zone, so the toolbar
+        and a tour stay on the garden's local time, and the Today button and
+        the month range follow the garden's date.
+        """
         location = self._project_manager.location or {}
+        self._sim_clock.set_timezone(
+            plan_timezone(location), notify=not self._document_loading
+        )
         self._sun_toolbar.set_location_available(plan_place(location) is not None)
+        self._sun_toolbar.refresh()
         self._sun_controller.recompute_now()
 
     # ── 3D view (US-E6) ──────────────────────────────────────────
@@ -5074,7 +5109,13 @@ class GardenPlannerApp(QMainWindow):
             event.accept()
             return
         if self._preview_mode and event.key() == Qt.Key.Key_Escape:
-            self._exit_preview_mode()
+            # One Esc means the same thing wherever the focus is: first leave
+            # the tool picked inside the preview, then leave the preview. When
+            # the canvas has the focus it already consumed that first Esc; this
+            # branch is what a focus in a panel or the search field reaches
+            # (#829, FR-TOOL-ESC-01).
+            if not self.canvas_view.handle_escape():
+                self._exit_preview_mode()
             event.accept()
             return
         # An Esc that no focused widget consumed means what it means on the

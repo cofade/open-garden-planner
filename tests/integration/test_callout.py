@@ -109,10 +109,11 @@ class TestCancel:
     def test_escape_when_idle_switches_to_select(
         self, canvas: CanvasView, qtbot: object
     ) -> None:
+        """The view's central Esc rule returns to Select (#829)."""
+        from PyQt6.QtTest import QTest
+
         canvas.set_active_tool(ToolType.CALLOUT)
-        tool = canvas.tool_manager.active_tool
-        consumed = tool.key_press(_key_event(Qt.Key.Key_Escape))
-        assert consumed is True
+        QTest.keyClick(canvas, Qt.Key.Key_Escape)
         assert canvas.tool_manager.active_tool.tool_type == ToolType.SELECT
 
     def test_escaping_an_empty_callout_withdraws_it_and_its_history_entry(

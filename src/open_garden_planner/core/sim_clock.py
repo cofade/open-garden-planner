@@ -389,6 +389,45 @@ class SimClock:
         """Move within the plan date - never fires ``date_changed``."""
         return self._commit(SimInstant(self._instant.plan_date, t, self._tz))
 
+    def set_timezone(
+        self, tz: tzinfo | None, *, notify: bool = True
+    ) -> SimChange | None:
+        """Read the current WALL time in another zone (#945, ADR-053 addendum).
+
+        The plan's zone comes from its location, and the reading the user is
+        looking at (the plan date and the time of day) is that plan's local wall
+        time, so it is kept; the instant and therefore the sun move to the same
+        reading at the plan's place. ``None`` restores the computer's zone.
+
+        The date does not change, so ``date_changed`` does not fire; growth is
+        untouched and the sun is re-solved by every ``instant_changed``
+        listener. Returns ``None`` when the zone already was ``tz``.
+
+        ``notify=False`` is for a DOCUMENT BOUNDARY: the load rewires the
+        document and re-solves the sun itself (the location handler calls
+        ``recompute_now`` and the 3D workspace has its own ``location_changed``
+        slot), while a clock listener is allowed to raise. A load must not be
+        aborted by that raise before the document is open, so the new zone is
+        stored silently and the load's own last clock write (the showcase
+        moment, if any) tells the listeners afterwards.
+        """
+        if self._notifying:
+            raise RuntimeError(
+                "SimClock written from inside its own notification; listeners "
+                "must not write the clock"
+            )
+        if tz is self._tz:
+            return None
+        previous = self._instant
+        self._tz = tz
+        # Keep the reading exactly, including a repeated/skipped hour's ``fold``.
+        reading = SimInstant(previous.plan_date, previous.time_of_day, tz)
+        change = SimChange(previous, reading)
+        if not notify:
+            self._instant = reading
+            return change
+        return self._commit(reading)
+
     def set_utc_time_on(self, day: date, utc_time: time) -> bool:
         """Move to the instant whose **local date** is ``day`` and whose **UTC time of
         day** is ``utc_time`` - the clock-side operation a year's camera tour needs

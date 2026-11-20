@@ -62,6 +62,7 @@ dependencies = [
     "uvicorn>=0.30",
     "starlette>=0.37",
     "pydantic>=2.11",
+    "tzdata>=2024.1",
 ]
 
 [project.optional-dependencies]

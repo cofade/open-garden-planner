@@ -557,3 +557,13 @@ The issue's shorthand said `solar_azimuth - north_angle`, but its own definition
 cardinal test, not by the prose: a sun due east on a plan whose north is at 45° has
 scene bearing 135° and its shadow points up-left. Every consumer uses the same angle
 and sign, so a second one has nowhere to hide.
+
+### PF-DOM-35
+
+- **Rule:** Read a plan's time zone from `location["timezone"]` and keep the user's WALL reading when the zone changes: `SimClock.set_timezone(tz)` reinterprets the same date and time of day at the garden's place, never the instant. A missing or unknown name is the computer's zone, not a load failure. `zoneinfo` needs `tzdata` on Windows, and a frozen build needs `collect_data_files("tzdata")` in `ogp.spec`.
+- **Pinned by:** `tests/unit/test_plan_time.py`; `tests/unit/test_sim_clock.py::TestPlanTimezone`; `tests/integration/test_sim_clock_wiring.py::TestThePlansTimeZone`; `tests/unit/test_location_dialog.py`
+- **Source:** #945, ADR-053 addendum
+- **Status:** standing
+- **Legacy:** none (new entry)
+
+The location generator had written `"timezone": "Europe/Berlin"` since the examples shipped, and nothing read it: the clock, the toolbar and a tour's wall-time range all used the computer's zone. The wall-reading choice follows PF-DOM-22 and is what the user means when they set 15:00 in a Kyoto garden: the sun moves to Kyoto's 15:00, the date does not jump. Two traps were measured while building it. Windows ships no IANA database, so a bare Windows venv skips every `ZoneInfo` test and CI Linux passes; the fix is the pure-data `tzdata` dependency, and the frozen exe needs its files collected explicitly because PyInstaller has no hook for it (the first bundle without them raises `ZoneInfoNotFoundError` for every named zone). Second, the app's own tests patch `sim_clock_module.SimClock` with a `functools.partial(..., tz=...)`; now that the app passes a zone, such a patch must merge the keyword instead of duplicating it, or the window cannot be built.

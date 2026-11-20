@@ -86,6 +86,13 @@ for f in (SRC / "open_garden_planner" / "ui" / "view3d" / "quick3d" / "qml").rgl
         rel = f.relative_to(SRC)
         datas.append((str(f), str(rel.parent)))
 
+# The IANA time-zone database (#945): Windows ships none, so zoneinfo reads the
+# pure-data ``tzdata`` package. PyInstaller has no hook for it, and a bundle
+# without these files raises ZoneInfoNotFoundError for every named plan zone.
+from PyInstaller.utils.hooks import collect_data_files
+
+datas += collect_data_files("tzdata")
+
 # Agent API (US-D1.1): the MCP server stack (mcp / uvicorn / starlette / anyio /
 # sse-starlette / pydantic) imports protocol, loop and lifespan submodules
 # dynamically, and several of these packages read their distribution metadata at

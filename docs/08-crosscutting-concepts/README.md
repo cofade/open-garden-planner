@@ -1483,6 +1483,13 @@ isolate itself would write there and not into anybody's settings.
 probe that is not committed has no such test: write it as a pytest test, or give it the same
 two calls.
 
+**A probe that builds the whole `GardenPlannerApp` window** does two more things that
+`tests/conftest.py` already does for the suite. It replaces `_show_welcome_dialog`, whose
+`exec()` is modal and otherwise leaves the probe waiting on a dialog nobody sees. And it keeps
+canvas clicks at least `CanvasView.RULER_SIZE` (20 px) away from the viewport's left and top
+edges: a press inside a ruler starts a guide drag, not a canvas gesture, so a probe that aims at
+a scene position near the edge measures the wrong thing (#829).
+
 **No test starts another tool.** `detect_clients()` probes a client CLI it finds on `PATH` by
 running it. `tests/unit/test_ai_client_onboarding.py` puts no CLI on `PATH` by default and makes
 the module's `subprocess.run` raise; a test that plays a CLI replaces it, and the one that only

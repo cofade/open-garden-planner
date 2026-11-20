@@ -73,7 +73,7 @@ Every picture on this page is taken from the app's own window on a plan that shi
 
 ## Example gardens
 
-Thirteen gardens ship with the app. Each opens on its own day and in its own light and has a stored camera tour; every one but the family garden carries a short hint on a layer of its own that can be hidden. The three time-lapse tours (evening into night, shadows over a day, a year in the garden) read the computer's clock and are made for Central European Time.
+Thirteen gardens ship with the app. Each opens on its own day and in its own light and has a stored camera tour; every one but the family garden carries a short hint on a layer of its own that can be hidden. The three time-lapse tours (evening into night, shadows over a day, a year in the garden) read the plan's own time zone; the bundled examples are set to Central European Time.
 
 **To open one:** start the app and pick it on the Welcome window's **Examples & templates** tab, or choose **File > New from example...**. It opens as an untitled copy, so the original stays as it is. Switch to **3D** or **Split** at the top right of the plan; in the 3D view, **Capture > Camera Tour...** plays the stored tour.
 
@@ -109,6 +109,7 @@ These are illustrative layouts for learning the app: adapt plants, spacing and d
 
 - **Metric Accuracy**: Plan with centimeter-level precision on a calibrated canvas
 - **Metric and Imperial Units**: Choose metric or imperial lengths and areas, and litres or US quarts and gallons for container volumes. In Imperial mode, length fields accept feet, inches and fractions
+- **The Plan's Own Time**: Set the garden's IANA time zone with its location, and the Plan & Sun clock, the shadows, a camera tour's time range and "Today" use the garden's local time instead of the computer's
 - **Image Calibration**: Import satellite imagery and calibrate to real-world scale
 - **Rich Plant Metadata**: Track species, varieties, planting dates, and growing requirements
 - **Online Plant Database**: Search Trefle.io, Perenual, and Permapeople for plant data
@@ -140,7 +141,7 @@ Run the installer and follow the wizard. It will:
 - Optionally associate `.ogp` files so you can double-click to open them
 - Register in Add/Remove Programs for clean uninstallation
 
-**Platform:** Windows 10/11 (64-bit). As measured on 9 October 2026, the v1.29.6 installer is about 171 MiB and the local frozen application folder is about 611 MiB. Allow at least 1 GiB for the application, plus download, temporary installation, and plan storage. A minimum RAM requirement has not been measured.
+**Platform:** Windows 10/11 (64-bit). Measured on 7 November 2026 for v1.37.8: the installer is about 183 MiB and the local frozen application folder about 647 MiB; newer releases are similar. Allow at least 1 GiB for the application, plus download, temporary installation, and plan storage. A minimum RAM requirement has not been measured.
 
 #### Verify your download
 
@@ -172,9 +173,11 @@ The same command works against the **installed app exe** too — `C:\Program Fil
 (see `docs/11-risks-and-technical-debt` §11.1/§11.2). Signing options were
 evaluated in [#375](https://github.com/cofade/open-garden-planner/issues/375)
 (decision record: ADR-073): an Authenticode signature for this installer stays
-deferred, and a **Microsoft Store listing is in preparation** — a Store install
-is signed by Microsoft and shows no SmartScreen download warning. Until that
-listing is live, this installer is the only download, and today's compensating
+deferred, and a **Microsoft Store listing is planned but not available** — the
+listing depends on the owner's Partner Center registration and a certified
+version. A Store install would be signed by Microsoft and show no SmartScreen
+download warning. Until the first certified version is live, this installer is
+the only download, and today's compensating
 controls are the checksum and build provenance attestation above. An
 unsigned, low-download-volume executable is exactly the profile Windows
 SmartScreen, Defender's ML heuristics (e.g. `Wacatac.B/C!ml`), and Norton's
@@ -237,10 +240,10 @@ To enable online plant search, see the [Plant API Setup Guide](docs/03-context-a
 
 ## Status
 
-**Core 2D, 3D, and visual-refresh phases shipped** — CAD precision tooling, garden smart
-features, Agent Integration, Phase 17 Living Garden 3D through L7, and Package F are
-complete. See the [Development Roadmap](docs/roadmap.md) for current work and delivery
-status; [open issues](https://github.com/cofade/open-garden-planner/issues) own the work list.
+The 2D canvas, the smart garden features, the Agent API, the Living Garden 3D view and
+the visual refresh have shipped; the download button above always points at the latest
+release. The [Development Roadmap](docs/roadmap.md) records phase status and the delivery
+index; [open issues](https://github.com/cofade/open-garden-planner/issues) own the work list.
 
 ## Documentation
 
@@ -269,7 +272,7 @@ See the [Code of Conduct](CODE_OF_CONDUCT.md), [security policy](SECURITY.md), a
 We welcome contributions! This project aims to be technically clean and attractive for both users and contributors.
 
 - Read the [Roadmap](docs/roadmap.md) for current work and status, and the [Architecture](docs/05-building-block-view/) to understand the vision
-- Browse the **[Issue Tracker](https://github.com/cofade/open-garden-planner/issues)** for ready-to-pick work items — anything open and unassigned is fair game
+- Browse the **[Issue Tracker](https://github.com/cofade/open-garden-planner/issues)** for ready-to-pick work items — anything open and not labelled `claimed` is fair game; the label means someone is already on it
 - Join **[GitHub Discussions](https://github.com/cofade/open-garden-planner/discussions)** if you have questions or ideas before opening a PR
 - PRs must pass CI: tests, full-tree linting, security/secrets scans, context parity, locked dependency checks and per-file type baselines. Coverage reports enforce measured package line floors. See [quality requirements](docs/10-quality-requirements/).
 

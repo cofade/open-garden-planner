@@ -231,7 +231,9 @@ class TestMinimapOverlayFiltering:
         hidden = minimap._hide_overlay_items()
         minimap._restore_overlay_items(hidden)
 
-        assert item not in hidden, "Garden item with zValue=100 must not be hidden"
+        assert item not in [hidden_item for hidden_item, _ in hidden], (
+            "Garden item with zValue=100 must not be hidden"
+        )
         assert item.isVisible()
 
     def test_high_z_overlay_is_hidden_and_restored(
@@ -248,7 +250,7 @@ class TestMinimapOverlayFiltering:
 
         minimap = MinimapWidget(view, scene)
         hidden = minimap._hide_overlay_items()
-        assert overlay in hidden
+        assert overlay in [hidden_item for hidden_item, _ in hidden]
         minimap._restore_overlay_items(hidden)
         assert overlay.isVisible()
 
@@ -275,7 +277,7 @@ class TestMinimapOverlayFiltering:
         minimap = MinimapWidget(view, scene)
         hidden = minimap._hide_overlay_items()
         try:
-            assert overlay in hidden
+            assert overlay in [hidden_item for hidden_item, _ in hidden]
             assert overlay.isSelected(), "suppression must not clear selection"
             assert overlay.isVisible()
             assert overlay.flags() & QGraphicsItem.GraphicsItemFlag.ItemHasNoContents

@@ -72,6 +72,13 @@ time-only animation does not recalculate a full day. Visual exports wait for a c
 map. See [the timeline and export contracts](https://github.com/cofade/open-garden-planner/blob/master/docs/08-crosscutting-concepts/README.md#831-plan-date-visibility-and-lifetime-us-f4-adr-062)
 and ADR-062 in the architecture decision register.
 
+A plan may also carry its own **time zone**: the Location dialog writes an IANA name
+(prefilled by the Open-Meteo lookup, and already present in the bundled examples), and the
+Plan & Sun clock, the shadows, a camera tour's time range and "Today" read the garden's
+local wall time. A plan without a zone keeps the computer's zone. The flag stays a wall
+reading, so changing the zone does not move the plan date. See FR-SUN-04 and the ADR-053
+addendum for #945.
+
 A plan may also carry its own north orientation: **File > Set North Orientation…** stores
 where true north lies on the drawing (clockwise from plan-up) without rotating any object.
 The 2D shadows, the hours-of-sun sampling, the plant sun-exposure diagnostics, the 3D light

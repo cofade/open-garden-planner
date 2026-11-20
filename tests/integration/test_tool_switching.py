@@ -836,3 +836,36 @@ class TestEscapeReturnsToSelect:
 
         # pytest-qt closes the window at teardown; leave it clean for that path.
         project.mark_clean()
+
+
+class TestToolSwitchesGoThroughTheView:
+    """#829: every switch uses ``CanvasView.set_active_tool``.
+
+    ``_tool_manager.set_active_tool`` skips the view's cleanup (the typed-input
+    buffer and the distance/angle prompt), so a context-menu action that took
+    it directly left both over the Select tool.
+    """
+
+    def test_switching_clears_a_pending_typed_coordinate(
+        self, canvas: CanvasView, qtbot: object
+    ) -> None:
+        canvas._input_buffer.set_text("@500,0")
+        assert canvas._input_buffer.text == "@500,0"
+
+        canvas.set_active_tool(ToolType.SELECT)
+
+        assert canvas._input_buffer.text == ""
+
+    def test_nothing_outside_the_view_reaches_the_tool_manager(self) -> None:
+        """A drift guard: the four context-menu/offset sites now use the view."""
+        from pathlib import Path
+
+        root = Path(__file__).resolve().parents[2] / "src" / "open_garden_planner"
+        offenders = []
+        for path in root.rglob("*.py"):
+            if path.name == "canvas_view.py":
+                continue
+            text = path.read_text(encoding="utf-8")
+            if "._tool_manager.set_active_tool(" in text:
+                offenders.append(str(path.relative_to(root)))
+        assert offenders == []

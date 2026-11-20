@@ -18,7 +18,7 @@ from __future__ import annotations
 import contextlib
 from copy import deepcopy
 from dataclasses import dataclass, field
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any, cast
 from uuid import UUID
 
 from PyQt6.QtCore import QCoreApplication, QPointF, QRectF, Qt
@@ -31,7 +31,9 @@ from open_garden_planner.core.item_look import (
     copy_visual_style,
     paints_sprite,
 )
+from open_garden_planner.core.object_types import ObjectType, get_valid_types_for_shape
 from open_garden_planner.core.shape_split import (
+    axis_parallel_rect,
     polygon_type_for_split,
     segment_crosses_item,
     split_item_into_local_polygons,
@@ -176,7 +178,7 @@ class SplitShapeTool(BaseTool):
             self._view.set_status_message(
                 QCoreApplication.translate("SplitShapeTool", "Split cancelled")
             )
-            self._view.set_active_tool(ToolType.SELECT)
+            # The view's central Esc rule returns to Select (#829).
             return True
         return False
 
@@ -373,19 +375,43 @@ class SplitShapeTool(BaseTool):
             self._view.set_active_tool(ToolType.SELECT)
 
     def _make_piece(self, source: QGraphicsItem, polygon: QPolygonF) -> QGraphicsItem:
-        """Build one unsaved piece that keeps the source's frame and look."""
-        from open_garden_planner.ui.canvas.items import PolygonItem
+        """Build one unsaved piece that keeps the source's frame and look.
 
-        item = PolygonItem.from_polygon(QPolygonF(polygon))
+        A piece that is an axis-parallel rectangle in the source's frame keeps
+        the source's shape CLASS when that class is valid for a rectangle: a
+        straight cut of a raised bed gives two raised beds with their wooden
+        frame (#828, option 2). A diagonal cut, or a type with no rectangular
+        form, keeps the polygon path.
+        """
+        from open_garden_planner.ui.canvas.items import PolygonItem, RectangleItem
+
+        source_type: ObjectType | None = getattr(source, "object_type", None)
+        rectangle = axis_parallel_rect(polygon)
+        # Only a type that is valid on a rectangle but NOT on a polygon would
+        # lose its look on the polygon path: the raised bed's wooden frame and
+        # the hedge section's picture. A house or a generic rectangle already
+        # keeps its identity as a polygon, so its piece stays one (#828).
+        keeps_rectangle = (
+            rectangle is not None
+            and paints_sprite(source)
+            and source_type in get_valid_types_for_shape("rectangle")
+            and source_type not in get_valid_types_for_shape("polygon")
+        )
+        polygon_type: ObjectType | None = None
+        item: Any
+        if keeps_rectangle:
+            assert rectangle is not None
+            item = RectangleItem(*rectangle, object_type=cast(ObjectType, source_type))
+        else:
+            item = PolygonItem.from_polygon(QPolygonF(polygon))
+            polygon_type = polygon_type_for_split(source_type)
+            if polygon_type is not None:
+                item.object_type = polygon_type
         # Work in the source's local frame so the material keeps its
         # orientation and the source's rotation is reproduced exactly.
         item._apply_rotation(source.rotation())
         centre = item.transformOriginPoint()
         item.setPos(source.mapToScene(centre) - centre)
-        source_type = getattr(source, "object_type", None)
-        polygon_type = polygon_type_for_split(source_type)
-        if polygon_type is not None:
-            item.object_type = polygon_type
         item.name = getattr(source, "name", "")
         item.label_visible = getattr(source, "label_visible", True)
         item.area_label_visible = getattr(source, "area_label_visible", False)
@@ -398,17 +424,18 @@ class SplitShapeTool(BaseTool):
         # builds every piece its own, so no piece may name the old one.
         item.metadata.pop("ridge_item_id", None)
         copy_visual_style(source, item)
-        # A piece whose type had to change stands as tall as its source (the
-        # 40 cm of a raised bed is a type default a garden bed lacks). A sprite
-        # (the raised bed's wooden frame) cannot be drawn on a free-form
-        # outline and its stored fill was never on screen, so such a piece
-        # takes its new type's pattern (soil) instead of going flat brown; a
-        # shape painted by its own brush keeps the pattern the user gave it.
-        adopt_rebuilt_type(
-            item, source_type, polygon_type, keep_fill=not paints_sprite(source)
-        )
+        if not keeps_rectangle:
+            # A piece whose type had to change stands as tall as its source
+            # (the 40 cm of a raised bed is a type default a garden bed lacks).
+            # A sprite (the raised bed's wooden frame) cannot be drawn on a
+            # free-form outline and its stored fill was never on screen, so
+            # such a piece takes its new type's pattern (soil) instead of going
+            # flat brown; a shape painted by its own brush keeps the user's.
+            adopt_rebuilt_type(
+                item, source_type, polygon_type, keep_fill=not paints_sprite(source)
+            )
         item._setup_styling()
-        return item
+        return cast(QGraphicsItem, item)
 
     # ------------------------------------------------------------------
     # Geometry and preview
