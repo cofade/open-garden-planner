@@ -15200,8 +15200,8 @@ Der Bestand gehört Ihnen, nicht einem Plan: Jeder Plan, den Sie öffnen, zeigt 
         </message>
         <message>
             <location filename="../../ui/widgets/sun_sim_toolbar.py" line="253" />
-            <source>Go to today</source>
-            <translation>Zum heutigen Datum</translation>
+            <source>Go to the current date and time</source>
+            <translation>Zum aktuellen Datum und zur aktuellen Uhrzeit wechseln</translation>
         </message>
         <message>
             <location filename="../../ui/widgets/sun_sim_toolbar.py" line="281" />
@@ -15328,17 +15328,17 @@ Der Bestand gehört Ihnen, nicht einem Plan: Jeder Plan, den Sie öffnen, zeigt 
         <message>
             <location filename="../../ui/widgets/sun_sim_toolbar.py" line="664" />
             <source>The plan date is in the future. Click to go back to today.</source>
-            <translation>Das Plandatum liegt in der Zukunft. Klicken, um zum heutigen Datum zurückzukehren.</translation>
+            <translation type="vanished">Das Plandatum liegt in der Zukunft. Klicken, um zum heutigen Datum zurückzukehren.</translation>
         </message>
         <message>
             <location filename="../../ui/widgets/sun_sim_toolbar.py" line="662" />
             <source>The plan date is in the past. Click to go back to today.</source>
-            <translation>Das Plandatum liegt in der Vergangenheit. Klicken, um zum heutigen Datum zurückzukehren.</translation>
+            <translation type="vanished">Das Plandatum liegt in der Vergangenheit. Klicken, um zum heutigen Datum zurückzukehren.</translation>
         </message>
         <message>
             <location filename="../../ui/widgets/sun_sim_toolbar.py" line="666" />
             <source>The plan date is today.</source>
-            <translation>Das Plandatum ist heute.</translation>
+            <translation type="vanished">Das Plandatum ist heute.</translation>
         </message>
         <message>
             <location filename="../../ui/widgets/sun_sim_toolbar.py" line="706" />

@@ -1,7 +1,7 @@
 """End-to-end split-along-a-line workflow (#664).
 
-The toolbar's Split tool takes two snapped scene points with no source
-selection and splits every closed shape the drawn segment passes through; the
+The toolbar's Split tool takes two snapped scene points and splits crossed
+shapes from the preselection, or from the whole scene with no selection. The
 context-menu action scopes the same gesture to one shape. The source's layer,
 look, fill transform, label state, metadata and linked plants survive; a
 planted bed's plants are re-homed to the piece holding their standing point.
@@ -119,12 +119,13 @@ def test_a_vertical_cut_keeps_look_metadata_and_is_one_undo_step(
     assert len(_add_pieces(scene)) == 2
 
 
-def test_the_cad_toolbar_starts_a_scene_wide_cut(qtbot, canvas) -> None:
+def test_the_cad_toolbar_only_splits_preselected_shapes(qtbot, canvas, mouse_event) -> None:
     from open_garden_planner.ui.widgets.constraint_toolbar import ConstraintToolbar
 
-    # A selection is deliberately present: Split must no longer arm it, because
-    # the toolbar tool cuts every shape the two-point line crosses (#664).
-    _add(canvas, RectangleItem(100, 100, 200, 100))
+    first = _add(canvas, RectangleItem(100, 100, 200, 100))
+    second = _add(canvas, RectangleItem(400, 100, 200, 100), select=False)
+    background = _add(canvas, RectangleItem(50, 50, 650, 200), select=False)
+    second.setSelected(True)
     toolbar = ConstraintToolbar()
     qtbot.addWidget(toolbar)
     toolbar.tool_selected.connect(canvas.set_active_tool)
@@ -138,8 +139,16 @@ def test_the_cad_toolbar_starts_a_scene_wide_cut(qtbot, canvas) -> None:
     QTest.qWait(10)
 
     assert canvas.tool_manager.active_tool_type is ToolType.SPLIT
-    assert canvas._split_tool.source_id is None
     assert messages[-1] == "Click the first point of the cutting line. Esc cancels."
+    tool = canvas._split_tool
+    tool.mouse_press(mouse_event, QPointF(0, 150))
+    tool.mouse_press(mouse_event, QPointF(800, 150))
+
+    assert first.scene() is None and second.scene() is None
+    assert background.scene() is canvas.scene()
+    assert len(_add_pieces(canvas.scene())) == 4
+    assert canvas.command_manager.undo_depth == 1
+    assert canvas.tool_manager.active_tool_type is ToolType.SELECT
 
 
 def test_the_cad_toolbar_stays_active_without_a_selection(qtbot, canvas) -> None:
@@ -157,7 +166,6 @@ def test_the_cad_toolbar_stays_active_without_a_selection(qtbot, canvas) -> None
 
     assert messages[-1] == "Click the first point of the cutting line. Esc cancels."
     assert canvas.tool_manager.active_tool_type is ToolType.SPLIT
-    assert canvas._split_tool.source_id is None
 
 
 def test_the_cad_toolbar_splits_every_shape_the_line_crosses(
@@ -175,7 +183,6 @@ def test_the_cad_toolbar_splits_every_shape_the_line_crosses(
     toolbar._buttons[ToolType.SPLIT].click()
     tool = canvas._split_tool
 
-    assert tool.source_id is None
     assert tool.mouse_press(mouse_event, QPointF(0, 150)) is True
     assert tool.mouse_press(mouse_event, QPointF(700, 150)) is True
 
@@ -435,6 +442,7 @@ def test_a_scene_wide_cut_skips_a_grouped_shape(canvas, mouse_event) -> None:
     first.setSelected(True)
     second.setSelected(True)
     canvas.group_selected()
+    scene.clearSelection()
     depth = canvas.command_manager.undo_depth
     messages: list[str] = []
     canvas.status_message.connect(messages.append)
@@ -1268,8 +1276,11 @@ def test_a_plant_or_group_member_refuses_the_split(canvas) -> None:
     assert member.scene() is scene
 
 
-def test_project_tracking_records_refuse_the_split(canvas) -> None:
+def test_project_tracking_records_refuse_the_split_without_cutting_the_background(
+    canvas, mouse_event
+) -> None:
     source = _add(canvas, RectangleItem(100, 100, 200, 100))
+    lawn = _add(canvas, RectangleItem(50, 50, 500, 150, object_type=ObjectType.LAWN), select=False)
     manager = ProjectManager()
     manager.set_soil_test_history(
         str(source.item_id), SimpleNamespace(to_dict=lambda: {"records": []})
@@ -1277,8 +1288,17 @@ def test_project_tracking_records_refuse_the_split(canvas) -> None:
     canvas._project_manager = manager
 
     assert canvas.start_split_shape(source) is False
+    messages: list[str] = []
+    canvas.status_message.connect(messages.append)
+    canvas.set_active_tool(ToolType.SPLIT)
+    tool = canvas._split_tool
+    tool.mouse_press(mouse_event, QPointF(0, 150))
+    tool.mouse_press(mouse_event, QPointF(600, 150))
+
     assert source.scene() is canvas.scene()
+    assert lawn.scene() is canvas.scene()
     assert canvas.command_manager.undo_depth == 0
+    assert messages[-1] == "Nothing was split: The shape has tracking records that a split cannot preserve"
 
 
 def test_the_local_piece_geometry_reconstructs_the_source(canvas) -> None:

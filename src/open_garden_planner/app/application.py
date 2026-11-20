@@ -48,7 +48,7 @@ from open_garden_planner.core import (
 )
 from open_garden_planner.core.i18n import format_decimal, format_trimmed, list_separator
 from open_garden_planner.core.measurement_display import area_text, length_text
-from open_garden_planner.core.plan_time import plan_timezone, plan_today
+from open_garden_planner.core.plan_time import plan_now, plan_timezone
 from open_garden_planner.core.plant_renderer import is_plant_type
 from open_garden_planner.core.solar import plan_place
 from open_garden_planner.core.tools import ToolType
@@ -2258,7 +2258,7 @@ class GardenPlannerApp(QMainWindow):
         self._sun_toolbar = SunSimToolbar(
             self,
             scene=self.canvas_scene,
-            today_provider=lambda: plan_today(self._project_manager.location),
+            now_provider=lambda: plan_now(self._project_manager.location),
         )
         self.addToolBarBreak()
         self.addToolBar(self._sun_toolbar)

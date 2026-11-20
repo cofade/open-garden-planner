@@ -168,19 +168,17 @@ def test_planting_date_age_tracks_undo_redo_and_rejected_edits(win, qtbot, monke
     assert panel.age_label.text() == new_age
 
 
-def test_hidden_discovery_reveals_date_and_today_preserves_time(win):
+def test_hidden_discovery_reveals_date_without_changing_time(win):
     item = plant(win, "Hazel", "2024-04-01", "2027-03-01")
     scrub(win, 2028, 6)
     toolbar = win._sun_toolbar
     toolbar._populate_hidden()
     action = toolbar._hidden_menu.actions()[0]
     assert "Hazel" in action.text() and "2027-03-01" in action.text()
+    old_time = win._sim_clock.time_of_day
     action.trigger()
     assert item.isVisible() and item.isSelected()
     assert win._sim_clock.plan_date == date(2027, 2, 28)
-    old_time = win._sim_clock.time_of_day
-    toolbar._today_button.click()
-    assert win._sim_clock.plan_date == date.today()
     assert win._sim_clock.time_of_day == old_time
 
 

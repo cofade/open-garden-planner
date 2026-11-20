@@ -1225,14 +1225,16 @@ class CanvasView(QGraphicsView):
     def set_active_tool(self, tool_type: ToolType) -> None:
         """Set the active drawing tool.
 
-        The split tool is scene-wide: a toolbar click or the ``Shift+S``
-        shortcut starts a fresh two-point cut. Every closed shape the drawn
-        segment crosses is split, whether or not anything was selected first
-        (#664).
+        A toolbar click or ``Shift+S`` arms Split for the current selection.
+        An empty selection arms it for the whole scene.
         """
         if tool_type is ToolType.SPLIT:
+            selected = self.effective_selection()
             self._activate_tool_direct(ToolType.SPLIT)
-            self._split_tool.prepare(None)
+            source_ids = tuple(
+                item_id for item in selected if (item_id := getattr(item, "item_id", None))
+            )
+            self._split_tool.prepare(source_ids if selected else None)
             return
         self._activate_tool_direct(tool_type)
 
@@ -5805,8 +5807,7 @@ class CanvasView(QGraphicsView):
     def start_split_shape(self, item: QGraphicsItem) -> bool:
         """Arm the split tool for *item* from its context menu (#664).
 
-        The toolbar's Split tool is scene-wide; this entry keeps the explicit
-        per-shape action scoped to the clicked shape.
+        The context menu always uses the clicked shape as its scope.
         """
         reason = self.split_refusal_reason(item)
         if reason is not None:
@@ -5815,7 +5816,7 @@ class CanvasView(QGraphicsView):
         if item.item_id is None:
             return False
         self._activate_tool_direct(ToolType.SPLIT)
-        self._split_tool.prepare(item.item_id)
+        self._split_tool.prepare((item.item_id,))
         self._canvas_scene.clearSelection()
         item.setSelected(True)
         self.set_status_message(

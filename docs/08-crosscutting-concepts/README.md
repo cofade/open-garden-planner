@@ -9353,8 +9353,8 @@ and centre their controls vertically. Date/time fields use the same themed sizin
 The Today button says Past or Future in its own place while the plan date is
 elsewhere, at one width for all three texts (`_TodayButton.sizeHint`, each text
 measured as `QToolButton` measures it), so no control after it moves while the date
-does; a click goes back to today (ADR-062 addendum "Past/Future in the Today
-button": a separate label pushed the month slider under the dragging pointer). To keep
+does. The button stays enabled and sends the current instant to the clock in one
+write, including when the plan date is already today (ADR-062 addendum). To keep
 the strip within two rows the sliders shrink, but no narrower than 70 px (`_MIN_SLIDER_WIDTH`). Map status consumes space only
 while needed: a completed current map shares the calendar's date, an updating map
 for that date says Updating, and an older preview retains its actual date. The
@@ -9630,9 +9630,9 @@ shape (polygon, rectangle, circle, ellipse). It asks the view's
 `split_refusal_reason` before enabling the row and starts
 `CanvasView.start_split_shape`, which scopes the gesture to that shape. The CAD
 toolbar places the same tool next to Trim/Extend, and `Shift+S` reaches it;
-both start a scene-wide cut with no source selection: the first canvas click
-is the line's first point. `SplitShapeTool` freezes the visible closed-shape
-candidates at that click, and each `mouse_move` tests them with
+both capture the effective selection when activated. The first canvas click
+is the line's first point. `SplitShapeTool` resolves the selected IDs, or freezes the
+visible closed shapes when started without a selection. Each `mouse_move` tests them with
 `shape_split.segment_crosses_item` before previewing pieces. Only the shapes the
 DRAWN SEGMENT passes through are candidates — a shape lying on the line's
 infinite extension but not reached by it is left alone, and a segment that only

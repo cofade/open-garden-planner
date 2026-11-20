@@ -1,7 +1,8 @@
-"""Split every eligible closed shape crossed by a two-point cutting line (#664).
+"""Split eligible closed shapes crossed by a two-point cutting line (#664).
 
-The toolbar's Split tool is scene-wide: it takes two snapped points and cuts
-every eligible closed shape that the drawn segment passes through along the
+The toolbar's Split tool takes two snapped points and cuts eligible closed
+shapes from the preselection, or from the whole scene when nothing was
+selected. Each shape that the drawn segment passes through is cut along the
 segment's infinite supporting axis. A shape the segment crosses end to end
 becomes two (or more) pieces; a shape the segment clips is cut along the same
 axis when both resulting pieces are large enough to keep. A segment that only
@@ -21,6 +22,7 @@ from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Any, cast
 from uuid import UUID
 
+from PyQt6 import sip
 from PyQt6.QtCore import QCoreApplication, QPointF, QRectF, Qt
 from PyQt6.QtGui import QColor, QKeyEvent, QMouseEvent, QPen, QPolygonF
 from PyQt6.QtWidgets import QGraphicsItem, QGraphicsLineItem, QGraphicsPolygonItem
@@ -64,7 +66,7 @@ class _CutPlan:
 
 
 class SplitShapeTool(BaseTool):
-    """Two snapped picks define a cutting line; every crossed shape is split."""
+    """Two snapped picks define a cutting line within the armed scope."""
 
     tool_type = ToolType.SPLIT
     display_name = QCoreApplication.translate("SplitShapeTool", "Split along line")
@@ -80,9 +82,8 @@ class SplitShapeTool(BaseTool):
 
     def __init__(self, view: CanvasView) -> None:
         super().__init__(view)
-        #: When set, the gesture is scoped to this one source (context menu).
-        #: ``None`` is the toolbar's scene-wide mode.
-        self.source_id: UUID | None = None
+        # An explicit scope stays scoped even if every target disappears.
+        self._source_ids: tuple[UUID, ...] | None = None
         self._start: QPointF | None = None
         self._candidates: list[QGraphicsItem] = []
         self._refusal_cache: dict[QGraphicsItem, str | None] = {}
@@ -106,33 +107,29 @@ class SplitShapeTool(BaseTool):
             )
         )
 
-    def prepare(self, source_id: UUID | None) -> None:
-        """Scope the next cut to one shape, or clear the scope (``None``).
-
-        The context menu passes the clicked shape; the toolbar and shortcut pass
-        ``None`` so the line splits every eligible closed shape it crosses.
-        """
+    def prepare(self, source_ids: tuple[UUID, ...] | None) -> None:
+        """Scope the next cut to the given IDs, or the whole scene with None."""
         self.cancel()
-        self.source_id = source_id
+        self._source_ids = source_ids
 
     def mouse_press(self, event: QMouseEvent, scene_pos: QPointF) -> bool:
         """Take the first or second cutting point."""
         if event.button() != Qt.MouseButton.LeftButton:
             return False
 
-        if self.source_id is not None and self._source() is None:
+        if self._start is None:
+            self._candidates = self._collect_candidates()
+        if self._source_ids is not None and not any(map(self._is_live_candidate, self._candidates)):
+            self._view.set_active_tool(ToolType.SELECT)
             self._view.set_status_message(
                 QCoreApplication.translate(
                     "SplitShapeTool", "The shape to split is no longer available."
                 )
             )
-            self.cancel()
-            self._view.set_active_tool(ToolType.SELECT)
             return True
 
         if self._start is None:
             self._start = QPointF(scene_pos)
-            self._candidates = self._collect_candidates()
             self._refusal_cache.clear()
             self._show_line_preview(QPointF(scene_pos))
             self._view.set_status_message(
@@ -186,13 +183,16 @@ class SplitShapeTool(BaseTool):
         """Remove every preview and forget the armed source and gesture."""
         self._clear_previews()
         self._start = None
-        self.source_id = None
+        self._source_ids = None
         self._candidates = []
         self._refusal_cache.clear()
 
     # ------------------------------------------------------------------
     # Planning
     # ------------------------------------------------------------------
+
+    def _is_live_candidate(self, item: QGraphicsItem) -> bool:
+        return not sip.isdeleted(item) and item.scene() is self._scene and item.isVisible()
 
     def _collect_candidates(self) -> list[QGraphicsItem]:
         """Every closed shape this gesture may cut, snapshotted at the first click.
@@ -201,9 +201,12 @@ class SplitShapeTool(BaseTool):
         including grouped children: a grouped child is still reported by the
         refusal check (with "ungroup first") instead of vanishing silently.
         """
-        if self.source_id is not None:
-            source = self._source()
-            return [source] if source is not None else []
+        if self._source_ids is not None:
+            return [
+                item
+                for source_id in self._source_ids
+                if (item := self._scene.find_item_by_id(source_id)) is not None
+            ]
 
         from open_garden_planner.ui.canvas.items import (
             CircleItem,
@@ -239,7 +242,7 @@ class SplitShapeTool(BaseTool):
         segment_bounds = QRectF(start, end).normalized().adjusted(-1, -1, 1, 1)
 
         for item in self._candidates:
-            if item.scene() is not self._scene:
+            if not self._is_live_candidate(item):
                 continue
             if not item.sceneBoundingRect().intersects(segment_bounds):
                 continue
@@ -342,11 +345,9 @@ class SplitShapeTool(BaseTool):
             )
         )
 
-        scoped = self.source_id is not None
+        scoped = self._source_ids is not None
         pieces = [piece for _source, split_pieces in splits for piece in split_pieces]
-        self._clear_previews()
-        self._start = None
-        self.source_id = None
+        self.cancel()
         self._view.command_manager.execute(command)
         self._scene.clearSelection()
         for piece in pieces:
@@ -371,7 +372,7 @@ class SplitShapeTool(BaseTool):
         self._view.set_status_message(message)
 
         if scoped:
-            # The context-menu action is a one-shot edit; return to Select.
+            # A cut scoped to specific objects is a one-shot edit.
             self._view.set_active_tool(ToolType.SELECT)
 
     def _make_piece(self, source: QGraphicsItem, polygon: QPolygonF) -> QGraphicsItem:
@@ -441,11 +442,6 @@ class SplitShapeTool(BaseTool):
     # Geometry and preview
     # ------------------------------------------------------------------
 
-    def _source(self) -> QGraphicsItem | None:
-        if self.source_id is None:
-            return None
-        return self._scene.find_item_by_id(self.source_id)
-
     def _end(self, point: QPointF, event: QMouseEvent) -> QPointF:
         if self._start is not None and event.modifiers() & Qt.KeyboardModifier.ShiftModifier:
             return snap_point_to_axis_step(self._start, point, 45)
@@ -496,7 +492,7 @@ class SplitShapeTool(BaseTool):
         )
 
     def _show_piece_preview(self, end: QPointF) -> None:
-        if self.source_id is not None and self._source() is None:
+        if self._source_ids is not None and not any(map(self._is_live_candidate, self._candidates)):
             self._clear_previews()
             return
         if self._start is None:

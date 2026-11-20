@@ -5257,7 +5257,7 @@ and the "Today" button read it.
   `ZoneInfoNotFoundError` in a frozen build. The data package is Apache-2.0.
 - **"Today" follows the garden, not the computer.** The toolbar takes a `today_provider`
   (the app passes `plan_today(project.location)`), so a plan in Tokyo on a Berlin computer
-  shows the correct Past/Today/Future state and jumps to the garden's date.
+  shows the correct Past/Today/Future state and jumps to the garden's current date and time.
 - **Not changed:** a plan with no zone still uses the computer's; the 2D plant icon's
   real-date rule (FR-SUN-08) and task/calendar `date.today()` reads are out of scope here.
 
@@ -9599,9 +9599,9 @@ The owner found the separate Past/Future label more disruptive than useful. It
 appeared, disappeared and changed width as the date moved. That pushed the
 controls after it, including the month slider under the dragging pointer. The
 label is removed. The Today button says Past or Future in its own place while the
-plan date is elsewhere. Its tooltip says where the date is and that a click goes
-back to today, and the click does what it always did. On today it says Today and
-is disabled, as before.
+plan date is elsewhere. The button always stays enabled. A click sends the
+current aware instant to the simulation clock, which updates the plan date and
+time together in the plan's zone. This also resets a scrubbed time on today's date.
 
 The button has one width for all three texts. `_TodayButton.sizeHint` keeps the
 style's padding and puts it around the widest of the three texts in the active
@@ -9614,7 +9614,8 @@ of 432 with unhinted fonts at 100 %.
 One letter's width is added as the buffer the owner asked for. The width follows a
 font or theme change, because it is a size hint and not a fixed pixel value. A
 language change takes effect on restart, as for every string in the app. The
-button's accessible name stays "Go to today", because its text now names a state.
+button's accessible name and tooltip describe the action, "Go to the current date
+and time".
 
 The cost is a wider Today group on today. With real Verdana 9 pt (Windows font
 engine) the button goes from 59 to 123 px in German and from 45 to 78 px in
@@ -13190,7 +13191,9 @@ User-visible strings are covered in EN/DE/ES/RU. Pins:
 `tests/unit/test_object_height.py::TestHeightAcrossATypeChange`.
 Cross-refs: FR-35, §8.35, PF-CAN-46, PF-CAN-48.
 
-**Addendum (2026-11-09) — the split tool is scene-wide, and its shortcut is Shift+S.**
+**Addendum (2026-11-09) — two-point cuts without a selection, and the Shift+S shortcut.**
+
+Addendum 5 defines how a preselection limits this gesture.
 Manual testing of PR #783 rejected the first interaction: the toolbar's Split tool
 required a selected shape (or a shape-picking first click), so a line could cut only
 one object and a scene-wide cut took three clicks. The owner's expectation is the
@@ -13305,6 +13308,16 @@ Pinned by `tests/unit/test_axis_parallel_rect.py` and
 `tests/integration/test_split_shapes.py::test_a_straight_cut_of_a_raised_bed_gives_two_raised_beds`,
 `::test_a_diagonal_cut_of_a_raised_bed_stays_a_pair_of_garden_beds` and
 `::test_a_split_raised_bed_keeps_its_frame_and_height`.
+**Addendum 5 (PR #981) — the preselection sets the scope of Split.**
+
+The toolbar and Shift+S capture the effective selection at activation. With a
+selection, only those targets can be cut, even if all of them are refused or
+removed before the second point. With no selection, the tool takes the usual
+scene-wide path. A successful scoped cut returns to Select. The raised-bed
+example exercises the refusal because its soil test and succession plan refer
+to the original bed ID. A freshly drawn raised bed exercises the frame-preserving
+cut.
+
 ## ADR-076: Exports paint one picture — a recorded SVG, raster plan pages in the PDF, live SVG text (#787, #788, #789)
 
 **Status**: Accepted (visual-polish package, 2026-11-09); shipped in v1.38.0 (PR #838)

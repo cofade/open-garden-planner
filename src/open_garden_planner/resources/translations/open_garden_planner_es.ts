@@ -14729,8 +14729,8 @@ El inventario es suyo, no de un plano: todos los planos que abra muestran los mi
         </message>
         <message>
             <location filename="../../ui/widgets/sun_sim_toolbar.py" line="253" />
-            <source>Go to today</source>
-            <translation>Ir a hoy</translation>
+            <source>Go to the current date and time</source>
+            <translation>Ir a la fecha y hora actuales</translation>
         </message>
         <message>
             <location filename="../../ui/widgets/sun_sim_toolbar.py" line="281" />
@@ -14853,17 +14853,17 @@ El inventario es suyo, no de un plano: todos los planos que abra muestran los mi
         <message>
             <location filename="../../ui/widgets/sun_sim_toolbar.py" line="664" />
             <source>The plan date is in the future. Click to go back to today.</source>
-            <translation>La fecha del plano está en el futuro. Haga clic para volver a hoy.</translation>
+            <translation type="vanished">La fecha del plano está en el futuro. Haga clic para volver a hoy.</translation>
         </message>
         <message>
             <location filename="../../ui/widgets/sun_sim_toolbar.py" line="662" />
             <source>The plan date is in the past. Click to go back to today.</source>
-            <translation>La fecha del plano está en el pasado. Haga clic para volver a hoy.</translation>
+            <translation type="vanished">La fecha del plano está en el pasado. Haga clic para volver a hoy.</translation>
         </message>
         <message>
             <location filename="../../ui/widgets/sun_sim_toolbar.py" line="666" />
             <source>The plan date is today.</source>
-            <translation>La fecha del plano es hoy.</translation>
+            <translation type="vanished">La fecha del plano es hoy.</translation>
         </message>
         <message>
             <location filename="../../ui/widgets/sun_sim_toolbar.py" line="706" />

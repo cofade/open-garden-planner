@@ -55,17 +55,20 @@ def timezone_names() -> tuple[str, ...]:
     return tuple(sorted(available_timezones()))
 
 
+def plan_now(
+    location: Mapping[str, Any] | None, *, now: datetime | None = None
+) -> datetime:
+    """The current instant in the plan's zone, or in the computer's zone.
+
+    ``now`` is an aware moment for tests; the default is the current UTC
+    instant.
+    """
+    moment = now if now is not None else datetime.now(UTC)
+    return moment.astimezone(plan_timezone(location))
+
+
 def plan_today(
     location: Mapping[str, Any] | None, *, now: datetime | None = None
 ) -> date:
-    """Today's date at the plan's place (the computer's when it has no zone).
-
-    ``now`` is an aware moment for tests; the default is the current UTC
-    instant. A plan in another zone can be a day away from the computer's date
-    near midnight, which is the date its "Today" button must use.
-    """
-    moment = now if now is not None else datetime.now(UTC)
-    zone = plan_timezone(location)
-    if zone is None:
-        return moment.astimezone().date()
-    return moment.astimezone(zone).date()
+    """Today's date at the plan's place (the computer's when it has no zone)."""
+    return plan_now(location, now=now).date()

@@ -1249,9 +1249,9 @@ sequenceDiagram
     participant H as CommandManager
     U->>TB: Split
     TB->>V: set_active_tool(SPLIT)
-    V->>T: activate + prepare(None) — scene-wide
+    V->>T: activate + capture selected IDs (empty selection means scene-wide)
     U->>T: first snapped point (anywhere)
-    T->>T: freeze visible closed shapes; line preview
+    T->>T: resolve scoped targets or freeze visible closed shapes; line preview
     U->>T: mouse move
     T->>T: segment_crosses_item → piece preview for every crossed shape
     U->>T: second snapped point (Shift constrains)

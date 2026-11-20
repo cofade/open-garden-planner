@@ -14952,8 +14952,8 @@ The inventory is yours, not a plan's: every plan you open shows the same packets
         </message>
         <message>
             <location filename="../../ui/widgets/sun_sim_toolbar.py" line="253" />
-            <source>Go to today</source>
-            <translation>Go to today</translation>
+            <source>Go to the current date and time</source>
+            <translation>Go to the current date and time</translation>
         </message>
         <message>
             <location filename="../../ui/widgets/sun_sim_toolbar.py" line="281" />
@@ -15076,17 +15076,17 @@ The inventory is yours, not a plan's: every plan you open shows the same packets
         <message>
             <location filename="../../ui/widgets/sun_sim_toolbar.py" line="664" />
             <source>The plan date is in the future. Click to go back to today.</source>
-            <translation>The plan date is in the future. Click to go back to today.</translation>
+            <translation type="vanished">The plan date is in the future. Click to go back to today.</translation>
         </message>
         <message>
             <location filename="../../ui/widgets/sun_sim_toolbar.py" line="662" />
             <source>The plan date is in the past. Click to go back to today.</source>
-            <translation>The plan date is in the past. Click to go back to today.</translation>
+            <translation type="vanished">The plan date is in the past. Click to go back to today.</translation>
         </message>
         <message>
             <location filename="../../ui/widgets/sun_sim_toolbar.py" line="666" />
             <source>The plan date is today.</source>
-            <translation>The plan date is today.</translation>
+            <translation type="vanished">The plan date is today.</translation>
         </message>
         <message>
             <location filename="../../ui/widgets/sun_sim_toolbar.py" line="706" />
