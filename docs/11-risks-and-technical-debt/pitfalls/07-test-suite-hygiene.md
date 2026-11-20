@@ -10,7 +10,7 @@ One entry per lesson, each under its permanent `PF-<AREA>-<NN>` ID. Each entry g
 - **Status:** standing
 - **Legacy:** none
 
-Branch 3/5 on the trio, master 0/10, one window 0/6; full-suite crashes were preview mode's armed 50ms fit timer firing into teardown (PF-TST-14). Never hide it with a scheduler marker (PF-TST-40).
+Branch 3/5 on the trio, master 0/10, one window 0/6; full-suite crashes were preview mode's armed 50ms timer and a window per assertion (PF-TST-14). Never hide it with a scheduler marker (PF-TST-40).
 
 ### PF-TST-40
 
