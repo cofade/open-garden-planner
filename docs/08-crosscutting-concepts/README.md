@@ -9508,7 +9508,7 @@ Authoring rules (#940), each with what holds it:
 | A plan may give its orbit a pitch of its own (`ORBIT_PITCH_DEG`), a start of its own (`ORBIT_SUN_OFFSET_DEG`) and a nearer distance (`ORBIT_CLOSER`). | At the dialog's 18 degrees a wall or a hedge hides the garden behind it; the allotment starts over its see-through front. Values were set from renders. | `Framing`; `test_an_example_is_first_seen_in_3d_from_where_its_stored_orbit_starts` |
 | A hedge longer than 8 m is drawn as runs (`authoring.runs`). | A hedge has one budget of leaves per item, and a long one renders as a painted wall (#954). | the generation gate |
 | A plant in a pot stands in a container that is its parent, never on a `PLANTER_POT`. | A planter pot is furniture: the plant sinks into it and the pot looks empty. | 3D review of #940 |
-| The bundled example locations are in Central Europe and name `Europe/Berlin`. | The time zone in the plan's location determines how the clock displays wall time and how tours interpret their time ranges (#945). | `test_an_example_has_its_place_its_plants_and_its_north` |
+| Bundled examples name an IANA zone and use Central European time on their reference dates. | The time zone in the plan's location determines how the clock displays wall time and how tours interpret their time ranges (#945). | `test_an_example_has_its_place_its_plants_and_its_north` |
 
 Keep the field-classification test aligned with ProjectData. New project fields
 must be explicitly kept or stripped; unknown serialized top-level keys are dropped.
