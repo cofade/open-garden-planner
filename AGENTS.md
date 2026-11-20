@@ -252,20 +252,18 @@ Full how-to (step-by-step, `.ts` format, recompile command): see `docs/08-crossc
 
 - The issue tracker is the only work list. Read the issue and the roadmap's
   "Current work" section, then `git status` and `git log --oneline -20`.
-- Current release: **v1.40.10** (2026-11-19). No roadmap phase is active.
-  The next work is in the open issues.
-- In review: [PR #981](https://github.com/cofade/open-garden-planner/pull/981)
-  (plan truth, CAD precision and documentation; closes #828, #829, #945,
-  #875, #976). It is a draft until the owner's manual test passes.
+- Current release: **v1.40.11** (2026-11-20). No roadmap phase is active.
+  See the roadmap's Current work table and the open issues for the next change.
 - Live decisions that constrain the next change:
   - Plan time zone (#945, ADR-053 addendum, PF-DOM-35): `location["timezone"]`
     is read by the clock, the toolbar, a tour's wall-time range and "Today";
     `SimClock.set_timezone` keeps the wall reading, and a document boundary
     stores the zone silently (`notify=False`) so a raising listener cannot
     abort a load. `tzdata` is a runtime dependency and `ogp.spec` collects it.
-  - Split (#828, ADR-075 addendum 4): a straight cut of a sprite-painted,
-    rectangle-only object (a raised bed, a hedge section) keeps that type and
-    its picture; `shape_split.axis_parallel_rect` makes the decision once.
+  - Split (#828, ADR-075 addenda 4 and 5): a preselection scopes the cut.
+    A straight cut of a sprite-painted, rectangle-only object (a raised bed
+    or hedge section) keeps its type and picture. `shape_split.axis_parallel_rect`
+    makes the decision once.
   - CAD Esc plumbing (#829): one Esc rule in the view, explicit
     `is_inline_text_editor` markers, and every tool switch through
     `CanvasView.set_active_tool`.

@@ -19,7 +19,7 @@ Browse plant categories with name and trait filters and scroll through the resul
 
 ## Current status
 
-Latest release: [v1.40.10](https://github.com/cofade/open-garden-planner/releases/latest).
+Latest release: [v1.40.11](https://github.com/cofade/open-garden-planner/releases/latest).
 Phases 1–15 and Phase 17 are complete. Phase 16, Platform & Community, is future work.
 
 The [canonical roadmap](https://github.com/cofade/open-garden-planner/blob/master/docs/roadmap.md)
