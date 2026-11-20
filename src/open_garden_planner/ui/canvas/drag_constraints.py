@@ -11,7 +11,7 @@ from open_garden_planner.core import (
     AddConstraintCommand,
 )
 from open_garden_planner.core.constraints import APPLY_TOLERANCE_CM
-from open_garden_planner.core.reference_points import constraint_pins, is_reference_point
+from open_garden_planner.core.reference_points import constraint_pins
 
 if TYPE_CHECKING:
     from open_garden_planner.ui.canvas.canvas_scene import CanvasScene
@@ -317,10 +317,12 @@ class DragConstraints:
         for did in dragged_ids:
             connected_ids.update(graph.get_connected_component(did))
 
+        from open_garden_planner.ui.canvas.items import ReferencePointItem
+
         # Identify all construction items in scene (needed for soft_dragged logic below)
         scene_construction_ids: set[Any] = set()
         for scene_item in cast("CanvasScene", host.scene()).items():
-            if isinstance(scene_item, (ConstructionLineItem, ConstructionCircleItem)) or is_reference_point(scene_item):
+            if isinstance(scene_item, (ConstructionLineItem, ConstructionCircleItem, ReferencePointItem)):
                 scene_construction_ids.add(scene_item.item_id)
 
         # Collect FIXED item IDs — they act as pinned anchors just like construction items

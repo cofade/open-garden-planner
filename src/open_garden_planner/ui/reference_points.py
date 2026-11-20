@@ -12,7 +12,7 @@ from typing import TYPE_CHECKING, Any, cast
 from uuid import UUID
 
 from PyQt6.QtCore import QCoreApplication, QPointF
-from PyQt6.QtGui import QColor, QPen
+from PyQt6.QtGui import QColor, QPen, QStandardItemModel
 from PyQt6.QtWidgets import (
     QCheckBox,
     QComboBox,
@@ -253,8 +253,11 @@ def point_dialog(
     locked = item is not None and item.is_position_locked()
     constrained = item is not None and _has_geometric_constraint(item)
     if constrained:
+        model = cast(QStandardItemModel, parents.model())
         for index in range(1, parents.count()):
-            parents.model().item(index).setEnabled(False)  # type: ignore[attr-defined]
+            choice = model.item(index)
+            if choice is not None:
+                choice.setEnabled(False)
         parents.setToolTip(attachment_constraint_message())
     parents.setEnabled(not locked)
     sizes = {
