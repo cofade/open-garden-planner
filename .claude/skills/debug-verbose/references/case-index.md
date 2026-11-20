@@ -274,3 +274,4 @@
 | Case study: an explicit flat roof lost its fill in 3D (PR #978) | [Read](274-flat-roof-3d-fill-978.md) |
 | Case study: an explicit tool-shed roof lost its 2D drawing (PR #978) | [Read](275-tool-shed-explicit-roof-978.md) |
 | Case study: Split cut the lawn under a selected raised bed (PR #981) | [Read](276-split-preselection-and-tracking-records.md) |
+| Case study: a reference-point branch crashed the suite once every ten app windows (#666) | [Read](277-reference-point-teardown-0xc0000374.md) |

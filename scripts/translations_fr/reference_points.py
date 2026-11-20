@@ -7,11 +7,6 @@ TRANSLATIONS: dict[str, dict[str, str]] = {
         "Reference point": "Point de référence",
         "reference point": "point de référence",
     },
-    "MainToolbar": {
-        "Reference point": "Point de référence",
-        "Place a survey stake or measurement datum":
-            "Placer un jalon ou un point de référence",
-    },
     "ReferencePoints": {
         " cm": " cm",
         " px": " px",

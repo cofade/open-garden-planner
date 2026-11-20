@@ -170,6 +170,43 @@ def attached_to_any(scene: Any, parents: list[Any]) -> list[Any]:
     return found
 
 
+def carried_by_moved(
+    scene: Any, moved_items: list[Any], *, exclude_moved: bool = True
+) -> list[tuple[Any, Any]]:
+    """``(point, carrier)`` pairs a translation must move outside Qt's own move.
+
+    A moved group carries the points bound to its descendants, because Qt moves
+    the descendants with the group but the points are top-level items. A point
+    that is itself a child of a moved item is moved by Qt and is never carried
+    again. ``exclude_moved`` drops points that are in ``moved_items`` (the
+    expansion caller); a command asks for them so it can translate the point
+    exactly instead of projecting it onto the contour.
+    """
+    if scene is None:
+        return []
+    points_by_parent = attached_by_parent(scene)
+    moved = set(moved_items)
+    seen: set[int] = set()
+    found: list[tuple[Any, Any]] = []
+    for carrier in moved_items:
+        stack = [carrier]
+        while stack:
+            item = stack.pop()
+            item_id = getattr(item, "item_id", None)
+            if isinstance(item_id, UUID):
+                for point in points_by_parent.get(item_id, ()):
+                    if exclude_moved and point in moved:
+                        continue
+                    if getattr(point, "parentItem", lambda: None)() is not None:
+                        continue
+                    if id(point) in seen:
+                        continue
+                    seen.add(id(point))
+                    found.append((point, carrier))
+            stack.extend(item.childItems())
+    return found
+
+
 def attached_by_parent(scene: Any) -> dict[UUID, list[Any]]:
     """One scene scan: parent id -> its bound reference points.
 

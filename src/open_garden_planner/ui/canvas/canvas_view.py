@@ -425,6 +425,9 @@ class CanvasView(QGraphicsView):
         self._constraint_propagated_starts: dict[QGraphicsItem, QPointF] = {}
         # Child items moved during bed drag (original positions)
         self._child_drag_origins: dict[QGraphicsItem, QPointF] = {}
+        # (point, carrier) bound points carried by the drag; built once per
+        # gesture, not on every mouse move (a 5,000-item scene scan is ~3 ms).
+        self._drag_carried_points: dict[QGraphicsItem, QGraphicsItem] = {}
         # Active handle being dragged — used to re-grab if Qt silently drops it
         self._active_drag_handle: QGraphicsItem | None = None
         # A journal pin dragged through the view's undo/lost-release path.
@@ -4264,13 +4267,16 @@ class CanvasView(QGraphicsView):
             # then reset for the move command, which re-applies the deltas.
             links = self._plant_bed_link_commands()
 
-            # Reset all items to their start positions
+            # Reset all items to their start positions. A bound point goes back
+            # EXACTLY: the parent is still at its dragged place here, so a
+            # projected setPos would snap the point onto the wrong contour
+            # before the command re-applies the parent's delta (#666 review).
             for item, start_pos in self._drag_start_positions.items():
-                item.setPos(start_pos)
+                self._set_position_exact(item, start_pos)
             for item, start_pos in self._constraint_propagated_starts.items():
-                item.setPos(start_pos)
+                self._set_position_exact(item, start_pos)
             for item, start_pos in child_start_positions.items():
-                item.setPos(start_pos)
+                self._set_position_exact(item, start_pos)
 
             # Use AlignItemsCommand for per-item deltas (supports undo)
             has_propagated = len(self._constraint_propagated_starts) > 0
@@ -4298,17 +4304,30 @@ class CanvasView(QGraphicsView):
         # action the user made on purpose (ADR-037 addendum decision 5).
         self._drag_start_positions.clear()
         self._constraint_propagated_starts.clear()
+        self._drag_carried_points.clear()
         if hasattr(self, "_child_drag_origins"):
             self._child_drag_origins.clear()
+
+    @staticmethod
+    def _set_position_exact(item: QGraphicsItem, position: QPointF) -> None:
+        """Restore a drag start position without a bound point's projection."""
+        exact = getattr(item, "set_pos_exact", None)
+        if callable(exact):
+            exact(position)
+        else:
+            item.setPos(position)
 
     def _propagate_bed_children_during_drag(self) -> None:
         """Move child plants and bound reference points with their parent."""
         if not self._drag_start_positions:
             return
 
-        from open_garden_planner.core.reference_points import attached_by_parent
+        from open_garden_planner.core.reference_points import carried_by_moved
 
-        points_by_parent = attached_by_parent(self._canvas_scene)
+        if not self._drag_carried_points:
+            self._drag_carried_points = dict(
+                carried_by_moved(self._canvas_scene, list(self._drag_start_positions))
+            )
         for item, start_pos in self._drag_start_positions.items():
             delta = item.pos() - start_pos
             if delta.x() == 0 and delta.y() == 0:
@@ -4329,12 +4348,19 @@ class CanvasView(QGraphicsView):
                     if child not in self._child_drag_origins:
                         self._child_drag_origins[child] = child.pos()
                     child.setPos(self._child_drag_origins[child] + delta)
-            for point in points_by_parent.get(item.item_id, ()):
-                if point in self._drag_start_positions:
-                    continue
-                if point not in self._child_drag_origins:
-                    self._child_drag_origins[point] = point.pos()
-                point.setPos(self._child_drag_origins[point] + delta)
+        for point, carrier in self._drag_carried_points.items():
+            start_pos = self._drag_start_positions.get(carrier)
+            if start_pos is None or point in self._drag_start_positions:
+                continue
+            delta = carrier.pos() - start_pos
+            if point not in self._child_drag_origins:
+                self._child_drag_origins[point] = point.pos()
+            exact = getattr(point, "set_pos_exact", None)
+            target = self._child_drag_origins[point] + delta
+            if callable(exact):
+                exact(target)
+            else:
+                point.setPos(target)
 
     def _update_plant_bed_relationships(self) -> None:
         """Re-evaluate parent-child links for all selected plants at their CURRENT

@@ -30,6 +30,7 @@ from open_garden_planner.ui.canvas.canvas_scene import CanvasScene
 from open_garden_planner.ui.canvas.canvas_view import CanvasView
 from open_garden_planner.ui.canvas.items import (
     CircleItem,
+    GroupItem,
     RectangleItem,
     ReferencePointItem,
 )
@@ -150,6 +151,131 @@ def test_a_point_selected_with_its_parent_moves_once_and_undoes(canvas, monkeypa
     view.command_manager.redo()
     assert parent.pos() == QPointF(35, 60)
     assert point.pos() == QPointF(335, 160)
+
+
+def test_a_carried_point_returns_exactly_after_a_move_and_undo(canvas, monkeypatch):
+    """A rotated parent leaves the point off-contour; the carry must not re-project.
+
+    Projecting would snap the point onto the rotated contour on execute and onto
+    a different one on undo, silently moving the datum (#666 review).
+    """
+    scene, view = canvas
+    parent = RectangleItem(100, 100, 400, 200, object_type=ObjectType.GENERIC_RECTANGLE)
+    scene.addItem(parent)
+    point = _place(
+        monkeypatch,
+        view,
+        _options(parent_id=parent.item_id, on_contour=True),
+        QPointF(300, 100),
+    )
+    parent.setRotation(10)
+    before = QPointF(point.pos())
+
+    view.command_manager.execute(MoveItemsCommand([parent], QPointF(35, 60)))
+    assert point.pos() == before + QPointF(35, 60)
+    view.command_manager.undo()
+    assert point.pos() == before
+
+
+def test_a_point_bound_inside_a_moved_group_follows_the_group(canvas, monkeypatch):
+    """The point is top-level; Qt moves the group's children but not it."""
+    scene, view = canvas
+    parent = RectangleItem(100, 100, 400, 200, object_type=ObjectType.GENERIC_RECTANGLE)
+    scene.addItem(parent)
+    point = _place(
+        monkeypatch,
+        view,
+        _options(parent_id=parent.item_id, on_contour=True),
+        QPointF(300, 100),
+    )
+    group = GroupItem(layer_id=scene.active_layer.id)
+    scene.addItem(group)
+    group.addToGroup(parent)
+
+    view.command_manager.execute(MoveItemsCommand([group], QPointF(50, 0)))
+    assert point.pos() == QPointF(350, 100)
+    view.command_manager.undo()
+    assert point.pos() == QPointF(300, 100)
+
+
+def test_duplicating_a_bound_pair_rebinds_the_copy_to_the_copied_parent(
+    canvas, monkeypatch
+):
+    scene, view = canvas
+    parent = RectangleItem(100, 100, 400, 200, object_type=ObjectType.GENERIC_RECTANGLE)
+    scene.addItem(parent)
+    point = _place(
+        monkeypatch,
+        view,
+        _options(parent_id=parent.item_id, on_contour=True),
+        QPointF(300, 100),
+    )
+    scene.clearSelection()
+    parent.setSelected(True)
+    point.setSelected(True)
+
+    view.duplicate_selected()
+
+    copies = [
+        item
+        for item in scene.items()
+        if isinstance(item, ReferencePointItem) and item is not point
+    ]
+    assert len(copies) == 1
+    copied_point = copies[0]
+    copied_parent = scene.find_item_by_id(parent_id(copied_point.metadata))
+    assert copied_parent is not None
+    assert copied_parent is not parent
+    before = QPointF(copied_point.pos())
+    view.command_manager.execute(MoveItemsCommand([copied_parent], QPointF(10, 0)))
+    assert copied_point.pos() == before + QPointF(10, 0)
+
+
+def test_a_one_shot_solver_move_captures_the_attached_point(canvas, monkeypatch):
+    """A constraint that moves a bed must carry the stake on its outline."""
+    from open_garden_planner.core.commands import _capture_bed_child_moves
+
+    scene, view = canvas
+    bed = RectangleItem(100, 100, 400, 200, object_type=ObjectType.GARDEN_BED)
+    scene.addItem(bed)
+    point = _place(
+        monkeypatch,
+        view,
+        _options(parent_id=bed.item_id, on_contour=True),
+        QPointF(300, 100),
+    )
+
+    moves = _capture_bed_child_moves(
+        [(bed, QPointF(bed.pos()), QPointF(bed.pos()) + QPointF(20, 0))]
+    )
+
+    captured = {item: (old, new) for item, old, new in moves}
+    assert captured[point] == (QPointF(300, 100), QPointF(320, 100))
+
+
+def test_duplicating_a_lone_bound_point_makes_the_copy_independent(canvas, monkeypatch):
+    scene, view = canvas
+    parent = RectangleItem(100, 100, 400, 200, object_type=ObjectType.GENERIC_RECTANGLE)
+    scene.addItem(parent)
+    point = _place(
+        monkeypatch,
+        view,
+        _options(parent_id=parent.item_id, on_contour=True),
+        QPointF(300, 100),
+    )
+    scene.clearSelection()
+    point.setSelected(True)
+
+    view.duplicate_selected()
+
+    copies = [
+        item
+        for item in scene.items()
+        if isinstance(item, ReferencePointItem) and item is not point
+    ]
+    assert len(copies) == 1
+    assert parent_id(copies[0].metadata) is None
+    assert not on_contour(copies[0].metadata)
 
 
 def test_bound_point_refuses_to_leave_the_contour_and_can_be_detached(canvas, monkeypatch):

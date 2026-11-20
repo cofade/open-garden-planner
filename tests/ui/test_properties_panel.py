@@ -2,12 +2,23 @@
 
 import pytest
 from PyQt6.QtCore import QPoint, QPointF, Qt
-from PyQt6.QtWidgets import QAbstractSpinBox, QComboBox, QFormLayout
+from PyQt6.QtWidgets import (
+    QAbstractSpinBox,
+    QComboBox,
+    QFormLayout,
+    QLabel,
+    QPushButton,
+)
 
 from open_garden_planner.core.commands import CommandManager
 from open_garden_planner.core.object_types import ObjectType
 from open_garden_planner.core.roof_style import BUILDING_KINDS
-from open_garden_planner.ui.canvas.items import CircleItem, PolygonItem, RectangleItem
+from open_garden_planner.ui.canvas.items import (
+    CircleItem,
+    PolygonItem,
+    RectangleItem,
+    ReferencePointItem,
+)
 from open_garden_planner.ui.panels import PropertiesPanel
 from open_garden_planner.ui.panels.properties_panel import FIELD_WIDTH, ColorButton
 
@@ -34,6 +45,25 @@ class TestPropertiesPanel:
         panel.set_selected_items([item])
         # Panel should show properties
         assert panel._form_layout.rowCount() > 0
+
+    def test_reference_point_has_one_read_only_editor(self, qtbot):
+        """No generic circle marks; one summary and the reference editor (#666)."""
+        panel = PropertiesPanel()
+        point = ReferencePointItem(300, 100, 3.0)
+        panel.set_selected_items([point])
+
+        labels = [label.text() for label in panel.findChildren(QLabel)]
+        assert any("Independent point" in text for text in labels)
+        buttons = [button.text() for button in panel.findChildren(QPushButton)]
+        assert any(text.startswith("Edit reference point") for text in buttons)
+        # The generic circle's diameter is a second write path (#666 review).
+        row_labels = []
+        for row in range(panel._form_layout.rowCount()):
+            item = panel._form_layout.itemAt(row, QFormLayout.ItemRole.LabelRole)
+            widget = item.widget() if item is not None else None
+            if isinstance(widget, QLabel):
+                row_labels.append(widget.text())
+        assert "Diameter:" not in row_labels
 
 
 class TestObjectTypeChange:

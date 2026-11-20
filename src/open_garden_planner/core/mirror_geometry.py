@@ -117,20 +117,30 @@ def _mirror_polygon(
 def _mirror_circle(
     source: QGraphicsItem, a: QPointF, b: QPointF
 ) -> QGraphicsItem:
-    from open_garden_planner.ui.canvas.items import CircleItem
+    from open_garden_planner.core import reference_points as ref
+    from open_garden_planner.ui.canvas.items import CircleItem, ReferencePointItem
 
     center = reflect_point(source.mapToScene(source.center), a, b)
-    clone = CircleItem(
+    metadata = dict(source.metadata) if source.metadata else None
+    is_point = metadata is not None and ref.is_reference_point(metadata)
+    if metadata is not None and is_point:
+        # Keep the kind, but the mirrored point is independent: its source
+        # parent was not mirrored with it here (#666 review).
+        metadata.pop(ref.PARENT_ID, None)
+        metadata.pop(ref.ON_CONTOUR, None)
+    clone = (ReferencePointItem if is_point else CircleItem)(
         center.x(),
         center.y(),
         source.radius,
         object_type=source.object_type,
         name=source.name,
-        metadata=dict(source.metadata) if source.metadata else None,
+        metadata=metadata,
         fill_pattern=source.fill_pattern,
         stroke_style=source.stroke_style,
         layer_id=source.layer_id,
     )
+    if is_point:
+        return clone
     # Plants render from category/species, not pen/brush — carry them over.
     clone.plant_category = source.plant_category
     clone.plant_species = source.plant_species

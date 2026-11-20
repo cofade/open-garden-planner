@@ -266,6 +266,23 @@ class ClipboardOperations:
                         item.parent_bed_id = parent.item_id
                         parent.add_child_id(item.item_id)
 
+                # A bound reference point follows the copy of its parent, never
+                # the source. A copied lone point becomes independent: keeping
+                # the old id would move it from across the plan (#666 review).
+                from open_garden_planner.core import reference_points as ref
+
+                if ref.is_reference_point(item.metadata):
+                    old_ref = ref.parent_id(item.metadata)
+                    new_parent = (
+                        old_id_to_new.get(str(old_ref)) if old_ref is not None else None
+                    )
+                    new_parent_id = getattr(new_parent, "item_id", None)
+                    if new_parent_id is not None:
+                        item.metadata[ref.PARENT_ID] = str(new_parent_id)
+                    else:
+                        item.metadata.pop(ref.PARENT_ID, None)
+                        item.metadata.pop(ref.ON_CONTOUR, None)
+
             # Use command for undo support
             from open_garden_planner.core import CreateItemsCommand
 
@@ -376,6 +393,23 @@ class ClipboardOperations:
                     if isinstance(parent, GardenItemMixin):
                         item.parent_bed_id = parent.item_id
                         parent.add_child_id(item.item_id)
+
+                # A bound reference point follows the copy of its parent, never
+                # the source. A copied lone point becomes independent: keeping
+                # the old id would move it from across the plan (#666 review).
+                from open_garden_planner.core import reference_points as ref
+
+                if ref.is_reference_point(item.metadata):
+                    old_ref = ref.parent_id(item.metadata)
+                    new_parent = (
+                        old_id_to_new.get(str(old_ref)) if old_ref is not None else None
+                    )
+                    new_parent_id = getattr(new_parent, "item_id", None)
+                    if new_parent_id is not None:
+                        item.metadata[ref.PARENT_ID] = str(new_parent_id)
+                    else:
+                        item.metadata.pop(ref.PARENT_ID, None)
+                        item.metadata.pop(ref.ON_CONTOUR, None)
 
             from open_garden_planner.core import CreateItemsCommand
 

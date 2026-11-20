@@ -1434,6 +1434,11 @@
     "state": "CLOSED",
     "title": "Text-note letter spacing is pinned only by the font's hinting setting, not by a pixel test"
   },
+  "875": {
+    "is_pr": false,
+    "state": "CLOSED",
+    "title": "One unexplained xdist worker crash in test_agent_task_soil_tools"
+  },
   "877": {
     "is_pr": false,
     "state": "CLOSED",

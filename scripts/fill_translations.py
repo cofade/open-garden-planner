@@ -1318,9 +1318,6 @@ TRANSLATIONS: dict[str, dict[str, str]] = {
         "Place a callout annotation with leader line": "Beschriftungspfeil mit Führungslinie platzieren",
         "Journal Pin": "Tagebuch-Nadel",
         "Drop a garden-journal note pin": "Tagebuchnotiz-Nadel platzieren",
-        "Reference point": "Referenzpunkt",
-        "Place a survey stake or measurement datum":
-            "Setzt einen Messpunkt oder ein Bezugsmaß",
     },
 
     # ── CategoryToolbar (object category dropdowns + global search) ──

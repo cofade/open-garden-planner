@@ -71,6 +71,9 @@ class ReferencePointItem(CircleItem):
         QGraphicsEllipseItem.setRect(self, -radius, -radius, radius * 2, radius * 2)
         self._radius = radius
         self._center = QPointF()
+        # > 0 while a parent's translation carries this point: the move must
+        # keep the point's exact offset, not re-project it onto the contour.
+        self._projection_suspended = 0
         self.setTransformOriginPoint(QPointF())
         self.setPos(center_x, center_y)
         self.setBrush(QBrush(Qt.BrushStyle.NoBrush))
@@ -211,6 +214,28 @@ class ReferencePointItem(CircleItem):
         projection = nearest_contour_position(parent, proposed)
         return projection[0] if projection is not None else proposed
 
+    def translate_exact(self, dx: float, dy: float) -> None:
+        """Move by a parent's translation without contour projection.
+
+        A parent move must preserve the point's exact offset. Projecting a
+        carried point would re-snap one left off-contour (after a rotation or a
+        vertex edit, the documented limitation) and undo would project onto a
+        different contour, silently shifting the datum (#666 review).
+        """
+        self._projection_suspended += 1
+        try:
+            self.moveBy(dx, dy)
+        finally:
+            self._projection_suspended -= 1
+
+    def set_pos_exact(self, position: QPointF) -> None:
+        """``setPos`` without contour projection, for a solver's carried move."""
+        self._projection_suspended += 1
+        try:
+            self.setPos(position)
+        finally:
+            self._projection_suspended -= 1
+
     def set_radius_centered(self, new_radius: float) -> None:
         if new_radius <= 0:
             return
@@ -231,7 +256,10 @@ class ReferencePointItem(CircleItem):
         self, change: QGraphicsItem.GraphicsItemChange, value: Any
     ) -> Any:
         self.handle_item_change(change, value)
-        if change == QGraphicsItem.GraphicsItemChange.ItemPositionChange:
+        if (
+            change == QGraphicsItem.GraphicsItemChange.ItemPositionChange
+            and self._projection_suspended == 0
+        ):
             parent_item = self.parentItem()
             proposed = (
                 parent_item.mapToScene(value) if parent_item is not None else value

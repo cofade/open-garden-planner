@@ -3,7 +3,7 @@
 import contextlib
 from collections.abc import Callable
 from pathlib import Path
-from typing import Any
+from typing import TYPE_CHECKING, Any, cast
 
 from PyQt6.QtCore import QCoreApplication, QSize, Qt, QTimer, pyqtSignal
 from PyQt6.QtGui import QColor, QFocusEvent, QIcon
@@ -119,6 +119,11 @@ _EXTRA_SVG_FILES: dict[ObjectType, Path] = {
 }
 
 FIELD_WIDTH = 120
+
+if TYPE_CHECKING:
+    from open_garden_planner.ui.canvas.items.reference_point_item import (
+        ReferencePointItem,
+    )
 
 
 def _style_numeric_field(field: QAbstractSpinBox) -> None:
@@ -1221,6 +1226,29 @@ class PropertiesPanel(QWidget):
         Args:
             item: Item to show geometry for
         """
+        # A reference point has ONE coordinate and one editor (ADR-080 decision
+        # 7). The generic circle fields would be a second write path: the
+        # diameter changes the rect around pos(), and the position field reads
+        # the halo's bounding box corner, not the datum (#666 review).
+        from open_garden_planner.core import reference_points as ref
+
+        if ref.is_reference_point(getattr(item, "metadata", None)):
+            from open_garden_planner.ui.reference_points import (
+                edit_reference_point,
+                reference_summary,
+            )
+
+            reference = cast("ReferencePointItem", item)
+            summary = QLabel(reference_summary(reference))
+            summary.setWordWrap(True)
+            summary.setTextInteractionFlags(Qt.TextInteractionFlag.TextSelectableByMouse)
+            self._form_layout.addRow(summary)
+            edit_button = QPushButton(
+                QCoreApplication.translate("ReferencePoints", "Edit reference point…")
+            )
+            edit_button.clicked.connect(lambda: edit_reference_point(reference))
+            self._form_layout.addRow(edit_button)
+            return
         # Position (editable X, Y) - use top-left corner of bounding box in scene coords
         # This corresponds to visual bottom-left after Y-flip (CAD origin)
         bottom_left_x, bottom_left_y = self._position_xy(item)

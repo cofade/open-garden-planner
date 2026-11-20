@@ -133,6 +133,7 @@ def _offset_rectangle(item: RectangleItem, d: float) -> QGraphicsItem | None:
 
 
 def _offset_circle(item: CircleItem, d: float) -> QGraphicsItem | None:
+    from open_garden_planner.core import reference_points as ref
     from open_garden_planner.ui.canvas.items.circle_item import CircleItem
 
     new_r = item.radius + d
@@ -140,6 +141,24 @@ def _offset_circle(item: CircleItem, d: float) -> QGraphicsItem | None:
         return None
     cx = item.pos().x() + item.center.x()
     cy = item.pos().y() + item.center.y()
+    if ref.is_reference_point(item.metadata):
+        # Keep the kind; the offset copy is independent of the source parent.
+        from open_garden_planner.core.object_types import ObjectType
+        from open_garden_planner.ui.canvas.items.reference_point_item import (
+            ReferencePointItem,
+        )
+
+        metadata = dict(item.metadata)
+        metadata.pop(ref.PARENT_ID, None)
+        metadata.pop(ref.ON_CONTOUR, None)
+        return ReferencePointItem(
+            cx,
+            cy,
+            new_r,
+            object_type=item.object_type or ObjectType.GENERIC_CIRCLE,
+            metadata=metadata,
+            layer_id=item.layer_id,
+        )
     result = CircleItem(cx, cy, new_r, object_type=item.object_type, layer_id=item.layer_id)
     copy_visual_style(item, result)
     return result
