@@ -13964,8 +13964,9 @@ Qt item base have moved since, so this ADR settles the kind before code.
 `ui/canvas/items/reference_point_item.py`, `core/tools/reference_point_tool.py`, and
 the dialog strings. The tool is armed from **Garden > Reference point**; it is not a
 sixth main-toolbar button. A sixth button, like any extra per-window widget, amplified
-the Qt 6.12 teardown fault measured in PF-TST-41 during this delivery; the menu action
-is the stable entry and keeps the toolbar at the five tools ADR-018 defines.
+a teardown fault during this delivery (PF-TST-14's armed timer, PF-TST-41's churn);
+the menu action is the stable entry and keeps the toolbar at the five tools ADR-018
+defines.
 Deleting a bound parent leaves the datum in place; it reads as independent and the
 dangling key is cleared on its next edit. No dependency, `.ogp` format, or 3D change.
 Tests: `tests/unit/test_reference_points.py` and
