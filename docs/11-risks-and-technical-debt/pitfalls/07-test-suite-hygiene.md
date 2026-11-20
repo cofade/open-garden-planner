@@ -4,13 +4,13 @@ One entry per lesson, each under its permanent `PF-<AREA>-<NN>` ID. Each entry g
 
 ### PF-TST-41
 
-- **Rule:** A UI test file builds **one** `GardenPlannerApp` and asserts everything on it, rather than a full app per assertion. A file that rebuilds the window once per test is an amplifier for the Qt teardown heap fault: on Qt 6.12 the tenth window in one process turned a latent fault into an intermittent `0xC0000374` at pytest-qt's `_process_events`, and the same file with one window ran clean and 38% faster.
-- **Pinned by:** `tests/ui/test_language_menu.py` (one window, exact ordered assertion on `SUPPORTED_LANGUAGES`)
-- **Source:** #553/#666 package delivery, 2026-11-20
+- **Rule:** A UI test file builds one `GardenPlannerApp`; a per-assertion app amplifies a latent Qt teardown heap fault.
+- **Pinned by:** `tests/ui/test_language_menu.py`
+- **Source:** #553/#666
 - **Status:** standing
-- **Legacy:** none (new entry)
+- **Legacy:** none
 
-Measured, not theorised. The three-file sequence `test_example_generation.py` + `test_app_locale.py` + `test_language_menu.py` crashed 3 of 5 runs on the branch (always at the teardown of the **second** language-menu test, exit `0xC0000374`); clean `master` was 0 of 10 on the same sequence, and `master` with a dummy tenth window was 0 of 6 - so window count alone is not the trigger. Removing only the new Garden-menu `QAction` was 0 of 6, and consolidating the language-menu file to one window was 0 of 6. Disabling Python's cyclic collector for the sequence was 0 of 3 with the ten-window file. The corruption therefore sits in the family PF-CAN-61 records: a view and its scene dropped without `close()`/`deleteLater()` are garbage only the cyclic collector finds, which destroys them in an order of its own; the exact object pair was **not** isolated here. What the suite can control is the churn: one window per file. Do not "fix" this by deleting an assertion or by adding a scheduler marker - both were tried in earlier incidents (PF-TST-40) and neither measures the amplifier.
+Branch 3/5 crashes on the three-file sequence (always the second language-menu test); master 0/10, one window 0/6. Cause not isolated (PF-CAN-61); never hide it with a scheduler marker (PF-TST-40).
 
 ### PF-TST-40
 

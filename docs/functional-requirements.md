@@ -1427,8 +1427,9 @@ Pins: `tests/unit/test_shape_split.py`, `tests/integration/test_split_shapes.py`
 - **FR-REF-04**: The symbol is fixed in the plan (default 6 cm, scales with zoom) or
   constant on screen (default 16 px). Colour and cosmetic stroke width are editable.
   The symbol is a target/cross with a solid centre dot.
-- **FR-REF-05**: Placement and every edit are exactly one undo step. Layer, lock,
-  copy/duplicate, delete and save/reload follow the ordinary object rules. A reference
-  point has no 3D form.
+- **FR-REF-05**: Placement and every edit are exactly one undo step, and moving a
+  parent carries its attached points in that same step. Layer, lock, copy/duplicate,
+  delete and save/reload follow the ordinary object rules. A reference point has no
+  3D form.
 - **FR-REF-06**: Every user-visible string is complete in every registered locale
   (en/de/es/ru/fr).
