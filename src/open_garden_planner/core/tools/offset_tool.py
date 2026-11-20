@@ -151,6 +151,11 @@ def _offset_circle(item: CircleItem, d: float) -> QGraphicsItem | None:
         metadata = dict(item.metadata)
         metadata.pop(ref.PARENT_ID, None)
         metadata.pop(ref.ON_CONTOUR, None)
+        if ref.size_mode(metadata) == ref.SIZE_MODE_SCREEN:
+            # The symbol is a fixed pixel size, so a plan-cm offset has no
+            # meaning; leave the point alone rather than desynchronise it.
+            return None
+        metadata[ref.SIZE] = 2.0 * new_r
         return ReferencePointItem(
             cx,
             cy,

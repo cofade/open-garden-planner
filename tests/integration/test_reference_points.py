@@ -231,6 +231,32 @@ def test_duplicating_a_bound_pair_rebinds_the_copy_to_the_copied_parent(
     assert copied_point.pos() == before + QPointF(10, 0)
 
 
+def test_a_group_drag_carries_the_point_once_on_finalize(canvas, monkeypatch):
+    """The live propagation and the final command must not both move the point."""
+    scene, view = canvas
+    parent = RectangleItem(100, 100, 400, 200, object_type=ObjectType.GENERIC_RECTANGLE)
+    scene.addItem(parent)
+    point = _place(
+        monkeypatch,
+        view,
+        _options(parent_id=parent.item_id, on_contour=True),
+        QPointF(300, 100),
+    )
+    group = GroupItem(layer_id=scene.active_layer.id)
+    scene.addItem(group)
+    group.addToGroup(parent)
+
+    view._drag_start_positions = {group: QPointF(group.pos())}
+    group.setPos(group.pos().x() + 50, group.pos().y())
+    view._propagate_bed_children_during_drag()
+    assert point.pos() == QPointF(350, 100)
+    view._finalize_drag_move()
+
+    assert point.pos() == QPointF(350, 100)  # not 400
+    view.command_manager.undo()
+    assert point.pos() == QPointF(300, 100)
+
+
 def test_a_one_shot_solver_move_captures_the_attached_point(canvas, monkeypatch):
     """A constraint that moves a bed must carry the stake on its outline."""
     from open_garden_planner.core.commands import _capture_bed_child_moves
@@ -251,6 +277,55 @@ def test_a_one_shot_solver_move_captures_the_attached_point(canvas, monkeypatch)
 
     captured = {item: (old, new) for item, old, new in moves}
     assert captured[point] == (QPointF(300, 100), QPointF(320, 100))
+
+
+def test_apply_constraint_solver_carries_the_attached_point(canvas, monkeypatch):
+    """The one-shot solver path is a parent translation too (FR-REF-03)."""
+    scene, view = canvas
+    bed = RectangleItem(100, 100, 400, 200, object_type=ObjectType.GARDEN_BED)
+    scene.addItem(bed)
+    point = _place(
+        monkeypatch,
+        view,
+        _options(parent_id=bed.item_id, on_contour=True),
+        QPointF(300, 100),
+    )
+    move = (bed, QPointF(bed.pos()), QPointF(bed.pos()) + QPointF(30, 0))
+    monkeypatch.setattr(
+        view, "_compute_constraint_solve_moves", lambda *_args, **_kwargs: ([move], [])
+    )
+
+    view.apply_constraint_solver(bed)
+
+    assert bed.pos() == QPointF(30, 0)
+    assert point.pos() == QPointF(330, 100)
+
+
+def test_offset_keeps_the_symbol_size_in_step(canvas, monkeypatch):
+    from open_garden_planner.core.tools.offset_tool import _offset_circle
+
+    scene, view = canvas
+    point = _place(monkeypatch, view, _options(size=6.0), QPointF(300, 100))
+
+    copy = _offset_circle(point, 2.0)
+
+    assert isinstance(copy, ReferencePointItem)
+    assert copy.radius == pytest.approx(5.0)
+    assert copy.metadata["reference_point_size"] == pytest.approx(10.0)
+
+
+def test_offset_leaves_a_screen_sized_point_alone(canvas, monkeypatch):
+    from open_garden_planner.core.tools.offset_tool import _offset_circle
+
+    scene, view = canvas
+    point = _place(
+        monkeypatch,
+        view,
+        _options(size_mode="screen_px", size=16.0),
+        QPointF(300, 100),
+    )
+
+    assert _offset_circle(point, 2.0) is None
 
 
 def test_duplicating_a_lone_bound_point_makes_the_copy_independent(canvas, monkeypatch):

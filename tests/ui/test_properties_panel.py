@@ -64,6 +64,10 @@ class TestPropertiesPanel:
             if isinstance(widget, QLabel):
                 row_labels.append(widget.text())
         assert "Diameter:" not in row_labels
+        # Type/name/styling are second write paths too: a Type change would
+        # turn the datum into a tree (#666 review).
+        assert "Type:" not in row_labels
+        assert len(panel.findChildren(QComboBox)) == 1  # the layer combo only
 
 
 class TestObjectTypeChange:

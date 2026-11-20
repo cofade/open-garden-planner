@@ -4070,6 +4070,9 @@ class GardenPlannerApp(QMainWindow):
             event.ignore()
             return
         if self._confirm_discard_changes():
+            timer = getattr(self, "_preview_fit_timer", None)
+            if timer is not None:
+                timer.stop()
             # Stop the Agent API server first, while the scene/bridge still exist.
             self._stop_agent_api()
             # Join a running heatmap worker — a QThread destroyed while
@@ -5068,8 +5071,16 @@ class GardenPlannerApp(QMainWindow):
         # Go fullscreen
         self.showFullScreen()
 
-        # Fit the canvas nicely after entering fullscreen
-        QTimer.singleShot(50, self.canvas_view.fit_in_view)
+        # Fit the canvas nicely after entering fullscreen. A member timer is
+        # stopped on exit and on close: a pending singleShot outlived the
+        # gesture and fired into the next test's teardown (PF-TST-14/41).
+        timer = getattr(self, "_preview_fit_timer", None)
+        if timer is None:
+            timer = QTimer(self)
+            timer.setSingleShot(True)
+            timer.timeout.connect(self.canvas_view.fit_in_view)
+            self._preview_fit_timer = timer
+        timer.start(50)
 
     def _exit_preview_mode(self) -> None:
         """Exit fullscreen preview mode, restoring all UI chrome."""
@@ -5078,6 +5089,9 @@ class GardenPlannerApp(QMainWindow):
 
         self._preview_mode = False
         self._preview_action.setChecked(False)
+        timer = getattr(self, "_preview_fit_timer", None)
+        if timer is not None:
+            timer.stop()
 
         # Restore UI chrome
         self.menuBar().show()

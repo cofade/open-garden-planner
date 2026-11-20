@@ -428,6 +428,7 @@ class CanvasView(QGraphicsView):
         # (point, carrier) bound points carried by the drag; built once per
         # gesture, not on every mouse move (a 5,000-item scene scan is ~3 ms).
         self._drag_carried_points: dict[QGraphicsItem, QGraphicsItem] = {}
+        self._drag_carried_points_built = False
         # Active handle being dragged — used to re-grab if Qt silently drops it
         self._active_drag_handle: QGraphicsItem | None = None
         # A journal pin dragged through the view's undo/lost-release path.
@@ -1561,6 +1562,8 @@ class CanvasView(QGraphicsView):
         if self._rotating_item is None:
             self._constraint_propagated_starts.clear()
         self._child_drag_origins.clear()
+        self._drag_carried_points.clear()
+        self._drag_carried_points_built = False
         self._thaw_fixed_drag_items()
 
     def _end_pinch(self) -> None:
@@ -2026,8 +2029,18 @@ class CanvasView(QGraphicsView):
         moves, vertex_moves = self._compute_constraint_solve_moves(
             scope_ids=scope_ids
         )
-        for item, _old, new in moves:
-            item.setPos(new)
+        # A one-shot solve is a parent translation too: carry the attached
+        # points and place every captured item exactly (FR-REF-03, #666 review).
+        from open_garden_planner.core.commands import (
+            _apply_captured_position,
+            _capture_bed_child_moves,
+        )
+
+        carried = _capture_bed_child_moves(moves)
+        for move_item, _old, new in moves:
+            _apply_captured_position(move_item, new)
+        for child, _old, new in carried:
+            _apply_captured_position(child, new)
         for item, idx, _old_local, new_local in vertex_moves:
             if hasattr(item, "_move_vertex_to"):
                 item._move_vertex_to(idx, new_local)
@@ -4202,6 +4215,8 @@ class CanvasView(QGraphicsView):
             if command_is(last_cmd, (ResizeItemCommand, RotateItemCommand)):
                 self._drag_start_positions.clear()
                 self._constraint_propagated_starts.clear()
+                self._drag_carried_points.clear()
+                self._drag_carried_points_built = False
                 self._thaw_fixed_drag_items()
                 return
 
@@ -4251,14 +4266,17 @@ class CanvasView(QGraphicsView):
         # Bound reference points moved with a parent are reset here and moved
         # again by the command's own expansion, so the whole gesture is one
         # undo step (#666, ADR-080).
-        from open_garden_planner.core.reference_points import attached_by_parent
+        from open_garden_planner.core.reference_points import carried_by_moved
 
-        points_by_parent = attached_by_parent(self._canvas_scene)
-        for item, _delta in item_deltas:
-            for point in points_by_parent.get(getattr(item, "item_id", None), ()):
-                if point in self._drag_start_positions or point in child_start_positions:
-                    continue
-                child_start_positions[point] = self._child_drag_origins.get(point, point.pos())
+        # A moved group carries the points bound to its descendants too; the
+        # live propagation moved them, so the reset must know them or the
+        # command's second delta doubles the move (#666 review).
+        for point, _carrier in carried_by_moved(
+            self._canvas_scene, [item for item, _delta in item_deltas]
+        ):
+            if point in self._drag_start_positions or point in child_start_positions:
+                continue
+            child_start_positions[point] = self._child_drag_origins.get(point, point.pos())
 
         if item_deltas:
             # Ask the LINK question where the drag left everything - the FINAL
@@ -4305,6 +4323,7 @@ class CanvasView(QGraphicsView):
         self._drag_start_positions.clear()
         self._constraint_propagated_starts.clear()
         self._drag_carried_points.clear()
+        self._drag_carried_points_built = False
         if hasattr(self, "_child_drag_origins"):
             self._child_drag_origins.clear()
 
@@ -4324,10 +4343,11 @@ class CanvasView(QGraphicsView):
 
         from open_garden_planner.core.reference_points import carried_by_moved
 
-        if not self._drag_carried_points:
+        if not self._drag_carried_points_built:
             self._drag_carried_points = dict(
                 carried_by_moved(self._canvas_scene, list(self._drag_start_positions))
             )
+            self._drag_carried_points_built = True
         for item, start_pos in self._drag_start_positions.items():
             delta = item.pos() - start_pos
             if delta.x() == 0 and delta.y() == 0:

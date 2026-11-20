@@ -761,6 +761,56 @@ class PropertiesPanel(QWidget):
             self._updating = False
             return
 
+        # Reference point — ONE editor (ADR-080 decision 7). The generic Type,
+        # name and styling controls are second write paths (a Type change would
+        # turn the datum into a tree), so the panel stops here (#666 review).
+        from open_garden_planner.core import reference_points as ref
+
+        if ref.is_reference_point(getattr(item, "metadata", None)):
+            from open_garden_planner.ui.reference_points import (
+                edit_reference_point,
+                reference_summary,
+            )
+
+            reference = cast("ReferencePointItem", item)
+            summary = QLabel(reference_summary(reference))
+            summary.setWordWrap(True)
+            summary.setTextInteractionFlags(Qt.TextInteractionFlag.TextSelectableByMouse)
+            self._form_layout.addRow(summary)
+            edit_button = QPushButton(
+                QCoreApplication.translate("ReferencePoints", "Edit reference point…")
+            )
+            edit_button.clicked.connect(lambda: edit_reference_point(reference))
+            self._form_layout.addRow(edit_button)
+            if hasattr(item, "layer_id"):
+                layer_combo = QComboBox()
+                _style_combo(layer_combo)
+                self._populate_layer_combo(layer_combo, item)
+                if item.parentItem() is not None:
+                    layer_combo.setEnabled(False)
+                    layer_combo.setToolTip(
+                        self.tr("A group member stays on its group's layer")
+                    )
+                def _change_layer(
+                    _index: int,
+                    target: QGraphicsItem = item,
+                    combo: QComboBox = layer_combo,
+                ) -> None:
+                    self._on_property_changed(target, "layer_id", combo.currentData())
+
+                layer_combo.currentIndexChanged.connect(_change_layer)
+                self._form_layout.addRow(self.tr("Layer:"), layer_combo)
+
+                def _refresh_layer(
+                    combo: QComboBox = layer_combo, target: QGraphicsItem = item
+                ) -> None:
+                    self._refresh_layer_combo(combo, target)
+
+                self._register_refresh(layer_combo, _refresh_layer)
+            self._add_arrange_section([item])
+            self._updating = False
+            return
+
         # SmartSymbolItem — parametric block; show editable params (US-C4).
         # Must precede the GroupItem branch (it is a GroupItem subclass).
         from open_garden_planner.ui.canvas.items.smart_symbol_item import SmartSymbolItem
@@ -1226,29 +1276,6 @@ class PropertiesPanel(QWidget):
         Args:
             item: Item to show geometry for
         """
-        # A reference point has ONE coordinate and one editor (ADR-080 decision
-        # 7). The generic circle fields would be a second write path: the
-        # diameter changes the rect around pos(), and the position field reads
-        # the halo's bounding box corner, not the datum (#666 review).
-        from open_garden_planner.core import reference_points as ref
-
-        if ref.is_reference_point(getattr(item, "metadata", None)):
-            from open_garden_planner.ui.reference_points import (
-                edit_reference_point,
-                reference_summary,
-            )
-
-            reference = cast("ReferencePointItem", item)
-            summary = QLabel(reference_summary(reference))
-            summary.setWordWrap(True)
-            summary.setTextInteractionFlags(Qt.TextInteractionFlag.TextSelectableByMouse)
-            self._form_layout.addRow(summary)
-            edit_button = QPushButton(
-                QCoreApplication.translate("ReferencePoints", "Edit reference point…")
-            )
-            edit_button.clicked.connect(lambda: edit_reference_point(reference))
-            self._form_layout.addRow(edit_button)
-            return
         # Position (editable X, Y) - use top-left corner of bounding box in scene coords
         # This corresponds to visual bottom-left after Y-flip (CAD origin)
         bottom_left_x, bottom_left_y = self._position_xy(item)
