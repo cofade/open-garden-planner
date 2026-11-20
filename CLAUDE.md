@@ -254,6 +254,9 @@ Full how-to (step-by-step, `.ts` format, recompile command): see `docs/08-crossc
   "Current work" section, then `git status` and `git log --oneline -20`.
 - Current release: **v1.40.10** (2026-11-19). No roadmap phase is active.
   The next work is in the open issues.
+- In review: [PR #981](https://github.com/cofade/open-garden-planner/pull/981)
+  (plan truth, CAD precision and documentation; closes #828, #829, #945,
+  #875, #976). It is a draft until the owner's manual test passes.
 - Live decisions that constrain the next change:
   - Plan time zone (#945, ADR-053 addendum, PF-DOM-35): `location["timezone"]`
     is read by the clock, the toolbar, a tour's wall-time range and "Today";
