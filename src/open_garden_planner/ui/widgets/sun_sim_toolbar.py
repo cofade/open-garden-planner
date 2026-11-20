@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from calendar import monthrange
+from collections.abc import Callable
 from datetime import date, datetime, timedelta
 from typing import Any
 
@@ -202,9 +203,8 @@ class SunSimToolbar(QToolBar):
     """Sun & shade simulation time control.
 
     Signals:
-        datetime_changed: emitted with the NAIVE wall-clock ``datetime``
-            (picker date + slider time) whenever the user changes date or time
-            (or the animation ticks).
+        datetime_changed: emitted with a naive wall reading for editor changes
+            and animation ticks, or an aware current instant for Today.
     """
 
     datetime_changed = pyqtSignal(object)
@@ -215,8 +215,16 @@ class SunSimToolbar(QToolBar):
     date_requested = pyqtSignal(object)
     location_requested = pyqtSignal()
 
-    def __init__(self, parent: QWidget | None = None, *, scene: Any = None) -> None:
+    def __init__(
+        self,
+        parent: QWidget | None = None,
+        *,
+        scene: Any = None,
+        now_provider: Callable[[], datetime] | None = None,
+    ) -> None:
         super().__init__("", parent)
+        # The current instant in the plan's zone, or the computer's by default.
+        self._now = now_provider if now_provider is not None else lambda: datetime.now().astimezone()
         self.setObjectName("SunSimToolbar")
         self.setWindowTitle(self.tr("Plan & Sun"))
         self.setMovable(False)
@@ -241,8 +249,11 @@ class SunSimToolbar(QToolBar):
         self._today_button = _TodayButton((self.tr("Today"), self.tr("Past"), self.tr("Future")), self)
         self._configure_button(self._today_button, self.tr("Today"), group)
         # the text says where the plan date is; what the button does stays the same
-        self._today_button.setAccessibleName(self.tr("Go to today"))
-        self._today_button.clicked.connect(lambda: self.date_requested.emit(date.today()))
+        self._today_button.setAccessibleName(self.tr("Go to the current date and time"))
+        self._today_button.setToolTip(self._today_button.accessibleName())
+        self._today_button.clicked.connect(
+            lambda: self.datetime_changed.emit(self._now())
+        )
 
         group = self._group()
         group.addWidget(QLabel(self.tr("Months"), self))
@@ -641,21 +652,19 @@ class SunSimToolbar(QToolBar):
             return
         plants = [] if self._scene is None else [item for item in self._scene.items()
                   if is_plant_type(getattr(item, "object_type", None))]
-        low, high = timeline_month_range((p.metadata for p in plants), date.today(), day)
+        today = self._now().date()
+        low, high = timeline_month_range((p.metadata for p in plants), today, day)
         self._month_slider.blockSignals(True)
         self._month_slider.setRange(low, high)
         self._month_slider.setValue(month_number(day))
         self._month_slider.blockSignals(False)
-        today = date.today()
         if day < today:
-            text, tip = self.tr("Past"), self.tr("The plan date is in the past. Click to go back to today.")
+            text = self.tr("Past")
         elif day > today:
-            text, tip = self.tr("Future"), self.tr("The plan date is in the future. Click to go back to today.")
+            text = self.tr("Future")
         else:
-            text, tip = self.tr("Today"), self.tr("The plan date is today.")
+            text = self.tr("Today")
         self._today_button.setText(text)
-        self._today_button.setToolTip(tip)
-        self._today_button.setEnabled(day != today)
         count = sum(not self._scene.is_present(p) for p in plants)
         self._hidden_button.setText(self.tr("{count} hidden").format(count=count))
         self._hidden_button.setEnabled(count > 0)

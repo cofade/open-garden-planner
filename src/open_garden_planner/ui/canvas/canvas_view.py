@@ -19,6 +19,7 @@ if TYPE_CHECKING:
     from open_garden_planner.core.plant_renderer import PlantCategory
     from open_garden_planner.ui.canvas.items import CircleItem
     from open_garden_planner.ui.canvas.items.soil_badge_item import SoilBadgeItem
+    from open_garden_planner.ui.widgets.dynamic_input_overlay import DynamicInputOverlay
 
 from PyQt6.QtCore import (
     QCoreApplication,
@@ -385,7 +386,7 @@ class CanvasView(QGraphicsView):
         # Shared typed-coordinate buffer (Package A US-A1/A2/A4).
         self._input_buffer = CoordinateInputBuffer(self)
         # Lazily-created cursor overlay (US-A4).
-        self._dynamic_overlay: object | None = None
+        self._dynamic_overlay: DynamicInputOverlay | None = None
 
         # Pan state
         self._panning = False
@@ -1224,14 +1225,13 @@ class CanvasView(QGraphicsView):
     def set_active_tool(self, tool_type: ToolType) -> None:
         """Set the active drawing tool.
 
-        The split tool is scene-wide: a toolbar click or the ``Shift+S``
-        shortcut starts a fresh two-point cut. Every closed shape the drawn
-        segment crosses is split, whether or not anything was selected first
-        (#664).
+        A toolbar click or ``Shift+S`` arms Split for the current selection.
+        An empty selection arms it for the whole scene.
         """
         if tool_type is ToolType.SPLIT:
+            selected = self.effective_selection()
             self._activate_tool_direct(ToolType.SPLIT)
-            self._split_tool.prepare(None)
+            self._split_tool.prepare(selected or None)
             return
         self._activate_tool_direct(tool_type)
 
@@ -1289,11 +1289,8 @@ class CanvasView(QGraphicsView):
         # The Dist/Angle prompt belongs to the previous tool's gesture. It is
         # re-shown by the next mouse move if the new tool wants one; without
         # this an Esc pressed with the mouse at rest left it over Select.
-        # (``getattr``: the attribute is typed ``object``; a direct call would
-        # add an attr-defined error to the mypy baseline.)
-        hide_overlay = getattr(self._dynamic_overlay, "hide_overlay", None)
-        if callable(hide_overlay):
-            hide_overlay()
+        if self._dynamic_overlay is not None:
+            self._dynamic_overlay.hide_overlay()
 
     # Zoom methods
 
@@ -1836,7 +1833,7 @@ class CanvasView(QGraphicsView):
         if not enabled and self._dynamic_overlay is not None:
             self._dynamic_overlay.hide_overlay()
 
-    def _ensure_dynamic_overlay(self) -> object:
+    def _ensure_dynamic_overlay(self) -> DynamicInputOverlay:
         """Create the cursor overlay on first use."""
         if self._dynamic_overlay is None:
             from open_garden_planner.ui.widgets.dynamic_input_overlay import (
@@ -1847,7 +1844,7 @@ class CanvasView(QGraphicsView):
             self._dynamic_overlay.commit_requested.connect(self.commit_typed_coordinate)
         return self._dynamic_overlay
 
-    def _update_dynamic_overlay(self, viewport_pos: object) -> None:
+    def _update_dynamic_overlay(self, viewport_pos: QPoint) -> None:
         """Show or hide the Dynamic Input overlay based on context."""
         if not self._dynamic_input_enabled:
             if self._dynamic_overlay is not None:
@@ -3680,7 +3677,12 @@ class CanvasView(QGraphicsView):
         # Dispatch bare letter/digit keys to registered tools via their shortcut attribute.
         # Guard: no modifier keys; scene not editing text (label edit in progress).
         _focus = self._canvas_scene.focusItem()
-        _in_text_edit = _focus is not None and hasattr(_focus, 'toPlainText')
+        # Only the three inline editors declare the marker; a focused panel or a
+        # scene item that happens to have a text-like attribute is not an edit
+        # (#829).
+        _in_text_edit = _focus is not None and bool(
+            getattr(_focus, "is_inline_text_editor", False)
+        )
 
         # Route coordinate-input characters (Package A US-A4) into the Dynamic
         # Input overlay so the user can type `@500,0`, `@300<45`, etc. without
@@ -5767,7 +5769,9 @@ class CanvasView(QGraphicsView):
         # is held to the same two rules as the shape itself.
         for ridge in linked_ridges_under(item):
             if self._layer_is_locked_for(ridge):
-                return self.tr("The shape is on a locked layer")
+                # The shape itself is editable; it is the derived ridge that
+                # keeps the building whole (#829).
+                return self.tr("The roof ridge is on a locked layer")
             ridge_id = getattr(ridge, "item_id", None)
             if (
                 ridge_id is not None
@@ -5800,8 +5804,7 @@ class CanvasView(QGraphicsView):
     def start_split_shape(self, item: QGraphicsItem) -> bool:
         """Arm the split tool for *item* from its context menu (#664).
 
-        The toolbar's Split tool is scene-wide; this entry keeps the explicit
-        per-shape action scoped to the clicked shape.
+        The context menu always uses the clicked shape as its scope.
         """
         reason = self.split_refusal_reason(item)
         if reason is not None:
@@ -5810,7 +5813,7 @@ class CanvasView(QGraphicsView):
         if item.item_id is None:
             return False
         self._activate_tool_direct(ToolType.SPLIT)
-        self._split_tool.prepare(item.item_id)
+        self._split_tool.prepare([item])
         self._canvas_scene.clearSelection()
         item.setSelected(True)
         self.set_status_message(

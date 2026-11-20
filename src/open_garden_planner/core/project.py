@@ -972,8 +972,11 @@ class ProjectManager(QObject):
         """Set the garden location and mark project as dirty.
 
         Args:
-            location: Dict with latitude, longitude, elevation_m, frost_dates keys,
-                      or None to clear location.
+            location: Dict with latitude, longitude, elevation_m, frost_dates and
+                      an optional ``timezone`` (IANA name, #945) keys, or None to
+                      clear the location. An absent or unknown ``timezone`` means
+                      the computer's zone; it is an additive key, not a
+                      FILE_VERSION change.
         """
         self._location = location
         self.location_changed.emit(location)

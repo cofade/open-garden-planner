@@ -3,6 +3,9 @@
 The default tier: encoding needs no GPU and no window. On a system without an MP4 encoder
 the MP4 tests skip (``best_codec`` says so; ``--selftest`` and the frozen gate do not
 skip: the bundle must have one).
+
+Windows Media Foundation's muxer intermittently writes a bad ``4_mf`` box (``Mp4Error``)
+under parallel load; it is measured and recorded as PF-TST-40, not papered over here.
 """
 
 from __future__ import annotations

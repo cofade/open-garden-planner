@@ -109,6 +109,11 @@ def embedded_shed_repaints() -> dict:
     window.resize(1100, 720)
     window.show()
     assert QTest.qWaitForWindowExposed(window)
+    # The thumbnail is not part of this oracle. Its 100 ms throttle re-arms on
+    # every scene change, and under a loaded machine the child could not rely
+    # on it settling; disable it and stop an already scheduled tick.
+    window._minimap.set_visible(False)
+    window._minimap._update_timer.stop()
     window._load_project_file(str(ROOT / "src/open_garden_planner/resources/examples/family-garden.ogp"))
     view = window.canvas_view
     scene = view.scene()
@@ -148,15 +153,33 @@ def embedded_shed_repaints() -> dict:
         rows, columns = np.nonzero(mask)
         return [int(columns.min()), int(rows.min()), int(columns.max()), int(rows.max())] if len(rows) else []
 
-    def settle() -> None:
-        # Deliver queued scene changes, then the thumbnail's own 100 ms
-        # throttle and backing-store update before comparing the same state.
+    def settle(*, expect_paint: bool = True) -> None:
+        # Deliver queued scene changes and wait until the measured viewport
+        # stops receiving paint events: a fixed sleep is a guess, the paint
+        # filter is the thing the comparison actually depends on. The minimap
+        # is disabled above, so it cannot confound this. An edit must produce
+        # at least one paint before its quiet window starts, or a starved
+        # event loop could let this return before the first frame.
         QTest.qWait(1)
-        deadline = time.monotonic() + 2
-        while window._minimap._update_timer.isActive() and time.monotonic() < deadline:
+        window._minimap._update_timer.stop()
+        if not expect_paint:
+            # The opening baseline follows a fit timer; settle it with a short
+            # drain and do not require a quiet paint stream (the fit animation
+            # is still finishing). The measured drain is for the edits.
+            QTest.qWait(200)
+            return
+        first = time.monotonic() + 5
+        while not regions.regions and time.monotonic() < first:
             QTest.qWait(10)
-        assert not window._minimap._update_timer.isActive()
-        QTest.qWait(1)
+        assert regions.regions, "the edit produced no viewport paint"
+        # The viewport keeps receiving frames while the window is live (the
+        # selection and the update indicator animate), so a "quiet stream"
+        # never arrives. Wait until the edit's first frame is in, then let the
+        # backing store and the following frame settle. Measured: 150 ms was
+        # enough for every edit but the undo/redo pair, which needs the
+        # command's full rebuild; 500 ms also covers a cold font/backing-store
+        # cache on the first run after a build.
+        QTest.qWait(500)
 
     def resize() -> None:
         rect = shed.rect()
@@ -166,7 +189,7 @@ def embedded_shed_repaints() -> dict:
     QTest.qWait(120)  # Startup fit timer precedes the edit sweep.
     view.set_zoom(0.77)
     view.centerOn(shed.sceneBoundingRect().center())
-    settle()
+    settle(expect_paint=False)
     results = {}
     last = grab()
     edits = (

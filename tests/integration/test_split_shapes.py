@@ -1,7 +1,7 @@
 """End-to-end split-along-a-line workflow (#664).
 
-The toolbar's Split tool takes two snapped scene points with no source
-selection and splits every closed shape the drawn segment passes through; the
+The toolbar's Split tool takes two snapped scene points and splits crossed
+shapes from the preselection, or from the whole scene with no selection. The
 context-menu action scopes the same gesture to one shape. The source's layer,
 look, fill transform, label state, metadata and linked plants survive; a
 planted bed's plants are re-homed to the piece holding their standing point.
@@ -17,7 +17,7 @@ from unittest.mock import MagicMock
 
 import pytest
 from PyQt6.QtCore import QPointF, Qt
-from PyQt6.QtGui import QColor, QKeyEvent, QMouseEvent, QPainterPath
+from PyQt6.QtGui import QColor, QMouseEvent, QPainterPath
 from PyQt6.QtTest import QTest
 from PyQt6.QtWidgets import QGraphicsSceneContextMenuEvent, QMenu
 
@@ -51,6 +51,17 @@ def _add(canvas, item, *, select: bool = True):
 
 def _add_pieces(scene) -> list[PolygonItem]:
     return [item for item in scene.items() if isinstance(item, PolygonItem)]
+
+
+def _all_pieces(scene) -> list:
+    """Every piece, polygon or rectangle (#828: a straight cut may keep a frame)."""
+    from open_garden_planner.ui.canvas.items import RectangleItem
+
+    return [
+        item
+        for item in scene.items()
+        if isinstance(item, (PolygonItem, RectangleItem))
+    ]
 
 
 def _split(canvas, source, first: QPointF, second: QPointF, mouse_event) -> None:
@@ -108,12 +119,13 @@ def test_a_vertical_cut_keeps_look_metadata_and_is_one_undo_step(
     assert len(_add_pieces(scene)) == 2
 
 
-def test_the_cad_toolbar_starts_a_scene_wide_cut(qtbot, canvas) -> None:
+def test_the_cad_toolbar_only_splits_preselected_shapes(qtbot, canvas, mouse_event) -> None:
     from open_garden_planner.ui.widgets.constraint_toolbar import ConstraintToolbar
 
-    # A selection is deliberately present: Split must no longer arm it, because
-    # the toolbar tool cuts every shape the two-point line crosses (#664).
-    _add(canvas, RectangleItem(100, 100, 200, 100))
+    first = _add(canvas, RectangleItem(100, 100, 200, 100))
+    second = _add(canvas, RectangleItem(400, 100, 200, 100), select=False)
+    background = _add(canvas, RectangleItem(50, 50, 650, 200), select=False)
+    second.setSelected(True)
     toolbar = ConstraintToolbar()
     qtbot.addWidget(toolbar)
     toolbar.tool_selected.connect(canvas.set_active_tool)
@@ -127,8 +139,16 @@ def test_the_cad_toolbar_starts_a_scene_wide_cut(qtbot, canvas) -> None:
     QTest.qWait(10)
 
     assert canvas.tool_manager.active_tool_type is ToolType.SPLIT
-    assert canvas._split_tool.source_id is None
     assert messages[-1] == "Click the first point of the cutting line. Esc cancels."
+    tool = canvas._split_tool
+    tool.mouse_press(mouse_event, QPointF(0, 150))
+    tool.mouse_press(mouse_event, QPointF(800, 150))
+
+    assert first.scene() is None and second.scene() is None
+    assert background.scene() is canvas.scene()
+    assert len(_add_pieces(canvas.scene())) == 4
+    assert canvas.command_manager.undo_depth == 1
+    assert canvas.tool_manager.active_tool_type is ToolType.SELECT
 
 
 def test_the_cad_toolbar_stays_active_without_a_selection(qtbot, canvas) -> None:
@@ -146,7 +166,6 @@ def test_the_cad_toolbar_stays_active_without_a_selection(qtbot, canvas) -> None
 
     assert messages[-1] == "Click the first point of the cutting line. Esc cancels."
     assert canvas.tool_manager.active_tool_type is ToolType.SPLIT
-    assert canvas._split_tool.source_id is None
 
 
 def test_the_cad_toolbar_splits_every_shape_the_line_crosses(
@@ -164,7 +183,6 @@ def test_the_cad_toolbar_splits_every_shape_the_line_crosses(
     toolbar._buttons[ToolType.SPLIT].click()
     tool = canvas._split_tool
 
-    assert tool.source_id is None
     assert tool.mouse_press(mouse_event, QPointF(0, 150)) is True
     assert tool.mouse_press(mouse_event, QPointF(700, 150)) is True
 
@@ -322,6 +340,42 @@ def test_a_bed_with_linked_plants_rehomes_them_in_the_same_step(
         assert restored_plant.item_id in parent.child_item_ids
 
 
+def test_a_straight_split_raised_bed_rehomes_its_plants_to_the_rectangle_pieces(
+    canvas, mouse_event
+) -> None:
+    """#828: the pieces are rectangles now; membership follows their geometry too."""
+    from open_garden_planner.core.commands import set_parent_link
+
+    scene = canvas.scene()
+    bed = _add(
+        canvas,
+        RectangleItem(100, 100, 400, 100, object_type=ObjectType.RAISED_BED),
+        select=False,
+    )
+    plant = _add(
+        canvas,
+        CircleItem(150, 130, 20, object_type=ObjectType.PERENNIAL),
+        select=False,
+    )
+    assert set_parent_link(scene, plant, bed.item_id) is True
+
+    canvas.set_active_tool(ToolType.SPLIT)
+    tool = canvas._split_tool
+    tool.mouse_press(mouse_event, QPointF(0, 150))
+    tool.mouse_press(mouse_event, QPointF(700, 150))
+
+    pieces = _all_pieces(scene)
+    assert len(pieces) == 2
+    assert bed.scene() is None
+    parent = next(
+        (piece for piece in pieces if piece.item_id == plant.parent_bed_id), None
+    )
+    assert parent is not None, "the plant lost its bed"
+    assert plant.item_id in parent.child_item_ids
+    centre = plant.sceneBoundingRect().center()
+    assert parent.contains(parent.mapFromScene(centre))
+
+
 def test_a_scene_wide_cut_undoes_all_sources_in_one_step(canvas, mouse_event) -> None:
     scene = canvas.scene()
     first = _add(canvas, RectangleItem(100, 100, 200, 100), select=False)
@@ -388,6 +442,7 @@ def test_a_scene_wide_cut_skips_a_grouped_shape(canvas, mouse_event) -> None:
     first.setSelected(True)
     second.setSelected(True)
     canvas.group_selected()
+    scene.clearSelection()
     depth = canvas.command_manager.undo_depth
     messages: list[str] = []
     canvas.status_message.connect(messages.append)
@@ -637,9 +692,11 @@ def test_the_preview_follows_the_second_point_and_escape_leaves_no_command(
     assert len(tool._preview_pieces) == 2
     assert tool._preview_line is not None
 
-    escape = MagicMock(spec=QKeyEvent)
-    escape.key.return_value = Qt.Key.Key_Escape
-    assert tool.key_press(escape) is True
+    # The view's central Esc rule ends the tool (#829); the tool cancels its
+    # own preview and returns True.
+    from PyQt6.QtTest import QTest
+
+    QTest.keyClick(canvas, Qt.Key.Key_Escape)
 
     assert tool._preview_line is None
     assert tool._preview_pieces == []
@@ -840,25 +897,91 @@ def test_a_container_without_a_polygonal_form_is_refused(canvas) -> None:
     assert source.scene() is canvas.scene()
 
 
-def test_a_raised_bed_becomes_a_garden_bed(canvas, mouse_event) -> None:
+def test_a_straight_cut_of_a_raised_bed_gives_two_raised_beds(
+    canvas, mouse_event
+) -> None:
+    """#828, option 2: an axis-parallel piece keeps the source's shape class."""
+    from open_garden_planner.ui.canvas.items import RectangleItem
+
     source = _add(
         canvas,
         RectangleItem(100, 100, 200, 100, object_type=ObjectType.RAISED_BED),
     )
     _split(canvas, source, QPointF(200, 0), QPointF(200, 400), mouse_event)
 
+    pieces = _all_pieces(canvas.scene())
+    assert len(pieces) == 2
+    for piece in pieces:
+        assert isinstance(piece, RectangleItem)
+        assert piece.object_type is ObjectType.RAISED_BED
+        assert piece.paints_sprite, "the wooden frame is gone"
+
+
+def test_a_rotated_raised_bed_cut_along_its_own_axis_keeps_its_frame(
+    canvas, mouse_event
+) -> None:
+    """The local frame, not the screen, decides: a turned bed keeps its frame."""
+    from open_garden_planner.ui.canvas.items import RectangleItem
+
+    source = RectangleItem(100, 100, 200, 100, object_type=ObjectType.RAISED_BED)
+    source._apply_rotation(30.0)
+    _add(canvas, source)
+
+    # The cut runs along the bed's own x axis through its middle (local y=150).
+    _split(
+        canvas,
+        source,
+        source.mapToScene(QPointF(0, 150)),
+        source.mapToScene(QPointF(400, 150)),
+        mouse_event,
+    )
+
+    pieces = _all_pieces(canvas.scene())
+    assert len(pieces) == 2
+    for piece in pieces:
+        assert isinstance(piece, RectangleItem)
+        assert piece.object_type is ObjectType.RAISED_BED
+        assert piece.paints_sprite
+        assert piece.rotation() == pytest.approx(30.0)
+        assert piece.rect().width() * piece.rect().height() == pytest.approx(
+            200.0 * 50.0
+        )
+    union = pieces[0].sceneBoundingRect().united(pieces[1].sceneBoundingRect())
+    source_rect = source.sceneBoundingRect()
+    assert union.x() == pytest.approx(source_rect.x(), abs=0.01)
+    assert union.y() == pytest.approx(source_rect.y(), abs=0.01)
+    assert union.width() == pytest.approx(source_rect.width(), abs=0.01)
+    assert union.height() == pytest.approx(source_rect.height(), abs=0.01)
+
+
+def test_a_diagonal_cut_of_a_raised_bed_stays_a_pair_of_garden_beds(
+    canvas, mouse_event
+) -> None:
+    """The documented limit of option 2: a diagonal piece cannot carry the sprite."""
+    from open_garden_planner.ui.canvas.items import PolygonItem
+
+    source = _add(
+        canvas,
+        RectangleItem(100, 100, 200, 100, object_type=ObjectType.RAISED_BED),
+    )
+    _split(canvas, source, QPointF(100, 100), QPointF(300, 200), mouse_event)
+
     pieces = _add_pieces(canvas.scene())
     assert len(pieces) == 2
-    assert all(piece.object_type is ObjectType.GARDEN_BED for piece in pieces)
+    for piece in pieces:
+        assert isinstance(piece, PolygonItem)
+        assert piece.object_type is ObjectType.GARDEN_BED
+        assert piece.fill_pattern is FillPattern.SOIL
+        assert piece.brush().style() == Qt.BrushStyle.TexturePattern
 
 
-def test_a_split_raised_bed_keeps_its_height_and_gets_the_soil_texture(
+def test_a_split_raised_bed_keeps_its_frame_and_height(
     canvas, mouse_event, tmp_path
 ) -> None:
-    """Manual test 2 of PR #783: the pieces went flat brown and lost 40 cm.
+    """Manual test 2 of PR #783 + #828: pieces keep the frame and the 40 cm.
 
-    A raised bed is 40 cm by its TYPE default and painted as a sprite, so
-    neither survives a plain copy onto a garden-bed polygon.
+    A raised bed is 40 cm by its TYPE default and painted as a sprite; a
+    straight cut now keeps both instead of turning the pieces into flat beds.
     """
     from open_garden_planner.core.object_height import effective_height_cm
 
@@ -871,26 +994,26 @@ def test_a_split_raised_bed_keeps_its_height_and_gets_the_soil_texture(
     assert "object_height_cm" not in source.metadata
     assert effective_height_cm(source.object_type, source.metadata) == 40.0
 
-    _split(canvas, source, QPointF(150, 0), QPointF(250, 400), mouse_event)
+    _split(canvas, source, QPointF(200, 0), QPointF(200, 400), mouse_event)
 
-    pieces = _add_pieces(scene)
+    pieces = _all_pieces(scene)
     assert len(pieces) == 2
     for piece in pieces:
-        assert piece.object_type is ObjectType.GARDEN_BED
+        assert piece.object_type is ObjectType.RAISED_BED
+        assert piece.paints_sprite
         assert effective_height_cm(piece.object_type, piece.metadata) == 40.0
-        assert piece.fill_pattern is FillPattern.SOIL
-        assert piece.brush().style() == Qt.BrushStyle.TexturePattern
     assert "object_height_cm" not in source.metadata, "the source was mutated"
 
     target = tmp_path / "raised-bed.ogp"
     manager = ProjectManager()
     manager.save(scene, target)
     manager.load(scene, target)
-    reloaded = _add_pieces(scene)
+    reloaded = _all_pieces(scene)
     assert len(reloaded) == 2
     for piece in reloaded:
+        assert piece.object_type is ObjectType.RAISED_BED
+        assert piece.paints_sprite
         assert effective_height_cm(piece.object_type, piece.metadata) == 40.0
-        assert piece.fill_pattern is FillPattern.SOIL
 
 
 def test_a_split_raised_bed_keeps_a_height_the_user_set(canvas, mouse_event) -> None:
@@ -902,7 +1025,7 @@ def test_a_split_raised_bed_keeps_a_height_the_user_set(canvas, mouse_event) -> 
 
     _split(canvas, source, QPointF(200, 0), QPointF(200, 400), mouse_event)
 
-    for piece in _add_pieces(canvas.scene()):
+    for piece in _all_pieces(canvas.scene()):
         assert piece.metadata["object_height_cm"] == 75.0
         assert effective_height_cm(piece.object_type, piece.metadata) == 75.0
 
@@ -1116,7 +1239,7 @@ def test_a_building_whose_ridge_is_on_a_locked_layer_is_not_split(canvas) -> Non
     scene.add_layer(locked)
     ridge.layer_id = locked.id
 
-    assert canvas.split_refusal_reason(source) == "The shape is on a locked layer"
+    assert canvas.split_refusal_reason(source) == "The roof ridge is on a locked layer"
     assert canvas.start_split_shape(source) is False
     assert ridge.scene() is scene and source.scene() is scene
 
@@ -1153,8 +1276,11 @@ def test_a_plant_or_group_member_refuses_the_split(canvas) -> None:
     assert member.scene() is scene
 
 
-def test_project_tracking_records_refuse_the_split(canvas) -> None:
+def test_project_tracking_records_refuse_the_split_without_cutting_the_background(
+    canvas, mouse_event
+) -> None:
     source = _add(canvas, RectangleItem(100, 100, 200, 100))
+    lawn = _add(canvas, RectangleItem(50, 50, 500, 150, object_type=ObjectType.LAWN), select=False)
     manager = ProjectManager()
     manager.set_soil_test_history(
         str(source.item_id), SimpleNamespace(to_dict=lambda: {"records": []})
@@ -1162,8 +1288,17 @@ def test_project_tracking_records_refuse_the_split(canvas) -> None:
     canvas._project_manager = manager
 
     assert canvas.start_split_shape(source) is False
+    messages: list[str] = []
+    canvas.status_message.connect(messages.append)
+    canvas.set_active_tool(ToolType.SPLIT)
+    tool = canvas._split_tool
+    tool.mouse_press(mouse_event, QPointF(0, 150))
+    tool.mouse_press(mouse_event, QPointF(600, 150))
+
     assert source.scene() is canvas.scene()
+    assert lawn.scene() is canvas.scene()
     assert canvas.command_manager.undo_depth == 0
+    assert messages[-1] == "Nothing was split: The shape has tracking records that a split cannot preserve"
 
 
 def test_the_local_piece_geometry_reconstructs_the_source(canvas) -> None:

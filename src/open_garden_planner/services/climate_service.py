@@ -72,6 +72,10 @@ class FrostData:
     data_source: str               # "open-meteo" | "cached"
     latitude: float
     longitude: float
+    #: The IANA zone Open-Meteo resolves for the coordinates (#945), if any.
+    #: The Location dialog offers it as the plan's time zone; old cache files
+    #: have none and the field stays ``None``.
+    timezone: str | None = None
 
 
 class ClimateServiceError(Exception):
@@ -155,6 +159,7 @@ class ClimateService:
                 data_source="cached",
                 latitude=lat,
                 longitude=lon,
+                timezone=raw.get("timezone"),
             )
         except Exception as exc:
             logger.warning("Failed to load climate cache: %s", exc)
@@ -169,6 +174,7 @@ class ClimateService:
                 "last_spring_frost": data.last_spring_frost,
                 "first_fall_frost": data.first_fall_frost,
                 "hardiness_zone": data.hardiness_zone,
+                "timezone": data.timezone,
             }
             cache_file.write_text(json.dumps(payload, indent=2), encoding="utf-8")
         except Exception as exc:
@@ -226,7 +232,14 @@ class ClimateService:
                 "No temperature data received from Open-Meteo"
             )
 
-        return self._compute_frost_data(lat, lon, dates, temps)
+        timezone_name = raw.get("timezone")
+        return self._compute_frost_data(
+            lat,
+            lon,
+            dates,
+            temps,
+            timezone=timezone_name if isinstance(timezone_name, str) else None,
+        )
 
     # ------------------------------------------------------------------
     # Computation helpers
@@ -238,6 +251,8 @@ class ClimateService:
         lon: float,
         dates: list[str],
         temps: list[float | None],
+        *,
+        timezone: str | None = None,
     ) -> FrostData:
         """Derive frost dates and hardiness zone from daily minimum temps.
 
@@ -299,6 +314,7 @@ class ClimateService:
             data_source="open-meteo",
             latitude=lat,
             longitude=lon,
+            timezone=timezone,
         )
 
 

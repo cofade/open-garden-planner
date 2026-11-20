@@ -265,6 +265,21 @@ TRANSLATIONS: dict[str, dict[str, str]] = {
             "Auf der Karte ein Rechteck aufziehen.",
     },
 
+    "LocationDialog": {
+        "Time zone:": "Zeitzone:",
+        "Same as this computer": "Wie dieser Computer",
+        "The garden's time zone. The plan's clock, its sun and a camera "
+        "tour's time range use it. Leave it on the computer's zone when "
+        "the garden is where this computer is.":
+            "Die Zeitzone des Gartens. Plan-Uhr, Sonne und der Zeitbereich "
+            "einer Kamerafahrt verwenden sie. Lassen Sie sie auf der Zeitzone "
+            "dieses Computers, wenn der Garten dort liegt, wo dieser Computer "
+            "steht.",
+        "Unknown time zone": "Unbekannte Zeitzone",
+        "{name} is not a known time zone.":
+            "{name} ist keine bekannte Zeitzone.",
+    },
+
     # ── CanvasView ──
     # CanvasScene — calibration status strings, live since #415 fixed the
     # status route (027bee1). A BARE LITERAL here is invisible to the
@@ -3648,6 +3663,8 @@ _CAD_EDITING_TRANSLATIONS: dict[str, dict[str, str]] = {
             "Die Form ist nicht mehr in diesem Plan",
         "The shape is on a locked layer":
             "Die Form liegt auf einer gesperrten Ebene",
+        "The roof ridge is on a locked layer":
+            "Der Dachfirst liegt auf einer gesperrten Ebene",
         "This shape has no closed outline to split":
             "Diese Form hat keine geschlossene Kontur zum Teilen",
         "This shape type has no polygonal form to split into":

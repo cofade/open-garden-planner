@@ -2,8 +2,30 @@
 
 from pathlib import Path
 
+import pytest
+
 from open_garden_planner.app.application import GardenPlannerApp
 from open_garden_planner.main import get_icon_path
+
+
+@pytest.fixture(autouse=True)
+def _close_app_windows():
+    """Close every full window this module created, before the next test.
+
+    The window owns an agent host and heatmap/update QThreads. Leaving them to
+    pytest-qt's later teardown let a worker disappear during the full suite at
+    an unrelated test; closing here is the same discipline the ``tz_app``
+    fixture applies to the clock tests.
+    """
+    yield
+    from PyQt6.QtWidgets import QApplication
+
+    for widget in QApplication.topLevelWidgets():
+        if isinstance(widget, GardenPlannerApp):
+            widget._autosave_manager.stop()
+            widget._autosave_manager.clear_autosave()
+            widget._project_manager.mark_clean()
+            widget.close()
 
 
 class TestMainWindow:
@@ -387,6 +409,51 @@ class TestPreviewMode:
         assert window._preview_mode
         window._exit_preview_mode()
         assert not window._preview_mode
+
+    def test_escape_ends_a_picked_tool_before_it_leaves_the_preview(
+        self, qtbot
+    ) -> None:
+        """#829: one Esc means the same thing wherever the focus sits.
+
+        With the focus on the window rather than the canvas, the first Esc must
+        end a tool picked inside the preview; only the next one leaves it. The
+        old order left the preview immediately and skipped the tool.
+        """
+        from PyQt6.QtCore import Qt
+        from PyQt6.QtTest import QTest
+
+        from open_garden_planner.core.tools import ToolType
+
+        window = GardenPlannerApp()
+        qtbot.addWidget(window)
+        window._autosave_manager.stop()
+        window.show()
+        QTest.qWaitForWindowExposed(window)
+        try:
+            window._enter_preview_mode()
+            window.canvas_view.set_active_tool(ToolType.RECTANGLE)
+            assert (
+                window.canvas_view.tool_manager.active_tool_type
+                is ToolType.RECTANGLE
+            )
+
+            window.setFocus()
+            QTest.keyClick(window, Qt.Key.Key_Escape)
+
+            assert window._preview_mode, "the first Esc left the preview"
+            assert (
+                window.canvas_view.tool_manager.active_tool_type is ToolType.SELECT
+            )
+
+            QTest.keyClick(window, Qt.Key.Key_Escape)
+
+            assert not window._preview_mode, "the second Esc did not leave the preview"
+        finally:
+            # The full window owns an autosave timer and the agent host; close it
+            # cleanly so pytest-qt's later teardown cannot race a modal prompt.
+            window._project_manager.mark_clean()
+            window._autosave_manager.clear_autosave()
+            window.close()
 
     def test_double_exit_is_idempotent(self, qtbot) -> None:
         """Test that exiting preview mode twice doesn't cause issues."""

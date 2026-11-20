@@ -5233,6 +5233,39 @@ date steps) and the render tier's two-week clock-change luma gate
 (`tests/integration/test_directors_cut_render.py::test_a_year_time_lapse_does_not_jump_at_the_clock_change`:
 largest step 1.53 levels after the fix against 18.07 before it).
 
+### Addendum #945 (2026-11-20): the plan's own time zone
+
+The "garden location's zone" alternative rejected above is now implemented, because the
+location does carry a zone: the example generator has written `location["timezone"]` all
+along, and the Location dialog now writes it too (an editable IANA-name picker, prefilled
+by the Open-Meteo lookup). The clock, the toolbar's wall time, a camera tour's time range
+and the "Today" button read it.
+
+- **The stored key is additive.** `location["timezone"]` sits inside the existing location
+  dict; a plan without it behaves exactly as before (the computer's zone), and an unknown
+  name is treated as absent rather than failing the load. No `FILE_VERSION` change.
+- **`core/plan_time.py`** is the one resolver: `plan_timezone_name`, `plan_timezone`
+  (an invalid name → `None`), `timezone_names` for the picker and `plan_today`, which
+  answers the garden's date for the toolbar's Past/Today/Future state. It is Qt-free.
+- **`SimClock.set_timezone(tz)` keeps the WALL reading and moves the instant.** The date
+  and time of day are the plan's local reading the user is looking at, so they are kept
+  (including `fold`); the sun is re-solved for the same reading at the garden's place.
+  A zone change is not a date change: `date_changed` does not fire and growth is untouched.
+  `None` returns to the computer's zone.
+- **Windows has no IANA database.** `tzdata` is now a runtime dependency, and
+  `installer/ogp.spec` collects its files: without them every named zone raises
+  `ZoneInfoNotFoundError` in a frozen build. The data package is Apache-2.0.
+- **"Today" follows the garden, not the computer.** The toolbar takes a `today_provider`
+  (the app passes `plan_today(project.location)`), so a plan in Tokyo on a Berlin computer
+  shows the correct Past/Today/Future state and jumps to the garden's current date and time.
+- **Not changed:** a plan with no zone still uses the computer's; the 2D plant icon's
+  real-date rule (FR-SUN-08) and task/calendar `date.today()` reads are out of scope here.
+
+Pinned by `tests/unit/test_plan_time.py`, `tests/unit/test_sim_clock.py::TestPlanTimezone`,
+`tests/unit/test_location_dialog.py` and
+`tests/integration/test_sim_clock_wiring.py::TestThePlansTimeZone` (a location change, a
+save/reload round trip and clearing the zone).
+
 ## ADR-054: Recorded species traits and semantic food-forest layers (#312)
 
 **Status:** Accepted for Package F1, October 2026. Additive `.ogp` version 1.4.
@@ -9455,7 +9488,7 @@ map status takes no space. Complete control groups centre vertically within each
 row and wrap at narrow widths;
 the calendar's width derives from font metrics. Page steps remain twelve months.
 Within a continuous month drag a preferred 31st survives February; direct calendar
-edits establish a new preferred day. Today preserves time and daily animation keeps
+edits establish a new preferred day. Today sets the current date and time. Daily animation keeps
 running while the user changes the date. No independent date state is introduced.
 
 Decorative shadows and solar simulation are always on, including night/no-location
@@ -9566,9 +9599,9 @@ The owner found the separate Past/Future label more disruptive than useful. It
 appeared, disappeared and changed width as the date moved. That pushed the
 controls after it, including the month slider under the dragging pointer. The
 label is removed. The Today button says Past or Future in its own place while the
-plan date is elsewhere. Its tooltip says where the date is and that a click goes
-back to today, and the click does what it always did. On today it says Today and
-is disabled, as before.
+plan date is elsewhere. The button always stays enabled. A click sends the
+current aware instant to the simulation clock, which updates the plan date and
+time together in the plan's zone. This also resets a scrubbed time on today's date.
 
 The button has one width for all three texts. `_TodayButton.sizeHint` keeps the
 style's padding and puts it around the widest of the three texts in the active
@@ -9581,7 +9614,8 @@ of 432 with unhinted fonts at 100 %.
 One letter's width is added as the buffer the owner asked for. The width follows a
 font or theme change, because it is a size hint and not a fixed pixel value. A
 language change takes effect on restart, as for every string in the app. The
-button's accessible name stays "Go to today", because its text now names a state.
+button's accessible name and tooltip describe the action, "Go to the current date
+and time".
 
 The cost is a wider Today group on today. With real Verdana 9 pt (Windows font
 engine) the button goes from 59 to 123 px in German and from 45 to 78 px in
@@ -10871,10 +10905,11 @@ a seedling emoji; its paths are 6 and 8 cm hairlines. The teaching date lived in
    tour's hold and not from the frame, and re-bases the hold after its write, so the tour's
    finish returns the clock to the document that is open then.
 3. **The moment is a UTC time of day on the local reference date**, applied with
-   `SimClock.set_utc_time_on`, the operation a camera tour already uses. The clock reads wall
-   time in the computer's zone; a wall-clock "13:00" is night over Berlin for a user in
-   Auckland. The plan date is the reference date in every zone, and the sun stands where it does
-   at 13:00 in the example's own place (11:00 UTC, all four).
+   `SimClock.set_utc_time_on`, the operation a camera tour already uses. The clock originally
+   displayed wall time in the computer's zone. The ADR-053 addendum for #945 supersedes
+   that behavior for plans with a named time zone. The plan date is the reference date
+   in every zone, and the sun stands where it does at 13:00 in the example's own place
+   (11:00 UTC, all four).
 4. **Example copies keep a fictional harvest history** *(owner; supersedes "No history exemption
    is added" above for this one field)*. `EXAMPLE_DEMO_FIELDS` is `location`, `soil_tests`,
    `harvest_logs`. The records sit on one plant per species, lie between planting date and
@@ -10961,9 +10996,9 @@ rotated north, stored camera tours and 61 of the 118 species.
 6. **Every plan stores an orbit.** A promo video is then a button press in a shipped plan and
    any user can make the same one. Framed from the plan's bounds as the Camera Tour dialog
    frames one, started with the showcase sun behind the camera, every number rounded.
-7. **All places share Central European Time.** The clock and a tour's time range read the
-   computer's zone and the plan's `timezone` is not read (#945). The Japanese garden lies in
-   Düsseldorf for that reason.
+7. **The examples share Central European clock time.** The Japanese garden was placed in Düsseldorf
+   when the clock and tours only used the computer's zone. The ADR-053 addendum for #945
+   now governs how the clock and tours use the plan's named zone.
 8. **One thumbnail per plan.** It shows the plan at its showcase moment without the hint
    layer, so it has no text to translate. A picture per language cost 8 MB for one image.
 9. **A harvest history is not mandatory.** The modern and the Japanese garden have no honest
@@ -13157,7 +13192,9 @@ User-visible strings are covered in EN/DE/ES/RU. Pins:
 `tests/unit/test_object_height.py::TestHeightAcrossATypeChange`.
 Cross-refs: FR-35, §8.35, PF-CAN-46, PF-CAN-48.
 
-**Addendum (2026-11-09) — the split tool is scene-wide, and its shortcut is Shift+S.**
+**Addendum (2026-11-09) — two-point cuts without a selection, and the Shift+S shortcut.**
+
+Addendum 5 defines how a preselection limits this gesture.
 Manual testing of PR #783 rejected the first interaction: the toolbar's Split tool
 required a selected shape (or a shape-picking first click), so a line could cut only
 one object and a scene-wide cut took three clicks. The owner's expectation is the
@@ -13220,6 +13257,68 @@ decided and what was rejected.
    PF-UI-36). The focused inline editor receives the same Esc first.
 5. **The minimap hides a selected group's descendants by opacity** instead of a flag
    (PF-CAN-48).
+
+**Addendum 3 (2026-11-20) — the Esc plumbing and overlay typing are finished (#829).**
+The P2 findings of the PR #783 reviews are closed without changing any behaviour the
+owner tested.
+
+1. **One Esc rule, in preview too.** The main window's preview branch calls
+   `CanvasView.handle_escape()` before leaving the preview, so the first Esc ends a tool
+   picked inside the preview wherever the focus is (the canvas already handled it when it
+   had the key) and the second leaves the preview. `FR-TOOL-ESC-01` says so. The per-tool
+   Esc switches in the Split, Callout and Journal Pin tools are gone: the view's central
+   rule returns to Select, so a tool only cancels its own gesture.
+2. **The inline editor is declared, not guessed.** `TextItem`, `EditableLabel` and the
+   callout's text child carry `is_inline_text_editor = True`; the canvas tests that marker
+   instead of `hasattr(focus, "toPlainText")`, which agreed only because no fourth class
+   happened to hold scene focus.
+3. **Every tool switch goes through the view.** The four sites that called
+   `_tool_manager.set_active_tool` directly (the offset tool and the vertex-edit action of
+   the polygon, polyline and rectangle items) now call `CanvasView.set_active_tool`, so the
+   distance/angle prompt is hidden and the typed-input buffer is cleared there too. A drift
+   test fails if a new direct call appears outside `canvas_view.py`.
+4. **The dynamic overlay is typed.** `_dynamic_overlay` is `DynamicInputOverlay | None`
+   under `TYPE_CHECKING`; the former `object` annotation, its `getattr`/`callable` guard and
+   the mypy baseline entry are gone.
+5. **The split refusal names the ridge.** When the shape itself is editable but its derived
+   roof ridge is on a locked layer, the message says "The roof ridge is on a locked layer"
+   instead of blaming the shape.
+6. **The minimap's hide/restore is one value.** `_hide_overlay_items` returns
+   `(item, restore_opacity)` pairs (`None` for the flag path) and `_restore_overlay_items`
+   consumes them; the `_faded` side dictionary is gone, so a caller that restores in a
+   `finally` carries everything it needs.
+
+**Addendum 4 (2026-11-20) — a straight cut keeps the raised bed's frame (#828).**
+Addendum 2, item 3, said a piece is a garden bed because the wooden frame is a
+rectangle-only sprite. The owner asked for the frame back. The chosen option is the
+smaller of the two the issue offered: a piece that is an **axis-parallel rectangle in
+the source's own frame** and comes from a **sprite-painted type that a polygon cannot
+carry** is rebuilt as a `RectangleItem` of the source's type, so it paints the same
+sprite and keeps its type default. In practice that is a **raised bed** (40 cm); a
+legacy live `HEDGE_SECTION` takes the same path, while a saved one is migrated to
+`HEDGE_POLYGON` on load and is already polygonal. Every other case is unchanged: a
+diagonal cut of a raised bed still gives garden beds; a house or a terrace still gives
+polygons that keep their type; a generic rectangle still becomes a generic polygon, as
+before. The recognition is
+`shape_split.axis_parallel_rect` (tolerance 0.01 cm) and the decision is made once in
+`SplitShapeTool._make_piece`, so the previewed **geometry** and the committed pieces
+agree; the preview stays a type-neutral dashed outline. No `FILE_VERSION` change: both
+rebuilt types already exist and a rectangle was always a valid carrier.
+
+Pinned by `tests/unit/test_axis_parallel_rect.py` and
+`tests/integration/test_split_shapes.py::test_a_straight_cut_of_a_raised_bed_gives_two_raised_beds`,
+`::test_a_diagonal_cut_of_a_raised_bed_stays_a_pair_of_garden_beds` and
+`::test_a_split_raised_bed_keeps_its_frame_and_height`.
+**Addendum 5 (PR #981) — the preselection sets the scope of Split.**
+
+The toolbar and Shift+S capture the effective selection at activation. With a
+selection, only those targets can be cut, even if all of them are refused or
+removed before the second point. With no selection, the tool takes the usual
+scene-wide path. A successful scoped cut returns to Select. The raised-bed
+example exercises the refusal because its soil test and succession plan refer
+to the original bed ID. A freshly drawn raised bed exercises the frame-preserving
+cut.
+
 ## ADR-076: Exports paint one picture — a recorded SVG, raster plan pages in the PDF, live SVG text (#787, #788, #789)
 
 **Status**: Accepted (visual-polish package, 2026-11-09); shipped in v1.38.0 (PR #838)
@@ -13594,6 +13693,45 @@ before.
 - *Force English decimal marks to keep the pure module Qt-free.* Rejected: the explicit decimal-mark argument and thin adapter preserve the later locale contract.
 
 **Consequences**: No dependency or file-format change. Metric remains the default. Temperature, precipitation, harvest mass and a Canadian mixed preset need separate decisions (#907); DXF unit selection and per-plan overrides are deferred. Tests: `test_units.py`, `test_unit_preference.py`, `test_unit_spin_box.py`, `test_units_surfaces.py`, `test_unit_dialogs.py`, `test_unit_reports.py`, `test_units_guard.py`, `test_coordinate_units.py` and the save/reopen workflow in `tests/integration/test_unit_system.py`. FR-MEAS-07; §8.9.19.
+
+## ADR-079: The IANA time-zone data (`tzdata`) is a runtime dependency (#945)
+
+**Status**: Accepted (2026-11-20), part of the plan-time-zone change (ADR-053 addendum).
+
+**Context**: The plan's location may name an IANA zone (`"Europe/Berlin"`), and
+`core/plan_time.py` resolves it with `zoneinfo.ZoneInfo` so the clock, toolbar, a camera
+tour's wall-time range and "Today" use the garden's time. Python's `zoneinfo` reads the
+operating system's database on Linux/macOS, but **Windows ships none**; without a data
+package every named zone raises `ZoneInfoNotFoundError` and the plan silently falls back
+to the computer's zone. The CI Linux runners have system tz data, so the gap is invisible
+there and only appears on the product's primary platform.
+
+**Decision**: Add `tzdata` (the IANA database packaged for Python, Apache-2.0) as a
+runtime dependency. The pinned `pyinstaller-hooks-contrib` hooks carry it into the frozen
+build: `hook-zoneinfo.py` adds `tzdata` as a hidden import on Windows and `hook-tzdata.py`
+collects its data and submodules. `--selftest` queries `available_timezones()` (at least
+400 names, including one representative per populated continent) and checks
+`Europe/Berlin` and `America/New_York` in summer **and** winter, so a hook regression, a
+missing continent or a truncated zone list fails the frozen gate rather than a user's
+plan. No application
+code imports `tzdata` at startup; the frozen graph includes it through those hooks. The
+data is versioned by the IANA release and refreshed by the normal dependency-update
+chore. A plan without a zone, or with an unknown name, still behaves exactly as before.
+
+**Alternatives considered**:
+- *Fixed UTC offsets.* Rejected: a plan spans dates across both daylight-saving changes;
+  a fixed offset makes a summer shadow wrong in winter and a year tour jump by an hour.
+- *Map the Windows zone name through the registry.* Rejected: it yields a localized
+  display name, not a stable IANA key, and cannot round-trip a plan opened elsewhere.
+- *Ship a private subset of the IANA database.* Rejected: a garden can be anywhere, and a
+  hand-maintained subset would go stale exactly like the data it replaces.
+- *Keep the computer's zone and document the limit.* Rejected: it is the #945 defect.
+
+**Consequences**: The lock, `pylock.toml`, the SBOM and the installer carry one more
+runtime distribution; the frozen build is larger by the compressed database and its
+dist-info. Tests that used to skip on a bare Windows venv (the IANA cases in
+`test_sim_clock.py`) now run there. See ADR-053 addendum, FR-SUN-04, PF-DOM-35 and
+`tests/unit/test_plan_time.py`.
 
 ### ADR-076 addendum: canvas pictures have explicit consumers (#847, #848, #877, #878)
 

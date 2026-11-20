@@ -37,6 +37,10 @@ from .text_item import MAX_DISPLAY_TEXT_CHARS, bound_display_text
 class _CalloutTextChild(QGraphicsTextItem):
     """Child text item for CalloutItem that routes focus/key events back to the parent."""
 
+    #: The canvas's Esc routing finishes this edit before ending the active
+    #: tool (#829).
+    is_inline_text_editor = True
+
     editing_finished = pyqtSignal()
 
     def focusOutEvent(self, event: Any) -> None:

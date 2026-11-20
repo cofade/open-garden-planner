@@ -1,7 +1,7 @@
 """Combined date/time controls, accurate live-map previews and export readiness."""
 
 from concurrent.futures import Future, ThreadPoolExecutor, TimeoutError
-from datetime import date, datetime, time, timedelta
+from datetime import UTC, date, datetime, time, timedelta
 from threading import Event, get_ident
 
 import numpy as np
@@ -418,7 +418,14 @@ def test_sun_location_hint_opens_existing_dialog_and_recovers_map(win, qtbot, jo
     assert not bar._location_button.isHidden()
 
 
-def test_month_day_clamping_time_edit_animation_and_today(win):
+def test_month_day_clamping_time_edit_animation_and_today(win, monkeypatch):
+    # The current instant is still 31 December UTC but already 1 January in Tokyo.
+    now = datetime(2026, 12, 31, 16, 42, 7, tzinfo=UTC)
+    from open_garden_planner.core.plan_time import plan_now
+
+    monkeypatch.setattr("open_garden_planner.app.application.plan_now",
+                        lambda location: plan_now(location, now=now))
+    win._project_manager.set_location(dict(BERLIN, timezone="Asia/Tokyo"))
     bar = win._sun_toolbar
     bar._date_edit.setDate(QDate(2028, 1, 31))
     bar._time_edit.setTime(QTime(15, 17))
@@ -435,9 +442,14 @@ def test_month_day_clamping_time_edit_animation_and_today(win):
     bar._month_slider.setValue(month_number(date(2027, 7, 1)))
     assert win._sim_clock.plan_date == date(2027, 7, 21)
     bar._today_button.click()
-    assert win._sim_clock.plan_date == date.today()
-    assert win._sim_clock.time_of_day == time(15, 27)
-    assert bar._today_button.text() == bar.tr("Today") and not bar._today_button.isEnabled()
+    assert win._sim_clock.plan_date == date(2027, 1, 1)
+    assert win._sim_clock.time_of_day == time(1, 42, 7)
+    assert win._sim_clock.utc == now
+    assert bar._time_edit.time() == QTime(1, 42)
+    assert bar._today_button.text() == bar.tr("Today")
+    bar._time_edit.setTime(QTime(5, 15))
+    bar._today_button.click()
+    assert win._sim_clock.utc == now
 
 
 @pytest.mark.parametrize("theme", ["dark", "light"])
@@ -629,7 +641,7 @@ def test_today_button_says_past_or_future_in_place_and_nothing_after_it_moves(qt
         bar = win._sun_toolbar
         button = bar._today_button
         width, slider_x = button.width(), bar._month_slider.mapTo(bar, QPoint()).x()
-        assert button.text() == bar.tr("Today") and not button.isEnabled()
+        assert button.text() == bar.tr("Today") and button.isEnabled()
         now = bar._month_slider.value()
         # the scrub the owner made: across today and back, by the month slider
         for month, text in ((now - 1, bar.tr("Past")), (now + 3, bar.tr("Future")),
@@ -637,7 +649,7 @@ def test_today_button_says_past_or_future_in_place_and_nothing_after_it_moves(qt
             bar._month_slider.setValue(month)
             qtbot.wait(20)
             assert button.text() == text
-            assert button.isEnabled() == (text != bar.tr("Today"))
+            assert button.isEnabled()
             assert button.width() == width, text
             assert bar._month_slider.mapTo(bar, QPoint()).x() == slider_x, text
         assert win._sim_clock.plan_date == date.today()
@@ -650,10 +662,10 @@ def test_today_button_says_past_or_future_in_place_and_nothing_after_it_moves(qt
             probe.deleteLater()
         win._sim_clock.set_date(date(date.today().year + 2, 6, 1))
         assert button.text() == bar.tr("Future")
-        assert button.toolTip() == bar.tr("The plan date is in the future. Click to go back to today.")
+        assert button.toolTip() == bar.tr("Go to the current date and time")
         button.click()
         assert win._sim_clock.plan_date == date.today()
-        assert button.text() == bar.tr("Today") and not button.isEnabled()
+        assert button.text() == bar.tr("Today") and button.isEnabled()
     finally:
         load_translator(app, "en")
         apply_theme(app, original_theme)

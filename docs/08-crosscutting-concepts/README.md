@@ -1483,6 +1483,13 @@ isolate itself would write there and not into anybody's settings.
 probe that is not committed has no such test: write it as a pytest test, or give it the same
 two calls.
 
+**A probe that builds the whole `GardenPlannerApp` window** does two more things that
+`tests/conftest.py` already does for the suite. It replaces `_show_welcome_dialog`, whose
+`exec()` is modal and otherwise leaves the probe waiting on a dialog nobody sees. And it keeps
+canvas clicks at least `CanvasView.RULER_SIZE` (20 px) away from the viewport's left and top
+edges: a press inside a ruler starts a guide drag, not a canvas gesture, so a probe that aims at
+a scene position near the edge measures the wrong thing (#829).
+
 **No test starts another tool.** `detect_clients()` probes a client CLI it finds on `PATH` by
 running it. `tests/unit/test_ai_client_onboarding.py` puts no CLI on `PATH` by default and makes
 the module's `subprocess.run` raise; a test that plays a CLI replaces it, and the one that only
@@ -9273,7 +9280,7 @@ control must pass. Plugins do not rewrite production source. Reports go to
 
 The shared SimClock local date is the plan date. One permanent Plan & Sun strip
 holds the exact calendar and monthly slider, which preserves the preferred day
-(clamping short months). Today preserves wall time.
+(clamping short months). Today resets the date and time to the current instant.
 Neither date navigation nor visibility filtering adds history or persists a date.
 
 CanvasScene is the layer/date visibility seam: a plant is visible only when its
@@ -9346,8 +9353,8 @@ and centre their controls vertically. Date/time fields use the same themed sizin
 The Today button says Past or Future in its own place while the plan date is
 elsewhere, at one width for all three texts (`_TodayButton.sizeHint`, each text
 measured as `QToolButton` measures it), so no control after it moves while the date
-does; a click goes back to today (ADR-062 addendum "Past/Future in the Today
-button": a separate label pushed the month slider under the dragging pointer). To keep
+does. The button stays enabled and sends the current instant to the clock in one
+write, including when the plan date is already today (ADR-062 addendum). To keep
 the strip within two rows the sliders shrink, but no narrower than 70 px (`_MIN_SLIDER_WIDTH`). Map status consumes space only
 while needed: a completed current map shares the calendar's date, an updating map
 for that date says Updating, and an older preview retains its actual date. The
@@ -9497,11 +9504,11 @@ Authoring rules (#940), each with what holds it:
 | A row, a grid and a drift state their planting distance, and a plant given a size is kept at that spread: the builder stores it as the plant's own spacing radius where it is less than the species' (`Plan.plant(apart=)`). Orchard trees of the food forest keep the species' radius and stand as far apart as their grown crowns need. A later drift gives way to an earlier one. | The spacing check compares the species' grown spread: a lavender edging, a bamboo screen and a sown row are planted closer on purpose, and a check that reports all of them reports nothing. | the same test |
 | Every item of every plan builds in 3D with the production builders. | A type or a fill no builder knows is a hole in the 3D view. | `test_every_item_of_an_example_builds_in_3d` |
 | The hint is the plan's only text and lies alone on the top layer `Hints`. | Hide that layer and the plan is ready for a picture. | `test_the_hint_lies_alone_on_the_top_layer_and_is_the_plans_only_text`; `test_hiding_the_hint_layer_leaves_the_plan_ready_for_a_picture` |
-| Every plan stores an eased orbit computed from its own bounds and its showcase sun (`tours.Framing`), with every number rounded; a plan may add a time-lapse of the day or the year. | No view is open when a plan is authored, and `--check` compares JSON. A tour's time range is a wall time on the computer's clock. | `test_an_examples_stored_tours_are_there_and_can_be_flown` |
+| Every plan stores an eased orbit computed from its own bounds and its showcase sun (`tours.Framing`), with every number rounded; a plan may add a time-lapse of the day or the year. | No view is open when a plan is authored, and `--check` compares JSON. A tour's time range uses wall time in the plan's zone, with the computer's zone as fallback. | `test_an_examples_stored_tours_are_there_and_can_be_flown` |
 | A plan may give its orbit a pitch of its own (`ORBIT_PITCH_DEG`), a start of its own (`ORBIT_SUN_OFFSET_DEG`) and a nearer distance (`ORBIT_CLOSER`). | At the dialog's 18 degrees a wall or a hedge hides the garden behind it; the allotment starts over its see-through front. Values were set from renders. | `Framing`; `test_an_example_is_first_seen_in_3d_from_where_its_stored_orbit_starts` |
 | A hedge longer than 8 m is drawn as runs (`authoring.runs`). | A hedge has one budget of leaves per item, and a long one renders as a painted wall (#954). | the generation gate |
 | A plant in a pot stands in a container that is its parent, never on a `PLANTER_POT`. | A planter pot is furniture: the plant sinks into it and the pot looks empty. | 3D review of #940 |
-| Every place is in Central European Time. | The clock and a tour's time range read the computer's zone; the plan's `timezone` is not read (#945). | `test_an_example_has_its_place_its_plants_and_its_north` |
+| Bundled examples name an IANA zone and use Central European time on their reference dates. | The time zone in the plan's location determines how the clock displays wall time and how tours interpret their time ranges (#945). | `test_an_example_has_its_place_its_plants_and_its_north` |
 
 Keep the field-classification test aligned with ProjectData. New project fields
 must be explicitly kept or stripped; unknown serialized top-level keys are dropped.
@@ -9529,10 +9536,10 @@ An example opens as it is meant to be seen, however late it is on the wall clock
 | Seed inventory | none | The user's own store outside every plan. An example never fills it; the empty Seed Inventory tab says what it is and how to start. |
 | Plant picture | `PlantDatabasePanel._show_drawn_thumbnail` | The bundled species have no photo. Plant Details show the plant as the plan draws it (`render_plant_pixmap`: species, then category, then the type's default), also while a provider's photo is still loading. No third-party image ships. |
 
-The moment is a UTC time of day on the plan's LOCAL reference date, not a wall
-time: the clock reads wall time in the computer's zone (ADR-053), and midday on a
-wall clock in Auckland is night over a garden in Berlin. The first four examples use
-11:00 UTC, which is 13:00 on a wall clock in their own place. Since #940 a plan names the
+The showcase stores a UTC time of day on the plan's local reference date. The clock
+displays that instant in the plan's zone, with the computer's zone as fallback
+(ADR-053 addendum). The first four examples use 11:00 UTC, which is 13:00 at their
+locations on their reference dates. Since #940 a plan names the
 light it is meant to be seen in (`tests/example_specs.LIGHT`: day, morning, afternoon or
 golden hour), and the tests read that light off the sun over the plan's own place at its
 moment. No plan opens after sunset: the 2D canvas would show its night overlay
@@ -9623,9 +9630,9 @@ shape (polygon, rectangle, circle, ellipse). It asks the view's
 `split_refusal_reason` before enabling the row and starts
 `CanvasView.start_split_shape`, which scopes the gesture to that shape. The CAD
 toolbar places the same tool next to Trim/Extend, and `Shift+S` reaches it;
-both start a scene-wide cut with no source selection: the first canvas click
-is the line's first point. `SplitShapeTool` freezes the visible closed-shape
-candidates at that click, and each `mouse_move` tests them with
+both capture the effective selection when activated. The first canvas click
+is the line's first point. `SplitShapeTool` uses the selected items, or freezes the
+visible closed shapes when started without a selection. Each `mouse_move` tests them with
 `shape_split.segment_crosses_item` before previewing pieces. Only the shapes the
 DRAWN SEGMENT passes through are candidates — a shape lying on the line's
 infinite extension but not reached by it is left alone, and a segment that only
@@ -9667,19 +9674,26 @@ takes the new type's fill pattern. The split passes `keep_fill` for a source
 painted by its own brush, so the user's pattern survives the cut; a sprite's
 stored fill was never on screen. A new "rebuild this shape" operation calls
 `adopt_rebuilt_type`; copying the type and the look alone loses the height.
+Since #828 a piece that is an axis-parallel rectangle in the source's own frame
+and comes from a sprite-painted, rectangle-only type (a raised bed; a legacy
+live `HEDGE_SECTION`, which a saved plan migrates to `HEDGE_POLYGON`) is rebuilt
+as a `RectangleItem` of that type instead, so the 2D frame survives a straight
+cut; a diagonal cut keeps this polygon path.
 
 **Esc on the canvas, in one order.** `CanvasView._escape_inner_mode` leaves one
 narrower mode per press - a running calibration, vertex editing, a group
 drill-down. With none active, `return_to_select_tool` ends the tool: it runs
 after the active tool's own `key_press`, and deactivating a tool cancels its
 gesture, so a new tool needs no Esc code of its own. A focused inline editor (a
-text annotation, a callout, a label) is handed the key through
-`super().keyPressEvent` first - the view sees keys before the scene, so the tool
-switch would otherwise swallow it - and the tool ends on that same Esc. The main
-window's `keyPressEvent` calls `CanvasView.handle_escape` (the same two steps)
-for an Esc no focused widget consumed: right after a tool is picked, or while a
-drilled-down member is edited, the focus is in a panel or the search field, and
-one Esc must not depend on where the focus happens to be. A tool switch through
+text annotation, a callout, a label) is marked `is_inline_text_editor` and is
+handed the key through `super().keyPressEvent` first - the view sees keys before
+the scene, so the tool switch would otherwise swallow it - and the tool ends on
+that same Esc. The main window's `keyPressEvent` calls `CanvasView.handle_escape`
+(the same two steps) for an Esc no focused widget consumed: right after a tool is
+picked, or while a drilled-down member is edited, the focus is in a panel or the
+search field, and one Esc must not depend on where the focus happens to be. In
+fullscreen preview the same order applies wherever the focus is: the first Esc
+ends a tool picked there and the next leaves the preview. A tool switch through
 `CanvasView.set_active_tool` hides the distance/angle prompt.
 
 **Group drill-down.** Qt routes a group child's selection back to the group, so

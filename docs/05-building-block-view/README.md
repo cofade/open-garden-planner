@@ -84,7 +84,7 @@ src/open_garden_planner/
 │   ├── project.py                # Save/load, ProjectManager
 │   ├── object_types.py           # ObjectType enum, default styles
 │   ├── fill_patterns.py          # Texture/pattern rendering
-│   ├── shape_split.py            # Local-frame two-point cut; segment-crossing test, polygon pieces, hole refusal (#664, ADR-075)
+│   ├── shape_split.py            # Local-frame two-point cut; segment-crossing test, polygon pieces and the axis-parallel-rectangle test that keeps a raised bed's frame (#664, #828, ADR-075)
 │   ├── plant_renderer.py         # Plant SVG loading, caching, rendering (resolves sprites through plant_art)
 │   ├── plant_art/                # Stdlib-only: what a plant looks like, for 2D and 3D (Phase 17 L1.7, ADR-059 addendum) — see §5.10
 │   │   ├── recipes.py            #   PALETTES / FRUITS / FLOWERS / SPECIES / CATEGORIES — the sprite recipes (moved from the generator script)
@@ -92,6 +92,7 @@ src/open_garden_planner/
 │   ├── plant_sizing.py           # PlantSizing resolver — footprint/override/max_spread precedence (ADR-028);
 │   │                             #   spacing storeys and where a spacing warning is drawn (#786)
 │   ├── plan_north.py             # Qt-free plan north metadata: validation + the plan angle (#663, ADR-037 addendum); the frame rule is core/solar.scene_azimuth
+│   ├── plan_time.py              # Qt-free plan time zone: reads location["timezone"], resolves an IANA zone, and answers the garden's "today" (#945, ADR-053 addendum, ADR-079)
 │   ├── harvest_units.py          # Display names for the harvest log's stable unit keys (#863, #899)
 │   ├── plant_cycle_label.py      # The one translated Annual/Biennial/Perennial vocabulary (#869)
 │   ├── legibility.py             # Qt-free WCAG contrast arithmetic: which ink goes with which halo (#793, §8.9.15)
@@ -201,7 +202,7 @@ src/open_garden_planner/
 │       ├── mirror_tool.py        # Mirror selection across an axis (Package B US-B4)
 │       ├── trim_tool.py          # Trim/Extend (US-11.16)
 │       ├── offset_tool.py        # Parallel-copy offset (US-11.15)
-│       ├── split_tool.py         # Scene-wide two-click split: every eligible closed shape the segment crosses (#664, ADR-075)
+│       ├── split_tool.py         # Two-click split: crossed eligible shapes in the preselection or scene (#664, ADR-075)
 │       ├── measure_tool.py       # Distance measurement
 │       ├── constraint_tool.py    # Distance constraint creation
 │       └── preview_z.py          # Reserved z-values for in-progress tool previews below minimap cutoff (#377, §8.25.6)
@@ -750,6 +751,7 @@ Black-box view of the plan-level data and the one display vocabulary each surfac
 |----------------|----------------|----------------------|
 | `core/plan_north.py` | True north on the drawing, degrees clockwise from plan-up (0 = up, 135 = down-right). `normalize_north_angle` is the one validity rule (rejects bool, non-number, non-finite); `north_angle_from_plan` reads a file value at load; `north_direction` is the unit vector the canvas arrow draws (the PDF rotates its own arrow). Additive plan metadata; `FILE_VERSION` unchanged. The compass→scene rule itself lives in `core.solar.scene_azimuth`. | number → angle in [0, 360); plan dict → angle; angle → vector |
 | `core/solar.py` (`scene_azimuth`) | The ONE compass→scene rule: `(azimuth + north) % 360`. Every solar consumer that works in the scene frame (2D shadow, heatmap sampling, plant exposure diagnostics, 3D light, sun path/compass) calls it once; the PDF report applies the same angle as a painter rotation. No consumer applies the inverse. | compass azimuth, plan north → scene bearing |
+| `core/plan_time.py` | The plan's own IANA time zone (#945): `plan_timezone_name` reads `location["timezone"]`, `plan_timezone` resolves it (an absent or unknown name → the computer's zone), `timezone_names` feeds the Location dialog and `plan_today` answers the garden's current date for the toolbar's Past/Today/Future state. Qt-free; `zoneinfo` reads the `tzdata` package on Windows (ADR-079). | location dict → `ZoneInfo`/name; aware moment → the garden's date |
 | `core/harvest_units.py` | Display names for the harvest log's stable unit keys (`kg`, `g`, `pcs`, `bunch`, `L`); an unknown/custom unit is shown as typed. The stored key and the CSV never change. | unit key → translated label |
 | `core/plant_cycle_label.py` | The one translated Annual/Biennial/Perennial vocabulary for the plant list, Plant Details, the custom-plant table and the plant search; an unknown cycle shows the caller's placeholder, not the canvas object type. | cycle value → translated label |
 | `ui/views/task_text.py` | The one row text for a generated task, shared by the Tasks tab and the planting calendar's dashboard ("Harvest Rosemary", not "Rosemary"). | task type, name → row text |
