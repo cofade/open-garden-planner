@@ -344,10 +344,19 @@ SPECIES_SPRITES: Final[dict[str, str]] = {
     "elder": "elderberry",
     # #940. No bare "grape": it would draw a grape hyacinth or an Oregon grape as a vine
     # (rule 2). A name that IS "grape" still finds the vine by rule 3.
-    "bamboo": "bamboo",
+    # #967. The same for a bare "bamboo": "heavenly bamboo" (Nandina, a shrub) and
+    # "lucky bamboo" (Dracaena) are not culms. The genus names answer by name, and a
+    # name that IS "bamboo" still finds the culm through "umbrella bamboo" by rule 3.
     "umbrella bamboo": "bamboo",
     "fargesia": "bamboo",
     "fargesia murielae": "bamboo",
+    "fargesia nitida": "bamboo",
+    "phyllostachys": "bamboo",
+    "bambusa": "bamboo",
+    # the common names of the two Phyllostachys a garden actually plants; whole
+    # names, so they reopen no false-friend hole (#967 review)
+    "golden bamboo": "bamboo",
+    "black bamboo": "bamboo",
     "grape vine": "grape_vine",
     "grapevine": "grape_vine",
     "vitis": "grape_vine",

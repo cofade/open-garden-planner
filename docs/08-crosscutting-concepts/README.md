@@ -8590,7 +8590,10 @@ because it is planted out after the last frost. A hardy species
 (`Traits3D.frost_hardy_bloom`: bulbs, hardy perennials and herbs, shrubs, woody
 climbers, fruit trees) flowers by its own bloom months, so crocus and daffodil bloom
 before the last frost and asters after the first (#940). Category fallbacks stay
-gated; the curated set is drift-guarded against the species file's `frost_tolerance`.
+gated. The datum is `"frost_hardy_bloom": true` on the species record itself (#968):
+it is not derivable from `frost_tolerance` — a beet is hardy and has no bloom to keep,
+a camellia is half-hardy and blooms in winter — so `core/plant_art/traits3d.py` reads
+it from `resources/data/plant_species.json` and a sprite with no record is not hardy.
 Seasonal state changes update shader/Model values without copying mesh buffers.
 Plant existence remains the shared lifetime clock's responsibility (#315).
 
@@ -8975,7 +8978,7 @@ an X-ray door stay as they are. The material is in the shader warmer.
 **A falling leaf is its crown's colour (#687).** `ambient_emitters` gives each dropping tree's
 emitter eight samples of the Forge's leaf colours for its own palette
 (`plant_forge.palette_leaf_colors`, outer and upper leaves) times the season's tint
-(`foliage_tint_linear`, the crown's `seasonTint`), seeded by the item id: a red maple drops red
+(`foliage_tint_linear`, the crown's `seasonTint`), seeded by the item id: a red Japanese maple drops red
 leaves, and no palette literal is left.
 
 **When the ambient buffer is rebuilt.** On the Plant Forge's phenology (`season_sink`: a plan

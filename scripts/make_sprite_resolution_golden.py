@@ -77,6 +77,10 @@ ODD = [
     "blackcurrant bush", "ß", "İris", "Wild Rose Hip", "bay", "box", "mum", "pea",
     "peach", "pear", "plum", "elder", "Elderflower", "lemon balm", "melon", "sweet potato",
     "kiwi", "palm", "hedge", "grass", "fern", "strawberry", "Round Deciduous", "conifer",
+    # #967: two false friends of the culm, and the names that really are it.
+    "heavenly bamboo", "lucky bamboo", "Nandina domestica", "Dracaena sanderiana",
+    "bamboo", "Fargesia nitida", "Phyllostachys aurea", "Bambusa vulgaris",
+    "Golden Bamboo", "Black Bamboo",
 ]
 
 

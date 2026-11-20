@@ -447,6 +447,21 @@ including the real toolbar/viewport and save/reload path.
 - *Per-record source citations in the JSON* — adds noise. Sources cited at envelope level (`"sources": [...]`) is sufficient for the curated set.
 **Consequences**: One file to maintain. Adding a species means writing one record with all fields populated. Drop flow auto-populates metadata for any of the 60+ bundled plants → US-12.10d warnings fire automatically. Long-tail species still fall through to the API search button. Bundle size grows by ~80 KB (negligible).
 
+**Addendum (2026-11-19, #968 — bloom hardiness is a record field, not a list beside it).**
+`Traits3D.frost_hardy_bloom` — whether a plant's *flowers* tolerate frost, which decides
+whether it blooms by its own months outside the plan's frost-free season (#940) — was a
+hand-kept set of sprite stems in `core/plant_art/traits3d.py`, beside the record's
+`frost_tolerance`, held together by a one-directional drift guard. It is **not derivable**
+from `frost_tolerance`: a beet is `hardy` and has no bloom to keep through a frost (it
+bolts), a camellia is `half-hardy` and flowers in winter. So the datum moved into the
+record (`"frost_hardy_bloom": true` on the 45 records that have it), which is what ADR-014
+already means by "one file": a species' facts belong to its record, and a sprite with no
+record is not bloom-hardy by construction. `traits3d` reads the file once at import and
+maps records to sprites through the same resolver the gallery uses. The alternative —
+keeping the list and documenting it — was rejected because the two could silently disagree
+for a plant whose record was edited, which is what the drift guard existed to detect.
+
+
 ## ADR-015: Multi-nutrient Amendment Composition + User-toggleable Library
 
 **Status**: Accepted (Phase 12 — US-12.11)
@@ -9403,6 +9418,25 @@ feedback loop. The structural decision selected by the owner on 2026-10-24 is ex
    - Detailed body files: `PITFALL_MAX_BYTES = 64_000` (unchanged)
 4. Closes #588.
 
+### ADR-061 addendum: a second CAN index, forced by the 24 KB budget (#850, 2026-11-19)
+
+**Context.** The 2026-10-26 addendum fixed one index file per logical area and said an
+area's body-file splits do not add an index. The CAN area has since filled
+`index/01-canvas-geometry.md` to 23,951 bytes against its 24,000-byte budget: the next
+canvas lesson (PF-CAN-68, #850) would have pushed it over, and the gate's own message
+points at the structural split rather than at compressing a rule.
+
+**Decision.** The CAN area carries **two** index files, split by body file, not by rule:
+`index/01-canvas-geometry.md` keeps PF-CAN-01–48 (the body file `01-canvas-geometry.md`)
+and `index/01b-canvas-rendering.md` holds PF-CAN-49 onwards (the body file
+`01b-canvas-rendering.md`). Both are `CAN` in `AREA_INDEX_MAP`, both are linked from the
+§11.4 navigation row, and every row keeps its five columns and its rebased
+`../01b-canvas-rendering.md#pf-can-…` link. 19 existing rows were moved byte-identically;
+no rule, pin or status changed to fit. This is the remedy for an **index** that reaches
+`INDEX_MAX_BYTES`; a **body** file that reaches `PITFALL_MAX_BYTES` is split as the
+catalogue already does. The next file in line is a body file, `04-ui-panels-dialogs.md`
+(63,544 of 64,000), whose remedy is that body split (`04`/`04b`), not a second index.
+
 ## ADR-062: Plant lifetimes on the shared plan date (US-F4, #315)
 
 **Status**: Accepted (US-F4); the plan-date task-reminder change shipped in v1.39.1
@@ -11909,7 +11943,7 @@ level (the board's clear shots and every Low frame: max difference 0).
 4. **A falling leaf is its crown's colour.** `ambient_emitters` gives each dropping tree eight
    samples of the Forge's leaf colours for its own palette (outer, upper leaves) times the
    season's tint (`foliage_tint_linear`, the crown's `seasonTint`), seeded by the item id;
-   `LEAF_PALETTE` is gone. A red maple drops red leaves (hue under 20°), every leaf within 10° of
+   `LEAF_PALETTE` is gone. A red Japanese maple drops red leaves (hue under 20°), every leaf within 10° of
    its crown's mean hue (unit test), two trees of one species drop different samples. In the
    frame a falling leaf reads 8-12° yellower than its crown (the board's autumn shot, the best
    measured tree: 47.8° against 36.0°; the literal's amber read 39.6° there by chance): the

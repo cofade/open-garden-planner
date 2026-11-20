@@ -52,6 +52,7 @@ import copy
 import json
 import os
 import random
+import re
 import sys
 import tempfile
 import uuid
@@ -531,6 +532,18 @@ def _save(builder: PlanBuilder, path: Path) -> None:
     pm.set_location(copy.deepcopy(BERLIN))
     path.parent.mkdir(parents=True, exist_ok=True)
     pm.save(builder.scene, path)
+    # A fixture's bytes must not carry the wall clock: the suite regenerates these
+    # plans, and `modified` differed on every run (#980 review). Only the value is
+    # rewritten, so the file keeps the serializer's own formatting byte for byte.
+    text = path.read_text(encoding="utf-8")
+    pinned = re.sub(
+        r'("modified":\s*")[^"]+(")',
+        r"\g<1>2026-10-26T00:00:00+00:00\g<2>",
+        text,
+        count=1,
+    )
+    if pinned != text:
+        path.write_text(pinned, encoding="utf-8")
 
 
 def _normalised(path: Path) -> Any:

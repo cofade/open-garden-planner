@@ -133,7 +133,7 @@ SPECIES: dict[str, Recipe] = {
     "walnut_tree": dict(a="canopy", pal="fresh", leaf_scale=1.1,
                         fruit=dict(kind="nut", scatter=True, n=6, size=(2.2, 2.8), occ="#2a3311")),
     "oak": dict(a="canopy", pal="dark", frilly=True, leaf_scale=1.15, n_out=14),
-    "maple": dict(a="canopy", pal="autumn", leaf_scale=1.1, n_out=15, frilly=True),
+    "maple": dict(a="canopy", pal="dark", leaf_scale=1.1, n_out=15, frilly=True),
     "birch": dict(a="canopy", pal="yellow", leaf_scale=0.75, n_out=20),
     "willow": dict(a="canopy", pal="silver", leaf_scale=0.9, n_out=24),
     "magnolia": dict(a="canopy", pal="fresh", leaf_scale=1.1, n_out=14,

@@ -31,6 +31,7 @@ is being exported.
 
 from __future__ import annotations
 
+import math
 import re
 from dataclasses import dataclass
 from pathlib import Path
@@ -60,6 +61,20 @@ from PyQt6.QtSvg import QSvgGenerator
 #: a texture tile) is as sharp in the SVG as in a 300-dpi PNG, and a
 #: constant-pixel-size label or hairline is the size it has there.
 SVG_UNITS_PER_INCH = 300
+
+#: The finest a picture may be embedded: one bitmap pixel per user unit, i.e.
+#: 300 dpi — the resolution the drawing is written at (``SVG_UNITS_PER_INCH``).
+#:
+#: The canvas rasterises a sprite at ``core.raster_resolution.raster_level``,
+#: which rounds the painter's scale UP to a power of two so one pixmap serves a
+#: whole zoom level. Right for a canvas, wasteful for a print file: measured on
+#: the bundled examples at a 30 cm page (#850), the level sat above the page's own
+#: scale, so every plant sprite carried 1.33-1.37x the pixels that page shows in
+#: the family garden, 1.26-1.69x in the food forest, and 1.00-1.13x (nearly
+#: nothing to cut) in the raised bed and the balcony. A picture is fitted to this
+#: ratio before it is written; a shadow feather, already one pixel per unit, is
+#: untouched.
+PICTURE_PIXELS_PER_UNIT = 1.0
 
 _FALLBACK_LOGICAL_DPI = 96.0
 _EPSILON = 1e-6
@@ -524,6 +539,40 @@ def _generic_family(family: str) -> str:
     return "sans-serif"
 
 
+def _fit_picture(op: _PixmapOp) -> _PixmapOp:
+    """``op`` with its picture no finer than the export can show (#850).
+
+    The target's two edges are measured through the state the picture was drawn
+    under — each axis by the length of the vector the transform maps its unit
+    vector onto, so a turned or scaled sprite is measured by its real edge and
+    not by a bounding box that a rotation inflates. A picture already at (or
+    below) that size is returned untouched: nothing is ever enlarged, so a
+    texture tile and a shadow feather keep their pixels.
+
+    A target that is not finite (a corrupt or degenerate draw) is left as it is:
+    this function must never be the reason an export aborts.
+    """
+    transform = op.state.transform
+    width = abs(math.hypot(transform.m11(), transform.m12()) * op.target.width())
+    height = abs(math.hypot(transform.m21(), transform.m22()) * op.target.height())
+    if not (math.isfinite(width) and math.isfinite(height)) or width <= 0.0 or height <= 0.0:
+        return op
+    limit = max(width, height) * PICTURE_PIXELS_PER_UNIT
+    longest = max(op.pixmap.width(), op.pixmap.height())
+    if longest <= limit + 0.5:
+        return op
+    factor = limit / longest
+    fitted = op.pixmap.scaled(
+        max(1, math.floor(op.pixmap.width() * factor)),
+        max(1, math.floor(op.pixmap.height() * factor)),
+        Qt.AspectRatioMode.KeepAspectRatio,
+        Qt.TransformationMode.SmoothTransformation,
+    )
+    if fitted.isNull():
+        return op
+    return _PixmapOp(op.state, op.target, fitted)
+
+
 def _finish_svg(file_path: Path, width_mm: float, height_mm: float) -> None:
     """State the physical size exactly and give every font a generic fallback."""
     text = file_path.read_text(encoding="utf-8")
@@ -581,7 +630,12 @@ def write_svg(
     title: str = "",
     description: str = "",
 ) -> None:
-    """Replay a recording into an SVG 1.1 file of *width* x *height* user units."""
+    """Replay a recording into an SVG 1.1 file of *width* x *height* user units.
+
+    Every picture is fitted to the export's own resolution first
+    (``_fit_picture``): a vector drawing must not carry bitmap detail no
+    printer can show.
+    """
     generator = QSvgGenerator(QSvgGenerator.SvgVersion.Svg11)
     generator.setFileName(str(file_path))
     # The resolution text is laid out at, so a font's size in user units is the
@@ -596,7 +650,11 @@ def write_svg(
     if not painter.begin(generator):
         raise ValueError(f"Failed to write SVG to {file_path}")
     try:
-        _replay(ops, painter, cosmetic_scale=units_per_inch / logical_dpi())
+        _replay(
+            [_fit_picture(op) if isinstance(op, _PixmapOp) else op for op in ops],
+            painter,
+            cosmetic_scale=units_per_inch / logical_dpi(),
+        )
     finally:
         painter.end()
     _finish_svg(file_path, width / units_per_inch * 25.4, height / units_per_inch * 25.4)

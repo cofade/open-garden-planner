@@ -1,7 +1,7 @@
 {
   "version": "1.4",
   "metadata": {
-    "modified": "2026-11-08T19:46:53.587694+00:00"
+    "modified": "2026-10-26T00:00:00+00:00"
   },
   "canvas": {
     "width": 2600.0,
@@ -1485,6 +1485,7 @@
           ],
           "data_source": "bundled",
           "frost_tolerance": "hardy",
+          "frost_hardy_bloom": true,
           "nutrient_demand": "medium",
           "n_demand": "medium",
           "p_demand": "medium",
@@ -1539,6 +1540,7 @@
           ],
           "data_source": "bundled",
           "frost_tolerance": "hardy",
+          "frost_hardy_bloom": true,
           "nutrient_demand": "medium",
           "n_demand": "medium",
           "p_demand": "medium",
@@ -1591,6 +1593,7 @@
           "edible_parts": [],
           "data_source": "bundled",
           "frost_tolerance": "half-hardy",
+          "frost_hardy_bloom": true,
           "nutrient_demand": "medium",
           "n_demand": "medium",
           "p_demand": "medium",
@@ -1645,6 +1648,7 @@
           ],
           "data_source": "bundled",
           "frost_tolerance": "hardy",
+          "frost_hardy_bloom": true,
           "nutrient_demand": "heavy",
           "n_demand": "high",
           "p_demand": "medium",
@@ -1697,6 +1701,7 @@
           "edible_parts": [],
           "data_source": "bundled",
           "frost_tolerance": "hardy",
+          "frost_hardy_bloom": true,
           "nutrient_demand": "light",
           "n_demand": "low",
           "p_demand": "low",

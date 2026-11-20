@@ -447,7 +447,7 @@ def test_every_species_string_is_built_as_the_sprite_the_canvas_draws(canvas: Ca
     odd = [" Rose ", "ROSE", "   ", " \t ", "Lemon Balm", "Melon", "Bean (Bush)", "Sweet Cherry",
            "no such plant", "e", "Wild Rose Hip", "sweet potato", "Winter Squash", "Watermelon"]
     strings = [*SPECIES_SPRITES, *(key.title() for key in list(SPECIES_SPRITES)[::9]), *odd]
-    assert len(SPECIES_SPRITES) == 232 and not any(":" in text for text in strings)
+    assert len(SPECIES_SPRITES) == 236 and not any(":" in text for text in strings)
     tools = ("TREE", "SHRUB", "PERENNIAL")
     items = [drop(canvas, f"{tools[n % 3]}:species={text}",
                   QPointF(80.0 + 110.0 * (n % 40), 200.0 + 300.0 * (n // 40)))

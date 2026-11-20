@@ -269,7 +269,7 @@ Pre-defined object types for common property elements:
 
 ### FR-9.2 Export
 - **FR-EXP-01**: Export to PNG (configurable DPI: 72, 150, 300). Object labels are sized for the output; a text note keeps the size it has on the plan at every DPI and paper size (#789). A bed's succession badge has the object labels' size in every exported picture (#836).
-- **FR-EXP-02**: Export to SVG (vector, scalable). The file states the requested physical size (`width`/`height` in mm) and is the picture the PNG export paints: textures, clipped shapes (roofs, glasshouses, shadows) and pattern angles included. Text stays editable text and names a generic fallback font family (#787, ADR-076).
+- **FR-EXP-02**: Export to SVG (vector, scalable). The file states the requested physical size (`width`/`height` in mm) and is the picture the PNG export paints: textures, clipped shapes (roofs, glasshouses, shadows) and pattern angles included. Text stays editable text and names a generic fallback font family (#787, ADR-076). A raster picture drawn as a pixmap — a plant or furniture sprite, a shadow layer, a scene image — is written no finer than one pixel per 300-dpi unit, the resolution the drawing is stated at, and never enlarged: the canvas's power-of-two raster level does not reach those pictures (#850). Repeating fill-pattern brush tiles keep their periodic `fill_patterns.tile_level` tile (up to 512 × 512 px at `DETAIL_LEVEL`) rather than being non-periodically resampled.
 - **FR-EXP-03**: Print support with scaling and page layout (Phase 6). At a fixed scale each sheet shows its tile of the plan and nothing else: nothing is printed on the margin or over the footer (#788). Object labels are readable at the printer's resolution; a text note keeps its plan size (#789). The page starts as A4 landscape with a 10 mm margin on every side; the Print Options dialog states the number of sheets the printout has, with or without the legend; a fitted printout states the scale it was fitted at (#836). The **Grid** checkbox paints the canvas grid at the canvas's own spacing over the plan, at a stated 0.15 mm line width (#868). A fixed-scale print's pages run **top row first**; a plan height that is not a whole number of tiles leaves the plan's short **bottom** row on the **last page**, its strip at the top of that sheet with blank paper below it (#871).
 - **FR-EXP-04**: Export selected objects only or entire canvas
 - **FR-EXP-05**: Export includes visible layers only (or all, user choice)
@@ -1054,7 +1054,7 @@ tier `tests/integration/test_scene3d_ground_render.py` and the frozen
   weather shows at once. Not stored: every session starts clear.
 - **FR-3D-LIVE-04** (L5.2): Particles: rain and snow around the point the camera looks at;
   **falling leaves** under trees and shrubs that are dropping their leaves on the plan
-  date, each in its own tree's turned colour (a red maple drops red leaves, #687); **butterflies** at plants in flower (up to 3.5 m tall) by day in dry weather;
+  date, each in its own tree's turned colour (a red Japanese maple drops red leaves, #687); **butterflies** at plants in flower (up to 3.5 m tall) by day in dry weather;
   **fireflies** among the plants on summer evenings (the hemisphere's June–August or
   December–February, from dusk). At most **5,000** particles at once. "Wildlife and Falling
   Leaves" in the Weather menu switches the leaves, butterflies and fireflies off and on.
