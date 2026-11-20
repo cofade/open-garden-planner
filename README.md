@@ -1,6 +1,6 @@
 # Open Garden Planner
 
-<a href="https://github.com/cofade/open-garden-planner/releases/download/v1.40.10/OpenGardenPlanner-v1.40.10-Setup.exe"><img src="docs/images/readme/download-windows.svg" alt="Download the latest Windows installer" height="56"></a>
+<a href="https://github.com/cofade/open-garden-planner/releases/download/v1.40.11/OpenGardenPlanner-v1.40.11-Setup.exe"><img src="docs/images/readme/download-windows.svg" alt="Download the latest Windows installer" height="56"></a>
 
 Windows may warn about the download, because the installer is not code-signed: [verify your download](#verify-your-download) with its checksum or its build attestation.
 

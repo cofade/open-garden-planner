@@ -5235,6 +5235,8 @@ largest step 1.53 levels after the fix against 18.07 before it).
 
 ### Addendum #945 (2026-11-20): the plan's own time zone
 
+**Status:** Shipped in v1.40.11 (PR #981). Owner manual testing passed on 2026-11-20.
+
 The "garden location's zone" alternative rejected above is now implemented, because the
 location does carry a zone: the example generator has written `location["timezone"]` all
 along, and the Location dialog now writes it too (an editable IANA-name picker, prefilled
@@ -13311,6 +13313,8 @@ Pinned by `tests/unit/test_axis_parallel_rect.py` and
 `::test_a_split_raised_bed_keeps_its_frame_and_height`.
 **Addendum 5 (PR #981) — the preselection sets the scope of Split.**
 
+**Status:** Shipped in v1.40.11 (PR #981). Owner manual testing passed on 2026-11-20.
+
 The toolbar and Shift+S capture the effective selection at activation. With a
 selection, only those targets can be cut, even if all of them are refused or
 removed before the second point. With no selection, the tool takes the usual
@@ -13696,7 +13700,7 @@ before.
 
 ## ADR-079: The IANA time-zone data (`tzdata`) is a runtime dependency (#945)
 
-**Status**: Accepted (2026-11-20), part of the plan-time-zone change (ADR-053 addendum).
+**Status**: Accepted (2026-11-20). Shipped in v1.40.11 (PR #981) with the plan-time-zone change (ADR-053 addendum).
 
 **Context**: The plan's location may name an IANA zone (`"Europe/Berlin"`), and
 `core/plan_time.py` resolves it with `zoneinfo.ZoneInfo` so the clock, toolbar, a camera
