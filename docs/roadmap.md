@@ -37,7 +37,7 @@ No roadmap phase is active. Open work is tracked in GitHub issues; the current t
 | 3D rendering quality and performance | #744, #534, #531, #883, #894 | The 3D view's trust and frame budget. |
 | CAD and drawing tools | #666 | Precision and editing depth. |
 | Architecture and tech debt | #667 | Remove redundant surfaces and make tests repeatable. |
-| Documentation before advertising | #976, #939 | The user-facing documents describe today's product before it is shared. |
+| Documentation before advertising | #939 | The user-facing documents describe today's product before it is shared. |
 | 2D canvas follow-ups | #845 | First-zoom sprite rasterization cost. |
 
 This table is a pointer, not a tracker. Each issue owns its scope and acceptance criteria.

@@ -333,6 +333,42 @@ def test_a_bed_with_linked_plants_rehomes_them_in_the_same_step(
         assert restored_plant.item_id in parent.child_item_ids
 
 
+def test_a_straight_split_raised_bed_rehomes_its_plants_to_the_rectangle_pieces(
+    canvas, mouse_event
+) -> None:
+    """#828: the pieces are rectangles now; membership follows their geometry too."""
+    from open_garden_planner.core.commands import set_parent_link
+
+    scene = canvas.scene()
+    bed = _add(
+        canvas,
+        RectangleItem(100, 100, 400, 100, object_type=ObjectType.RAISED_BED),
+        select=False,
+    )
+    plant = _add(
+        canvas,
+        CircleItem(150, 130, 20, object_type=ObjectType.PERENNIAL),
+        select=False,
+    )
+    assert set_parent_link(scene, plant, bed.item_id) is True
+
+    canvas.set_active_tool(ToolType.SPLIT)
+    tool = canvas._split_tool
+    tool.mouse_press(mouse_event, QPointF(0, 150))
+    tool.mouse_press(mouse_event, QPointF(700, 150))
+
+    pieces = _all_pieces(scene)
+    assert len(pieces) == 2
+    assert bed.scene() is None
+    parent = next(
+        (piece for piece in pieces if piece.item_id == plant.parent_bed_id), None
+    )
+    assert parent is not None, "the plant lost its bed"
+    assert plant.item_id in parent.child_item_ids
+    centre = plant.sceneBoundingRect().center()
+    assert parent.contains(parent.mapFromScene(centre))
+
+
 def test_a_scene_wide_cut_undoes_all_sources_in_one_step(canvas, mouse_event) -> None:
     scene = canvas.scene()
     first = _add(canvas, RectangleItem(100, 100, 200, 100), select=False)
@@ -871,6 +907,34 @@ def test_a_straight_cut_of_a_raised_bed_gives_two_raised_beds(
         assert isinstance(piece, RectangleItem)
         assert piece.object_type is ObjectType.RAISED_BED
         assert piece.paints_sprite, "the wooden frame is gone"
+
+
+def test_a_rotated_raised_bed_cut_along_its_own_axis_keeps_its_frame(
+    canvas, mouse_event
+) -> None:
+    """The local frame, not the screen, decides: a turned bed keeps its frame."""
+    from open_garden_planner.ui.canvas.items import RectangleItem
+
+    source = RectangleItem(100, 100, 200, 100, object_type=ObjectType.RAISED_BED)
+    source._apply_rotation(30.0)
+    _add(canvas, source)
+
+    # The cut runs along the bed's own x axis through its middle (local y=150).
+    _split(
+        canvas,
+        source,
+        source.mapToScene(QPointF(0, 150)),
+        source.mapToScene(QPointF(400, 150)),
+        mouse_event,
+    )
+
+    pieces = _all_pieces(canvas.scene())
+    assert len(pieces) == 2
+    for piece in pieces:
+        assert isinstance(piece, RectangleItem)
+        assert piece.object_type is ObjectType.RAISED_BED
+        assert piece.paints_sprite
+        assert piece.rotation() == pytest.approx(30.0)
 
 
 def test_a_diagonal_cut_of_a_raised_bed_stays_a_pair_of_garden_beds(

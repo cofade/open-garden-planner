@@ -38,6 +38,22 @@ class TestStoredZone:
         assert dialog._selected_timezone() == "Mars/Olympus_Mons"
         assert dialog.location_data["timezone"] == "Mars/Olympus_Mons"
 
+    def test_an_unchanged_unknown_stored_name_does_not_block_accept(
+        self, qtbot, monkeypatch
+    ) -> None:
+        """It is already treated as absent on load; do not trap other edits."""
+        dialog = _dialog(qtbot, {"latitude": 1.0, "longitude": 2.0,
+                                 "timezone": "Mars/Olympus_Mons"})
+        accepted: list[bool] = []
+        warnings: list[str] = []
+        monkeypatch.setattr(dialog, "accept", lambda: accepted.append(True))
+        monkeypatch.setattr(
+            QMessageBox, "warning", lambda *_a, **_k: warnings.append("warning")
+        )
+        dialog._on_accept()
+        assert accepted == [True]
+        assert warnings == []
+
 
 class TestTypedZone:
     def test_a_typed_iana_name_is_accepted(self, qtbot) -> None:
@@ -45,6 +61,51 @@ class TestTypedZone:
         dialog._tz_combo.setEditText("America/New_York")
         assert dialog._selected_timezone() == "America/New_York"
         assert dialog.location_data["timezone"] == "America/New_York"
+
+    def test_typing_over_a_selected_zone_uses_the_typed_zone(self, qtbot) -> None:
+        """The text is the truth; the selected item's data is stale once edited."""
+        dialog = _dialog(qtbot, {"timezone": "Europe/Berlin"})
+        assert dialog._selected_timezone() == "Europe/Berlin"
+
+        dialog._tz_combo.setEditText("Asia/Tokyo")
+
+        assert dialog._selected_timezone() == "Asia/Tokyo"
+        assert dialog.location_data["timezone"] == "Asia/Tokyo"
+
+    def test_a_lookup_does_not_overwrite_a_typed_zone(self, qtbot) -> None:
+        from open_garden_planner.services.climate_service import FrostData
+
+        dialog = _dialog(qtbot)
+        dialog._tz_combo.setEditText("Europe/Paris")
+        dialog._on_lookup_success(
+            FrostData(
+                last_spring_frost="04-15",
+                first_fall_frost="10-20",
+                hardiness_zone="7b",
+                data_source="open-meteo",
+                latitude=35.0,
+                longitude=135.8,
+                timezone="Asia/Tokyo",
+            )
+        )
+        assert dialog._selected_timezone() == "Europe/Paris"
+
+    def test_a_lookup_fills_an_untouched_zone(self, qtbot) -> None:
+        from open_garden_planner.services.climate_service import FrostData
+
+        dialog = _dialog(qtbot)
+        dialog._on_lookup_success(
+            FrostData(
+                last_spring_frost="04-15",
+                first_fall_frost="10-20",
+                hardiness_zone="7b",
+                data_source="open-meteo",
+                latitude=35.0,
+                longitude=135.8,
+                timezone="Asia/Tokyo",
+            )
+        )
+        assert dialog._selected_timezone() == "Asia/Tokyo"
 
     def test_an_unknown_typed_name_is_refused_with_a_message(
         self, qtbot, monkeypatch

@@ -21,6 +21,7 @@ from PyQt6.QtWidgets import (
 
 from open_garden_planner.core.frost_dates import is_valid_frost_date
 from open_garden_planner.core.plan_time import (
+    LOCATION_TIMEZONE_KEY,
     plan_timezone,
     plan_timezone_name,
     timezone_names,
@@ -80,6 +81,10 @@ class LocationDialog(QDialog):
         self.setMinimumWidth(450)
 
         self._worker: _FrostLookupWorker | None = None
+        #: The zone the plan arrived with (#945). An unknown stored name may be
+        #: kept as it is: the plan already loaded it as "no plan zone", so
+        #: blocking other location edits on it would trap the user.
+        self._initial_timezone = plan_timezone_name(location)
 
         self._setup_ui()
 
@@ -288,14 +293,19 @@ class LocationDialog(QDialog):
         self._tz_combo.setCurrentIndex(index)
 
     def _selected_timezone(self) -> str | None:
-        """The zone name the user chose or typed, or ``None`` for the computer's."""
+        """The zone name the user chose or typed, or ``None`` for the computer's.
+
+        The combo is editable, and ``currentData()`` keeps the *item* that was
+        selected before the user typed over it. The text is the truth: the
+        IANA names are both the item labels and their values.
+        """
         typed = self._tz_combo.currentText().strip()
-        if self._tz_combo.currentIndex() == 0 and typed == self._tz_combo.itemText(0):
+        if not typed or typed == self._tz_combo.itemText(0):
             return None
-        data = self._tz_combo.currentData()
-        if isinstance(data, str) and data:
-            return data
-        return typed or None
+        return typed
+
+    def _has_explicit_timezone(self) -> bool:
+        return self._selected_timezone() is not None
 
     def _validate_frost_date(self, value: str) -> bool:
         """Return True if value is empty or names a real MM-DD date.
@@ -326,7 +336,14 @@ class LocationDialog(QDialog):
             return
 
         zone_name = self._selected_timezone()
-        if zone_name is not None and plan_timezone({"timezone": zone_name}) is None:
+        keeps_an_unknown_stored_zone = (
+            zone_name is not None and zone_name == self._initial_timezone
+        )
+        if (
+            zone_name is not None
+            and not keeps_an_unknown_stored_zone
+            and plan_timezone({LOCATION_TIMEZONE_KEY: zone_name}) is None
+        ):
             self._tz_combo.setFocus()
             line_edit = self._tz_combo.lineEdit()
             if line_edit is not None:
@@ -377,7 +394,7 @@ class LocationDialog(QDialog):
 
         # The API answered with the coordinates' own zone: offer it unless the
         # user already chose one (#945).
-        if frost_data.timezone and self._tz_combo.currentIndex() == 0:
+        if frost_data.timezone and not self._has_explicit_timezone():
             self._select_timezone(frost_data.timezone)
 
         if not frost_data.last_spring_frost and not frost_data.first_fall_frost:
@@ -443,6 +460,6 @@ class LocationDialog(QDialog):
             data["frost_dates"] = frost_dates
         zone_name = self._selected_timezone()
         if zone_name is not None:
-            data["timezone"] = zone_name
+            data[LOCATION_TIMEZONE_KEY] = zone_name
 
         return data

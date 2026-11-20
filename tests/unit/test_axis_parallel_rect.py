@@ -51,3 +51,9 @@ class TestAxisParallelRect:
     def test_a_degenerate_piece_is_not_a_rectangle(self) -> None:
         assert axis_parallel_rect(_polygon((0, 0), (10, 0), (10, 0), (0, 0))) is None
         assert axis_parallel_rect(QPolygonF()) is None
+
+    def test_the_tolerance_bound_is_pinned(self) -> None:
+        just_inside = _polygon((0, 0), (10.0099, 0), (10, 10), (0, 10))
+        just_outside = _polygon((0, 0), (10.0101, 0), (10, 10), (0, 10))
+        assert axis_parallel_rect(just_inside) is not None
+        assert axis_parallel_rect(just_outside) is None

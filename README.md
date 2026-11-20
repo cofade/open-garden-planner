@@ -141,7 +141,7 @@ Run the installer and follow the wizard. It will:
 - Optionally associate `.ogp` files so you can double-click to open them
 - Register in Add/Remove Programs for clean uninstallation
 
-**Platform:** Windows 10/11 (64-bit). Measured on 7 November 2026 for v1.37.8: the installer is about 183 MiB and the local frozen application folder about 647 MiB; newer releases are similar. Allow at least 1 GiB for the application, plus download, temporary installation, and plan storage. A minimum RAM requirement has not been measured.
+**Platform:** Windows 10/11 (64-bit). Measured on 7 November 2026 for v1.37.8: the installer was about 183 MiB and the local frozen application folder about 647 MiB. Allow at least 1 GiB for the application, plus download, temporary installation, and plan storage. A minimum RAM requirement has not been measured.
 
 #### Verify your download
 

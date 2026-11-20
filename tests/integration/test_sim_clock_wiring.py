@@ -582,3 +582,45 @@ class TestThePlansTimeZone:
         )
         win._project_manager.set_location({"latitude": 35.0, "longitude": 135.8})
         assert win._sim_clock.tz is None
+
+    def test_the_location_dialog_is_the_writer_the_clock_reads(
+        self, tz_app, qtbot
+    ) -> None:
+        """The dialog → ProjectManager → clock path, not just the setter."""
+        from open_garden_planner.ui.dialogs.location_dialog import LocationDialog
+
+        win = tz_app
+        dialog = LocationDialog(location=win._project_manager.location)
+        qtbot.addWidget(dialog)
+        dialog._select_timezone("Asia/Tokyo")
+
+        win._project_manager.set_location(dialog.location_data)
+
+        assert win._sim_clock.tz is not None
+        assert win._sim_clock.tz.key == "Asia/Tokyo"
+
+    def test_a_normal_load_stores_the_zone_when_a_clock_listener_raises(
+        self, tz_app, tmp_path
+    ) -> None:
+        """#945: a load must finish; only the document boundary is silent."""
+        win = tz_app
+        manager = win._project_manager
+        manager.set_location(
+            {"latitude": 35.0, "longitude": 135.8, "timezone": "Asia/Tokyo"}
+        )
+        plan = tmp_path / "tokyo.ogp"
+        manager.save(win.canvas_scene, plan)
+        manager.set_location({"latitude": 52.5, "longitude": 13.4})
+        assert win._sim_clock.tz is None
+
+        def broken(_change) -> None:
+            raise RuntimeError("a listener that raises")
+
+        win._sim_clock.instant_changed.connect(broken)
+        try:
+            win._load_project_file(str(plan))
+        finally:
+            win._sim_clock.instant_changed.disconnect(broken)
+
+        assert win._sim_clock.tz is not None
+        assert win._sim_clock.tz.key == "Asia/Tokyo"

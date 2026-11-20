@@ -560,7 +560,7 @@ and sign, so a second one has nowhere to hide.
 
 ### PF-DOM-35
 
-- **Rule:** Read a plan's time zone from `location["timezone"]` and keep the user's WALL reading when the zone changes: `SimClock.set_timezone(tz)` reinterprets the same date and time of day at the garden's place, never the instant. A missing or unknown name is the computer's zone, not a load failure. `zoneinfo` needs `tzdata` on Windows, and a frozen build needs `collect_data_files("tzdata")` in `ogp.spec`.
+- **Rule:** Read a plan's time zone from `location["timezone"]` and keep the user's WALL reading when the zone changes: `SimClock.set_timezone(tz)` reinterprets the same date and time of day at the garden's place, never the instant. A missing or unknown name is the computer's zone, not a load failure. `zoneinfo` needs `tzdata` on Windows; PyInstaller's zoneinfo/tzdata hooks carry it, and `--selftest` must resolve a named zone from the bundle.
 - **Pinned by:** `tests/unit/test_plan_time.py`; `tests/unit/test_sim_clock.py::TestPlanTimezone`; `tests/integration/test_sim_clock_wiring.py::TestThePlansTimeZone`; `tests/unit/test_location_dialog.py`
 - **Source:** #945, ADR-053 addendum
 - **Status:** standing

@@ -9674,19 +9674,25 @@ takes the new type's fill pattern. The split passes `keep_fill` for a source
 painted by its own brush, so the user's pattern survives the cut; a sprite's
 stored fill was never on screen. A new "rebuild this shape" operation calls
 `adopt_rebuilt_type`; copying the type and the look alone loses the height.
+Since #828 a piece that is an axis-parallel rectangle in the source's own frame
+and comes from a sprite-painted, rectangle-only type (a raised bed, a hedge
+section) is rebuilt as a `RectangleItem` of that type instead, so the 2D frame
+survives a straight cut; a diagonal cut keeps this polygon path.
 
 **Esc on the canvas, in one order.** `CanvasView._escape_inner_mode` leaves one
 narrower mode per press - a running calibration, vertex editing, a group
 drill-down. With none active, `return_to_select_tool` ends the tool: it runs
 after the active tool's own `key_press`, and deactivating a tool cancels its
 gesture, so a new tool needs no Esc code of its own. A focused inline editor (a
-text annotation, a callout, a label) is handed the key through
-`super().keyPressEvent` first - the view sees keys before the scene, so the tool
-switch would otherwise swallow it - and the tool ends on that same Esc. The main
-window's `keyPressEvent` calls `CanvasView.handle_escape` (the same two steps)
-for an Esc no focused widget consumed: right after a tool is picked, or while a
-drilled-down member is edited, the focus is in a panel or the search field, and
-one Esc must not depend on where the focus happens to be. A tool switch through
+text annotation, a callout, a label) is marked `is_inline_text_editor` and is
+handed the key through `super().keyPressEvent` first - the view sees keys before
+the scene, so the tool switch would otherwise swallow it - and the tool ends on
+that same Esc. The main window's `keyPressEvent` calls `CanvasView.handle_escape`
+(the same two steps) for an Esc no focused widget consumed: right after a tool is
+picked, or while a drilled-down member is edited, the focus is in a panel or the
+search field, and one Esc must not depend on where the focus happens to be. In
+fullscreen preview the same order applies wherever the focus is: the first Esc
+ends a tool picked there and the next leaves the preview. A tool switch through
 `CanvasView.set_active_tool` hides the distance/angle prompt.
 
 **Group drill-down.** Qt routes a group child's selection back to the group, so

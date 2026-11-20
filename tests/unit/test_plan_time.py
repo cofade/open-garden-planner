@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from datetime import UTC, date, datetime, timedelta, timezone
+from datetime import UTC, date, datetime
 
 from open_garden_planner.core.plan_time import (
     LOCATION_TIMEZONE_KEY,
@@ -60,7 +60,9 @@ class TestPlanToday:
         expected = moment.astimezone().date()
         assert plan_today({}, now=moment) == expected
 
-    def test_a_fixed_offset_is_enough_for_tests(self) -> None:
+    def test_the_garden_can_be_a_day_behind_utc(self) -> None:
+        # 00:30 UTC on 1 January is still 31 December in Los Angeles.
         moment = datetime(2026, 1, 1, 0, 30, tzinfo=UTC)
-        zone = timezone(timedelta(hours=-8))
-        assert moment.astimezone(zone).date() == date(2025, 12, 31)
+        assert plan_today(
+            {"timezone": "America/Los_Angeles"}, now=moment
+        ) == date(2025, 12, 31)

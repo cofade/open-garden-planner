@@ -6,7 +6,6 @@ import faulthandler
 import json
 import os
 import sys
-import time
 from pathlib import Path
 
 ROOT = Path(sys.argv[1]).resolve() if len(sys.argv) > 1 else Path(__file__).resolve().parents[2]
@@ -109,6 +108,11 @@ def embedded_shed_repaints() -> dict:
     window.resize(1100, 720)
     window.show()
     assert QTest.qWaitForWindowExposed(window)
+    # The thumbnail is not part of this oracle. Its 100 ms throttle re-arms on
+    # every scene change, and under a loaded machine the child could not rely
+    # on it settling; disable it and stop an already scheduled tick.
+    window._minimap.set_visible(False)
+    window._minimap._update_timer.stop()
     window._load_project_file(str(ROOT / "src/open_garden_planner/resources/examples/family-garden.ogp"))
     view = window.canvas_view
     scene = view.scene()
@@ -149,16 +153,12 @@ def embedded_shed_repaints() -> dict:
         return [int(columns.min()), int(rows.min()), int(columns.max()), int(rows.max())] if len(rows) else []
 
     def settle() -> None:
-        # Deliver queued scene changes, then the thumbnail's own 100 ms
-        # throttle and backing-store update before comparing the same state.
-        # The wait is generous on purpose: in the full suite this child runs
-        # beside other pytest workers, and a 2-second deadline was observed to
-        # expire before a starved event loop delivered the timer's own tick.
+        # Deliver queued scene changes and the backing-store update before
+        # comparing the same state. The minimap is disabled above, so this is
+        # a fixed drain, not a wait on an unrelated thumbnail timer.
         QTest.qWait(1)
-        deadline = time.monotonic() + 10
-        while window._minimap._update_timer.isActive() and time.monotonic() < deadline:
-            QTest.qWait(10)
-        assert not window._minimap._update_timer.isActive()
+        window._minimap._update_timer.stop()
+        QTest.qWait(200)
         QTest.qWait(1)
 
     def resize() -> None:

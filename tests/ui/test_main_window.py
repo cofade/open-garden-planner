@@ -404,19 +404,34 @@ class TestPreviewMode:
 
         window = GardenPlannerApp()
         qtbot.addWidget(window)
-        window._enter_preview_mode()
-        window.canvas_view.set_active_tool(ToolType.RECTANGLE)
-        assert window.canvas_view.tool_manager.active_tool_type is ToolType.RECTANGLE
+        window._autosave_manager.stop()
+        window.show()
+        QTest.qWaitForWindowExposed(window)
+        try:
+            window._enter_preview_mode()
+            window.canvas_view.set_active_tool(ToolType.RECTANGLE)
+            assert (
+                window.canvas_view.tool_manager.active_tool_type
+                is ToolType.RECTANGLE
+            )
 
-        window.setFocus()
-        QTest.keyClick(window, Qt.Key.Key_Escape)
+            window.setFocus()
+            QTest.keyClick(window, Qt.Key.Key_Escape)
 
-        assert window._preview_mode, "the first Esc left the preview"
-        assert window.canvas_view.tool_manager.active_tool_type is ToolType.SELECT
+            assert window._preview_mode, "the first Esc left the preview"
+            assert (
+                window.canvas_view.tool_manager.active_tool_type is ToolType.SELECT
+            )
 
-        QTest.keyClick(window, Qt.Key.Key_Escape)
+            QTest.keyClick(window, Qt.Key.Key_Escape)
 
-        assert not window._preview_mode, "the second Esc did not leave the preview"
+            assert not window._preview_mode, "the second Esc did not leave the preview"
+        finally:
+            # The full window owns an autosave timer and the agent host; close it
+            # cleanly so pytest-qt's later teardown cannot race a modal prompt.
+            window._project_manager.mark_clean()
+            window._autosave_manager.clear_autosave()
+            window.close()
 
     def test_double_exit_is_idempotent(self, qtbot) -> None:
         """Test that exiting preview mode twice doesn't cause issues."""

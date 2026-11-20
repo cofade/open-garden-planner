@@ -199,6 +199,26 @@ def _run_selftest(log: "RenderLog | None" = None) -> int:
         ok = False
         print(f"  FAIL A1 ingestion selftest -> {exc!r}")
 
+    # --- IANA time-zone data (#945, ADR-079) ------------------------------
+    # Windows ships no IANA database; the frozen bundle must carry the
+    # ``tzdata`` files or every named plan zone silently falls back to the
+    # computer's. A named zone with a known summer offset proves the data,
+    # not merely the module, is in the artifact.
+    try:
+        from datetime import UTC, datetime, timedelta
+        from zoneinfo import ZoneInfo
+
+        berlin = ZoneInfo("Europe/Berlin")
+        moment = datetime(2026, 6, 21, 12, 0, tzinfo=UTC).astimezone(berlin)
+        if moment.utcoffset() != timedelta(hours=2):
+            raise AssertionError(f"Europe/Berlin summer offset is {moment.utcoffset()!r}")
+        if log is not None:
+            log("selftest_timezone", zone="Europe/Berlin", offset=str(moment.utcoffset()))
+        print("  OK   IANA time-zone data (Europe/Berlin)")
+    except Exception as exc:
+        ok = False
+        print(f"  FAIL IANA time-zone data -> {exc!r}")
+
     # --- Qt Quick 3D engine (Phase 17 L1.2, ADR-048) ----------------------
     if not _selftest_quick3d(log):
         ok = False

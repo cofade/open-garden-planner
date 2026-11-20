@@ -13290,13 +13290,14 @@ rectangle-only sprite. The owner asked for the frame back. The chosen option is 
 smaller of the two the issue offered: a piece that is an **axis-parallel rectangle in
 the source's own frame** and comes from a **sprite-painted type that a polygon cannot
 carry** (a raised bed, a hedge section) is rebuilt as a `RectangleItem` of the source's
-type, so it paints the same sprite and keeps its 40 cm type default. Every other case is
-unchanged: a diagonal cut of a raised bed still gives garden beds, and a house, a
-terrace or a generic rectangle still gives polygons that keep their type. The
-recognition is `shape_split.axis_parallel_rect` (tolerance 0.01 cm) and the decision is
-made once in `SplitShapeTool._make_piece`, so the live preview and the committed pieces
-agree. No `FILE_VERSION` change: both rebuilt types already exist and a rectangle was
-always a valid carrier.
+type, so it paints the same sprite and keeps its type default (40 cm for a raised bed,
+150 cm for a hedge section). Every other case is unchanged: a diagonal cut of a raised
+bed still gives garden beds; a house or a terrace still gives polygons that keep their
+type; a generic rectangle still becomes a generic polygon, as before. The recognition is
+`shape_split.axis_parallel_rect` (tolerance 0.01 cm) and the decision is made once in
+`SplitShapeTool._make_piece`, so the previewed **geometry** and the committed pieces
+agree; the preview stays a type-neutral dashed outline. No `FILE_VERSION` change: both
+rebuilt types already exist and a rectangle was always a valid carrier.
 
 Pinned by `tests/unit/test_axis_parallel_rect.py` and
 `tests/integration/test_split_shapes.py::test_a_straight_cut_of_a_raised_bed_gives_two_raised_beds`,
@@ -13676,6 +13677,43 @@ before.
 - *Force English decimal marks to keep the pure module Qt-free.* Rejected: the explicit decimal-mark argument and thin adapter preserve the later locale contract.
 
 **Consequences**: No dependency or file-format change. Metric remains the default. Temperature, precipitation, harvest mass and a Canadian mixed preset need separate decisions (#907); DXF unit selection and per-plan overrides are deferred. Tests: `test_units.py`, `test_unit_preference.py`, `test_unit_spin_box.py`, `test_units_surfaces.py`, `test_unit_dialogs.py`, `test_unit_reports.py`, `test_units_guard.py`, `test_coordinate_units.py` and the save/reopen workflow in `tests/integration/test_unit_system.py`. FR-MEAS-07; §8.9.19.
+
+## ADR-079: The IANA time-zone data (`tzdata`) is a runtime dependency (#945)
+
+**Status**: Accepted (2026-11-20), part of the plan-time-zone change (ADR-053 addendum).
+
+**Context**: The plan's location may name an IANA zone (`"Europe/Berlin"`), and
+`core/plan_time.py` resolves it with `zoneinfo.ZoneInfo` so the clock, toolbar, a camera
+tour's wall-time range and "Today" use the garden's time. Python's `zoneinfo` reads the
+operating system's database on Linux/macOS, but **Windows ships none**; without a data
+package every named zone raises `ZoneInfoNotFoundError` and the plan silently falls back
+to the computer's zone. The CI Linux runners have system tz data, so the gap is invisible
+there and only appears on the product's primary platform.
+
+**Decision**: Add `tzdata` (the IANA database packaged for Python, Apache-2.0) as a
+runtime dependency. PyInstaller's bundled hooks carry it into the frozen build:
+`hook-zoneinfo.py` adds `tzdata` as a hidden import on Windows and `hook-tzdata.py`
+collects its data and submodules. `--selftest` resolves `Europe/Berlin` and checks its
+summer offset from the bundle, so a hook regression fails the frozen gate rather than a
+user's plan. The data is versioned by the IANA release, refreshed by the normal
+dependency-update chore, and adds no code to the import graph (the `zoneinfo` module is
+standard library). A plan without a zone, or with an unknown name, still behaves exactly
+as before.
+
+**Alternatives considered**:
+- *Fixed UTC offsets.* Rejected: a plan spans dates across both daylight-saving changes;
+  a fixed offset makes a summer shadow wrong in winter and a year tour jump by an hour.
+- *Map the Windows zone name through the registry.* Rejected: it yields a localized
+  display name, not a stable IANA key, and cannot round-trip a plan opened elsewhere.
+- *Ship a private subset of the IANA database.* Rejected: a garden can be anywhere, and a
+  hand-maintained subset would go stale exactly like the data it replaces.
+- *Keep the computer's zone and document the limit.* Rejected: it is the #945 defect.
+
+**Consequences**: The lock, `pylock.toml`, the SBOM and the installer carry one more
+runtime distribution; the frozen build is larger by the compressed database and its
+dist-info. Tests that used to skip on a bare Windows venv (the IANA cases in
+`test_sim_clock.py`) now run there. See ADR-053 addendum, FR-SUN-04, PF-DOM-35 and
+`tests/unit/test_plan_time.py`.
 
 ### ADR-076 addendum: canvas pictures have explicit consumers (#847, #848, #877, #878)
 

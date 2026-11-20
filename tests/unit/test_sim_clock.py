@@ -446,13 +446,15 @@ class TestPlanTimezone:
 
     def test_a_repeated_hour_keeps_its_fold(self) -> None:
         berlin = _zone("Europe/Berlin")
+        paris = _zone("Europe/Paris")  # the same EU transition: 02:30 is ambiguous
         clock = SimClock(datetime(2026, 10, 25, 12, 0), tz=berlin)
         clock.set_time_of_day(time(2, 30, fold=1))  # the second 02:30
         assert clock.time_of_day.fold == 1
 
-        clock.set_timezone(timezone(timedelta(hours=2)))
+        clock.set_timezone(paris)
 
-        assert clock.time_of_day == time(2, 30, fold=1)
+        assert clock.time_of_day.fold == 1, "the fold was canonicalised away"
+        assert clock.utc == datetime(2026, 10, 25, 1, 30, tzinfo=UTC)
 
 
 class TestReentrancyAndErrors:
