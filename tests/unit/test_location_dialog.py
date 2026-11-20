@@ -107,6 +107,43 @@ class TestTypedZone:
         )
         assert dialog._selected_timezone() == "Asia/Tokyo"
 
+    def test_a_lookup_does_not_overwrite_an_explicit_computer_zone(self, qtbot) -> None:
+        """"Same as this computer" is a choice, not an untouched field."""
+        from open_garden_planner.services.climate_service import FrostData
+
+        dialog = _dialog(qtbot, {"timezone": "Europe/Berlin"})
+        dialog._tz_combo.setCurrentIndex(0)
+        assert dialog._selected_timezone() is None
+        dialog._on_lookup_success(
+            FrostData(
+                last_spring_frost="04-15",
+                first_fall_frost="10-20",
+                hardiness_zone="7b",
+                data_source="open-meteo",
+                latitude=35.0,
+                longitude=135.8,
+                timezone="Asia/Tokyo",
+            )
+        )
+        assert dialog._selected_timezone() is None
+
+    def test_typing_then_selecting_uses_the_selected_zone(self, qtbot) -> None:
+        dialog = _dialog(qtbot)
+        dialog._tz_combo.setEditText("Asia/Tokyo")
+        index = dialog._tz_combo.findData("Europe/Paris")
+        assert index > 0
+
+        dialog._tz_combo.setCurrentIndex(index)
+
+        assert dialog._selected_timezone() == "Europe/Paris"
+        assert dialog.location_data["timezone"] == "Europe/Paris"
+
+    def test_the_same_as_computer_label_is_compared_case_insensitively(self, qtbot) -> None:
+        dialog = _dialog(qtbot)
+        label = dialog._tz_combo.itemText(0)
+        dialog._tz_combo.setEditText(label.upper())
+        assert dialog._selected_timezone() is None
+
     def test_an_unknown_typed_name_is_refused_with_a_message(
         self, qtbot, monkeypatch
     ) -> None:

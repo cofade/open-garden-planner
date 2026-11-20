@@ -14,7 +14,7 @@ Open Garden Planner is an open-source desktop application that enables home gard
 | 2 | **Rich Metadata** | Track plant species, varieties, planting dates, and growing requirements as first-class data |
 | 3 | **No Lock-in** | Open-source with standard file formats (JSON project files, PNG/SVG/PDF/DXF export) |
 | 4 | **Attractive UI** | Modern, polished interface that feels native to Windows, with lush illustrated graphics in 2D and 3D |
-| 5 | **Extensible** | Engine-independent core modules (the sim clock, solar, plan time, units, geometry) and documented seams let new analysis, views and integrations be added without a second implementation of an existing one |
+| 5 | **Extensible** | Engine-independent core modules (the sim clock, solar, plan time and units) and documented seams let new analysis, views and integrations be added without a second implementation of an existing one |
 | 6 | **Contributor-Friendly** | Clean architecture, comprehensive tests, and CI/CD to attract open source contributors |
 
 ## 1.3 Target Users

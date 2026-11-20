@@ -6,6 +6,7 @@ import faulthandler
 import json
 import os
 import sys
+import time
 from pathlib import Path
 
 ROOT = Path(sys.argv[1]).resolve() if len(sys.argv) > 1 else Path(__file__).resolve().parents[2]
@@ -153,12 +154,23 @@ def embedded_shed_repaints() -> dict:
         return [int(columns.min()), int(rows.min()), int(columns.max()), int(rows.max())] if len(rows) else []
 
     def settle() -> None:
-        # Deliver queued scene changes and the backing-store update before
-        # comparing the same state. The minimap is disabled above, so this is
-        # a fixed drain, not a wait on an unrelated thumbnail timer.
+        # Deliver queued scene changes and wait until the measured viewport
+        # stops receiving paint events: a fixed sleep is a guess, the paint
+        # filter is the thing the comparison actually depends on. The minimap
+        # is disabled above, so it cannot confound this.
         QTest.qWait(1)
         window._minimap._update_timer.stop()
-        QTest.qWait(200)
+        deadline = time.monotonic() + 5
+        last = len(regions.regions)
+        stable_since = time.monotonic()
+        while time.monotonic() < deadline:
+            QTest.qWait(20)
+            now = len(regions.regions)
+            if now != last:
+                last = now
+                stable_since = time.monotonic()
+            elif time.monotonic() - stable_since >= 60:
+                return
         QTest.qWait(1)
 
     def resize() -> None:

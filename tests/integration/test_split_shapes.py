@@ -935,6 +935,15 @@ def test_a_rotated_raised_bed_cut_along_its_own_axis_keeps_its_frame(
         assert piece.object_type is ObjectType.RAISED_BED
         assert piece.paints_sprite
         assert piece.rotation() == pytest.approx(30.0)
+        assert piece.rect().width() * piece.rect().height() == pytest.approx(
+            200.0 * 50.0
+        )
+    union = pieces[0].sceneBoundingRect().united(pieces[1].sceneBoundingRect())
+    source_rect = source.sceneBoundingRect()
+    assert union.x() == pytest.approx(source_rect.x(), abs=0.01)
+    assert union.y() == pytest.approx(source_rect.y(), abs=0.01)
+    assert union.width() == pytest.approx(source_rect.width(), abs=0.01)
+    assert union.height() == pytest.approx(source_rect.height(), abs=0.01)
 
 
 def test_a_diagonal_cut_of_a_raised_bed_stays_a_pair_of_garden_beds(

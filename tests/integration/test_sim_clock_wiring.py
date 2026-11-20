@@ -531,6 +531,10 @@ def tz_app(qtbot, monkeypatch):
     yield win
     win._autosave_manager.clear_autosave()
     win._project_manager.mark_clean()
+    # Close here, not only in pytest-qt's teardown: the agent host and the
+    # heatmap workers are QThreads, and a full suite that leaves them to a
+    # later test's garbage collection is where a worker disappeared (#875).
+    win.close()
 
 
 class TestThePlansTimeZone:
@@ -613,6 +617,12 @@ class TestThePlansTimeZone:
         manager.set_location({"latitude": 52.5, "longitude": 13.4})
         assert win._sim_clock.tz is None
 
+        recomputes: list[bool] = []
+        real_recompute = win._sun_controller.recompute_now
+        win._sun_controller.recompute_now = lambda: (
+            recomputes.append(True), real_recompute()
+        )[1]
+
         def broken(_change) -> None:
             raise RuntimeError("a listener that raises")
 
@@ -624,3 +634,4 @@ class TestThePlansTimeZone:
 
         assert win._sim_clock.tz is not None
         assert win._sim_clock.tz.key == "Asia/Tokyo"
+        assert recomputes, "the 2D overlay was not re-solved for the loaded zone"

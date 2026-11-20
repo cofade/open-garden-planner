@@ -85,11 +85,18 @@ class LocationDialog(QDialog):
         #: kept as it is: the plan already loaded it as "no plan zone", so
         #: blocking other location edits on it would trap the user.
         self._initial_timezone = plan_timezone_name(location)
+        #: Whether the user chose a zone (including "Same as this computer").
+        #: Populating the dialog from the plan does not count.
+        self._timezone_touched = False
 
         self._setup_ui()
 
         if location:
             self._populate(location)
+        self._tz_combo.currentTextChanged.connect(self._on_timezone_text_changed)
+
+    def _on_timezone_text_changed(self, _text: str) -> None:
+        self._timezone_touched = True
 
     def _setup_ui(self) -> None:
         """Set up the dialog UI."""
@@ -300,12 +307,14 @@ class LocationDialog(QDialog):
         IANA names are both the item labels and their values.
         """
         typed = self._tz_combo.currentText().strip()
-        if not typed or typed == self._tz_combo.itemText(0):
+        same_as_computer = self._tz_combo.itemText(0).strip()
+        if not typed or typed.casefold() == same_as_computer.casefold():
             return None
         return typed
 
     def _has_explicit_timezone(self) -> bool:
-        return self._selected_timezone() is not None
+        """A stored zone or a choice the user made, including "Same as this computer"."""
+        return self._timezone_touched or self._selected_timezone() is not None
 
     def _validate_frost_date(self, value: str) -> bool:
         """Return True if value is empty or names a real MM-DD date.

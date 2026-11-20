@@ -208,13 +208,20 @@ def _run_selftest(log: "RenderLog | None" = None) -> int:
         from datetime import UTC, datetime, timedelta
         from zoneinfo import ZoneInfo
 
-        berlin = ZoneInfo("Europe/Berlin")
-        moment = datetime(2026, 6, 21, 12, 0, tzinfo=UTC).astimezone(berlin)
-        if moment.utcoffset() != timedelta(hours=2):
-            raise AssertionError(f"Europe/Berlin summer offset is {moment.utcoffset()!r}")
+        moment = datetime(2026, 6, 21, 12, 0, tzinfo=UTC)
+        for zone_name, summer_offset in (
+            ("Europe/Berlin", timedelta(hours=2)),
+            ("America/New_York", timedelta(hours=-4)),
+        ):
+            local = moment.astimezone(ZoneInfo(zone_name))
+            if local.utcoffset() != summer_offset:
+                raise AssertionError(
+                    f"{zone_name} summer offset is {local.utcoffset()!r}, "
+                    f"expected {summer_offset!r}"
+                )
         if log is not None:
-            log("selftest_timezone", zone="Europe/Berlin", offset=str(moment.utcoffset()))
-        print("  OK   IANA time-zone data (Europe/Berlin)")
+            log("selftest_timezone", zones="Europe/Berlin,America/New_York")
+        print("  OK   IANA time-zone data (Europe/Berlin, America/New_York)")
     except Exception as exc:
         ok = False
         print(f"  FAIL IANA time-zone data -> {exc!r}")

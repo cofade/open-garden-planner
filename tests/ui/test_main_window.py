@@ -2,8 +2,29 @@
 
 from pathlib import Path
 
+import pytest
+
 from open_garden_planner.app.application import GardenPlannerApp
 from open_garden_planner.main import get_icon_path
+
+
+@pytest.fixture(autouse=True)
+def _close_app_windows():
+    """Close every full window this module created, before the next test.
+
+    The window owns an agent host and heatmap/update QThreads. Leaving them to
+    pytest-qt's later teardown let a worker disappear during the full suite at
+    an unrelated test; closing here is the same discipline the ``tz_app``
+    fixture applies to the clock tests.
+    """
+    yield
+    from PyQt6.QtWidgets import QApplication
+
+    for widget in QApplication.topLevelWidgets():
+        if isinstance(widget, GardenPlannerApp):
+            widget._autosave_manager.stop()
+            widget._project_manager.mark_clean()
+            widget.close()
 
 
 class TestMainWindow:

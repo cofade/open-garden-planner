@@ -9675,9 +9675,10 @@ painted by its own brush, so the user's pattern survives the cut; a sprite's
 stored fill was never on screen. A new "rebuild this shape" operation calls
 `adopt_rebuilt_type`; copying the type and the look alone loses the height.
 Since #828 a piece that is an axis-parallel rectangle in the source's own frame
-and comes from a sprite-painted, rectangle-only type (a raised bed, a hedge
-section) is rebuilt as a `RectangleItem` of that type instead, so the 2D frame
-survives a straight cut; a diagonal cut keeps this polygon path.
+and comes from a sprite-painted, rectangle-only type (a raised bed; a legacy
+live `HEDGE_SECTION`, which a saved plan migrates to `HEDGE_POLYGON`) is rebuilt
+as a `RectangleItem` of that type instead, so the 2D frame survives a straight
+cut; a diagonal cut keeps this polygon path.
 
 **Esc on the canvas, in one order.** `CanvasView._escape_inner_mode` leaves one
 narrower mode per press - a running calibration, vertex editing, a group

@@ -13289,11 +13289,13 @@ Addendum 2, item 3, said a piece is a garden bed because the wooden frame is a
 rectangle-only sprite. The owner asked for the frame back. The chosen option is the
 smaller of the two the issue offered: a piece that is an **axis-parallel rectangle in
 the source's own frame** and comes from a **sprite-painted type that a polygon cannot
-carry** (a raised bed, a hedge section) is rebuilt as a `RectangleItem` of the source's
-type, so it paints the same sprite and keeps its type default (40 cm for a raised bed,
-150 cm for a hedge section). Every other case is unchanged: a diagonal cut of a raised
-bed still gives garden beds; a house or a terrace still gives polygons that keep their
-type; a generic rectangle still becomes a generic polygon, as before. The recognition is
+carry** is rebuilt as a `RectangleItem` of the source's type, so it paints the same
+sprite and keeps its type default. In practice that is a **raised bed** (40 cm); a
+legacy live `HEDGE_SECTION` takes the same path, while a saved one is migrated to
+`HEDGE_POLYGON` on load and is already polygonal. Every other case is unchanged: a
+diagonal cut of a raised bed still gives garden beds; a house or a terrace still gives
+polygons that keep their type; a generic rectangle still becomes a generic polygon, as
+before. The recognition is
 `shape_split.axis_parallel_rect` (tolerance 0.01 cm) and the decision is made once in
 `SplitShapeTool._make_piece`, so the previewed **geometry** and the committed pieces
 agree; the preview stays a type-neutral dashed outline. No `FILE_VERSION` change: both
@@ -13691,14 +13693,14 @@ to the computer's zone. The CI Linux runners have system tz data, so the gap is 
 there and only appears on the product's primary platform.
 
 **Decision**: Add `tzdata` (the IANA database packaged for Python, Apache-2.0) as a
-runtime dependency. PyInstaller's bundled hooks carry it into the frozen build:
-`hook-zoneinfo.py` adds `tzdata` as a hidden import on Windows and `hook-tzdata.py`
-collects its data and submodules. `--selftest` resolves `Europe/Berlin` and checks its
-summer offset from the bundle, so a hook regression fails the frozen gate rather than a
-user's plan. The data is versioned by the IANA release, refreshed by the normal
-dependency-update chore, and adds no code to the import graph (the `zoneinfo` module is
-standard library). A plan without a zone, or with an unknown name, still behaves exactly
-as before.
+runtime dependency. The pinned `pyinstaller-hooks-contrib` hooks carry it into the frozen
+build: `hook-zoneinfo.py` adds `tzdata` as a hidden import on Windows and `hook-tzdata.py`
+collects its data and submodules. `--selftest` resolves `Europe/Berlin` and
+`America/New_York` and checks both summer offsets from the bundle, so a hook regression
+or a partial collection fails the frozen gate rather than a user's plan. No application
+code imports `tzdata` at startup; the frozen graph includes it through those hooks. The
+data is versioned by the IANA release and refreshed by the normal dependency-update
+chore. A plan without a zone, or with an unknown name, still behaves exactly as before.
 
 **Alternatives considered**:
 - *Fixed UTC offsets.* Rejected: a plan spans dates across both daylight-saving changes;
