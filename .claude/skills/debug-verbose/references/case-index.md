@@ -278,3 +278,5 @@
 | Case study: Undo shifted a reference point (#666) | [Read](278-reference-point-projected-undo.md) |
 | Case study: A construction guide blocked reference-point placement (#666) | [Read](279-reference-point-construction-parent.md) |
 | Case study: A late viewport event reached the touch filter without its flag (#666 review) | [Read](280-touch-filter-cleared-instance-state.md) |
+| Case study: Plant filters appeared as windows during startup (#666 review) | [Read](281-startup-trait-scroll-area.md) |
+| Case study: Edit handles refreshed after their canvas scene was destroyed (#666 review) | [Read](282-edit-handle-refresh-closed-scene.md) |

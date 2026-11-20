@@ -29,6 +29,32 @@ def themed_gallery(qapp):
     qapp.setStyleSheet(original)
 
 
+def test_constructing_the_toolbar_does_not_show_a_detached_scroll_area(qtbot, qapp) -> None:
+    from PyQt6.QtCore import QEvent, QObject
+    from PyQt6.QtWidgets import QScrollArea
+
+    shown = []
+
+    class Watch(QObject):
+        def eventFilter(self, watched, event):
+            if (
+                event.type() == QEvent.Type.Show
+                and isinstance(watched, QScrollArea)
+                and watched.isWindow()
+            ):
+                shown.append(watched)
+            return False
+
+    watch = Watch()
+    qapp.installEventFilter(watch)
+    try:
+        qtbot.addWidget(CategoryToolbar())
+    finally:
+        qapp.removeEventFilter(watch)
+
+    assert shown == []
+
+
 class TestCategoryToolbarStructure:
     """Static structure: categories, icons, and search field are all wired up."""
 

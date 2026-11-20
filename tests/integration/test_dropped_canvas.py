@@ -51,3 +51,17 @@ def test_the_view_reads_its_key_rectangle_without_attributes() -> None:
 
     assert isinstance(vars(CanvasView).get("_sun_legend_rect"), QRect)
     assert CanvasView._sun_legend_rect.isEmpty()
+
+def test_edit_handles_refresh_ignores_a_destroyed_scene(qtbot) -> None:
+    """Qt can deliver a final edit-handle refresh after the scene goes away."""
+    from PyQt6 import sip
+
+    from open_garden_planner.ui.canvas.canvas_scene import CanvasScene
+    from open_garden_planner.ui.canvas.canvas_view import CanvasView
+
+    scene = CanvasScene(width_cm=2000, height_cm=1500)
+    view = CanvasView(scene)
+    qtbot.addWidget(view)
+    sip.delete(scene)
+    assert view.scene() is None
+    view._refresh_edit_handles()

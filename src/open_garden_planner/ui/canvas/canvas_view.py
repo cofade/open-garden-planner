@@ -879,10 +879,13 @@ class CanvasView(QGraphicsView):
         """Refresh screen-sized editing affordances after selection or zoom (#840)."""
         if not hasattr(self, "_drill_down_item"):
             return
+        scene = self.scene()
+        if not isinstance(scene, CanvasScene):
+            return
         from .items.group_item import selection_tree
 
-        self._canvas_scene.invalidate_edit_decoration_covers()
-        for item in selection_tree(self._canvas_scene.selectedItems()):
+        scene.invalidate_edit_decoration_covers()
+        for item in selection_tree(scene.selectedItems()):
             for name in ("update_resize_handles", "update_rotation_handle"):
                 refresh = getattr(item, name, None)
                 if refresh is not None:

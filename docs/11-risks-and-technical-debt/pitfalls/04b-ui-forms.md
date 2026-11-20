@@ -269,3 +269,8 @@ cannot expose this failure.
 
 The vegetables category offered a 1215 px popup on an 800 px work area.
 Hiding buttons left the matches in their old rows.
+
+Give the plant trait scroll area its popup parent before setting visibility.
+During the Windows startup trace Qt showed the unparented scroll area as a
+separate native window, then hid it as the layout adopted it. The toolbar
+construction test watches for that intermediate Show event.

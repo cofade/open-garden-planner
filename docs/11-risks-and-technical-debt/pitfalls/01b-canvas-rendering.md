@@ -137,7 +137,7 @@ The grid's cut-out and the label pass both read the whole scene inside a paint, 
 ### PF-CAN-61
 
 - **Rule:** A method that Qt calls on a view, a scene or an item while another object of the same garbage is destroyed (a virtual such as `scrollContentsBy`, a slot on a signal Qt emits from a destructor) reads only attributes that have a class-level default: the cyclic collector clears an object's `__dict__` before it destroys its C++ part, and an `AttributeError` raised inside a Qt-called virtual ends the process without a traceback.
-- **Pinned by:** `tests/integration/test_dropped_canvas.py`; `tests/integration/test_touch_gestures.py::test_late_viewport_event_can_run_without_the_touch_flag`
+- **Pinned by:** `tests/integration/test_dropped_canvas.py`; `tests/integration/test_touch_gestures.py::test_late_viewport_event_can_run_without_the_touch_flag`; `tests/integration/test_dropped_canvas.py::test_edit_handles_refresh_ignores_a_destroyed_scene`
 - **Source:** #794 (second review of the 2D visual-polish branch)
 - **Status:** standing; narrative in [debug-verbose: Case study: a dropped canvas ended the process with 0xC0000409 and not a word — Qt called a virtual on a view whose attributes the collector had already cleared (#794, fixed 2026-11-10)](../../../.claude/skills/debug-verbose/references/231-case-study-a-dropped-canvas-ended-the-process-without-a-word-794.md)
 - **Legacy:** none (new entry)
@@ -147,6 +147,11 @@ The grid's cut-out and the label pass both read the whole scene inside a paint, 
 PR #985 reproduced the same lifecycle in the viewport event filter during the
 Linux coverage run. The touch flag falls back to disabled when instance
 attributes have been cleared, so the Qt base filter receives the event.
+
+The Windows closing trace also showed a late edit-handle refresh. At that
+point Qt had detached the scene, but the cached Python wrapper was still
+reachable. Read the view's current scene for this callback and skip the
+refresh when there is no live canvas scene.
 
 ### PF-CAN-62
 
