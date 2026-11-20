@@ -159,8 +159,11 @@ def is_resizable_rect_like(item: QGraphicsItem) -> bool:
     Polygons and polylines fail it — they are vertex-backed and belong to
     US-D2.6's vertex tools, not here.
     """
+    from open_garden_planner.core.reference_points import is_reference_point
+
     return (
-        hasattr(item, "rect")
+        not is_reference_point(item)
+        and hasattr(item, "rect")
         and hasattr(item, "setRect")
         and callable(getattr(item, "setRect", None))
     )

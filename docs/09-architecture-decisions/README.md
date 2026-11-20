@@ -13975,3 +13975,16 @@ translation with one undo step, detach, edit, copy, layer, save/reload, legacy c
 fallback and both size modes). Cross-refs: FR-36 (FR-REF-01..06), §8.9.20, glossary
 "Reference point", ADR-017/ADR-031 (bed predicates), ADR-004 (commands), ADR-078
 (measurement display).
+
+
+**Review addendum (PR #985).** A direct move projects the requested coordinate once.
+Undo and redo restore the captured coordinates, including a point left off the
+contour by a parent geometry edit. Changing a name or symbol does not project
+the point. A parent translation carries unlocked points in their own coordinate
+frame, including a point inside a separate stationary group. A position lock
+or locked layer prevents this implicit move. A point and its parent copied
+together rebind by UUID even when nested. An ordinary translation of a Qt group
+also moves its members. Constraints treat reference points as stationary
+anchors during the solve. If the solve moves a binding parent, its unlocked
+points follow that parent in the same command. The datum's rendered perimeter
+does not participate in snapping or rectangle-based geometry editors.

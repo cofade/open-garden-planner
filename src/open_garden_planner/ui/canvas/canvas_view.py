@@ -2325,6 +2325,7 @@ class CanvasView(QGraphicsView):
             False — adding it would create an irresolvable conflict.
         """
         from open_garden_planner.core.measure_snapper import anchor_offset_table
+        from open_garden_planner.core.reference_points import constraint_pins
         from open_garden_planner.ui.canvas.items import GardenItemMixin
         from open_garden_planner.ui.canvas.items.construction_item import (
             ConstructionCircleItem,
@@ -2378,7 +2379,7 @@ class CanvasView(QGraphicsView):
             deformable_items=deformable_items,
             deformable_vertices=deformable_vertices,
             # #670 cause 2: the trial must pin what the application pins.
-            pinned_items=construction_ids
+            pinned_items=construction_ids | constraint_pins(item_map)
             | self._constraint_reference_pins(anchor_a, anchor_b),
         )
 
@@ -4341,7 +4342,7 @@ class CanvasView(QGraphicsView):
         if not self._drag_start_positions:
             return
 
-        from open_garden_planner.core.reference_points import carried_by_moved
+        from open_garden_planner.core.reference_points import carried_by_moved, carried_delta
 
         if not self._drag_carried_points_built:
             self._drag_carried_points = dict(
@@ -4376,7 +4377,7 @@ class CanvasView(QGraphicsView):
             if point not in self._child_drag_origins:
                 self._child_drag_origins[point] = point.pos()
             exact = getattr(point, "set_pos_exact", None)
-            target = self._child_drag_origins[point] + delta
+            target = self._child_drag_origins[point] + carried_delta(point, carrier, delta)
             if callable(exact):
                 exact(target)
             else:

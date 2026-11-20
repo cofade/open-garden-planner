@@ -27,6 +27,7 @@ from collections.abc import Iterable
 from PyQt6.QtCore import QLineF, QPointF
 from PyQt6.QtWidgets import QGraphicsItem
 
+from open_garden_planner.core.reference_points import is_reference_point
 from open_garden_planner.core.snap.geometry import item_edges
 from open_garden_planner.core.snap.provider import (
     SnapCandidate,
@@ -60,6 +61,8 @@ class PerpendicularSnapProvider(SnapProvider):
 
         thr_sq = threshold * threshold
         for item in items:
+            if is_reference_point(item):
+                continue
             if not (item.flags() & QGraphicsItem.GraphicsItemFlag.ItemIsSelectable):
                 continue
             brect = item.sceneBoundingRect()

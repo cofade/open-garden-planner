@@ -24,11 +24,11 @@ from PyQt6.QtWidgets import (
     QLabel,
     QLineEdit,
     QMenu,
-    QSpinBox,
 )
 
 from open_garden_planner.core import reference_points as ref
 from open_garden_planner.core.commands import ChangePropertyCommand, CreateItemCommand
+from open_garden_planner.core.i18n import format_trimmed
 from open_garden_planner.core.object_types import get_translated_display_name
 from open_garden_planner.core.snap.geometry import item_edges
 from open_garden_planner.ui.canvas.items.reference_point_item import (
@@ -108,9 +108,9 @@ def reference_summary(item: ReferencePointItem) -> str:
     return QCoreApplication.translate("ReferencePoints", "{name}\n{status}\nSymbol: {size} {unit}; stroke: {width} px").format(
         name=item.name,
         status=reference_status(item),
-        size=f"{ref.size_value(item.metadata):g}",
+        size=format_trimmed(ref.size_value(item.metadata)),
         unit=unit,
-        width=f"{ref.stroke_width(item.metadata):g}",
+        width=format_trimmed(ref.stroke_width(item.metadata)),
     )
 
 
@@ -208,10 +208,12 @@ def point_dialog(
     )
     form.addRow(QCoreApplication.translate("ReferencePoints", "Size mode"), sizing)
 
-    size = QSpinBox(dialog)
+    size = QDoubleSpinBox(dialog)
+    size.setDecimals(3)
     size.setObjectName("reference_point_size")
     size.setRange(int(ref.MIN_SIZE), int(ref.MAX_SIZE_PLAN))
-    size.setValue(round(options.size))
+    size.setValue(options.size)
+    initial_size = size.value()
     form.addRow(QCoreApplication.translate("ReferencePoints", "Symbol size"), size)
 
     colour = ColorButton(QColor(options.color), dialog)
@@ -224,23 +226,39 @@ def point_dialog(
     width.setSingleStep(0.5)
     width.setSuffix(QCoreApplication.translate("ReferencePoints", " px"))
     width.setValue(options.stroke_width)
+    initial_width = width.value()
     form.addRow(QCoreApplication.translate("ReferencePoints", "Stroke width"), width)
 
     status = QLabel(dialog)
     status.setWordWrap(True)
     form.addRow(status)
 
+    locked = item is not None and item.is_position_locked()
+    parents.setEnabled(not locked)
+    sizes = {
+        ref.SIZE_MODE_PLAN: ref.DEFAULT_SIZE_CM,
+        ref.SIZE_MODE_SCREEN: ref.DEFAULT_SIZE_PX,
+        options.size_mode: initial_size,
+    }
+    previous_mode = options.size_mode
+
     def update_controls() -> None:
+        nonlocal previous_mode
         has_parent = parents.currentData() is not None
-        contour.setEnabled(has_parent)
+        contour.setEnabled(has_parent and not locked)
         if not has_parent:
             contour.setChecked(False)
         mode = sizing.currentData()
         size.setSuffix(QCoreApplication.translate("ReferencePoints", " cm") if mode == ref.SIZE_MODE_PLAN else QCoreApplication.translate("ReferencePoints", " px"))
+        if mode != previous_mode:
+            sizes[previous_mode] = size.value()
         size.setRange(
-            int(ref.MIN_SIZE),
-            int(ref.MAX_SIZE_SCREEN if mode == ref.SIZE_MODE_SCREEN else ref.MAX_SIZE_PLAN),
+            ref.MIN_SIZE,
+            ref.MAX_SIZE_SCREEN if mode == ref.SIZE_MODE_SCREEN else ref.MAX_SIZE_PLAN,
         )
+        if mode != previous_mode:
+            size.setValue(sizes[mode])
+            previous_mode = mode
         status.setText(
             QCoreApplication.translate("ReferencePoints", "On outline of: {name}").format(name=parents.currentText())
             if has_parent and contour.isChecked()
@@ -265,14 +283,15 @@ def point_dialog(
 
     if dialog.exec() != QDialog.DialogCode.Accepted:
         return None
+    mode = cast(str, sizing.currentData())
     return PointProperties(
         name=name_edit.text().strip(),
-        parent_id=cast(UUID | None, parents.currentData()),
-        on_contour=contour.isChecked() and contour.isEnabled(),
-        size_mode=cast(str, sizing.currentData()),
-        size=float(size.value()),
+        parent_id=options.parent_id if locked else cast(UUID | None, parents.currentData()),
+        on_contour=options.on_contour if locked else contour.isChecked(),
+        size_mode=mode,
+        size=options.size if mode == options.size_mode and initial_size == size.value() else size.value(),
         color=colour.color.name(QColor.NameFormat.HexArgb),
-        stroke_width=width.value(),
+        stroke_width=options.stroke_width if initial_width == width.value() else width.value(),
     )
 
 
@@ -302,7 +321,7 @@ def _apply_properties(item: ReferencePointItem, value: tuple[PointProperties, QP
     pen.setWidthF(options.stroke_width)
     item.setPen(pen)
     parent_item = item.parentItem()
-    item.setPos(
+    item.set_pos_exact(
         parent_item.mapFromScene(position) if parent_item is not None else position
     )
     item.prepareGeometryChange()
@@ -384,13 +403,16 @@ def edit_reference_point(item: ReferencePointItem) -> None:
         return
     old_position = item.mapToScene(item.rect().center())
     new_position = QPointF(old_position)
-    if options.on_contour and options.parent_id is not None:
+    previous = PointProperties.from_item(item)
+    if options.on_contour and options.parent_id is not None and (
+        options.parent_id != previous.parent_id or not previous.on_contour
+    ):
         parent = scene.find_item_by_id(options.parent_id)
         if parent is not None:
-            projection = nearest_contour_position(parent, item.mapToScene(item.rect().center()))
+            projection = nearest_contour_position(parent, old_position)
             if projection is not None:
                 new_position = projection[0]
-    old = (PointProperties.from_item(item), old_position)
+    old = (previous, old_position)
     new = (options, new_position)
     if old == new:
         return

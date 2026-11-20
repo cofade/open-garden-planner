@@ -416,7 +416,7 @@ def test_editing_a_point_on_a_locked_layer_is_refused(canvas, monkeypatch):
 
 
 def test_the_dialog_preselects_a_contour_parent(canvas, monkeypatch):
-    from PyQt6.QtWidgets import QCheckBox, QComboBox, QDialog, QSpinBox
+    from PyQt6.QtWidgets import QCheckBox, QComboBox, QDialog, QDoubleSpinBox
 
     scene, view = canvas
     parent = RectangleItem(100, 100, 400, 200, object_type=ObjectType.GENERIC_RECTANGLE)
@@ -427,7 +427,7 @@ def test_the_dialog_preselects_a_contour_parent(canvas, monkeypatch):
     def accept(dialog):
         parents = dialog.findChild(QComboBox, "reference_point_parent")
         contour = dialog.findChild(QCheckBox, "reference_point_on_contour")
-        size = dialog.findChild(QSpinBox, "reference_point_size")
+        size = dialog.findChild(QDoubleSpinBox, "reference_point_size")
         captured["parent"] = parents.currentData()
         captured["contour"] = contour.isChecked()
         captured["size"] = size.value()
@@ -559,3 +559,158 @@ def test_screen_mode_symbol_does_not_scale_with_the_view(canvas, monkeypatch):
     reference_points.edit_reference_point(point)
     # Unchanged properties are still one call and must not move the centre.
     assert point.pos() == QPointF(240, 180)
+
+
+@pytest.mark.parametrize("align", [False, True])
+def test_projected_move_undo_restores_the_original_coordinate(canvas, monkeypatch, align):
+    from open_garden_planner.core.commands import AlignItemsCommand
+
+    scene, view = canvas
+    parent = RectangleItem(100, 100, 400, 200, object_type=ObjectType.GENERIC_RECTANGLE)
+    scene.addItem(parent)
+    start = QPointF(106, 100)
+    point = _place(monkeypatch, view, _options(parent_id=parent.item_id, on_contour=True), start)
+    delta = QPointF(-20, 0)
+    command = AlignItemsCommand([(point, delta)]) if align else MoveItemsCommand([point], delta)
+    view.command_manager.execute(command)
+    assert point.pos() == QPointF(100, 100)
+
+    view.command_manager.undo()
+    assert point.pos() == start
+    view.command_manager.redo()
+    assert point.pos() == QPointF(100, 100)
+
+
+def test_edit_preserves_a_point_left_off_contour_by_parent_rotation(canvas, monkeypatch):
+    scene, view = canvas
+    parent = RectangleItem(100, 100, 400, 200, object_type=ObjectType.GENERIC_RECTANGLE)
+    scene.addItem(parent)
+    start = QPointF(250, 100)
+    options = _options(parent_id=parent.item_id, on_contour=True)
+    point = _place(monkeypatch, view, options, start)
+    parent.setRotation(24)
+    assert point.pos() == start
+
+    monkeypatch.setattr(reference_points, "point_dialog", lambda *_args: _options(
+        parent_id=parent.item_id, on_contour=True, name="Renamed stake",
+    ))
+    reference_points.edit_reference_point(point)
+    assert point.name == "Renamed stake"
+    assert point.pos() == start
+    view.command_manager.undo()
+    assert point.name == options.name
+    assert point.pos() == start
+
+
+@pytest.mark.parametrize("mode", ["Nearest", "Perpendicular", "Tangent"])
+def test_point_snapper_exposes_no_reference_point_perimeter(canvas, monkeypatch, mode):
+    from open_garden_planner.core.snap import providers
+    from open_garden_planner.core.snap.point_snapper import PointSnapper
+    from open_garden_planner.core.snap.registry import SnapRegistry
+
+    scene, view = canvas
+    point = _place(monkeypatch, view, _options(size=40), QPointF(100, 100))
+    registry = SnapRegistry([getattr(providers, f"{mode}SnapProvider")()])
+    snapper = PointSnapper(registry)
+    snapper.update_scene([point], scene.sceneRect())
+    args = (QPointF(120, 100), 30, QPointF(150, 100))
+    assert snapper.snap(*args) is None
+
+    registry.add(providers.CenterSnapProvider())
+    assert snapper.snap(*args).point == QPointF(100, 100)
+
+
+@pytest.mark.parametrize("paste", [False, True])
+def test_copy_group_rebinds_nested_point(canvas, monkeypatch, paste):
+    scene, view = canvas
+    parent = RectangleItem(100, 100, 400, 200, object_type=ObjectType.GENERIC_RECTANGLE)
+    scene.addItem(parent)
+    point = _place(monkeypatch, view, _options(parent_id=parent.item_id, on_contour=True),
+                   QPointF(230, 100))
+    group = GroupItem()
+    scene.addItem(group)
+    group.addToGroup(parent)
+    group.addToGroup(point)
+    scene.clearSelection()
+    group.setSelected(True)
+    if paste:
+        view.copy_selected()
+        view.paste()
+    else:
+        view.duplicate_selected()
+    copy = next(item for item in scene.selectedItems() if isinstance(item, GroupItem))
+    assert copy is not group
+    parent_copy = next(child for child in copy.childItems() if isinstance(child, RectangleItem))
+    point_copy = next(child for child in copy.childItems() if isinstance(child, ReferencePointItem))
+    assert parent_id(point_copy.metadata) == parent_copy.item_id
+
+
+def test_parent_carries_a_point_in_a_separate_rotated_group(canvas, monkeypatch):
+    scene, view = canvas
+    parent = RectangleItem(100, 100, 400, 200, object_type=ObjectType.GENERIC_RECTANGLE)
+    scene.addItem(parent)
+    point = _place(monkeypatch, view, _options(parent_id=parent.item_id, on_contour=True),
+                   QPointF(230, 100))
+    group = GroupItem()
+    group.setRotation(30)
+    scene.addItem(group)
+    group.addToGroup(point)
+    start = point.scenePos()
+    delta = QPointF(60, 20)
+    view.command_manager.execute(MoveItemsCommand([parent], delta))
+    assert (point.scenePos() - start - delta).manhattanLength() < 1e-9
+    view.command_manager.undo()
+    assert (point.scenePos() - start).manhattanLength() < 1e-9
+
+
+def test_locked_datum_stays_at_its_coordinate_when_parent_moves(canvas, monkeypatch):
+    scene, view = canvas
+    parent = RectangleItem(100, 100, 400, 200, object_type=ObjectType.GENERIC_RECTANGLE)
+    scene.addItem(parent)
+    start = QPointF(230, 100)
+    point = _place(monkeypatch, view, _options(parent_id=parent.item_id, on_contour=True), start)
+    _menu, lock_action = reference_points.reference_context_menu(point)
+    assert point.dispatch_lock_action(lock_action, lock_action)
+    assert point.is_position_locked()
+
+    view.command_manager.execute(MoveItemsCommand([parent], QPointF(50, 30)))
+    assert point.pos() == start
+    assert parent.pos() == QPointF(50, 30)
+
+
+def test_constraint_uses_reference_point_as_stationary_anchor(canvas, monkeypatch):
+    from open_garden_planner.core.constraints import AnchorRef, ConstraintType
+
+    scene, view = canvas
+    start = QPointF(100, 100)
+    reference = _place(monkeypatch, view, _options(), start)
+    circle = CircleItem(200, 100, 10, object_type=ObjectType.GENERIC_CIRCLE)
+    scene.addItem(circle)
+    a = AnchorRef(reference.item_id, AnchorType.CENTER)
+    b = AnchorRef(circle.item_id, AnchorType.CENTER)
+    scene.constraint_graph.add_constraint(a, b, 150.0, constraint_type=ConstraintType.DISTANCE)
+
+    view.apply_constraint_solver()
+    assert reference.pos() == start
+    assert (circle.mapToScene(circle.rect().center()) - start).manhattanLength() == pytest.approx(150.0)
+
+
+def test_reference_size_defaults_are_per_mode_and_keep_fractional_edits(canvas, monkeypatch):
+    from PyQt6.QtWidgets import QComboBox, QDialog, QDoubleSpinBox
+
+    _scene, view = canvas
+
+    def accept(dialog):
+        sizing = dialog.findChild(QComboBox, "reference_point_sizing")
+        size = dialog.findChild(QDoubleSpinBox, "reference_point_size")
+        assert size.value() == 6.0
+        size.setValue(7.25)
+        sizing.setCurrentIndex(1)
+        assert size.value() == 16.0
+        sizing.setCurrentIndex(0)
+        assert size.value() == 7.25
+        return QDialog.DialogCode.Accepted
+
+    monkeypatch.setattr(QDialog, "exec", accept)
+    options = reference_points.point_dialog(view)
+    assert options is not None and options.size == 7.25

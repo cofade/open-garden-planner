@@ -28,8 +28,12 @@ Key names are stable; values are plain JSON scalars:
 
 from __future__ import annotations
 
-from typing import Any
+from typing import TYPE_CHECKING, Any
 from uuid import UUID
+
+if TYPE_CHECKING:
+    from PyQt6.QtCore import QPointF
+    from PyQt6.QtWidgets import QGraphicsItem
 
 MARKER = "reference_point"
 PARENT_ID = "reference_point_parent_id"
@@ -170,6 +174,26 @@ def attached_to_any(scene: Any, parents: list[Any]) -> list[Any]:
     return found
 
 
+def constraint_pins(items: dict[UUID, QGraphicsItem]) -> set[UUID]:
+    """Keep datums stationary during a solve, along with participating carriers.
+
+    A solver cannot change a relative distance by moving both endpoints
+    together. Do not solve against a stationary datum then carry it by the
+    very same move.
+    """
+    pinned = set()
+    for item_id, item in items.items():
+        if not is_reference_point(item):
+            continue
+        pinned.add(item_id)
+        carrier = item.binding_parent  # type: ignore[attr-defined]
+        while carrier is not None:
+            if carrier.item_id in items:
+                pinned.add(carrier.item_id)
+            carrier = carrier.parentItem()
+    return pinned
+
+
 def carried_by_moved(
     scene: Any, moved_items: list[Any], *, exclude_moved: bool = True
 ) -> list[tuple[Any, Any]]:
@@ -177,8 +201,7 @@ def carried_by_moved(
 
     A moved group carries the points bound to its descendants, because Qt moves
     the descendants with the group but the points are top-level items. A point
-    that is itself a child of a moved item is moved by Qt and is never carried
-    again. ``exclude_moved`` drops points that are in ``moved_items`` (the
+    that already moves with a Qt ancestor is not moved again. ``exclude_moved`` drops points that are in ``moved_items`` (the
     expansion caller); a command asks for them so it can translate the point
     exactly instead of projecting it onto the contour.
     """
@@ -186,6 +209,9 @@ def carried_by_moved(
         return []
     points_by_parent = attached_by_parent(scene)
     moved = set(moved_items)
+    graph = getattr(scene, "constraint_graph", None)
+    fixed = graph.fixed_item_ids() if graph is not None else set()
+    get_layer = getattr(scene, "get_layer_by_id", None)
     seen: set[int] = set()
     found: list[tuple[Any, Any]] = []
     for carrier in moved_items:
@@ -197,7 +223,13 @@ def carried_by_moved(
                 for point in points_by_parent.get(item_id, ()):
                     if exclude_moved and point in moved:
                         continue
-                    if getattr(point, "parentItem", lambda: None)() is not None:
+                    layer = get_layer(point.layer_id) if callable(get_layer) and point.layer_id else None
+                    if point.item_id in fixed or (layer is not None and layer.locked):
+                        continue
+                    ancestor = point.parentItem()
+                    while ancestor is not None and ancestor not in moved:
+                        ancestor = ancestor.parentItem()
+                    if ancestor is not None:
                         continue
                     if id(point) in seen:
                         continue
@@ -205,6 +237,21 @@ def carried_by_moved(
                     found.append((point, carrier))
             stack.extend(item.childItems())
     return found
+
+
+def carried_delta(item: QGraphicsItem, carrier: QGraphicsItem, delta: QPointF) -> QPointF:
+    """Convert a carrier's local translation into the datum's Qt parent frame."""
+    source = carrier.parentItem()
+    target = item.parentItem()
+    if source is target:
+        return delta
+    if source is not None:
+        origin = carrier.pos()
+        delta = source.mapToScene(origin + delta) - source.mapToScene(origin)
+    if target is not None:
+        origin = item.scenePos()
+        delta = target.mapFromScene(origin + delta) - target.mapFromScene(origin)
+    return delta
 
 
 def attached_by_parent(scene: Any) -> dict[UUID, list[Any]]:

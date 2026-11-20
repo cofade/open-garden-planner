@@ -631,10 +631,6 @@
             <translation>Les opérations nécessitent des formes fermées (polygone, rectangle, cercle ou ellipse)</translation>
         </message>
         <message>
-            <source>Boolean operations require closed shapes (polygon, rectangle, or circle)</source>
-            <translation type="vanished">Les opérations booléennes nécessitent des formes fermées (polygone, rectangle ou cercle)</translation>
-        </message>
-        <message>
             <location filename="../../ui/canvas/canvas_view.py" line="6060" />
             <source>Boolean {op}</source>
             <translation>Opération booléenne {op}</translation>
@@ -703,10 +699,6 @@
             <location filename="../../ui/canvas/clipboard_operations.py" line="558" />
             <source>Created linear array of {count} items</source>
             <translation>Répétition linéaire de {count} éléments créée</translation>
-        </message>
-        <message>
-            <source>Created {dir} offset of {dist:.1f} cm</source>
-            <translation type="vanished">Décalage {dir} de {dist:.1f} cm créé</translation>
         </message>
         <message>
             <location filename="../../core/tools/offset_tool.py" line="498" />
@@ -879,14 +871,6 @@
             <translation>Chaise longue</translation>
         </message>
         <message>
-            <source>Merge selected shapes?</source>
-            <translation type="vanished">Fusionner les formes sélectionnées ?</translation>
-        </message>
-        <message>
-            <source>Merge shapes</source>
-            <translation type="vanished">Fusionner les formes</translation>
-        </message>
-        <message>
             <location filename="../../ui/canvas/canvas_view.py" line="5273" />
             <source>N</source>
             <translation>N</translation>
@@ -1051,10 +1035,6 @@
             <translation>Sélectionnez au moins deux formes (l’intersection et la soustraction en exigent exactement deux)</translation>
         </message>
         <message>
-            <source>Select at least two shapes to merge; intersection and subtraction require exactly two.</source>
-            <translation type="vanished">Sélectionner au moins deux formes à fusionner ; intersection et soustraction nécessitent exactement deux formes.</translation>
-        </message>
-        <message>
             <location filename="../../ui/canvas/clipboard_operations.py" line="730" />
             <source>Select exactly one item to create a circular array</source>
             <translation>Sélectionner un seul élément pour une répétition circulaire</translation>
@@ -1070,18 +1050,10 @@
             <translation>Sélectionner un seul élément pour une répétition linéaire</translation>
         </message>
         <message>
-            <source>Select exactly two shapes for boolean operation</source>
-            <translation type="vanished">Sélectionner exactement deux formes pour une opération booléenne</translation>
-        </message>
-        <message>
             <location filename="../../ui/canvas/clipboard_operations.py" line="857" />
             <location filename="../../ui/canvas/clipboard_operations.py" line="872" />
             <source>Select one item and one polyline path for array along path</source>
             <translation>Sélectionner un élément et une polyligne pour une répétition le long du tracé</translation>
-        </message>
-        <message>
-            <source>Shapes must overlap for boolean operations</source>
-            <translation type="vanished">Les formes doivent se chevaucher pour une opération booléenne</translation>
         </message>
         <message>
             <location filename="../../ui/canvas/canvas_view.py" line="6022" />
@@ -1149,10 +1121,6 @@
             <translation>Les planches sélectionnées contiennent des plantes. Que souhaitez-vous faire ?</translation>
         </message>
         <message>
-            <source>The selected shapes must touch or overlap.</source>
-            <translation type="vanished">Les formes sélectionnées doivent se toucher ou se chevaucher.</translation>
-        </message>
-        <message>
             <location filename="../../ui/canvas/canvas_view.py" line="5838" />
             <source>The shape carries links that a split cannot preserve</source>
             <translation>La forme porte des liens qu’une division ne peut pas conserver</translation>
@@ -1176,10 +1144,6 @@
             <location filename="../../ui/canvas/canvas_view.py" line="5980" />
             <source>The shapes contain different data; keep them separate or make their data consistent</source>
             <translation>Les formes contiennent des données différentes ; gardez-les séparées ou harmonisez leurs données</translation>
-        </message>
-        <message>
-            <source>The shapes contain different data; keep them separate or make their data consistent before merging.</source>
-            <translation type="vanished">Les formes contiennent des données différentes ; gardez-les séparées ou harmonisez leurs données avant de les fusionner.</translation>
         </message>
         <message>
             <location filename="../../ui/canvas/canvas_view.py" line="3799" />
@@ -1235,10 +1199,6 @@
             <location filename="../../ui/canvas/canvas_view.py" line="5732" />
             <source>Ungrouped {n} groups</source>
             <translation>{n} groupes dissociés</translation>
-        </message>
-        <message>
-            <source>Use independent shapes without plants, linked objects or constraints to combine outlines.</source>
-            <translation type="vanished">Utiliser des formes indépendantes sans plantes, objets liés ni contraintes pour combiner les contours.</translation>
         </message>
         <message>
             <location filename="../../ui/canvas/canvas_view.py" line="2245" />
@@ -1307,17 +1267,6 @@
         </message>
     </context>
     <context>
-        <name>CatalogPalette</name>
-        <message>
-            <source>{name}
-Stylized plan symbol; cultivar appearance may differ.
-Choose, then set center and edge on the plan. Uncheck size choice for one-click placement.</source>
-            <translation type="vanished">{name}
-Symbole de plan stylisé ; l’aspect du cultivar peut différer.
-Choisir, puis placer le centre et le bord sur le plan. Décocher le choix de taille pour placer en un clic.</translation>
-        </message>
-    </context>
-    <context>
         <name>CategoryDropdown</name>
         <message>
             <location filename="../../ui/widgets/category_dropdown.py" line="193" />
@@ -1330,29 +1279,9 @@ Choisir, puis placer le centre et le bord sur le plan. Décocher le choix de tai
             <translation>Ajouter à une liste</translation>
         </message>
         <message>
-            <source>All plants (including unclassified)</source>
-            <translation type="vanished">Toutes les plantes (y compris non classées)</translation>
-        </message>
-        <message>
-            <source>Choose size on plan (center, then edge)</source>
-            <translation type="vanished">Choisir la taille sur le plan (centre, puis bord)</translation>
-        </message>
-        <message>
-            <source>Clear filters</source>
-            <translation type="vanished">Effacer les filtres</translation>
-        </message>
-        <message>
             <location filename="../../ui/widgets/category_dropdown.py" line="298" />
             <source>Filter…</source>
             <translation>Filtrer…</translation>
-        </message>
-        <message>
-            <source>Illustrations and generic shapes</source>
-            <translation type="vanished">Illustrations et formes génériques</translation>
-        </message>
-        <message>
-            <source>Next plants</source>
-            <translation type="vanished">Plantes suivantes</translation>
         </message>
         <message>
             <location filename="../../ui/widgets/category_dropdown.py" line="328" />
@@ -1360,25 +1289,9 @@ Choisir, puis placer le centre et le bord sur le plan. Décocher le choix de tai
             <translation>Aucun élément correspondant</translation>
         </message>
         <message>
-            <source>No matching objects</source>
-            <translation type="vanished">Aucun objet correspondant</translation>
-        </message>
-        <message>
-            <source>Previous plants</source>
-            <translation type="vanished">Plantes précédentes</translation>
-        </message>
-        <message>
             <location filename="../../ui/widgets/category_dropdown.py" line="187" />
             <source>Remove from Favorites</source>
             <translation>Retirer des favoris</translation>
-        </message>
-        <message>
-            <source>Search plant databases…</source>
-            <translation type="vanished">Rechercher dans les bases de plantes…</translation>
-        </message>
-        <message>
-            <source>{count} plants — {first}–{last}</source>
-            <translation type="vanished">{count} plantes — {first}–{last}</translation>
         </message>
         <message>
             <location filename="../../ui/widgets/category_dropdown.py" line="160" />
@@ -1422,10 +1335,6 @@ Choisir, puis placer le centre et le bord sur le plan. Décocher le choix de tai
             <location filename="../../core/tools/chamfer_tool.py" line="146" />
             <source>Chamfer distance too large for this corner</source>
             <translation>Distance du chanfrein trop grande pour ce sommet</translation>
-        </message>
-        <message>
-            <source>Chamfer distance: {distance:.1f} cm — press D to change</source>
-            <translation type="vanished">Distance du chanfrein : {distance:.1f} cm — appuyer sur D pour modifier</translation>
         </message>
         <message>
             <location filename="../../core/tools/chamfer_tool.py" line="53" />
@@ -1910,10 +1819,6 @@ Choisir, puis placer le centre et le bord sur le plan. Décocher le choix de tai
             <translation>Arrondir le sommet</translation>
         </message>
         <message>
-            <source>Garden records</source>
-            <translation type="vanished">Données du jardin</translation>
-        </message>
-        <message>
             <location filename="../../core/commands.py" line="3110" />
             <source>Group {count} items</source>
             <translation>Grouper {count} éléments</translation>
@@ -2186,10 +2091,6 @@ Choisir, puis placer le centre et le bord sur le plan. Décocher le choix de tai
             <location filename="../../ui/panels/plant_database_panel.py" line="1652" />
             <source>permaculture_layer</source>
             <translation>strate_permaculture</translation>
-        </message>
-        <message>
-            <source>personal visual</source>
-            <translation type="vanished">visuel personnel</translation>
         </message>
         <message>
             <location filename="../../ui/plant_lifetime.py" line="10" />
@@ -2716,10 +2617,6 @@ Choisir, puis placer le centre et le bord sur le plan. Décocher le choix de tai
             <translation>Supprimer la contrainte</translation>
         </message>
         <message>
-            <source>Edge {d:.2f} m</source>
-            <translation type="vanished">Côté {d:.2f} m</translation>
-        </message>
-        <message>
             <location filename="../../ui/constraint_presentation.py" line="64" />
             <source>Edge {d}</source>
             <translation>Côté {d}</translation>
@@ -2796,10 +2693,6 @@ Choisir, puis placer le centre et le bord sur le plan. Décocher le choix de tai
             <translation>{a} coïncide avec {b}</translation>
         </message>
         <message>
-            <source>{a} edge length: {d:.2f} m</source>
-            <translation type="vanished">{a} longueur du côté : {d:.2f} m</translation>
-        </message>
-        <message>
             <location filename="../../ui/constraint_presentation.py" line="65" />
             <source>{a} edge length: {d}</source>
             <translation>Longueur du côté {a} : {d}</translation>
@@ -2850,17 +2743,9 @@ Choisir, puis placer le centre et le bord sur le plan. Décocher le choix de tai
             <translation>{a} symétrique de {b} selon l’axe vertical</translation>
         </message>
         <message>
-            <source>{a} tangent to {b} (r={d:.2f} m)</source>
-            <translation type="vanished">{a} tangent à {b} (r={d:.2f} m)</translation>
-        </message>
-        <message>
             <location filename="../../ui/constraint_presentation.py" line="110" />
             <source>{a} tangent to {b} (r={d})</source>
             <translation>{a} tangent à {b} (r={d})</translation>
-        </message>
-        <message>
-            <source>{a} to {b}: horizontal distance {d:.2f} m</source>
-            <translation type="vanished">De {a} à {b} : distance horizontale {d:.2f} m</translation>
         </message>
         <message>
             <location filename="../../ui/constraint_presentation.py" line="98" />
@@ -2868,17 +2753,9 @@ Choisir, puis placer le centre et le bord sur le plan. Décocher le choix de tai
             <translation>{a} à {b} : distance horizontale {d}</translation>
         </message>
         <message>
-            <source>{a} to {b}: vertical distance {d:.2f} m</source>
-            <translation type="vanished">De {a} à {b} : distance verticale {d:.2f} m</translation>
-        </message>
-        <message>
             <location filename="../../ui/constraint_presentation.py" line="101" />
             <source>{a} to {b}: vertical distance {d}</source>
             <translation>{a} à {b} : distance verticale {d}</translation>
-        </message>
-        <message>
-            <source>{a} to {b}: {d:.2f} m</source>
-            <translation type="vanished">De {a} à {b} : {d:.2f} m</translation>
         </message>
         <message>
             <location filename="../../ui/constraint_presentation.py" line="62" />
@@ -2904,10 +2781,6 @@ Choisir, puis placer le centre et le bord sur le plan. Décocher le choix de tai
             <location filename="../../ui/constraint_presentation.py" line="73" />
             <source>{d:.1f}°</source>
             <translation>{d:.1f}°</translation>
-        </message>
-        <message>
-            <source>{d:.2f} m</source>
-            <translation type="vanished">{d:.2f} m</translation>
         </message>
         <message>
             <location filename="../../ui/constraint_presentation.py" line="19" />
@@ -2990,10 +2863,6 @@ Choisir, puis placer le centre et le bord sur le plan. Décocher le choix de tai
             <translation>Contrainte d’angle</translation>
         </message>
         <message>
-            <source>Chamfer (Shift+C) — bevel a corner</source>
-            <translation type="vanished">Chanfrein (Maj+C) — biseauter un sommet</translation>
-        </message>
-        <message>
             <location filename="../../ui/widgets/constraint_toolbar.py" line="110" />
             <source>Chamfer — bevel a corner</source>
             <translation>Chanfrein — biseauter un coin</translation>
@@ -3034,10 +2903,6 @@ Choisir, puis placer le centre et le bord sur le plan. Décocher le choix de tai
             <translation>Même taille</translation>
         </message>
         <message>
-            <source>Fillet (Shift+F) — round a corner</source>
-            <translation type="vanished">Congé (Maj+F) — arrondir un sommet</translation>
-        </message>
-        <message>
             <location filename="../../ui/widgets/constraint_toolbar.py" line="109" />
             <source>Fillet — round a corner</source>
             <translation>Congé — arrondir un coin</translation>
@@ -3058,17 +2923,9 @@ Choisir, puis placer le centre et le bord sur le plan. Décocher le choix de tai
             <translation>Distance horizontale</translation>
         </message>
         <message>
-            <source>Mirror (Shift+M) — reflect selection across an axis</source>
-            <translation type="vanished">Symétrie (Maj+M) — réfléchir la sélection selon un axe</translation>
-        </message>
-        <message>
             <location filename="../../ui/widgets/constraint_toolbar.py" line="113" />
             <source>Mirror — reflect selection across an axis</source>
             <translation>Symétrie — refléter la sélection selon un axe</translation>
-        </message>
-        <message>
-            <source>Offset (O) — parallel copy inward/outward</source>
-            <translation type="vanished">Décalage (O) — copie parallèle vers l’intérieur ou l’extérieur</translation>
         </message>
         <message>
             <location filename="../../ui/widgets/constraint_toolbar.py" line="107" />
@@ -3094,10 +2951,6 @@ Choisir, puis placer le centre et le bord sur le plan. Décocher le choix de tai
             <location filename="../../ui/widgets/constraint_toolbar.py" line="82" />
             <source>Symmetry Constraint</source>
             <translation>Contrainte de symétrie</translation>
-        </message>
-        <message>
-            <source>Trim/Extend (I) — X toggles mode</source>
-            <translation type="vanished">Rogner / Prolonger (I) — X change le mode</translation>
         </message>
         <message>
             <location filename="../../ui/widgets/constraint_toolbar.py" line="98" />
@@ -3397,10 +3250,6 @@ Utiliser l’outil Contrainte (K) pour en ajouter une.</translation>
     <context>
         <name>CustomPlantsDialog</name>
         <message>
-            <source>Annual</source>
-            <translation type="vanished">Annuelle</translation>
-        </message>
-        <message>
             <location filename="../../ui/dialogs/custom_plants_dialog.py" line="216" />
             <source>Are you sure you want to delete '{name}'?
 
@@ -3408,10 +3257,6 @@ This will remove it from your custom library. Plants already placed in projects 
             <translation>Voulez-vous vraiment supprimer « {name} » ?
 
 Cette plante sera retirée de la bibliothèque personnelle. Les plantes déjà placées dans des projets conserveront leurs données.</translation>
-        </message>
-        <message>
-            <source>Biennial</source>
-            <translation type="vanished">Bisannuelle</translation>
         </message>
         <message>
             <location filename="../../ui/dialogs/custom_plants_dialog.py" line="71" />
@@ -3482,10 +3327,6 @@ Cette plante sera retirée de la bibliothèque personnelle. Les plantes déjà p
             <location filename="../../ui/dialogs/custom_plants_dialog.py" line="166" />
             <source>No custom plants yet. Click 'Create New' to add one.</source>
             <translation>Aucune plante personnelle. Cliquer sur « Créer » pour en ajouter une.</translation>
-        </message>
-        <message>
-            <source>Perennial</source>
-            <translation type="vanished">Vivace</translation>
         </message>
         <message>
             <location filename="../../ui/dialogs/custom_plants_dialog.py" line="60" />
@@ -3661,10 +3502,6 @@ Cette plante sera retirée de la bibliothèque personnelle. Les plantes déjà p
     </context>
     <context>
         <name>DistanceInputDialog</name>
-        <message>
-            <source>Current distance: {distance:.2f} m</source>
-            <translation type="vanished">Distance actuelle : {distance:.2f} m</translation>
-        </message>
         <message>
             <location filename="../../core/tools/constraint_tool.py" line="104" />
             <source>Current distance: {distance}</source>
@@ -3912,145 +3749,6 @@ Utiliser 0.1 pour un DXF en mm, 100 pour un DXF en mètres.</translation>
         </message>
     </context>
     <context>
-        <name>EventEditor</name>
-        <message>
-            <source>Amendment</source>
-            <translation type="vanished">Amendement</translation>
-        </message>
-        <message>
-            <source>Application method:</source>
-            <translation type="vanished">Méthode d’application :</translation>
-        </message>
-        <message>
-            <source>Attach photo or document</source>
-            <translation type="vanished">Joindre une photo ou un document</translation>
-        </message>
-        <message>
-            <source>Attach photo or document…</source>
-            <translation type="vanished">Joindre une photo ou un document…</translation>
-        </message>
-        <message>
-            <source>Attachment is missing.</source>
-            <translation type="vanished">Pièce jointe introuvable.</translation>
-        </message>
-        <message>
-            <source>Attachments…</source>
-            <translation type="vanished">Pièces jointes…</translation>
-        </message>
-        <message>
-            <source>Check the entered values: {error}</source>
-            <translation type="vanished">Vérifier les valeurs saisies : {error}</translation>
-        </message>
-        <message>
-            <source>Completed</source>
-            <translation type="vanished">Terminé</translation>
-        </message>
-        <message>
-            <source>Depth or thickness (cm):</source>
-            <translation type="vanished">Profondeur ou épaisseur (cm) :</translation>
-        </message>
-        <message>
-            <source>Description:</source>
-            <translation type="vanished">Description :</translation>
-        </message>
-        <message>
-            <source>Fertilisation</source>
-            <translation type="vanished">Fertilisation</translation>
-        </message>
-        <message>
-            <source>Intervention</source>
-            <translation type="vanished">Intervention</translation>
-        </message>
-        <message>
-            <source>Invalid garden data</source>
-            <translation type="vanished">Données du jardin non valides</translation>
-        </message>
-        <message>
-            <source>Material or product:</source>
-            <translation type="vanished">Matériau ou produit :</translation>
-        </message>
-        <message>
-            <source>Mulching</source>
-            <translation type="vanished">Paillage</translation>
-        </message>
-        <message>
-            <source>Observation</source>
-            <translation type="vanished">Observation</translation>
-        </message>
-        <message>
-            <source>Occasional watering</source>
-            <translation type="vanished">Arrosage ponctuel</translation>
-        </message>
-        <message>
-            <source>Occurrence:</source>
-            <translation type="vanished">Date ou période :</translation>
-        </message>
-        <message>
-            <source>Open attachment</source>
-            <translation type="vanished">Ouvrir la pièce jointe</translation>
-        </message>
-        <message>
-            <source>Planned</source>
-            <translation type="vanished">Prévu</translation>
-        </message>
-        <message>
-            <source>Planting</source>
-            <translation type="vanished">Plantation</translation>
-        </message>
-        <message>
-            <source>Pruning</source>
-            <translation type="vanished">Taille</translation>
-        </message>
-        <message>
-            <source>Quantity (optional):</source>
-            <translation type="vanished">Quantité (facultative) :</translation>
-        </message>
-        <message>
-            <source>Relocation</source>
-            <translation type="vanished">Déplacement</translation>
-        </message>
-        <message>
-            <source>Removal or loss</source>
-            <translation type="vanished">Suppression ou perte</translation>
-        </message>
-        <message>
-            <source>Remove attachment reference</source>
-            <translation type="vanished">Retirer la référence à la pièce jointe</translation>
-        </message>
-        <message>
-            <source>Save the project before attaching files.</source>
-            <translation type="vanished">Enregistrer le projet avant de joindre des fichiers.</translation>
-        </message>
-        <message>
-            <source>Sowing</source>
-            <translation type="vanished">Semis</translation>
-        </message>
-        <message>
-            <source>Status:</source>
-            <translation type="vanished">État :</translation>
-        </message>
-        <message>
-            <source>Targets:</source>
-            <translation type="vanished">Cibles :</translation>
-        </message>
-        <message>
-            <source>Treated area (m²):</source>
-            <translation type="vanished">Surface traitée (m²) :</translation>
-        </message>
-        <message>
-            <source>Type:</source>
-            <translation type="vanished">Type :</translation>
-        </message>
-        <message>
-            <source>Unit:</source>
-            <translation type="vanished">Unité :</translation>
-        </message>
-        <message>
-            <source>YYYY-MM-DD, YYYY-MM, autumn 2023, YYYY, or blank</source>
-            <translation type="vanished">AAAA-MM-JJ, AAAA-MM, automne 2023, AAAA ou vide</translation>
-        </message>
-    </context>
-    <context>
         <name>ExportPngDialog</name>
         <message>
             <location filename="../../ui/dialogs/export_dialog.py" line="105" />
@@ -4101,10 +3799,6 @@ Utiliser 0.1 pour un DXF en mm, 100 pour un DXF en mètres.</translation>
             <location filename="../../ui/dialogs/export_dialog.py" line="128" />
             <source>Canvas size: {width} × {height}</source>
             <translation>Taille du canevas : {width} × {height}</translation>
-        </message>
-        <message>
-            <source>Canvas size: {width} × {height} m</source>
-            <translation type="vanished">Dimensions du plan : {width} × {height} m</translation>
         </message>
         <message>
             <location filename="../../ui/dialogs/export_dialog.py" line="45" />
@@ -4180,10 +3874,6 @@ Utiliser 0.1 pour un DXF en mm, 100 pour un DXF en mètres.</translation>
             <location filename="../../core/tools/fillet_tool.py" line="169" />
             <source>Fillet radius too large for this corner</source>
             <translation>Rayon du congé trop grand pour ce sommet</translation>
-        </message>
-        <message>
-            <source>Fillet radius: {radius:.1f} cm — press R to change</source>
-            <translation type="vanished">Rayon du congé : {radius:.1f} cm — appuyer sur R pour modifier</translation>
         </message>
         <message>
             <location filename="../../core/tools/fillet_tool.py" line="64" />
@@ -5109,10 +4799,6 @@ Utiliser 0.1 pour un DXF en mm, 100 pour un DXF en mètres.</translation>
             <translation>Rectangle</translation>
         </message>
         <message>
-            <source>Reference point</source>
-            <translation type="vanished">Point de référence</translation>
-        </message>
-        <message>
             <location filename="../../resources/data/plant_species.json" line="1" />
             <location filename="../../ui/widgets/gallery_data.py" line="304" />
             <source>Rhododendron</source>
@@ -5427,226 +5113,9 @@ Utiliser 0.1 pour un DXF en mm, 100 pour un DXF en mètres.</translation>
             <translation>Changer le type</translation>
         </message>
         <message>
-            <source>Lock position</source>
-            <translation type="vanished">Verrouiller la position</translation>
-        </message>
-        <message>
             <location filename="../../ui/canvas/items/garden_item.py" line="1945" />
             <source>Move to Layer</source>
             <translation>Déplacer vers le calque</translation>
-        </message>
-        <message>
-            <source>Unlock position</source>
-            <translation type="vanished">Déverrouiller la position</translation>
-        </message>
-    </context>
-    <context>
-        <name>GardenMemoryDialog</name>
-        <message>
-            <source>Add intervention…</source>
-            <translation type="vanished">Ajouter une intervention…</translation>
-        </message>
-        <message>
-            <source>All garden interventions</source>
-            <translation type="vanished">Toutes les interventions du jardin</translation>
-        </message>
-        <message>
-            <source>All intervention types</source>
-            <translation type="vanished">Tous les types d’intervention</translation>
-        </message>
-        <message>
-            <source>Approximate count (optional):</source>
-            <translation type="vanished">Nombre approximatif (facultatif) :</translation>
-        </message>
-        <message>
-            <source>Check the entered values: {error}</source>
-            <translation type="vanished">Vérifier les valeurs saisies : {error}</translation>
-        </message>
-        <message>
-            <source>Choose an export file different from the open project.</source>
-            <translation type="vanished">Choisir un fichier d’export différent du projet ouvert.</translation>
-        </message>
-        <message>
-            <source>Choose restoration parent folder</source>
-            <translation type="vanished">Choisir le dossier parent de restauration</translation>
-        </message>
-        <message>
-            <source>Completed</source>
-            <translation type="vanished">Terminé</translation>
-        </message>
-        <message>
-            <source>Condition:</source>
-            <translation type="vanished">État :</translation>
-        </message>
-        <message>
-            <source>Confirmed dead</source>
-            <translation type="vanished">Mort confirmée</translation>
-        </message>
-        <message>
-            <source>Delete intervention</source>
-            <translation type="vanished">Supprimer l’intervention</translation>
-        </message>
-        <message>
-            <source>Dormant</source>
-            <translation type="vanished">En dormance</translation>
-        </message>
-        <message>
-            <source>Edit intervention…</source>
-            <translation type="vanished">Modifier l’intervention…</translation>
-        </message>
-        <message>
-            <source>Explicit zone:</source>
-            <translation type="vanished">Zone explicite :</translation>
-        </message>
-        <message>
-            <source>Export complete JSON…</source>
-            <translation type="vanished">Exporter le JSON complet…</translation>
-        </message>
-        <message>
-            <source>Export garden records</source>
-            <translation type="vanished">Exporter les données du jardin</translation>
-        </message>
-        <message>
-            <source>Export tracking CSV…</source>
-            <translation type="vanished">Exporter le suivi en CSV…</translation>
-        </message>
-        <message>
-            <source>Export…</source>
-            <translation type="vanished">Exporter…</translation>
-        </message>
-        <message>
-            <source>From YYYY-MM-DD</source>
-            <translation type="vanished">Du AAAA-MM-JJ</translation>
-        </message>
-        <message>
-            <source>Garden records</source>
-            <translation type="vanished">Données du jardin</translation>
-        </message>
-        <message>
-            <source>In place</source>
-            <translation type="vanished">En place</translation>
-        </message>
-        <message>
-            <source>Individual</source>
-            <translation type="vanished">Individu</translation>
-        </message>
-        <message>
-            <source>Intervention</source>
-            <translation type="vanished">Intervention</translation>
-        </message>
-        <message>
-            <source>Invalid garden data</source>
-            <translation type="vanished">Données du jardin non valides</translation>
-        </message>
-        <message>
-            <source>Label:</source>
-            <translation type="vanished">Étiquette :</translation>
-        </message>
-        <message>
-            <source>No explicit zone</source>
-            <translation type="vanished">Aucune zone explicite</translation>
-        </message>
-        <message>
-            <source>Notes:</source>
-            <translation type="vanished">Notes :</translation>
-        </message>
-        <message>
-            <source>Partial dates retain their precision. Search intervals use conventional calendar boundaries.</source>
-            <translation type="vanished">Les dates partielles conservent leur précision. Les intervalles de recherche utilisent les limites conventionnelles du calendrier.</translation>
-        </message>
-        <message>
-            <source>Planned</source>
-            <translation type="vanished">Prévu</translation>
-        </message>
-        <message>
-            <source>Planting group</source>
-            <translation type="vanished">Groupe de plantation</translation>
-        </message>
-        <message>
-            <source>Planting period:</source>
-            <translation type="vanished">Période de plantation :</translation>
-        </message>
-        <message>
-            <source>Plantings in this zone…</source>
-            <translation type="vanished">Plantations de cette zone…</translation>
-        </message>
-        <message>
-            <source>Portable backup…</source>
-            <translation type="vanished">Sauvegarde portable…</translation>
-        </message>
-        <message>
-            <source>Redo</source>
-            <translation type="vanished">Rétablir</translation>
-        </message>
-        <message>
-            <source>Removed or moved</source>
-            <translation type="vanished">Retiré ou déplacé</translation>
-        </message>
-        <message>
-            <source>Restore backup…</source>
-            <translation type="vanished">Restaurer une sauvegarde…</translation>
-        </message>
-        <message>
-            <source>Restore garden backup</source>
-            <translation type="vanished">Restaurer une sauvegarde du jardin</translation>
-        </message>
-        <message>
-            <source>Restored project: {path}
-Open this file using File &gt; Open.</source>
-            <translation type="vanished">Projet restauré : {path}
-Ouvrir ce fichier via Fichier &gt; Ouvrir.</translation>
-        </message>
-        <message>
-            <source>Save card</source>
-            <translation type="vanished">Enregistrer la fiche</translation>
-        </message>
-        <message>
-            <source>Save the project before creating a portable backup.</source>
-            <translation type="vanished">Enregistrer le projet avant de créer une sauvegarde portable.</translation>
-        </message>
-        <message>
-            <source>Search interventions…</source>
-            <translation type="vanished">Rechercher des interventions…</translation>
-        </message>
-        <message>
-            <source>Select a target on the left first.</source>
-            <translation type="vanished">Sélectionner d’abord une cible à gauche.</translation>
-        </message>
-        <message>
-            <source>To YYYY-MM-DD</source>
-            <translation type="vanished">Au AAAA-MM-JJ</translation>
-        </message>
-        <message>
-            <source>Tracked object:</source>
-            <translation type="vanished">Objet suivi :</translation>
-        </message>
-        <message>
-            <source>Uncertain condition</source>
-            <translation type="vanished">État incertain</translation>
-        </message>
-        <message>
-            <source>Undo</source>
-            <translation type="vanished">Annuler</translation>
-        </message>
-        <message>
-            <source>Unknown date</source>
-            <translation type="vanished">Date inconnue</translation>
-        </message>
-        <message>
-            <source>YYYY-MM-DD, YYYY-MM, autumn 2023, YYYY, or blank</source>
-            <translation type="vanished">AAAA-MM-JJ, AAAA-MM, automne 2023, AAAA ou vide</translation>
-        </message>
-        <message>
-            <source>ZIP archives (*.zip)</source>
-            <translation type="vanished">Archives ZIP (*.zip)</translation>
-        </message>
-        <message>
-            <source>Zone</source>
-            <translation type="vanished">Zone</translation>
-        </message>
-        <message>
-            <source>Zone: </source>
-            <translation type="vanished">Zone : </translation>
         </message>
     </context>
     <context>
@@ -5655,10 +5124,6 @@ Ouvrir ce fichier via Fichier &gt; Ouvrir.</translation>
             <location filename="../../app/application.py" line="1660" />
             <source>&amp;3D View</source>
             <translation>Vue &amp;3D</translation>
-        </message>
-        <message>
-            <source>&amp;3D View…</source>
-            <translation type="vanished">Vue &amp;3D…</translation>
         </message>
         <message>
             <location filename="../../app/application.py" line="1925" />
@@ -5846,10 +5311,6 @@ Ouvrir ce fichier via Fichier &gt; Ouvrir.</translation>
             <location filename="../../app/application.py" line="6071" />
             <source>1 object | Area: {area} | Perimeter: {perimeter}</source>
             <translation>1 objet | Surface : {area} | Périmètre : {perimeter}</translation>
-        </message>
-        <message>
-            <source>3D View Unavailable</source>
-            <translation type="vanished">Vue 3D indisponible</translation>
         </message>
         <message>
             <location filename="../../app/application.py" line="5967" />
@@ -6157,10 +5618,6 @@ Voulez-vous le récupérer ?</translation>
             <location filename="../../app/application.py" line="3369" />
             <source>Canvas resized to {width} x {height}</source>
             <translation>Canevas redimensionné à {width} x {height}</translation>
-        </message>
-        <message>
-            <source>Canvas resized to {width}m x {height}m</source>
-            <translation type="vanished">Plan redimensionné à {width}m x {height}m</translation>
         </message>
         <message>
             <location filename="../../app/application.py" line="1859" />
@@ -6580,10 +6037,6 @@ Voulez-vous le récupérer ?</translation>
             <translation>Position du jardin mise à jour</translation>
         </message>
         <message>
-            <source>Garden records…</source>
-            <translation type="vanished">Données du jardin…</translation>
-        </message>
-        <message>
             <location filename="../../app/application.py" line="1247" />
             <source>Generate a multi-page PDF report of the garden plan</source>
             <translation>Générer un rapport PDF de plusieurs pages du plan du jardin</translation>
@@ -6664,10 +6117,6 @@ Voulez-vous le récupérer ?</translation>
             <translation>Insérer une association…</translation>
         </message>
         <message>
-            <source>Invalid plant data; placement cancelled.</source>
-            <translation type="vanished">Données de plante non valides ; placement annulé.</translation>
-        </message>
-        <message>
             <location filename="../../app/application.py" line="6670" />
             <source>Journal note added</source>
             <translation>Note ajoutée au journal</translation>
@@ -6707,17 +6156,9 @@ Redémarrer l’application pour appliquer la modification.</translation>
             <translation>Charger un fond sa&amp;tellite...</translation>
         </message>
         <message>
-            <source>Loaded satellite background (captured map view, zoom {zoom}) — canvas resized to {w_m:.0f}m x {h_m:.0f}m</source>
-            <translation type="vanished">Fond satellite chargé (vue cartographique capturée, zoom {zoom}) — plan redimensionné à {w_m:.0f}m x {h_m:.0f}m</translation>
-        </message>
-        <message>
             <location filename="../../app/application.py" line="6230" />
             <source>Loaded satellite background (captured map view, zoom {zoom}) — canvas resized to {w_m} x {h_m}</source>
             <translation>Fond satellite chargé (vue cartographique capturée, zoom {zoom}) — canevas redimensionné à {w_m} x {h_m}</translation>
-        </message>
-        <message>
-            <source>Loaded satellite background ({cols}x{rows} tiles, zoom {zoom}) — canvas resized to {w_m:.0f}m x {h_m:.0f}m</source>
-            <translation type="vanished">Fond satellite chargé ({cols}x{rows} tuiles, zoom {zoom}) — plan redimensionné à {w_m:.0f}m x {h_m:.0f}m</translation>
         </message>
         <message>
             <location filename="../../app/application.py" line="6241" />
@@ -6744,10 +6185,6 @@ Redémarrer l’application pour appliquer la modification.</translation>
             <location filename="../../app/application.py" line="3338" />
             <source>New project created: {width} x {height}</source>
             <translation>Nouveau projet créé : {width} x {height}</translation>
-        </message>
-        <message>
-            <source>New project created: {width}m x {height}m</source>
-            <translation type="vanished">Nouveau projet créé : {width}m x {height}m</translation>
         </message>
         <message>
             <location filename="../../app/application.py" line="4354" />
@@ -6840,10 +6277,6 @@ Redémarrer l’application pour appliquer la modification.</translation>
             <translation>Ouvrir un projet</translation>
         </message>
         <message>
-            <source>Open a 3D view of the plan with solar lighting</source>
-            <translation type="vanished">Ouvrir une vue 3D du plan avec éclairage solaire</translation>
-        </message>
-        <message>
             <location filename="../../app/application.py" line="1131" />
             <source>Open an existing project</source>
             <translation>Ouvrir un projet existant</translation>
@@ -6857,10 +6290,6 @@ Redémarrer l’application pour appliquer la modification.</translation>
             <location filename="../../app/application.py" line="3500" />
             <source>Opened: {name}</source>
             <translation>Ouvert : {name}</translation>
-        </message>
-        <message>
-            <source>Opened: {path}</source>
-            <translation type="vanished">Ouvert : {path}</translation>
         </message>
         <message>
             <location filename="../../app/application.py" line="4513" />
@@ -7016,14 +6445,6 @@ Redémarrer l’application pour appliquer la modification.</translation>
             <location filename="../../app/application.py" line="1887" />
             <source>S&amp;hopping List…</source>
             <translation>Liste d’ac&amp;hats…</translation>
-        </message>
-        <message>
-            <source>S&amp;un &amp;&amp; 3D</source>
-            <translation type="vanished">S&amp;oleil et 3D</translation>
-        </message>
-        <message>
-            <source>S&amp;un &amp;&amp; Shade Simulation</source>
-            <translation type="vanished">Simulation d’&amp;ensoleillement et d’ombre</translation>
         </message>
         <message>
             <location filename="../../app/application.py" line="3763" />
@@ -7219,10 +6640,6 @@ Ouvrir la nouvelle saison maintenant ?</translation>
             <translation>Afficher la &amp;mini-carte</translation>
         </message>
         <message>
-            <source>Show &amp;Shadows</source>
-            <translation type="vanished">Afficher les &amp;ombres</translation>
-        </message>
-        <message>
             <location filename="../../app/application.py" line="1696" />
             <source>Show C&amp;onstruction Geometry</source>
             <translation>Afficher la géométrie de c&amp;onstruction</translation>
@@ -7268,17 +6685,9 @@ Ouvrir la nouvelle saison maintenant ?</translation>
             <translation>Afficher le jardin en 3D à côté du plan, éclairé par le soleil simulé</translation>
         </message>
         <message>
-            <source>Simulate solar shadows for a chosen date and time of day</source>
-            <translation type="vanished">Simuler les ombres solaires pour une date et une heure choisies</translation>
-        </message>
-        <message>
             <location filename="../../app/application.py" line="3911" />
             <source>Skipped {k} unsupported entity/entities ({types}).</source>
             <translation>{k} entité(s) non prise(s) en charge ignorée(s) ({types}).</translation>
-        </message>
-        <message>
-            <source>Smart Symbols</source>
-            <translation type="vanished">Symboles intelligents</translation>
         </message>
         <message>
             <location filename="../../app/application.py" line="1612" />
@@ -7356,14 +6765,6 @@ Ouvrir la nouvelle saison maintenant ?</translation>
             <translation>Les modèles suppriment l’emplacement, les notes et épingles du journal, les journaux de récolte et de ravageurs, les analyses de sol, les liens de saison et l’année, l’historique des cultures, l’inventaire des graines, les remplacements de propagation, les tâches manuelles et les états des tâches, les données d’achat et les préférences d’amendement, les images de fond, les photos et les chemins absolus. La géométrie, les espèces, les calques, les guildes, les contraintes et les plans de succession restent. Vérifiez les noms et les textes libres avant de partager.</translation>
         </message>
         <message>
-            <source>The 3D view could not be loaded: the 3D graphics components are missing or incompatible. The rest of the application is unaffected.
-
-Details: {error}</source>
-            <translation type="vanished">Impossible de charger la vue 3D : les composants graphiques 3D sont absents ou incompatibles. Le reste de l’application fonctionne normalement.
-
-Détails : {error}</translation>
-        </message>
-        <message>
             <location filename="../../app/application.py" line="3429" />
             <source>The canvas dimension at {field} must be between 50 and 100000 cm.</source>
             <translation>La dimension du plan {field} doit être comprise entre 50 et 100000 cm.</translation>
@@ -7397,10 +6798,6 @@ Détails : {error}</translation>
             <location filename="../../app/application.py" line="1699" />
             <source>Toggle construction geometry visibility (excluded from exports)</source>
             <translation>Afficher ou masquer la géométrie de construction (exclue des exports)</translation>
-        </message>
-        <message>
-            <source>Toggle drop shadows on objects</source>
-            <translation type="vanished">Afficher ou masquer les ombres portées des objets</translation>
         </message>
         <message>
             <location filename="../../app/application.py" line="1778" />
@@ -7523,17 +6920,9 @@ Détails : {error}</translation>
             <translation>Attention : {count} élément(s) non reconnu(s) n’ont pas pu être chargés et ont été ignorés.</translation>
         </message>
         <message>
-            <source>X: 0.00 cm  Y: 0.00 cm</source>
-            <translation type="vanished">X : 0.00 cm  Y : 0.00 cm</translation>
-        </message>
-        <message>
             <location filename="../../app/application.py" line="6040" />
             <source>X: {x}  Y: {y}</source>
             <translation>X : {x}  Y : {y}</translation>
-        </message>
-        <message>
-            <source>X: {x} cm  Y: {y} cm</source>
-            <translation type="vanished">X : {x} cm  Y : {y} cm</translation>
         </message>
         <message>
             <location filename="../../app/application.py" line="3108" />
@@ -7687,23 +7076,12 @@ Enregistrer le projet dans un emplacement permanent.</translation>
         </message>
     </context>
     <context>
-        <name>GroupItem</name>
-        <message>
-            <source>Ungroup</source>
-            <translation type="vanished">Dissocier</translation>
-        </message>
-    </context>
-    <context>
         <name>GuildActions</name>
         <message>
             <location filename="../../ui/guild_actions.py" line="28" />
             <location filename="../../ui/guild_actions.py" line="68" />
             <source>Add to guild…</source>
             <translation>Ajouter à une association…</translation>
-        </message>
-        <message>
-            <source>Choose an existing plant association and the role of this plant. To create an association first, use Garden &gt; Insert guild…</source>
-            <translation type="vanished">Choisir une association existante et le rôle de cette plante. Pour créer d’abord une association, utiliser Jardin &gt; Insérer une association…</translation>
         </message>
         <message>
             <location filename="../../ui/guild_actions.py" line="36" />
@@ -8086,10 +7464,6 @@ Enregistrer le projet dans un emplacement permanent.</translation>
     <context>
         <name>HDistanceInputDialog</name>
         <message>
-            <source>Current horizontal distance: {distance:.2f} m</source>
-            <translation type="vanished">Distance horizontale actuelle : {distance:.2f} m</translation>
-        </message>
-        <message>
             <location filename="../../core/tools/constraint_tool.py" line="3846" />
             <source>Current horizontal distance: {distance}</source>
             <translation>Distance horizontale actuelle : {distance}</translation>
@@ -8405,10 +7779,6 @@ Enregistrer le projet dans un emplacement permanent.</translation>
             <translation>Contrainte de distance horizontale</translation>
         </message>
         <message>
-            <source>↔ {d:.2f} m</source>
-            <translation type="vanished">↔ {d:.2f} m</translation>
-        </message>
-        <message>
             <location filename="../../core/tools/constraint_tool.py" line="3968" />
             <source>↔ {d}</source>
             <translation>↔ {d}</translation>
@@ -8420,10 +7790,6 @@ Enregistrer le projet dans un emplacement permanent.</translation>
             <location filename="../../ui/dialogs/insert_guild_dialog.py" line="81" />
             <source> cm</source>
             <translation> cm</translation>
-        </message>
-        <message>
-            <source>A plant association combines plants with complementary roles, often around a tree. Choose a template, then adjust the plants and their positions.</source>
-            <translation type="vanished">Une association réunit des plantes aux rôles complémentaires, souvent autour d’un arbre. Choisir un modèle, puis ajuster les plantes et leurs positions.</translation>
         </message>
         <message>
             <location filename="../../ui/dialogs/insert_guild_dialog.py" line="84" />
@@ -9016,17 +8382,9 @@ Rechercher votre zone pour tout pays sur :
             <translation>Placer une annotation avec ligne de repère</translation>
         </message>
         <message>
-            <source>Place a survey stake or measurement datum</source>
-            <translation type="vanished">Placer un jalon ou un point de référence</translation>
-        </message>
-        <message>
             <location filename="../../ui/widgets/toolbar.py" line="60" />
             <source>Place a text annotation</source>
             <translation>Placer une annotation textuelle</translation>
-        </message>
-        <message>
-            <source>Reference point</source>
-            <translation type="vanished">Point de référence</translation>
         </message>
         <message>
             <location filename="../../ui/widgets/toolbar.py" line="51" />
@@ -9856,10 +9214,6 @@ Vous pouvez capturer directement la vue satellite depuis la carte ci-dessous.</t
             <translation>Auteur :</translation>
         </message>
         <message>
-            <source>Bed detail views (one page per bed)</source>
-            <translation type="vanished">Vues détaillées des planches (une page par planche)</translation>
-        </message>
-        <message>
             <location filename="../../ui/dialogs/pdf_report_dialog.py" line="103" />
             <source>Bed detail views (small beds share a page)</source>
             <translation>Vues détaillées des massifs (les petits massifs partagent une page)</translation>
@@ -9893,10 +9247,6 @@ Vous pouvez capturer directement la vue satellite depuis la carte ci-dessous.</t
             <location filename="../../ui/dialogs/pdf_report_dialog.py" line="83" />
             <source>Landscape</source>
             <translation>Paysage</translation>
-        </message>
-        <message>
-            <source>Legend (layers)</source>
-            <translation type="vanished">Légende (calques)</translation>
         </message>
         <message>
             <location filename="../../ui/dialogs/pdf_report_dialog.py" line="111" />
@@ -9990,10 +9340,6 @@ Vous pouvez capturer directement la vue satellite depuis la carte ci-dessous.</t
             <location filename="../../services/pdf_report_service.py" line="931" />
             <source>Garden Notes</source>
             <translation>Notes du jardin</translation>
-        </message>
-        <message>
-            <source>Grand total</source>
-            <translation type="vanished">Total général</translation>
         </message>
         <message>
             <location filename="../../services/pdf_report_service.py" line="1427" />
@@ -10583,10 +9929,6 @@ Vous pouvez capturer directement la vue satellite depuis la carte ci-dessous.</t
             <translation>Ajouter aux favoris</translation>
         </message>
         <message>
-            <source>Annual</source>
-            <translation type="vanished">Annuelle</translation>
-        </message>
-        <message>
             <location filename="../../ui/plant_species_assignment.py" line="124" />
             <source>Apply Database Values</source>
             <translation>Appliquer les valeurs de la base</translation>
@@ -10597,10 +9939,6 @@ Vous pouvez capturer directement la vue satellite depuis la carte ci-dessous.</t
             <translation>Appliquer les valeurs de la base</translation>
         </message>
         <message>
-            <source>Biennial</source>
-            <translation type="vanished">Bisannuelle</translation>
-        </message>
-        <message>
             <location filename="../../ui/plant_species_assignment.py" line="83" />
             <source>Bundled</source>
             <translation>Intégré</translation>
@@ -10609,12 +9947,6 @@ Vous pouvez capturer directement la vue satellite depuis la carte ci-dessous.</t
             <location filename="../../ui/panels/plant_database_panel.py" line="1625" />
             <source>Centre</source>
             <translation>Centre</translation>
-        </message>
-        <message>
-            <source>Choose a valid PNG up to 4 MiB and 16 megapixels.
-{error}</source>
-            <translation type="vanished">Choisir un PNG valide de 4 Mio et 16 mégapixels maximum.
-{error}</translation>
         </message>
         <message>
             <location filename="../../ui/panels/plant_database_panel.py" line="1295" />
@@ -10635,10 +9967,6 @@ Vous pouvez capturer directement la vue satellite depuis la carte ci-dessous.</t
             <location filename="../../ui/panels/plant_database_panel.py" line="578" />
             <source>Common Name:</source>
             <translation>Nom commun :</translation>
-        </message>
-        <message>
-            <source>Create</source>
-            <translation type="vanished">Créer</translation>
         </message>
         <message>
             <location filename="../../ui/panels/plant_database_panel.py" line="476" />
@@ -10719,10 +10047,6 @@ Vous pouvez capturer directement la vue satellite depuis la carte ci-dessous.</t
             <location filename="../../ui/panels/plant_database_panel.py" line="737" />
             <source>Edible:</source>
             <translation>Comestible :</translation>
-        </message>
-        <message>
-            <source>Edit exact or partial dates in Garden records.</source>
-            <translation type="vanished">Modifier les dates exactes ou partielles dans Données du jardin.</translation>
         </message>
         <message>
             <location filename="../../ui/panels/plant_database_panel.py" line="575" />
@@ -10816,10 +10140,6 @@ Vous pouvez capturer directement la vue satellite depuis la carte ci-dessous.</t
             <translation>Élevée</translation>
         </message>
         <message>
-            <source>Import personal PNG…</source>
-            <translation type="vanished">Importer un PNG personnel…</translation>
-        </message>
-        <message>
             <location filename="../../ui/panels/plant_database_panel.py" line="1294" />
             <source>Invalid plant dates</source>
             <translation>Dates de plante invalides</translation>
@@ -10843,10 +10163,6 @@ Vous pouvez capturer directement la vue satellite depuis la carte ci-dessous.</t
             <location filename="../../ui/panels/plant_database_panel.py" line="833" />
             <source>Light feeder</source>
             <translation>Peu exigeante</translation>
-        </message>
-        <message>
-            <source>Load</source>
-            <translation type="vanished">Charger</translation>
         </message>
         <message>
             <location filename="../../ui/panels/plant_database_panel.py" line="482" />
@@ -10929,16 +10245,6 @@ Vous pouvez capturer directement la vue satellite depuis la carte ci-dessous.</t
             <translation>Aucune association</translation>
         </message>
         <message>
-            <source>No species data.
-
-Click 'Search' to choose an offline species or search online,
-or 'Create Custom' to define your own.</source>
-            <translation type="vanished">Aucune donnée d’espèce.
-
-Cliquer sur « Rechercher » pour choisir une espèce locale ou rechercher en ligne,
-ou sur « Créer une plante » pour définir la vôtre.</translation>
-        </message>
-        <message>
             <location filename="../../ui/panels/plant_database_panel.py" line="1884" />
             <source>No species data.
 
@@ -10995,14 +10301,6 @@ ou sur « Créer une plante personnelle » pour définir la vôtre.</translation
             <translation>Partiellement autofertile</translation>
         </message>
         <message>
-            <source>Perennial</source>
-            <translation type="vanished">Vivace</translation>
-        </message>
-        <message>
-            <source>Personal visual</source>
-            <translation type="vanished">Visuel personnel</translation>
-        </message>
-        <message>
             <location filename="../../ui/panels/plant_database_panel.py" line="860" />
             <source>Planted:</source>
             <translation>Planté le :</translation>
@@ -11022,10 +10320,6 @@ ou sur « Créer une plante personnelle » pour définir la vôtre.</translation
             <location filename="../../ui/panels/plant_database_panel.py" line="564" />
             <source>Recorded functions:</source>
             <translation>Fonctions renseignées :</translation>
-        </message>
-        <message>
-            <source>Remember visual in library</source>
-            <translation type="vanished">Mémoriser le visuel dans la bibliothèque</translation>
         </message>
         <message>
             <location filename="../../ui/panels/plant_database_panel.py" line="2366" />
@@ -11099,21 +10393,9 @@ ou sur « Créer une plante personnelle » pour définir la vôtre.</translation
             <translation>Triploïde (pollen stérile)</translation>
         </message>
         <message>
-            <source>Unknown date</source>
-            <translation type="vanished">Date inconnue</translation>
-        </message>
-        <message>
             <location filename="../../ui/plant_species_assignment.py" line="79" />
             <source>Unknown source</source>
             <translation>Source inconnue</translation>
-        </message>
-        <message>
-            <source>Use default illustration</source>
-            <translation type="vanished">Utiliser l’illustration par défaut</translation>
-        </message>
-        <message>
-            <source>Use this visual for future placements of this plant. Existing plants keep their own visual.</source>
-            <translation type="vanished">Utiliser ce visuel pour les prochains placements de cette plante. Les plantes existantes conservent leur visuel.</translation>
         </message>
         <message>
             <location filename="../../ui/panels/plant_database_panel.py" line="1503" />
@@ -11124,10 +10406,6 @@ ou sur « Créer une plante personnelle » pour définir la vôtre.</translation
             <location filename="../../ui/panels/plant_database_panel.py" line="599" />
             <source>Variety:</source>
             <translation>Variété :</translation>
-        </message>
-        <message>
-            <source>Visual saved for future placements.</source>
-            <translation type="vanished">Visuel mémorisé pour les prochains placements.</translation>
         </message>
         <message>
             <location filename="../../ui/panels/plant_database_panel.py" line="682" />
@@ -11413,17 +10691,9 @@ Utiliser « Créer une plante » pour en ajouter, ou gérer la bibliothèque per
             <translation>Ajouter aux favoris</translation>
         </message>
         <message>
-            <source>Annual</source>
-            <translation type="vanished">Annuelle</translation>
-        </message>
-        <message>
             <location filename="../../ui/dialogs/plant_search_dialog.py" line="433" />
             <source>Attributes</source>
             <translation>Attributs</translation>
-        </message>
-        <message>
-            <source>Biennial</source>
-            <translation type="vanished">Bisannuelle</translation>
         </message>
         <message>
             <location filename="../../ui/dialogs/plant_search_dialog.py" line="385" />
@@ -11580,10 +10850,6 @@ Vérifier la connexion Internet et les identifiants API.</translation>
             <location filename="../../ui/dialogs/plant_search_dialog.py" line="397" />
             <source>Partial Sun</source>
             <translation>Soleil partiel</translation>
-        </message>
-        <message>
-            <source>Perennial</source>
-            <translation type="vanished">Vivace</translation>
         </message>
         <message>
             <location filename="../../ui/dialogs/plant_search_dialog.py" line="145" />
@@ -12384,10 +11650,6 @@ pour leur associer les données d’une espèce.</translation>
             <translation>1:500</translation>
         </message>
         <message>
-            <source>Canvas: {w} m × {h} m</source>
-            <translation type="vanished">Plan : {w} m × {h} m</translation>
-        </message>
-        <message>
             <location filename="../../ui/dialogs/print_dialog.py" line="167" />
             <source>Canvas: {w} × {h}</source>
             <translation>Canevas : {w} × {h}</translation>
@@ -12586,12 +11848,6 @@ pour leur associer les données d’une espèce.</translation>
             <translation>Cases :</translation>
         </message>
         <message>
-            <source>Choose a valid PNG up to 4 MiB and 16 megapixels.
-{error}</source>
-            <translation type="vanished">Choisir un PNG valide de 4 Mio et 16 mégapixels maximum.
-{error}</translation>
-        </message>
-        <message>
             <location filename="../../ui/panels/properties_panel.py" line="2504" />
             <source>Clay</source>
             <translation>Argile</translation>
@@ -12677,10 +11933,6 @@ pour leur associer les données d’une espèce.</translation>
             <translation>Drainage :</translation>
         </message>
         <message>
-            <source>Edit reference point…</source>
-            <translation type="vanished" />
-        </message>
-        <message>
             <location filename="../../ui/panels/properties_panel.py" line="1617" />
             <source>Effective:</source>
             <translation>Effectif :</translation>
@@ -12746,10 +11998,6 @@ pour leur associer les données d’une espèce.</translation>
             <translation>À deux pans</translation>
         </message>
         <message>
-            <source>Garden records…</source>
-            <translation type="vanished">Données du jardin…</translation>
-        </message>
-        <message>
             <location filename="../../ui/panels/properties_panel.py" line="2493" />
             <source>Glass</source>
             <translation>Verre</translation>
@@ -12803,10 +12051,6 @@ pour leur associer les données d’une espèce.</translation>
             <location filename="../../ui/panels/properties_panel.py" line="1865" />
             <source>Hip</source>
             <translation>À quatre pans</translation>
-        </message>
-        <message>
-            <source>Import fill PNG…</source>
-            <translation type="vanished">Importer un PNG de remplissage…</translation>
         </message>
         <message>
             <location filename="../../ui/panels/properties_panel.py" line="2096" />
@@ -12872,10 +12116,6 @@ n’est pas encore disponible</translation>
             <translation>Nécessite une protection contre le gel</translation>
         </message>
         <message>
-            <source>No height — casts no shadow</source>
-            <translation type="vanished">Sans hauteur — ne projette pas d’ombre</translation>
-        </message>
-        <message>
             <location filename="../../ui/panels/properties_panel.py" line="1796" />
             <source>No height — no shadow on the 2D plan</source>
             <translation>Aucune hauteur — aucune ombre sur le plan 2D</translation>
@@ -12926,14 +12166,6 @@ coché = toujours protéger, décoché = ne jamais protéger, indéterminé = va
             <location filename="../../ui/panels/properties_panel.py" line="2499" />
             <source>Pebbles</source>
             <translation>Galets</translation>
-        </message>
-        <message>
-            <source>Personal PNG</source>
-            <translation type="vanished">PNG personnel</translation>
-        </message>
-        <message>
-            <source>Personal fill pattern</source>
-            <translation type="vanished">Motif de remplissage personnel</translation>
         </message>
         <message>
             <location filename="../../ui/panels/properties_panel.py" line="1575" />
@@ -13115,10 +12347,6 @@ coché = toujours protéger, décoché = ne jamais protéger, indéterminé = va
             <translation>Le plan 2D dessine le style de toit. L’étude d’ensoleillement et la vue 3D utilisent aussi la pente et le débord.</translation>
         </message>
         <message>
-            <source>Tile width:</source>
-            <translation type="vanished">Largeur du motif :</translation>
-        </message>
-        <message>
             <location filename="../../ui/panels/properties_panel.py" line="1052" />
             <source>Total: {count} plant(s)</source>
             <translation>Total : {count} plante(s)</translation>
@@ -13137,14 +12365,6 @@ coché = toujours protéger, décoché = ne jamais protéger, indéterminé = va
             <location filename="../../ui/panels/properties_panel.py" line="1091" />
             <source>Unlink</source>
             <translation>Dissocier</translation>
-        </message>
-        <message>
-            <source>Use a seamless PNG. Original colors are preserved; the image is embedded in the plan.</source>
-            <translation type="vanished">Utiliser un PNG raccordable. Les couleurs d’origine sont conservées ; l’image est intégrée au plan.</translation>
-        </message>
-        <message>
-            <source>Use built-in fill</source>
-            <translation type="vanished">Utiliser un remplissage intégré</translation>
         </message>
         <message>
             <location filename="../../ui/panels/properties_panel.py" line="1338" />
@@ -13171,10 +12391,6 @@ coché = toujours protéger, décoché = ne jamais protéger, indéterminé = va
             <location filename="../../ui/panels/properties_panel.py" line="452" />
             <source>{count} objects selected</source>
             <translation>{count} objets sélectionnés</translation>
-        </message>
-        <message>
-            <source>{litres:.1f} L</source>
-            <translation type="vanished">{litres:.1f} L</translation>
         </message>
         <message>
             <location filename="../../ui/panels/properties_panel.py" line="2128" />
@@ -13365,10 +12581,6 @@ coché = toujours protéger, décoché = ne jamais protéger, indéterminé = va
             <location filename="../../ui/reference_points.py" line="245" />
             <source>On outline of: {name}</source>
             <translation>Sur le contour de : {name}</translation>
-        </message>
-        <message>
-            <source>Place a survey stake or measurement datum</source>
-            <translation type="vanished">Placer un jalon ou un point de référence</translation>
         </message>
         <message>
             <location filename="../../app/application.py" line="1897" />
@@ -14121,10 +13333,6 @@ L’inventaire vous appartient, pas à un plan : chaque plan ouvert affiche les 
             <translation>plantes</translation>
         </message>
         <message>
-            <source>~{avg} cm spread</source>
-            <translation type="vanished">~{avg} cm d’envergure</translation>
-        </message>
-        <message>
             <location filename="../../services/shopping_list_service.py" line="205" />
             <source>~{avg} spread</source>
             <translation>~{avg} d’étalement</translation>
@@ -14633,17 +13841,6 @@ L’inventaire vous appartient, pas à un plan : chaque plan ouvert affiche les 
             <location filename="../../ui/dialogs/shortcuts_dialog.py" line="89" />
             <source>Zoom Out</source>
             <translation>Zoom arrière</translation>
-        </message>
-    </context>
-    <context>
-        <name>SmartSymbolsPanel</name>
-        <message>
-            <source>Insert</source>
-            <translation type="vanished">Insérer</translation>
-        </message>
-        <message>
-            <source>Search symbols…</source>
-            <translation type="vanished">Rechercher des symboles…</translation>
         </message>
     </context>
     <context>
@@ -15224,10 +14421,6 @@ L’inventaire vous appartient, pas à un plan : chaque plan ouvert affiche les 
             <translation>Calcul des heures de soleil…</translation>
         </message>
         <message>
-            <source>Estimated at ground level, excluding this plant's own shadow; leaf height and canopy translucency are not modelled.</source>
-            <translation type="vanished">Estimation au niveau du sol, hors ombre de la plante elle-même ; la hauteur des feuilles et la translucidité du houppier ne sont pas modélisées.</translation>
-        </message>
-        <message>
             <location filename="../../ui/sun_exposure_text.py" line="45" />
             <source>Estimated at soil level, excluding this plant's own shadow; leaf height and canopy translucency are not modelled.</source>
             <translation>Estimé au niveau du sol, sans l’ombre de la plante elle-même ; la hauteur des feuilles et la translucidité de la couronne ne sont pas modélisées.</translation>
@@ -15333,10 +14526,6 @@ L’inventaire vous appartient, pas à un plan : chaque plan ouvert affiche les 
     <context>
         <name>SunSimToolbar</name>
         <message>
-            <source>21 June</source>
-            <translation type="vanished">21 juin</translation>
-        </message>
-        <message>
             <location filename="../../ui/widgets/sun_sim_toolbar.py" line="277" />
             <source>Animate</source>
             <translation>Animer</translation>
@@ -15347,25 +14536,9 @@ L’inventaire vous appartient, pas à un plan : chaque plan ouvert affiche les 
             <translation>Anime la date du plan au fil de l’année à cette heure de la journée</translation>
         </message>
         <message>
-            <source>Animate the sun across the day</source>
-            <translation type="vanished">Animer le parcours du soleil au fil de la journée</translation>
-        </message>
-        <message>
             <location filename="../../ui/widgets/sun_sim_toolbar.py" line="364" />
             <source>Animate the sun across the selected day</source>
             <translation>Anime le soleil au cours de la journée sélectionnée</translation>
-        </message>
-        <message>
-            <source>Compute a full-day hours-of-sun heatmap for the shown date</source>
-            <translation type="vanished">Calculer une carte des heures de soleil sur la journée entière à la date affichée</translation>
-        </message>
-        <message>
-            <source>Computing…</source>
-            <translation type="vanished">Calcul…</translation>
-        </message>
-        <message>
-            <source>Date:</source>
-            <translation type="vanished">Date :</translation>
         </message>
         <message>
             <location filename="../../ui/widgets/sun_sim_toolbar.py" line="348" />
@@ -15470,10 +14643,6 @@ L’inventaire vous appartient, pas à un plan : chaque plan ouvert affiche les 
             <translation>Définir l’emplacement pour l’ensoleillement…</translation>
         </message>
         <message>
-            <source>Simulation date</source>
-            <translation type="vanished">Date de simulation</translation>
-        </message>
-        <message>
             <location filename="../../ui/widgets/sun_sim_toolbar.py" line="348" />
             <source>Slow</source>
             <translation>Lent</translation>
@@ -15482,10 +14651,6 @@ L’inventaire vous appartient, pas à un plan : chaque plan ouvert affiche les 
             <location filename="../../ui/widgets/sun_sim_toolbar.py" line="344" />
             <source>Speed</source>
             <translation>Vitesse</translation>
-        </message>
-        <message>
-            <source>Sun &amp; Shade Simulation</source>
-            <translation type="vanished">Simulation d’ensoleillement et d’ombre</translation>
         </message>
         <message>
             <location filename="../../ui/widgets/sun_sim_toolbar.py" line="287" />
@@ -15524,10 +14689,6 @@ L’inventaire vous appartient, pas à un plan : chaque plan ouvert affiche les 
             <location filename="../../ui/widgets/sun_sim_toolbar.py" line="598" />
             <source>Updating…</source>
             <translation>Mise à jour…</translation>
-        </message>
-        <message>
-            <source>Use 21 June of the simulation year as the reference date</source>
-            <translation type="vanished">Utiliser le 21 juin de l’année simulée comme date de référence</translation>
         </message>
         <message>
             <location filename="../../ui/widgets/sun_sim_toolbar.py" line="669" />
@@ -16430,10 +15591,6 @@ Continuer ?</translation>
     <context>
         <name>VDistanceInputDialog</name>
         <message>
-            <source>Current vertical distance: {distance:.2f} m</source>
-            <translation type="vanished">Distance verticale actuelle : {distance:.2f} m</translation>
-        </message>
-        <message>
             <location filename="../../core/tools/constraint_tool.py" line="3897" />
             <source>Current vertical distance: {distance}</source>
             <translation>Distance verticale actuelle : {distance}</translation>
@@ -16486,10 +15643,6 @@ Continuer ?</translation>
             <location filename="../../core/tools/constraint_tool.py" line="4044" />
             <source>Vertical Distance Constraint</source>
             <translation>Contrainte de distance verticale</translation>
-        </message>
-        <message>
-            <source>↕ {d:.2f} m</source>
-            <translation type="vanished">↕ {d:.2f} m</translation>
         </message>
         <message>
             <location filename="../../core/tools/constraint_tool.py" line="4077" />
@@ -16778,33 +15931,6 @@ Continuer ?</translation>
             <location filename="../../ui/view3d/problems_dialog.py" line="218" />
             <source>… and {count} more</source>
             <translation>… et {count} de plus</translation>
-        </message>
-    </context>
-    <context>
-        <name>View3DWindow</name>
-        <message>
-            <source>&amp;Refresh</source>
-            <translation type="vanished">&amp;Actualiser</translation>
-        </message>
-        <message>
-            <source>&amp;Walk</source>
-            <translation type="vanished">Se &amp;promener</translation>
-        </message>
-        <message>
-            <source>3D View</source>
-            <translation type="vanished">Vue 3D</translation>
-        </message>
-        <message>
-            <source>Rebuild the 3D scene from the current plan</source>
-            <translation type="vanished">Reconstruire la scène 3D à partir du plan actuel</translation>
-        </message>
-        <message>
-            <source>WASD/arrows move · hold left mouse to look · Esc exits</source>
-            <translation type="vanished">WASD/flèches pour se déplacer · maintenir le bouton gauche pour regarder · Échap pour quitter</translation>
-        </message>
-        <message>
-            <source>Walk the garden at eye level — WASD/arrow keys move, hold the left mouse button to look around, Esc exits</source>
-            <translation type="vanished">Se promener à hauteur d’œil — WASD/flèches pour se déplacer, maintenir le bouton gauche pour regarder, Échap pour quitter</translation>
         </message>
     </context>
     <context>
@@ -17728,17 +16854,9 @@ Détails : {error}</translation>
             <translation>À venir</translation>
         </message>
         <message>
-            <source>Direct sow %1</source>
-            <translation type="vanished">Semer %1 en place</translation>
-        </message>
-        <message>
             <location filename="../../ui/views/planting_calendar_view.py" line="483" />
             <source>Done</source>
             <translation>Terminé</translation>
-        </message>
-        <message>
-            <source>Harvest %1</source>
-            <translation type="vanished">Récolter %1</translation>
         </message>
         <message>
             <location filename="../../ui/views/planting_calendar_view.py" line="471" />
@@ -17762,18 +16880,6 @@ Détails : {error}</translation>
             <translation>En retard</translation>
         </message>
         <message>
-            <source>Prick out %1 seedlings</source>
-            <translation type="vanished">Repiquer les jeunes plants de %1</translation>
-        </message>
-        <message>
-            <source>Start hardening off %1</source>
-            <translation type="vanished">Commencer l’acclimatation de %1</translation>
-        </message>
-        <message>
-            <source>Start indoor sowing of %1</source>
-            <translation type="vanished">Commencer les semis de %1 à l’intérieur</translation>
-        </message>
-        <message>
             <location filename="../../ui/views/planting_calendar_view.py" line="391" />
             <source>This Week</source>
             <translation>Cette semaine</translation>
@@ -17788,10 +16894,6 @@ Détails : {error}</translation>
             <location filename="../../ui/views/planting_calendar_view.py" line="374" />
             <source>Today's Tasks</source>
             <translation>Tâches du jour</translation>
-        </message>
-        <message>
-            <source>Transplant %1 outdoors</source>
-            <translation type="vanished">Transplanter %1 à l’extérieur</translation>
         </message>
     </context>
     <context>
@@ -17850,10 +16952,6 @@ Détails : {error}</translation>
             <location filename="../../ui/views/planting_calendar_view.py" line="1126" />
             <source>Seed depth: {depth}</source>
             <translation>Profondeur de semis : {depth}</translation>
-        </message>
-        <message>
-            <source>Seed depth: {depth} cm</source>
-            <translation type="vanished">Profondeur de semis : {depth} cm</translation>
         </message>
         <message>
             <location filename="../../ui/views/planting_calendar_view.py" line="916" />
@@ -17951,13 +17049,6 @@ Détails : {error}</translation>
             <location filename="../../ui/views/planting_calendar_view.py" line="758" />
             <source>Propagation</source>
             <translation>Multiplication</translation>
-        </message>
-    </context>
-    <context>
-        <name>_PanelResizeGrip</name>
-        <message>
-            <source>Drag to resize this panel. Double-click to restore its default height.</source>
-            <translation type="vanished">Glisser pour redimensionner ce panneau. Double-cliquer pour rétablir sa hauteur par défaut.</translation>
         </message>
     </context>
     <context>

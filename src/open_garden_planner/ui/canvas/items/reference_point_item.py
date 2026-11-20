@@ -214,22 +214,14 @@ class ReferencePointItem(CircleItem):
         projection = nearest_contour_position(parent, proposed)
         return projection[0] if projection is not None else proposed
 
-    def translate_exact(self, dx: float, dy: float) -> None:
-        """Move by a parent's translation without contour projection.
+    def show_resize_handles(self) -> None:
+        """A datum's symbol size is edited in its properties dialog."""
 
-        A parent move must preserve the point's exact offset. Projecting a
-        carried point would re-snap one left off-contour (after a rotation or a
-        vertex edit, the documented limitation) and undo would project onto a
-        different contour, silently shifting the datum (#666 review).
-        """
-        self._projection_suspended += 1
-        try:
-            self.moveBy(dx, dy)
-        finally:
-            self._projection_suspended -= 1
+    def show_rotation_handle(self) -> None:
+        """A datum has no orientation to edit with a handle."""
 
     def set_pos_exact(self, position: QPointF) -> None:
-        """``setPos`` without contour projection, for a solver's carried move."""
+        """``setPos`` without contour projection, for captured positions and carried moves."""
         self._projection_suspended += 1
         try:
             self.setPos(position)

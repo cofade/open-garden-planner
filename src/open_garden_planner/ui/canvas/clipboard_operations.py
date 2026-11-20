@@ -5,10 +5,12 @@ import contextlib
 import logging
 from collections.abc import Iterator
 from typing import TYPE_CHECKING, Any, cast
+from uuid import uuid4
 
 from PyQt6.QtCore import QCoreApplication
 from PyQt6.QtWidgets import QGraphicsItem
 
+from open_garden_planner.core import reference_points as ref
 from open_garden_planner.core.object_types import (
     is_plant_parent_type,
 )
@@ -20,8 +22,22 @@ if TYPE_CHECKING:
 _log = logging.getLogger(__name__)
 
 
-def _strip_item_ids(data: dict[str, Any]) -> dict[str, Any]:
-    """Recursively strip item_id from a serialized item dict so deserialization mints new UUIDs.
+def _new_item_ids(records: list[dict[str, Any]]) -> dict[str, str]:
+    """Allocate IDs throughout a forest before resolving any copied links."""
+    result: dict[str, str] = {}
+    for record in records:
+        if record.get("object_type") == "ROOF_RIDGE":
+            continue
+        if item_id := record.get("item_id"):
+            result[item_id] = str(uuid4())
+        result.update(_new_item_ids(record.get("children", [])))
+    return result
+
+
+def _strip_item_ids(
+    data: dict[str, Any], new_ids: dict[str, str] | None = None,
+) -> dict[str, Any]:
+    """Replace copied identities recursively or let the loader mint them.
 
     The same applies to the derived-sibling links: a copied HOUSE must not name
     the source's ``ROOF_RIDGE`` (nor may a copied ridge name the source house),
@@ -30,19 +46,29 @@ def _strip_item_ids(data: dict[str, Any]) -> dict[str, Any]:
     (``_with_house_ridges``).
     """
     copy_d = data.copy()
-    copy_d.pop("item_id", None)
+    old_id = copy_d.pop("item_id", None)
+    if new_ids and old_id in new_ids:
+        copy_d["item_id"] = new_ids[old_id]
     metadata = copy_d.get("metadata")
     if isinstance(metadata, dict):
         metadata = dict(metadata)
         metadata.pop("ridge_item_id", None)
         metadata.pop("owner_polygon_id", None)
+        if ref.is_reference_point(metadata):
+            parent = ref.parent_id(metadata)
+            replacement = new_ids.get(str(parent)) if new_ids and parent is not None else None
+            if replacement is None:
+                metadata.pop(ref.PARENT_ID, None)
+                metadata.pop(ref.ON_CONTOUR, None)
+            else:
+                metadata[ref.PARENT_ID] = replacement
         if metadata:
             copy_d["metadata"] = metadata
         else:
             copy_d.pop("metadata", None)
     if "children" in copy_d:
         copy_d["children"] = [
-            _strip_item_ids(child)
+            _strip_item_ids(child, new_ids)
             for child in copy_d["children"]
             # A ridge nested in a copied group is replaced by the fresh ridge
             # built for its HOUSE; keeping it would draw two ridge lines.
@@ -228,10 +254,11 @@ class ClipboardOperations:
         from open_garden_planner.ui.guild_copy import copy_guild_records
 
         records = copy_guild_records(cast("CanvasScene", host.scene()), host._clipboard, getattr(host, "_clipboard_guild_members", None))
+        new_ids = _new_item_ids(records)
         for obj_data in records:
             # Apply offset to position and strip item_ids so new UUIDs are minted (AUD-002)
             obj_copy = _strip_item_ids(
-                _offset_item_dict(obj_data, host._paste_offset, host._paste_offset)
+                _offset_item_dict(obj_data, host._paste_offset, host._paste_offset), new_ids
             )
 
             # Deserialize the item (gets a new UUID)
@@ -265,23 +292,6 @@ class ClipboardOperations:
                     if isinstance(parent, GardenItemMixin):
                         item.parent_bed_id = parent.item_id
                         parent.add_child_id(item.item_id)
-
-                # A bound reference point follows the copy of its parent, never
-                # the source. A copied lone point becomes independent: keeping
-                # the old id would move it from across the plan (#666 review).
-                from open_garden_planner.core import reference_points as ref
-
-                if ref.is_reference_point(item.metadata):
-                    old_ref = ref.parent_id(item.metadata)
-                    new_parent = (
-                        old_id_to_new.get(str(old_ref)) if old_ref is not None else None
-                    )
-                    new_parent_id = getattr(new_parent, "item_id", None)
-                    if new_parent_id is not None:
-                        item.metadata[ref.PARENT_ID] = str(new_parent_id)
-                    else:
-                        item.metadata.pop(ref.PARENT_ID, None)
-                        item.metadata.pop(ref.ON_CONTOUR, None)
 
             # Use command for undo support
             from open_garden_planner.core import CreateItemsCommand
@@ -361,9 +371,10 @@ class ClipboardOperations:
         from open_garden_planner.ui.guild_copy import copy_guild_records
 
         source_data = copy_guild_records(cast("CanvasScene", host.scene()), source_data)
+        new_ids = _new_item_ids(source_data)
         for obj_data in source_data:
             obj_copy = _strip_item_ids(
-                _offset_item_dict(obj_data, host._paste_offset, host._paste_offset)
+                _offset_item_dict(obj_data, host._paste_offset, host._paste_offset), new_ids
             )
 
             # Deserialize the item
@@ -393,23 +404,6 @@ class ClipboardOperations:
                     if isinstance(parent, GardenItemMixin):
                         item.parent_bed_id = parent.item_id
                         parent.add_child_id(item.item_id)
-
-                # A bound reference point follows the copy of its parent, never
-                # the source. A copied lone point becomes independent: keeping
-                # the old id would move it from across the plan (#666 review).
-                from open_garden_planner.core import reference_points as ref
-
-                if ref.is_reference_point(item.metadata):
-                    old_ref = ref.parent_id(item.metadata)
-                    new_parent = (
-                        old_id_to_new.get(str(old_ref)) if old_ref is not None else None
-                    )
-                    new_parent_id = getattr(new_parent, "item_id", None)
-                    if new_parent_id is not None:
-                        item.metadata[ref.PARENT_ID] = str(new_parent_id)
-                    else:
-                        item.metadata.pop(ref.PARENT_ID, None)
-                        item.metadata.pop(ref.ON_CONTOUR, None)
 
             from open_garden_planner.core import CreateItemsCommand
 
