@@ -3,6 +3,11 @@
 The default tier: encoding needs no GPU and no window. On a system without an MP4 encoder
 the MP4 tests skip (``best_codec`` says so; ``--selftest`` and the frozen gate do not
 skip: the bundle must have one).
+
+The MP4 tests share one xdist group: Windows Media Foundation's muxer intermittently
+writes a bad ``4_mf`` box (``Mp4Error``) when two encodes run at once, which made the
+parallel suite red with a test that passes alone. One worker for this file's encodes is
+the fix, not a retry.
 """
 
 from __future__ import annotations
@@ -26,6 +31,8 @@ from open_garden_planner.ui.view3d.video_writer import (
     best_codec,
     frame_name,
 )
+
+pytestmark = pytest.mark.xdist_group("mp4-muxer")
 
 SIZE = (1280, 720)   # HD: below it a player guesses another colour matrix (core/video_yuv.py)
 FPS = 30

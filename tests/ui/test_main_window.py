@@ -23,6 +23,7 @@ def _close_app_windows():
     for widget in QApplication.topLevelWidgets():
         if isinstance(widget, GardenPlannerApp):
             widget._autosave_manager.stop()
+            widget._autosave_manager.clear_autosave()
             widget._project_manager.mark_clean()
             widget.close()
 

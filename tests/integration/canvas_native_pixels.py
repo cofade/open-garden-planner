@@ -153,25 +153,33 @@ def embedded_shed_repaints() -> dict:
         rows, columns = np.nonzero(mask)
         return [int(columns.min()), int(rows.min()), int(columns.max()), int(rows.max())] if len(rows) else []
 
-    def settle() -> None:
+    def settle(*, expect_paint: bool = True) -> None:
         # Deliver queued scene changes and wait until the measured viewport
         # stops receiving paint events: a fixed sleep is a guess, the paint
         # filter is the thing the comparison actually depends on. The minimap
-        # is disabled above, so it cannot confound this.
+        # is disabled above, so it cannot confound this. An edit must produce
+        # at least one paint before its quiet window starts, or a starved
+        # event loop could let this return before the first frame.
         QTest.qWait(1)
         window._minimap._update_timer.stop()
-        deadline = time.monotonic() + 5
-        last = len(regions.regions)
-        stable_since = time.monotonic()
-        while time.monotonic() < deadline:
-            QTest.qWait(20)
-            now = len(regions.regions)
-            if now != last:
-                last = now
-                stable_since = time.monotonic()
-            elif time.monotonic() - stable_since >= 60:
-                return
-        QTest.qWait(1)
+        if not expect_paint:
+            # The opening baseline follows a fit timer; settle it with a short
+            # drain and do not require a quiet paint stream (the fit animation
+            # is still finishing). The measured drain is for the edits.
+            QTest.qWait(200)
+            return
+        first = time.monotonic() + 5
+        while not regions.regions and time.monotonic() < first:
+            QTest.qWait(10)
+        assert regions.regions, "the edit produced no viewport paint"
+        # The viewport keeps receiving frames while the window is live (the
+        # selection and the update indicator animate), so a "quiet stream"
+        # never arrives. Wait until the edit's first frame is in, then let the
+        # backing store and the following frame settle. Measured: 150 ms was
+        # enough for every edit but the undo/redo pair, which needs the
+        # command's full rebuild; 500 ms also covers a cold font/backing-store
+        # cache on the first run after a build.
+        QTest.qWait(500)
 
     def resize() -> None:
         rect = shed.rect()
@@ -181,7 +189,7 @@ def embedded_shed_repaints() -> dict:
     QTest.qWait(120)  # Startup fit timer precedes the edit sweep.
     view.set_zoom(0.77)
     view.centerOn(shed.sceneBoundingRect().center())
-    settle()
+    settle(expect_paint=False)
     results = {}
     last = grab()
     edits = (

@@ -206,22 +206,36 @@ def _run_selftest(log: "RenderLog | None" = None) -> int:
     # not merely the module, is in the artifact.
     try:
         from datetime import UTC, datetime, timedelta
-        from zoneinfo import ZoneInfo
+        from zoneinfo import ZoneInfo, available_timezones
 
-        moment = datetime(2026, 6, 21, 12, 0, tzinfo=UTC)
-        for zone_name, summer_offset in (
-            ("Europe/Berlin", timedelta(hours=2)),
-            ("America/New_York", timedelta(hours=-4)),
+        available = available_timezones()
+        required = {"Europe/Berlin", "America/New_York"}
+        if len(available) < 400 or not required <= available:
+            raise AssertionError(
+                f"the bundled zone list has {len(available)} names and is "
+                f"missing {sorted(required - available)}"
+            )
+        summer = datetime(2026, 6, 21, 12, 0, tzinfo=UTC)
+        winter = datetime(2026, 1, 21, 12, 0, tzinfo=UTC)
+        for zone_name, summer_hours, winter_hours in (
+            ("Europe/Berlin", 2, 1),
+            ("America/New_York", -4, -5),
         ):
-            local = moment.astimezone(ZoneInfo(zone_name))
-            if local.utcoffset() != summer_offset:
-                raise AssertionError(
-                    f"{zone_name} summer offset is {local.utcoffset()!r}, "
-                    f"expected {summer_offset!r}"
-                )
+            zone = ZoneInfo(zone_name)
+            for moment, hours in ((summer, summer_hours), (winter, winter_hours)):
+                offset = moment.astimezone(zone).utcoffset()
+                if offset != timedelta(hours=hours):
+                    raise AssertionError(
+                        f"{zone_name} offset at {moment.date()} is {offset!r}, "
+                        f"expected {timedelta(hours=hours)!r}"
+                    )
         if log is not None:
-            log("selftest_timezone", zones="Europe/Berlin,America/New_York")
-        print("  OK   IANA time-zone data (Europe/Berlin, America/New_York)")
+            log("selftest_timezone", zones="Europe/Berlin,America/New_York",
+                available=len(available))
+        print(
+            f"  OK   IANA time-zone data ({len(available)} zones; "
+            "Europe/Berlin and America/New_York, summer and winter)"
+        )
     except Exception as exc:
         ok = False
         print(f"  FAIL IANA time-zone data -> {exc!r}")

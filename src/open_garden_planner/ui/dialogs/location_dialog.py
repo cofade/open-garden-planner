@@ -93,9 +93,14 @@ class LocationDialog(QDialog):
 
         if location:
             self._populate(location)
-        self._tz_combo.currentTextChanged.connect(self._on_timezone_text_changed)
+        # User-originated signals only: a programmatic fill (the dialog's own
+        # populate, or the lookup) must stay replaceable by a later lookup.
+        self._tz_combo.activated.connect(self._on_timezone_chosen)
+        line_edit = self._tz_combo.lineEdit()
+        if line_edit is not None:
+            line_edit.textEdited.connect(self._on_timezone_chosen)
 
-    def _on_timezone_text_changed(self, _text: str) -> None:
+    def _on_timezone_chosen(self, *_args: object) -> None:
         self._timezone_touched = True
 
     def _setup_ui(self) -> None:
@@ -313,8 +318,15 @@ class LocationDialog(QDialog):
         return typed
 
     def _has_explicit_timezone(self) -> bool:
-        """A stored zone or a choice the user made, including "Same as this computer"."""
-        return self._timezone_touched or self._selected_timezone() is not None
+        """A zone the user chose, or the one the plan already stored.
+
+        A value the lookup itself filled is neither: a second lookup may update
+        it until the user touches the field.
+        """
+        return self._timezone_touched or (
+            self._initial_timezone is not None
+            and self._selected_timezone() == self._initial_timezone
+        )
 
     def _validate_frost_date(self, value: str) -> bool:
         """Return True if value is empty or names a real MM-DD date.

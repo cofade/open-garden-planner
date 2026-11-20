@@ -77,6 +77,7 @@ class TestTypedZone:
 
         dialog = _dialog(qtbot)
         dialog._tz_combo.setEditText("Europe/Paris")
+        dialog._on_timezone_chosen("Europe/Paris")  # what textEdited does
         dialog._on_lookup_success(
             FrostData(
                 last_spring_frost="04-15",
@@ -113,6 +114,7 @@ class TestTypedZone:
 
         dialog = _dialog(qtbot, {"timezone": "Europe/Berlin"})
         dialog._tz_combo.setCurrentIndex(0)
+        dialog._on_timezone_chosen(0)  # the user's own click on the first item
         assert dialog._selected_timezone() is None
         dialog._on_lookup_success(
             FrostData(
@@ -126,6 +128,29 @@ class TestTypedZone:
             )
         )
         assert dialog._selected_timezone() is None
+
+    def test_a_second_lookup_updates_an_unmodified_filled_zone(self, qtbot) -> None:
+        from open_garden_planner.services.climate_service import FrostData
+
+        dialog = _dialog(qtbot)
+
+        def lookup(zone: str) -> None:
+            dialog._on_lookup_success(
+                FrostData(
+                    last_spring_frost="04-15",
+                    first_fall_frost="10-20",
+                    hardiness_zone="7b",
+                    data_source="open-meteo",
+                    latitude=35.0,
+                    longitude=135.8,
+                    timezone=zone,
+                )
+            )
+
+        lookup("Asia/Tokyo")
+        assert dialog._selected_timezone() == "Asia/Tokyo"
+        lookup("America/New_York")
+        assert dialog._selected_timezone() == "America/New_York"
 
     def test_typing_then_selecting_uses_the_selected_zone(self, qtbot) -> None:
         dialog = _dialog(qtbot)
