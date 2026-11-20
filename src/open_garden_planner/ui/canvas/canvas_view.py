@@ -284,6 +284,8 @@ class CanvasView(QGraphicsView):
     #: that has none of its own left. An ``AttributeError`` in a virtual that
     #: Qt calls ends the process (PyQt calls ``qFatal``; PF-CAN-61).
     _sun_legend_rect = QRect()
+    #: The viewport can call the filter after the view's instance state is gone.
+    _touch_gestures_enabled = False
     # US-12.9: emitted when one or more journal pins are part of a keyboard
     # Delete-key batch (no per-pin confirmation; matches Delete-key UX for
     # regular items and is undoable). Args: list[str] of note ids.
@@ -1397,7 +1399,7 @@ class CanvasView(QGraphicsView):
 
     def eventFilter(self, watched: QObject, event: QEvent) -> bool:
         """Route pinch gestures and native trackpad gestures to the handlers."""
-        if watched is self.viewport() and self._touch_gestures_enabled:
+        if self._touch_gestures_enabled and watched is self.viewport():
             kind = event.type()
             if kind == QEvent.Type.MouseButtonPress:
                 # The first finger of a pinch is Qt's synthesised mouse press; remember

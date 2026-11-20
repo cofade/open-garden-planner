@@ -137,12 +137,16 @@ The grid's cut-out and the label pass both read the whole scene inside a paint, 
 ### PF-CAN-61
 
 - **Rule:** A method that Qt calls on a view, a scene or an item while another object of the same garbage is destroyed (a virtual such as `scrollContentsBy`, a slot on a signal Qt emits from a destructor) reads only attributes that have a class-level default: the cyclic collector clears an object's `__dict__` before it destroys its C++ part, and an `AttributeError` raised inside a Qt-called virtual ends the process without a traceback.
-- **Pinned by:** `tests/integration/test_dropped_canvas.py`
+- **Pinned by:** `tests/integration/test_dropped_canvas.py`; `tests/integration/test_touch_gestures.py::test_late_viewport_event_can_run_without_the_touch_flag`
 - **Source:** #794 (second review of the 2D visual-polish branch)
 - **Status:** standing; narrative in [debug-verbose: Case study: a dropped canvas ended the process with 0xC0000409 and not a word — Qt called a virtual on a view whose attributes the collector had already cleared (#794, fixed 2026-11-10)](../../../.claude/skills/debug-verbose/references/231-case-study-a-dropped-canvas-ended-the-process-without-a-word-794.md)
 - **Legacy:** none (new entry)
 
 `CanvasView.scrollContentsBy` read `self._sun_legend_rect`, an attribute added with the sun map's key. A view and its scene reference each other, so a pair that is dropped without `close()` and `deleteLater()` is garbage only the cyclic collector finds. It clears the attributes of every object of that garbage first and destroys them afterwards, in an order of its own. When the scene's C++ object goes first, Qt takes the scene from the view (`setScene(nullptr)`), which recomputes the scroll bars and calls `scrollContentsBy` — a virtual, so PyQt enters the Python override on a view whose `__dict__` is empty. The `AttributeError` cannot propagate through C++; PyQt prints it and calls `qFatal`: exit code 0xC0000409 at the first `gc.collect()`, nothing on stdout, and in a test run a worker that is simply gone. The application did not hit it (it closes and deletes its window) and neither did the suite (an autouse fixture closes and deletes every widget, which destroys them in Qt's order), so it was found only by a probe that drops a view. Which methods Qt enters during such a collection was recorded, not guessed: with every method of the view, the scene, the minimap, the shadow controller and every item wrapped, over nine ways of dropping a canvas (bare, shown, with the minimap, a selection and its handles, scroll bars, the scene owned by the view, the key's item, the controller), the only Python code Qt entered was `scrollContentsBy` and `_refresh_dense_vertex_overlays`, which it calls. The fix is the one `CanvasScene._paint_revision` already had for a slot Qt calls from the scene's destructor: a class-level default, so the lookup finds a value when the instance has none. `getattr(self, name, default)` at the read is the same thing, said at every read instead of once. A `paint()`, a `boundingRect()` and an `itemChange()` are not entered during a collection — Qt calls no virtual on an item it is destroying — so they need no such default; a new override of something Qt calls from ANOTHER object's destructor (scroll bars, a scene's signals, an event filter on a parent) does.
+
+PR #985 reproduced the same lifecycle in the viewport event filter during the
+Linux coverage run. The touch flag falls back to disabled when instance
+attributes have been cleared, so the Qt base filter receives the event.
 
 ### PF-CAN-62
 
