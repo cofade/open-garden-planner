@@ -1,7 +1,8 @@
-"""Split every eligible closed shape crossed by a two-point cutting line (#664).
+"""Split eligible closed shapes crossed by a two-point cutting line (#664).
 
-The toolbar's Split tool is scene-wide: it takes two snapped points and cuts
-every eligible closed shape that the drawn segment passes through along the
+The toolbar's Split tool takes two snapped points and cuts eligible closed
+shapes from the preselection, or from the whole scene when nothing was
+selected. Each shape that the drawn segment passes through is cut along the
 segment's infinite supporting axis. A shape the segment crosses end to end
 becomes two (or more) pieces; a shape the segment clips is cut along the same
 axis when both resulting pieces are large enough to keep. A segment that only
@@ -18,9 +19,10 @@ from __future__ import annotations
 import contextlib
 from copy import deepcopy
 from dataclasses import dataclass, field
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any, cast
 from uuid import UUID
 
+from PyQt6 import sip
 from PyQt6.QtCore import QCoreApplication, QPointF, QRectF, Qt
 from PyQt6.QtGui import QColor, QKeyEvent, QMouseEvent, QPen, QPolygonF
 from PyQt6.QtWidgets import QGraphicsItem, QGraphicsLineItem, QGraphicsPolygonItem
@@ -31,7 +33,9 @@ from open_garden_planner.core.item_look import (
     copy_visual_style,
     paints_sprite,
 )
+from open_garden_planner.core.object_types import ObjectType, get_valid_types_for_shape
 from open_garden_planner.core.shape_split import (
+    axis_parallel_rect,
     polygon_type_for_split,
     segment_crosses_item,
     split_item_into_local_polygons,
@@ -62,7 +66,7 @@ class _CutPlan:
 
 
 class SplitShapeTool(BaseTool):
-    """Two snapped picks define a cutting line; every crossed shape is split."""
+    """Two snapped picks define a cutting line within the armed scope."""
 
     tool_type = ToolType.SPLIT
     display_name = QCoreApplication.translate("SplitShapeTool", "Split along line")
@@ -78,9 +82,8 @@ class SplitShapeTool(BaseTool):
 
     def __init__(self, view: CanvasView) -> None:
         super().__init__(view)
-        #: When set, the gesture is scoped to this one source (context menu).
-        #: ``None`` is the toolbar's scene-wide mode.
-        self.source_id: UUID | None = None
+        # An explicit scope stays scoped even if every target disappears.
+        self._sources: list[QGraphicsItem] | None = None
         self._start: QPointF | None = None
         self._candidates: list[QGraphicsItem] = []
         self._refusal_cache: dict[QGraphicsItem, str | None] = {}
@@ -104,33 +107,29 @@ class SplitShapeTool(BaseTool):
             )
         )
 
-    def prepare(self, source_id: UUID | None) -> None:
-        """Scope the next cut to one shape, or clear the scope (``None``).
-
-        The context menu passes the clicked shape; the toolbar and shortcut pass
-        ``None`` so the line splits every eligible closed shape it crosses.
-        """
+    def prepare(self, sources: list[QGraphicsItem] | None) -> None:
+        """Scope the next cut to the given items, or the whole scene with None."""
         self.cancel()
-        self.source_id = source_id
+        self._sources = sources
 
     def mouse_press(self, event: QMouseEvent, scene_pos: QPointF) -> bool:
         """Take the first or second cutting point."""
         if event.button() != Qt.MouseButton.LeftButton:
             return False
 
-        if self.source_id is not None and self._source() is None:
+        if self._start is None:
+            self._candidates = self._collect_candidates()
+        if self._sources is not None and not any(map(self._is_live_candidate, self._candidates)):
+            self._view.set_active_tool(ToolType.SELECT)
             self._view.set_status_message(
                 QCoreApplication.translate(
                     "SplitShapeTool", "The shape to split is no longer available."
                 )
             )
-            self.cancel()
-            self._view.set_active_tool(ToolType.SELECT)
             return True
 
         if self._start is None:
             self._start = QPointF(scene_pos)
-            self._candidates = self._collect_candidates()
             self._refusal_cache.clear()
             self._show_line_preview(QPointF(scene_pos))
             self._view.set_status_message(
@@ -176,7 +175,7 @@ class SplitShapeTool(BaseTool):
             self._view.set_status_message(
                 QCoreApplication.translate("SplitShapeTool", "Split cancelled")
             )
-            self._view.set_active_tool(ToolType.SELECT)
+            # The view's central Esc rule returns to Select (#829).
             return True
         return False
 
@@ -184,13 +183,16 @@ class SplitShapeTool(BaseTool):
         """Remove every preview and forget the armed source and gesture."""
         self._clear_previews()
         self._start = None
-        self.source_id = None
+        self._sources = None
         self._candidates = []
         self._refusal_cache.clear()
 
     # ------------------------------------------------------------------
     # Planning
     # ------------------------------------------------------------------
+
+    def _is_live_candidate(self, item: QGraphicsItem) -> bool:
+        return not sip.isdeleted(item) and item.scene() is self._scene and item.isVisible()
 
     def _collect_candidates(self) -> list[QGraphicsItem]:
         """Every closed shape this gesture may cut, snapshotted at the first click.
@@ -199,9 +201,8 @@ class SplitShapeTool(BaseTool):
         including grouped children: a grouped child is still reported by the
         refusal check (with "ungroup first") instead of vanishing silently.
         """
-        if self.source_id is not None:
-            source = self._source()
-            return [source] if source is not None else []
+        if self._sources is not None:
+            return self._sources
 
         from open_garden_planner.ui.canvas.items import (
             CircleItem,
@@ -237,7 +238,7 @@ class SplitShapeTool(BaseTool):
         segment_bounds = QRectF(start, end).normalized().adjusted(-1, -1, 1, 1)
 
         for item in self._candidates:
-            if item.scene() is not self._scene:
+            if not self._is_live_candidate(item):
                 continue
             if not item.sceneBoundingRect().intersects(segment_bounds):
                 continue
@@ -340,11 +341,9 @@ class SplitShapeTool(BaseTool):
             )
         )
 
-        scoped = self.source_id is not None
+        scoped = self._sources is not None
         pieces = [piece for _source, split_pieces in splits for piece in split_pieces]
-        self._clear_previews()
-        self._start = None
-        self.source_id = None
+        self.cancel()
         self._view.command_manager.execute(command)
         self._scene.clearSelection()
         for piece in pieces:
@@ -369,23 +368,47 @@ class SplitShapeTool(BaseTool):
         self._view.set_status_message(message)
 
         if scoped:
-            # The context-menu action is a one-shot edit; return to Select.
+            # A cut scoped to specific objects is a one-shot edit.
             self._view.set_active_tool(ToolType.SELECT)
 
     def _make_piece(self, source: QGraphicsItem, polygon: QPolygonF) -> QGraphicsItem:
-        """Build one unsaved piece that keeps the source's frame and look."""
-        from open_garden_planner.ui.canvas.items import PolygonItem
+        """Build one unsaved piece that keeps the source's frame and look.
 
-        item = PolygonItem.from_polygon(QPolygonF(polygon))
+        A piece that is an axis-parallel rectangle in the source's frame keeps
+        the source's shape CLASS when that class is valid for a rectangle: a
+        straight cut of a raised bed gives two raised beds with their wooden
+        frame (#828, option 2). A diagonal cut, or a type with no rectangular
+        form, keeps the polygon path.
+        """
+        from open_garden_planner.ui.canvas.items import PolygonItem, RectangleItem
+
+        source_type: ObjectType | None = getattr(source, "object_type", None)
+        rectangle = axis_parallel_rect(polygon)
+        # Only a type that is valid on a rectangle but NOT on a polygon would
+        # lose its look on the polygon path: the raised bed's wooden frame and
+        # the hedge section's picture. A house or a generic rectangle already
+        # keeps its identity as a polygon, so its piece stays one (#828).
+        keeps_rectangle = (
+            rectangle is not None
+            and paints_sprite(source)
+            and source_type in get_valid_types_for_shape("rectangle")
+            and source_type not in get_valid_types_for_shape("polygon")
+        )
+        polygon_type: ObjectType | None = None
+        item: Any
+        if keeps_rectangle:
+            assert rectangle is not None
+            item = RectangleItem(*rectangle, object_type=cast(ObjectType, source_type))
+        else:
+            item = PolygonItem.from_polygon(QPolygonF(polygon))
+            polygon_type = polygon_type_for_split(source_type)
+            if polygon_type is not None:
+                item.object_type = polygon_type
         # Work in the source's local frame so the material keeps its
         # orientation and the source's rotation is reproduced exactly.
         item._apply_rotation(source.rotation())
         centre = item.transformOriginPoint()
         item.setPos(source.mapToScene(centre) - centre)
-        source_type = getattr(source, "object_type", None)
-        polygon_type = polygon_type_for_split(source_type)
-        if polygon_type is not None:
-            item.object_type = polygon_type
         item.name = getattr(source, "name", "")
         item.label_visible = getattr(source, "label_visible", True)
         item.area_label_visible = getattr(source, "area_label_visible", False)
@@ -398,26 +421,22 @@ class SplitShapeTool(BaseTool):
         # builds every piece its own, so no piece may name the old one.
         item.metadata.pop("ridge_item_id", None)
         copy_visual_style(source, item)
-        # A piece whose type had to change stands as tall as its source (the
-        # 40 cm of a raised bed is a type default a garden bed lacks). A sprite
-        # (the raised bed's wooden frame) cannot be drawn on a free-form
-        # outline and its stored fill was never on screen, so such a piece
-        # takes its new type's pattern (soil) instead of going flat brown; a
-        # shape painted by its own brush keeps the pattern the user gave it.
-        adopt_rebuilt_type(
-            item, source_type, polygon_type, keep_fill=not paints_sprite(source)
-        )
+        if not keeps_rectangle:
+            # A piece whose type had to change stands as tall as its source
+            # (the 40 cm of a raised bed is a type default a garden bed lacks).
+            # A sprite (the raised bed's wooden frame) cannot be drawn on a
+            # free-form outline and its stored fill was never on screen, so
+            # such a piece takes its new type's pattern (soil) instead of going
+            # flat brown; a shape painted by its own brush keeps the user's.
+            adopt_rebuilt_type(
+                item, source_type, polygon_type, keep_fill=not paints_sprite(source)
+            )
         item._setup_styling()
-        return item
+        return cast(QGraphicsItem, item)
 
     # ------------------------------------------------------------------
     # Geometry and preview
     # ------------------------------------------------------------------
-
-    def _source(self) -> QGraphicsItem | None:
-        if self.source_id is None:
-            return None
-        return self._scene.find_item_by_id(self.source_id)
 
     def _end(self, point: QPointF, event: QMouseEvent) -> QPointF:
         if self._start is not None and event.modifiers() & Qt.KeyboardModifier.ShiftModifier:
@@ -469,7 +488,7 @@ class SplitShapeTool(BaseTool):
         )
 
     def _show_piece_preview(self, end: QPointF) -> None:
-        if self.source_id is not None and self._source() is None:
+        if self._sources is not None and not any(map(self._is_live_candidate, self._candidates)):
             self._clear_previews()
             return
         if self._start is None:

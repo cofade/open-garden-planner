@@ -73,6 +73,10 @@ class TextItem(RotationHandleMixin, GardenItemMixin, QGraphicsTextItem):
     _CM_TO_PT: float = 72.0 / 2.54
     #: The smallest stored ``font_size`` (a 3 pt font).
     MIN_FONT_SIZE: float = 0.1
+    #: Marks the item as an inline text editor for the canvas's Esc routing.
+    #: A focused item carrying this attribute finishes its edit on the same Esc
+    #: before the view ends the active tool (#829).
+    is_inline_text_editor: bool = True
 
     def __init__(
         self,

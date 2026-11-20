@@ -627,7 +627,7 @@ def test_a_focused_member_leaves_the_idle_window_quiet(qtbot, monkeypatch) -> No
         original()
 
     def counting_restore(hidden) -> None:
-        faded["n"] += len(minimap._faded)
+        faded["n"] += sum(1 for _item, opacity in hidden if opacity is not None)
         original_restore(hidden)
 
     minimap._update_timer.timeout.disconnect()

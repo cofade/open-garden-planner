@@ -16,7 +16,6 @@ workspace's seam by a recording one, as in ``test_plant_growth_wiring``.
 
 from __future__ import annotations
 
-import functools
 import weakref
 from datetime import UTC, date, datetime, time, timedelta, timezone
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
@@ -315,8 +314,14 @@ class TestOnePlanDateEastOfUtc:
     view used to name two different days. Now they all name the plan date."""
 
     def test_overlay_heatmap_and_3d_agree(self, qtbot, monkeypatch) -> None:
+        # The app now asks the plan's location for a zone (#945); this test
+        # forces its own so the clock ignores whatever the plan carries.
         monkeypatch.setattr(
-            sim_clock_module, "SimClock", functools.partial(SimClock, tz=TOKYO_FIXED)
+            sim_clock_module,
+            "SimClock",
+            lambda *args, **kwargs: SimClock(
+                *args, **{**kwargs, "tz": TOKYO_FIXED}
+            ),
         )
         spy = _AtDateSpy(overlay_module.collect_shadow_casters)
         monkeypatch.setattr(overlay_module, "collect_shadow_casters", spy)
@@ -370,7 +375,9 @@ class TestToolbarPathPreMidnightGap:
         except ZoneInfoNotFoundError:
             pytest.skip("no IANA tz data for America/Nuuk on this platform")
         monkeypatch.setattr(
-            sim_clock_module, "SimClock", functools.partial(SimClock, tz=nuuk)
+            sim_clock_module,
+            "SimClock",
+            lambda *args, **kwargs: SimClock(*args, **{**kwargs, "tz": nuuk}),
         )
         win = _app(qtbot)
         toolbar = win._sun_toolbar
@@ -499,3 +506,132 @@ def test_toolbar_alone_is_limited_to_the_clock_range(qtbot) -> None:
     qtbot.addWidget(toolbar)
     assert toolbar._date_edit.minimumDate() == QDate(MIN_PLAN_DATE)
     assert toolbar._date_edit.maximumDate() == QDate(MAX_PLAN_DATE)
+
+
+@pytest.fixture
+def tz_app(qtbot, monkeypatch):
+    """A window that is clean before pytest-qt closes it, even when a test fails.
+
+    These tests outlive the 500 ms startup timer, and an autosave an earlier
+    process left in the real temp folder would open the modal recovery prompt.
+    """
+    from open_garden_planner.services.autosave_service import AutoSaveManager
+
+    monkeypatch.setattr(
+        AutoSaveManager, "find_recovery_files", classmethod(lambda _cls: [])
+    )
+    win = _app(qtbot)
+    # A window that outlives the 500 ms startup timer is dirtied by a late
+    # panel flush while pytest-qt closes its children; this test is not about
+    # the save prompt, so close without one. (The plan itself is not saved.)
+    monkeypatch.setattr(win, "_confirm_discard_changes", lambda: True)
+    # No autosave: an untitled plan writes to the real temp folder, where a
+    # later test's startup would find it and open the modal recovery prompt.
+    win._autosave_manager.stop()
+    yield win
+    win._autosave_manager.clear_autosave()
+    win._project_manager.mark_clean()
+    # Close here, not only in pytest-qt's teardown: the agent host and the
+    # heatmap workers are QThreads, and a full suite that leaves them to a
+    # later test's garbage collection is where a worker disappeared (#875).
+    win.close()
+
+
+class TestThePlansTimeZone:
+    """#945: a plan opened on another computer keeps the garden's local time."""
+
+    def test_a_location_change_keeps_the_wall_reading_and_moves_the_sun(
+        self, tz_app
+    ) -> None:
+        from open_garden_planner.core.plan_time import plan_today
+
+        win = tz_app
+        win._sim_clock.set_datetime(_local(2026, 6, 21, 15, 0))
+
+        win._project_manager.set_location(
+            {"latitude": 35.0, "longitude": 135.8, "timezone": "Asia/Tokyo"}
+        )
+
+        assert win._sim_clock.wall == _local(2026, 6, 21, 15, 0)
+        assert win._sim_clock.tz is not None
+        assert win._sim_clock.tz.key == "Asia/Tokyo"
+        assert win._sim_clock.utc == datetime(2026, 6, 21, 6, 0, tzinfo=UTC)
+        assert win._sun_toolbar.current_wall_datetime() == _local(2026, 6, 21, 15, 0)
+        # The toolbar reads the current date in the garden's zone.
+        assert win._sun_toolbar._now().date() == plan_today(
+            win._project_manager.location
+        )
+
+    def test_a_saved_plan_reads_its_zone_again(self, tz_app, tmp_path) -> None:
+        win = tz_app
+        manager = win._project_manager
+        manager.set_location(
+            {"latitude": 35.0, "longitude": 135.8, "timezone": "Asia/Tokyo"}
+        )
+        plan = tmp_path / "tokyo.ogp"
+        manager.save(win.canvas_scene, plan)
+
+        manager.set_location({"latitude": 52.5, "longitude": 13.4})
+        assert win._sim_clock.tz is None
+
+        manager.load(win.canvas_scene, plan)
+
+        assert win._sim_clock.tz is not None
+        assert win._sim_clock.tz.key == "Asia/Tokyo"
+
+    def test_clearing_the_zone_returns_to_the_computer(self, tz_app) -> None:
+        win = tz_app
+        win._project_manager.set_location(
+            {"latitude": 35.0, "longitude": 135.8, "timezone": "Asia/Tokyo"}
+        )
+        win._project_manager.set_location({"latitude": 35.0, "longitude": 135.8})
+        assert win._sim_clock.tz is None
+
+    def test_the_location_dialog_is_the_writer_the_clock_reads(
+        self, tz_app, qtbot
+    ) -> None:
+        """The dialog → ProjectManager → clock path, not just the setter."""
+        from open_garden_planner.ui.dialogs.location_dialog import LocationDialog
+
+        win = tz_app
+        dialog = LocationDialog(location=win._project_manager.location)
+        qtbot.addWidget(dialog)
+        dialog._select_timezone("Asia/Tokyo")
+
+        win._project_manager.set_location(dialog.location_data)
+
+        assert win._sim_clock.tz is not None
+        assert win._sim_clock.tz.key == "Asia/Tokyo"
+
+    def test_a_normal_load_stores_the_zone_when_a_clock_listener_raises(
+        self, tz_app, tmp_path
+    ) -> None:
+        """#945: a load must finish; only the document boundary is silent."""
+        win = tz_app
+        manager = win._project_manager
+        manager.set_location(
+            {"latitude": 35.0, "longitude": 135.8, "timezone": "Asia/Tokyo"}
+        )
+        plan = tmp_path / "tokyo.ogp"
+        manager.save(win.canvas_scene, plan)
+        manager.set_location({"latitude": 52.5, "longitude": 13.4})
+        assert win._sim_clock.tz is None
+
+        recomputes: list[bool] = []
+        real_recompute = win._sun_controller.recompute_now
+        win._sun_controller.recompute_now = lambda: (
+            recomputes.append(True), real_recompute()
+        )[1]
+
+        def broken(_change) -> None:
+            raise RuntimeError("a listener that raises")
+
+        win._sim_clock.instant_changed.connect(broken)
+        try:
+            win._load_project_file(str(plan))
+        finally:
+            win._sim_clock.instant_changed.disconnect(broken)
+
+        assert win._sim_clock.tz is not None
+        assert win._sim_clock.tz.key == "Asia/Tokyo"
+        assert recomputes, "the 2D overlay was not re-solved for the loaded zone"

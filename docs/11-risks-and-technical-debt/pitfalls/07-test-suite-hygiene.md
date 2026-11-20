@@ -2,6 +2,16 @@
 
 One entry per lesson, each under its permanent `PF-<AREA>-<NN>` ID. Each entry gives its rule, the test that pins it, its sources and its status. Index: [§11.4](../README.md#114-known-development-pitfalls).
 
+### PF-TST-40
+
+- **Rule:** A parallel test that passes alone and fails under load is not fixed by a scheduler marker or a lock without measuring it on `master` first. `xdist_group` is inert under `--dist worksteal`; the MP4 `4_mf` flake is a Qt 6.12/Media Foundation defect that survived a cross-process lock and a pre-stop drain. Record it as a known flake and leave the product tests unmodified.
+- **Pinned by:** none — a known Qt 6.12/Media Foundation flake; the evidence is the measured runs in PR #981 and the same report in PR #980.
+- **Source:** #981 senior-review round 4
+- **Status:** standing
+- **Legacy:** none (new entry)
+
+The first fix was `pytest.mark.xdist_group("mp4-muxer")`, which is inert under the project's scheduler: a targeted `-n 4 --dist worksteal` run spread the file over every worker and reproduced the error. A cross-process file lock then serialised the encodes and the error still appeared (2/8 runs), as did a 100 ms drain before `finish()`. Running the same file from `master` without either change failed 1/4, which is the proof that the flake predates this branch. The branch therefore carries no video-test change; the flake stays visible in the parallel suite and is reported, not hidden.
+
 ### PF-TST-01
 
 - **Rule:** A GUI-responsiveness test holds the real worker in flight with an Event and counts heartbeat ticks only while it runs on another thread, so the count cannot depend on compute duration.

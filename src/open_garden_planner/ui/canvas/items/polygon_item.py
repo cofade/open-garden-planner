@@ -2,7 +2,7 @@
 
 import math
 import uuid
-from typing import Any
+from typing import Any, cast
 
 from PyQt6.QtCore import QCoreApplication, QPointF, QRectF, Qt
 from PyQt6.QtGui import (
@@ -880,7 +880,9 @@ class PolygonItem(VertexEditMixin, RotationHandleMixin, ResizeHandlesMixin, Gard
                 for v in scene.views():
                     if hasattr(v, "_tool_manager"):
                         from open_garden_planner.core.tools import ToolType
-                        v._tool_manager.set_active_tool(ToolType.SELECT)
+                        # The view is a duck-typed CanvasView here; the base
+                        # QGraphicsView has no set_active_tool (#829).
+                        cast(Any, v).set_active_tool(ToolType.SELECT)
                         break
         elif action == exit_edit_action and exit_edit_action is not None:
             # Exit vertex edit mode

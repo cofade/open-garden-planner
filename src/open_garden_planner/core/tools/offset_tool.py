@@ -478,7 +478,7 @@ class OffsetTool(BaseTool):
             self._view.set_status_message(
                 QCoreApplication.translate("CanvasView", "Created {dir} offset of {dist}").format(dir=direction, dist=length_text(dist, style=LengthStyle.CENTIMETRES))
             )
-        self._view._tool_manager.set_active_tool(ToolType.SELECT)
+        self._view.set_active_tool(ToolType.SELECT)
         return True
 
     def mouse_release(self, _event: QMouseEvent, _scene_pos: QPointF) -> bool:

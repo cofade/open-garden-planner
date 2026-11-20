@@ -2,7 +2,7 @@
 
 import math
 import uuid
-from typing import Any, Final
+from typing import Any, Final, cast
 
 from PyQt6.QtCore import QCoreApplication, QPointF, QRectF, Qt
 from PyQt6.QtGui import (
@@ -918,7 +918,7 @@ class PolylineItem(PolylineVertexEditMixin, RotationHandleMixin, GardenItemMixin
                 for v in scene.views():
                     if hasattr(v, "_tool_manager"):
                         from open_garden_planner.core.tools import ToolType
-                        v._tool_manager.set_active_tool(ToolType.SELECT)
+                        cast(Any, v).set_active_tool(ToolType.SELECT)
                         break
         elif action == exit_edit_action and exit_edit_action is not None:
             self.exit_vertex_edit_mode()

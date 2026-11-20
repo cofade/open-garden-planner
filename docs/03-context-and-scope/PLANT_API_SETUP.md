@@ -150,9 +150,10 @@ When using these APIs, please:
 - **Perenual**: Free for personal and commercial use
 - **Permapeople**: Provide attribution and link back to permapeople.org. Data is CC BY-SA 4.0 licensed.
 
-## Future Enhancements
+## What is available offline
 
-Planned features for future releases:
-- Bundled offline plant database
-- Plant data caching for offline use
-- Advanced filtering (by zone, edibility, growth characteristics)
+The application bundles its own plant database, so the plant gallery, the species
+records, companion data and the task calendar work without a network. Online search is
+optional: connect a provider above when you want a species the bundle does not know.
+The plant gallery filters by name and by recorded traits (food-forest layer, functions,
+lifecycle and more) without a network call.

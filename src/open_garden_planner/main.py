@@ -199,6 +199,54 @@ def _run_selftest(log: "RenderLog | None" = None) -> int:
         ok = False
         print(f"  FAIL A1 ingestion selftest -> {exc!r}")
 
+    # --- IANA time-zone data (#945, ADR-079) ------------------------------
+    # Windows ships no IANA database; the frozen bundle must carry the
+    # ``tzdata`` files or every named plan zone silently falls back to the
+    # computer's. A named zone with a known summer offset proves the data,
+    # not merely the module, is in the artifact.
+    try:
+        from datetime import UTC, datetime, timedelta
+        from zoneinfo import ZoneInfo, available_timezones
+
+        available = available_timezones()
+        required = {
+            "Europe/Berlin",
+            "America/New_York",
+            "Asia/Tokyo",
+            "Australia/Sydney",
+            "Africa/Johannesburg",
+            "America/Sao_Paulo",
+        }
+        if len(available) < 400 or not required <= available:
+            raise AssertionError(
+                f"the bundled zone list has {len(available)} names and is "
+                f"missing {sorted(required - available)}"
+            )
+        summer = datetime(2026, 6, 21, 12, 0, tzinfo=UTC)
+        winter = datetime(2026, 1, 21, 12, 0, tzinfo=UTC)
+        for zone_name, summer_hours, winter_hours in (
+            ("Europe/Berlin", 2, 1),
+            ("America/New_York", -4, -5),
+        ):
+            zone = ZoneInfo(zone_name)
+            for moment, hours in ((summer, summer_hours), (winter, winter_hours)):
+                offset = moment.astimezone(zone).utcoffset()
+                if offset != timedelta(hours=hours):
+                    raise AssertionError(
+                        f"{zone_name} offset at {moment.date()} is {offset!r}, "
+                        f"expected {timedelta(hours=hours)!r}"
+                    )
+        if log is not None:
+            log("selftest_timezone", zones=",".join(sorted(required)),
+                available=len(available))
+        print(
+            f"  OK   IANA time-zone data ({len(available)} zones; one per continent, "
+            "Europe/Berlin and America/New_York in summer and winter)"
+        )
+    except Exception as exc:
+        ok = False
+        print(f"  FAIL IANA time-zone data -> {exc!r}")
+
     # --- Qt Quick 3D engine (Phase 17 L1.2, ADR-048) ----------------------
     if not _selftest_quick3d(log):
         ok = False

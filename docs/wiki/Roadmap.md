@@ -2,7 +2,6 @@
 
 This page summarises the [canonical roadmap](https://github.com/cofade/open-garden-planner/blob/master/docs/roadmap.md).
 That document owns current work and delivery status. GitHub issues own the current work list.
-The canonical roadmap includes the 2D canvas and plant gallery follow-ups.
 The overview, infrastructure table, and Phase 17 status below come directly from that document.
 
 ## Overview
@@ -34,4 +33,4 @@ the community documentation in this wiki does not mark Phase 16 complete.
 The canonical roadmap's "Current work" section lists the active themes and links to the
 open issues. No roadmap phase is active.
 
-Current release: [v1.40.9](https://github.com/cofade/open-garden-planner/releases/tag/v1.40.9).
+Current release: [v1.40.11](https://github.com/cofade/open-garden-planner/releases/tag/v1.40.11).

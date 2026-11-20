@@ -6,7 +6,7 @@ session clock was seeded late in the evening, when the sun is long down.
 """
 
 import json
-from datetime import UTC, date, datetime, time
+from datetime import date, datetime, time
 from pathlib import Path
 
 import pytest
@@ -24,11 +24,14 @@ from open_garden_planner.models.seed_inventory import get_seed_inventory
 from open_garden_planner.services.example_library import bundled_examples
 from open_garden_planner.ui.canvas.sun_shadow_controller import STATE_ACTIVE, STATE_NIGHT
 
-#: The instant the session starts at: 22:30 on a November evening in Germany, where all
-#: four gardens lie. An instant and not a wall reading: the sun is down over the gardens
-#: then on a machine in any time zone, so no assertion below depends on where the suite
-#: runs (the clock reads wall time in the machine's zone).
-LATE = datetime(2026, 11, 10, 21, 30, tzinfo=UTC)
+#: The wall reading the session starts at: 22:30 on a November evening. A wall reading,
+#: not an instant, is the contract (ADR-053): after an example the clock gives the user's
+#: reading back in the open plan's zone, so 22:30 is 22:30 on any machine and the tests
+#: stay independent of where the suite runs. The instant behind it differs by zone.
+#: Deliberately a naive seed: an aware instant would make the restored Berlin reading
+#: machine-dependent (daytime on a machine far west), and the aware-UTC seed path is
+#: pinned by tests/unit/test_sim_clock.py.
+LATE = datetime(2026, 11, 10, 22, 30)
 #: Each example's reference date (its sidecar's ``showcase_date``).
 REFERENCE = {"family-garden": date(2026, 6, 21), "food-forest": date(2026, 9, 21),
              "raised-bed": date(2026, 9, 21), "balcony": date(2026, 9, 21)}
@@ -43,8 +46,8 @@ def window(qtbot, monkeypatch, tmp_path):
     win = GardenPlannerApp()
     monkeypatch.setattr(win, "_confirm_discard_changes", lambda: True)
     qtbot.addWidget(win)
-    assert win._sim_clock.utc == LATE
-    #: the wall reading the user's session started with, in this machine's zone
+    assert win._sim_clock.wall == LATE
+    #: the wall reading the user's session started with
     win.started_at = win._sim_clock.wall
     return win
 
@@ -105,7 +108,7 @@ def test_the_next_document_gets_the_users_own_reading_back(window, tmp_path):
     # a new plan after an example: the evening the session started at
     open_example(window, "family-garden")
     window._new_project_document(width_cm=1000, height_cm=800)
-    assert clock.wall == window.started_at and clock.utc == LATE
+    assert clock.wall == window.started_at == LATE
 
     # the user's own setting, two examples in a row, a scrub inside the example
     mine = datetime(2026, 5, 1, 9, 15)
@@ -152,7 +155,7 @@ def test_saving_the_copy_ends_the_showcase_and_its_new_plants_get_the_users_date
 
     # the copy is the user's file now: the clock is theirs again, and the status bar says so
     assert not window._showcase_moment.active
-    assert clock.wall == window.started_at and clock.utc == LATE
+    assert clock.wall == window.started_at == LATE
     assert window._sun_controller.state == STATE_NIGHT
     message = window.statusBar().currentMessage()
     assert str(saved) in message and "your own date and time" in message
@@ -168,7 +171,7 @@ def test_saving_the_copy_ends_the_showcase_and_its_new_plants_get_the_users_date
     # reopened, it is a plan like any other of the user's: their reading, their night
     window._new_project_document(width_cm=1000, height_cm=800)
     window._open_project_file(str(saved))
-    assert clock.wall == window.started_at and clock.utc == LATE
+    assert clock.wall == window.started_at == LATE
 
 
 def test_a_clock_setting_made_in_the_saved_copy_survives_the_next_document(
@@ -246,7 +249,7 @@ def test_autosave_and_a_template_export_leave_the_showcase_and_a_recovery_ends_i
     monkeypatch.setattr(QMessageBox, "information", lambda *_a, **_k: None)
     window._load_recovery_file(autosave)
     assert not window._showcase_moment.active
-    assert clock.wall == window.started_at and clock.utc == LATE
+    assert clock.wall == window.started_at == LATE
 
 
 def test_a_raising_clock_listener_cannot_leave_a_half_opened_document(window, tmp_path):

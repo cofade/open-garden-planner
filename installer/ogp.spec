@@ -86,6 +86,11 @@ for f in (SRC / "open_garden_planner" / "ui" / "view3d" / "quick3d" / "qml").rgl
         rel = f.relative_to(SRC)
         datas.append((str(f), str(rel.parent)))
 
+# The IANA time-zone database (#945) is carried by PyInstaller's own hooks:
+# ``hook-zoneinfo.py`` adds ``tzdata`` on Windows and ``hook-tzdata.py`` collects
+# its data and submodules. ``--selftest`` resolves a named zone from the bundle,
+# so a hook regression fails the frozen gate rather than a user's plan.
+
 # Agent API (US-D1.1): the MCP server stack (mcp / uvicorn / starlette / anyio /
 # sse-starlette / pydantic) imports protocol, loop and lifespan submodules
 # dynamically, and several of these packages read their distribution metadata at

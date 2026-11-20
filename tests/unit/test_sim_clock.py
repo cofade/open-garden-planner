@@ -394,6 +394,69 @@ class TestTimeChangeNeverFiresDateChanged:
         assert clock.utc.date() == EU_SPRING_FORWARD
 
 
+class TestPlanTimezone:
+    """#945: the clock reads its wall time at the plan's place, not the computer's."""
+
+    def test_the_reading_stays_and_the_instant_moves(self) -> None:
+        clock = SimClock(
+            datetime(2026, 6, 21, 15, 0), tz=timezone(timedelta(hours=2))
+        )
+        changes = _Spy()
+        dates = _Spy()
+        clock.instant_changed.connect(changes)
+        clock.date_changed.connect(dates)
+
+        change = clock.set_timezone(timezone(timedelta(hours=9)))
+
+        assert clock.wall == datetime(2026, 6, 21, 15, 0)
+        assert clock.plan_date == date(2026, 6, 21)
+        assert clock.utc == datetime(2026, 6, 21, 6, 0, tzinfo=UTC)
+        assert dates.calls == [], "a zone change is not a plan-date change"
+        assert change is not None and changes.calls == [change]
+
+    def test_back_to_the_computer_zone(self) -> None:
+        clock = SimClock(
+            datetime(2026, 6, 21, 15, 0), tz=timezone(timedelta(hours=9))
+        )
+        clock.set_timezone(None)
+        assert clock.tz is None
+        assert clock.wall == datetime(2026, 6, 21, 15, 0)
+
+    def test_the_same_zone_is_a_no_op(self) -> None:
+        zone = timezone(timedelta(hours=9))
+        clock = SimClock(datetime(2026, 6, 21, 15, 0), tz=zone)
+        assert clock.set_timezone(zone) is None
+
+    def test_a_document_boundary_can_store_the_zone_without_notifying(self) -> None:
+        """#945: a load must not be aborted by a listener that raises."""
+        clock = SimClock(
+            datetime(2026, 6, 21, 15, 0), tz=timezone(timedelta(hours=2))
+        )
+        changes = _Spy()
+        clock.instant_changed.connect(changes)
+
+        change = clock.set_timezone(
+            timezone(timedelta(hours=9)), notify=False
+        )
+
+        assert change is not None
+        assert changes.calls == []
+        assert clock.tz == timezone(timedelta(hours=9))
+        assert clock.utc == datetime(2026, 6, 21, 6, 0, tzinfo=UTC)
+
+    def test_a_repeated_hour_keeps_its_fold(self) -> None:
+        berlin = _zone("Europe/Berlin")
+        paris = _zone("Europe/Paris")  # the same EU transition: 02:30 is ambiguous
+        clock = SimClock(datetime(2026, 10, 25, 12, 0), tz=berlin)
+        clock.set_time_of_day(time(2, 30, fold=1))  # the second 02:30
+        assert clock.time_of_day.fold == 1
+
+        clock.set_timezone(paris)
+
+        assert clock.time_of_day.fold == 1, "the fold was canonicalised away"
+        assert clock.utc == datetime(2026, 10, 25, 1, 30, tzinfo=UTC)
+
+
 class TestReentrancyAndErrors:
     def test_write_from_a_listener_raises(self) -> None:
         clock = SimClock(datetime(2026, 6, 21, 12, 0))

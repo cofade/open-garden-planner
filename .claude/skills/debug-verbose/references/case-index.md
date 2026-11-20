@@ -273,3 +273,4 @@
 | Case study: Ringelblume was absent from the Flowers & Perennials gallery (#950) | [Read](273-gallery-calendula-entry-950.md) |
 | Case study: an explicit flat roof lost its fill in 3D (PR #978) | [Read](274-flat-roof-3d-fill-978.md) |
 | Case study: an explicit tool-shed roof lost its 2D drawing (PR #978) | [Read](275-tool-shed-explicit-roof-978.md) |
+| Case study: Split cut the lawn under a selected raised bed (PR #981) | [Read](276-split-preselection-and-tracking-records.md) |

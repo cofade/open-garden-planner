@@ -1772,6 +1772,11 @@ class GardenItemMixin(PositionLockMixin):
 
             # Create a custom QGraphicsTextItem subclass for handling events
             class EditableLabel(QGraphicsTextItem):
+                #: The canvas's Esc routing finishes this edit before ending the
+                #: active tool (#829). An explicit marker replaces the former
+                #: ``hasattr(focus, "toPlainText")`` guess.
+                is_inline_text_editor = True
+
                 def __init__(self, text: str, parent: Any) -> None:
                     super().__init__(text, parent)
                     self.parent_item = parent

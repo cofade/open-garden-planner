@@ -92,6 +92,8 @@ TRANSLATIONS: dict[str, dict[str, str]] = {
             'La forma ya no está en este plano',
         'The shape is on a locked layer':
             'La forma está en una capa bloqueada',
+        'The roof ridge is on a locked layer':
+            'La cumbrera del tejado está en una capa bloqueada',
         'This shape has no closed outline to split':
             'Esta forma no tiene un contorno cerrado que dividir',
         'This shape type has no polygonal form to split into':

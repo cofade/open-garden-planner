@@ -44,7 +44,5 @@ class JournalPinTool(BaseTool):
         return False
 
     def key_press(self, event: QKeyEvent) -> bool:
-        if event.key() == Qt.Key.Key_Escape:
-            self._view.set_active_tool(ToolType.SELECT)
-            return True
-        return False
+        # The view's central Esc rule returns to Select (#829).
+        return event.key() == Qt.Key.Key_Escape

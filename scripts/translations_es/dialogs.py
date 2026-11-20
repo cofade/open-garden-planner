@@ -349,6 +349,11 @@ TRANSLATIONS = {
         "Set Garden Location": "Establecer ubicación del huerto",
         "These are used for planting calendar calculations. Leave blank if unknown — use the Lookup button to auto-detect.": "Se utilizan para los cálculos del calendario de siembra. Deje en blanco si no se conocen — use el botón Buscar para detectarlas automáticamente.",
         "e.g. 7b or H3": "p. ej., 7b o H3",
+        "Time zone:": "Zona horaria:",
+        "Same as this computer": "Igual que este ordenador",
+        "The garden's time zone. The plan's clock, its sun and a camera tour's time range use it. Leave it on the computer's zone when the garden is where this computer is.": "La zona horaria del jardín. El reloj del plano, su sol y el rango de tiempo de un recorrido de cámara la usan. Déjela en la zona del ordenador cuando el jardín esté donde está este ordenador.",
+        "Unknown time zone": "Zona horaria desconocida",
+        "{name} is not a known time zone.": "{name} no es una zona horaria conocida.",
     },
     "MapPickerDialog": {
         "A map frame did not render. Retrying...": "Un fotograma del mapa no se renderizó. Reintentando...",

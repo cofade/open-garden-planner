@@ -642,8 +642,12 @@ def main_window_on_plan(clock_zone: Any = None, plan: Path = PLAN) -> tuple[Any,
         import open_garden_planner.core.sim_clock as sim_clock_module
         from open_garden_planner.core.sim_clock import SimClock
 
-        # application.py imports SimClock INSIDE __init__, so patch the module it reads
-        sim_clock_module.SimClock = lambda: SimClock(tz=clock_zone)  # type: ignore[assignment]
+        # application.py imports SimClock INSIDE __init__, so patch the module it
+        # reads. The app now asks the plan for a ``tz`` (#945); this seam keeps
+        # its own and merges the keyword rather than duplicating it.
+        sim_clock_module.SimClock = lambda *args, **kwargs: SimClock(  # type: ignore[assignment]
+            *args, **{**kwargs, "tz": clock_zone}
+        )
 
     # nobody clicks here: as in tests/conftest.py, no modal Welcome dialog over the plan, and no
     # Unsaved Changes on close (a dirty plan held a probe for ever, in front of the owner)
@@ -655,6 +659,11 @@ def main_window_on_plan(clock_zone: Any = None, plan: Path = PLAN) -> tuple[Any,
     window.resize(1100, 700)
     window.show()
     window._project_manager.load(window.canvas_scene, plan)
+    if clock_zone is not None:
+        # The plan's own location zone arrives with the load and would replace the
+        # constructor seam; force the scenario's zone again, after the document is in.
+        window._sim_clock.set_timezone(clock_zone)
+        assert window._sim_clock.tz is clock_zone, "the document replaced the test zone"
     window._sim_clock.set_datetime(datetime(2026, 6, 21, 15, 0))
     workspace = window._workspace
     workspace.set_mode(WorkspaceMode.VIEW3D)

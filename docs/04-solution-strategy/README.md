@@ -23,7 +23,7 @@
 | Area | Decision | Rationale |
 |------|----------|-----------|
 | **Distribution** | Windows installer (NSIS) + pip install | Maximum accessibility for different user types |
-| **Coordinate Origin** | Bottom-left, Y-axis up | CAD convention, eases future 3D transition |
+| **Coordinate Origin** | Bottom-left, Y-axis up | CAD convention; the 2D canvas, exports and the 3D view all read the same frame |
 | **Panel Layout** | Fixed sidebar (not dockable) | Simpler UX, consistent layout |
 | **Image Calibration** | Global scale for entire project | Simpler model, assumes consistent image sources |
 | **Image Storage** | Embedded in project file by default | Portability over file size |
