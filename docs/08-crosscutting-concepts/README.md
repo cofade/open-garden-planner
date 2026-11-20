@@ -9504,11 +9504,11 @@ Authoring rules (#940), each with what holds it:
 | A row, a grid and a drift state their planting distance, and a plant given a size is kept at that spread: the builder stores it as the plant's own spacing radius where it is less than the species' (`Plan.plant(apart=)`). Orchard trees of the food forest keep the species' radius and stand as far apart as their grown crowns need. A later drift gives way to an earlier one. | The spacing check compares the species' grown spread: a lavender edging, a bamboo screen and a sown row are planted closer on purpose, and a check that reports all of them reports nothing. | the same test |
 | Every item of every plan builds in 3D with the production builders. | A type or a fill no builder knows is a hole in the 3D view. | `test_every_item_of_an_example_builds_in_3d` |
 | The hint is the plan's only text and lies alone on the top layer `Hints`. | Hide that layer and the plan is ready for a picture. | `test_the_hint_lies_alone_on_the_top_layer_and_is_the_plans_only_text`; `test_hiding_the_hint_layer_leaves_the_plan_ready_for_a_picture` |
-| Every plan stores an eased orbit computed from its own bounds and its showcase sun (`tours.Framing`), with every number rounded; a plan may add a time-lapse of the day or the year. | No view is open when a plan is authored, and `--check` compares JSON. A tour's time range is a wall time on the computer's clock. | `test_an_examples_stored_tours_are_there_and_can_be_flown` |
+| Every plan stores an eased orbit computed from its own bounds and its showcase sun (`tours.Framing`), with every number rounded; a plan may add a time-lapse of the day or the year. | No view is open when a plan is authored, and `--check` compares JSON. A tour's time range uses wall time in the plan's zone, with the computer's zone as fallback. | `test_an_examples_stored_tours_are_there_and_can_be_flown` |
 | A plan may give its orbit a pitch of its own (`ORBIT_PITCH_DEG`), a start of its own (`ORBIT_SUN_OFFSET_DEG`) and a nearer distance (`ORBIT_CLOSER`). | At the dialog's 18 degrees a wall or a hedge hides the garden behind it; the allotment starts over its see-through front. Values were set from renders. | `Framing`; `test_an_example_is_first_seen_in_3d_from_where_its_stored_orbit_starts` |
 | A hedge longer than 8 m is drawn as runs (`authoring.runs`). | A hedge has one budget of leaves per item, and a long one renders as a painted wall (#954). | the generation gate |
 | A plant in a pot stands in a container that is its parent, never on a `PLANTER_POT`. | A planter pot is furniture: the plant sinks into it and the pot looks empty. | 3D review of #940 |
-| Every place is in Central European Time. | The clock and a tour's time range read the computer's zone; the plan's `timezone` is not read (#945). | `test_an_example_has_its_place_its_plants_and_its_north` |
+| The bundled example locations are in Central Europe and name `Europe/Berlin`. | The time zone in the plan's location determines how the clock displays wall time and how tours interpret their time ranges (#945). | `test_an_example_has_its_place_its_plants_and_its_north` |
 
 Keep the field-classification test aligned with ProjectData. New project fields
 must be explicitly kept or stripped; unknown serialized top-level keys are dropped.
@@ -9536,10 +9536,10 @@ An example opens as it is meant to be seen, however late it is on the wall clock
 | Seed inventory | none | The user's own store outside every plan. An example never fills it; the empty Seed Inventory tab says what it is and how to start. |
 | Plant picture | `PlantDatabasePanel._show_drawn_thumbnail` | The bundled species have no photo. Plant Details show the plant as the plan draws it (`render_plant_pixmap`: species, then category, then the type's default), also while a provider's photo is still loading. No third-party image ships. |
 
-The moment is a UTC time of day on the plan's LOCAL reference date, not a wall
-time: the clock reads wall time in the computer's zone (ADR-053), and midday on a
-wall clock in Auckland is night over a garden in Berlin. The first four examples use
-11:00 UTC, which is 13:00 on a wall clock in their own place. Since #940 a plan names the
+The showcase stores a UTC time of day on the plan's local reference date. The clock
+displays that instant in the plan's zone, with the computer's zone as fallback
+(ADR-053 addendum). The first four examples use 11:00 UTC, which is 13:00 at their
+locations on their reference dates. Since #940 a plan names the
 light it is meant to be seen in (`tests/example_specs.LIGHT`: day, morning, afternoon or
 golden hour), and the tests read that light off the sun over the plan's own place at its
 moment. No plan opens after sunset: the 2D canvas would show its night overlay

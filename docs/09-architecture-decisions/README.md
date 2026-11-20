@@ -10905,10 +10905,11 @@ a seedling emoji; its paths are 6 and 8 cm hairlines. The teaching date lived in
    tour's hold and not from the frame, and re-bases the hold after its write, so the tour's
    finish returns the clock to the document that is open then.
 3. **The moment is a UTC time of day on the local reference date**, applied with
-   `SimClock.set_utc_time_on`, the operation a camera tour already uses. The clock reads wall
-   time in the computer's zone; a wall-clock "13:00" is night over Berlin for a user in
-   Auckland. The plan date is the reference date in every zone, and the sun stands where it does
-   at 13:00 in the example's own place (11:00 UTC, all four).
+   `SimClock.set_utc_time_on`, the operation a camera tour already uses. The clock originally
+   displayed wall time in the computer's zone. The ADR-053 addendum for #945 supersedes
+   that behavior for plans with a named time zone. The plan date is the reference date
+   in every zone, and the sun stands where it does at 13:00 in the example's own place
+   (11:00 UTC, all four).
 4. **Example copies keep a fictional harvest history** *(owner; supersedes "No history exemption
    is added" above for this one field)*. `EXAMPLE_DEMO_FIELDS` is `location`, `soil_tests`,
    `harvest_logs`. The records sit on one plant per species, lie between planting date and
@@ -10995,9 +10996,9 @@ rotated north, stored camera tours and 61 of the 118 species.
 6. **Every plan stores an orbit.** A promo video is then a button press in a shipped plan and
    any user can make the same one. Framed from the plan's bounds as the Camera Tour dialog
    frames one, started with the showcase sun behind the camera, every number rounded.
-7. **All places share Central European Time.** The clock and a tour's time range read the
-   computer's zone and the plan's `timezone` is not read (#945). The Japanese garden lies in
-   Düsseldorf for that reason.
+7. **All examples are set in Central Europe.** The Japanese garden was placed in Düsseldorf
+   when the clock and tours only used the computer's zone. The ADR-053 addendum for #945
+   now governs how the clock and tours use the plan's named zone.
 8. **One thumbnail per plan.** It shows the plan at its showcase moment without the hint
    layer, so it has no text to translate. A picture per language cost 8 MB for one image.
 9. **A harvest history is not mandatory.** The modern and the Japanese garden have no honest
