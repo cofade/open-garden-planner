@@ -115,3 +115,14 @@ def test_a_non_finite_target_never_aborts_the_export() -> None:
                        QRectF(0.0, 0.0, bad, bad)):
             op = _PixmapOp(_state(), target, _picture(64))
             assert _fit_picture(op) is op, (bad, target)
+    for target in (QRectF(0.0, 0.0, 0.0, 10.0), QRectF(0.0, 0.0, 10.0, 0.0)):
+        op = _PixmapOp(_state(), target, _picture(64))
+        assert _fit_picture(op) is op
+    flipped = _fit_picture(_PixmapOp(_state(), QRectF(0.0, 0.0, -10.0, 10.0), _picture(64)))
+    assert (flipped.pixmap.width(), flipped.pixmap.height()) == (10, 10)
+    for bad_scale in (0.0, float("nan"), float("inf")):
+        op = _PixmapOp(_state(scale=bad_scale), QRectF(0.0, 0.0, 10.0, 10.0), _picture(64))
+        assert _fit_picture(op) is op
+    tiny = _PixmapOp(_state(), QRectF(0.0, 0.0, 0.2, 0.2), _picture(64))
+    fitted = _fit_picture(tiny)
+    assert (fitted.pixmap.width(), fitted.pixmap.height()) == (1, 1)

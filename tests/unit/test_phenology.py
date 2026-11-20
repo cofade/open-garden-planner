@@ -553,9 +553,14 @@ def test_bloom_hardiness_has_one_source_the_bundled_record() -> None:
                         .read_text(encoding="utf-8"))["plants"]
     records: dict[str, list[dict]] = {}
     for record in plants:
-        sprite = resolve_sprite("PERENNIAL", record["common_name"])
-        if sprite is not None and sprite.group == "species":
-            records.setdefault(sprite.name, []).append(record)
+        for field in ("common_name", "scientific_name"):
+            name = str(record.get(field) or "")
+            if not name:
+                continue
+            sprite = resolve_sprite("PERENNIAL", name)
+            if sprite is not None and sprite.group == "species":
+                records.setdefault(sprite.name, []).append(record)
+                break
 
     hardy = {stem for stem in SPECIES if traits_for(SpriteRef("species", stem)).frost_hardy_bloom}
     assert hardy, "the hardy set is empty"

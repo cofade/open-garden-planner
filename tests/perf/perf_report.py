@@ -25,6 +25,7 @@ import time
 from collections.abc import Iterator
 from contextlib import contextmanager
 from dataclasses import dataclass, field
+from pathlib import Path
 
 
 def runner_conditions() -> dict[str, object]:
@@ -174,10 +175,12 @@ def summary_lines() -> list[str]:
 
 def write_report(path: str) -> None:
     """Write the session's measurements as JSON to ``path``."""
+    target = Path(path)
+    target.parent.mkdir(parents=True, exist_ok=True)
     payload = {
         "runner": runner_conditions(),
         "measurements": [measurement.as_dict() for measurement in _MEASUREMENTS],
     }
-    with open(path, "w", encoding="utf-8") as stream:
+    with target.open("w", encoding="utf-8") as stream:
         json.dump(payload, stream, indent=2)
         stream.write("\n")

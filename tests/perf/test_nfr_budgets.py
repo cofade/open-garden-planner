@@ -215,7 +215,11 @@ def line_benchmark_view(qtbot):
     return view
 
 
-def _best_median(view: CanvasView, rounds: int = 6, measurement=None) -> float:
+def _best_median(
+    view: CanvasView,
+    rounds: int = 6,
+    medians: list[float] | None = None,
+) -> float:
     """Best-of-rounds median repaint time in ms (same idea as _assert_repaint_budget)."""
     best = float("inf")
     for r in range(rounds):
@@ -224,8 +228,8 @@ def _best_median(view: CanvasView, rounds: int = 6, measurement=None) -> float:
             gc.collect()
             QApplication.processEvents()
         med = statistics.median(_measure_repaints(view))
-        if measurement is not None:
-            measurement.medians.append(med)
+        if medians is not None:
+            medians.append(med)
         best = min(best, med)
     return best
 
@@ -275,35 +279,30 @@ class TestNfrPerf01LinePaintBudgets:
         lines = [i for i in view.scene().items() if isinstance(i, PolylineItem)]
         assert lines, "the scenario must hold lines to measure"
 
-        scenario_started = time.perf_counter()
         with perf_report.measure("line scenario (added cost)", 40.0, 1) as measurement:
+            measured_with: list[float] = []
             with_lines_started = time.perf_counter()
-            with_lines = _best_median(view, measurement=measurement)
+            with_lines = _best_median(view, medians=measured_with)
             with_lines_seconds = time.perf_counter() - with_lines_started
-        measured_with = list(measurement.medians)
-        measurement.medians.clear()
-        for line in lines:
-            line.setVisible(False)
-        QApplication.processEvents()
-        without_started = time.perf_counter()
-        without_lines = _best_median(view)
-        without_seconds = time.perf_counter() - without_started
+            for line in lines:
+                line.setVisible(False)
+            QApplication.processEvents()
+            without_started = time.perf_counter()
+            without_lines = _best_median(view)
+            without_seconds = time.perf_counter() - without_started
 
-        delta = with_lines - without_lines
-        measurement.medians.append(delta)
-        measurement.detail = {
-            "with_lines_medians": [round(value, 3) for value in measured_with],
-            "with_lines_seconds": round(with_lines_seconds, 2),
-            "without_lines_ms": round(without_lines, 3),
-            "without_lines_seconds": round(without_seconds, 2),
-        }
-        try:
+            delta = with_lines - without_lines
+            measurement.medians.append(delta)
+            measurement.detail = {
+                "with_lines_medians": [round(value, 3) for value in measured_with],
+                "with_lines_seconds": round(with_lines_seconds, 2),
+                "without_lines_ms": round(without_lines, 3),
+                "without_lines_seconds": round(without_seconds, 2),
+            }
             assert delta <= 40.0, (
                 f"the scenario lines add {delta:.2f} ms to the frame ({with_lines:.2f} ms "
                 f"-> {without_lines:.2f} ms); line paint cost has exploded"
             )
-        finally:
-            perf_report.take(measurement, scenario_started)
 
 
 def _restack_scene(plants: int, beds: int, *, link: bool) -> CanvasScene:

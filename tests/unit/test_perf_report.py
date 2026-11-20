@@ -68,7 +68,7 @@ def test_summary_names_every_median_and_the_verdict() -> None:
 def test_the_json_report_holds_the_runner_and_every_measurement(tmp_path) -> None:
     measurement = perf_report.begin("fit-in-view", 16.7, 8)
     measurement.medians.extend([9.0, 10.0])
-    target = tmp_path / "perf.json"
+    target = tmp_path / "nested" / "perf.json"
 
     perf_report.write_report(str(target))
 
