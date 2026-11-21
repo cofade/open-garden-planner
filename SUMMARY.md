@@ -20,6 +20,7 @@ Prereleases are left out of the window table (not of the totals).
 
 | Snapshot (UTC) | Window (h) | Installer | SHA256SUMS.txt | Note |
 | --- | ---: | ---: | ---: | --- |
+| 2026-11-21 07:10 | 23.9 | 9 | 6 | new release or asset |
 | 2026-11-20 07:18 | 23.8 | 8 | 5 |  |
 | 2026-11-19 07:27 | 24 | 3 | 4 | new release or asset |
 | 2026-11-18 07:30 | 23.6 | 11 | 5 |  |
@@ -44,10 +45,13 @@ Prereleases are left out of the window table (not of the totals).
 | 2026-10-30 05:51 | 24 | 218 | 217 |  |
 | 2026-10-29 05:50 | 12.5 | 2 | 0 | window is not about a day; new release or asset |
 
-## Totals per release (counters at 2026-11-20T07:18:24Z)
+## Totals per release (counters at 2026-11-21T07:10:20Z)
 
 | Release | Installer | SHA256SUMS.txt |
 | --- | ---: | ---: |
+| v1.40.13 | 2 | 2 |
+| v1.40.12 | 4 | 2 |
+| v1.40.11 | 3 | 2 |
 | v1.40.10 | 3 | 3 |
 | v1.40.9 | 4 | 2 |
 | v1.40.8 | 2 | 1 |
@@ -288,4 +292,4 @@ Prereleases are left out of the window table (not of the totals).
 | v1.0.2 | 2 | 2 |
 | v1.0.1 | 5 | 2 |
 | v1.0.0 | 2 | 2 |
-| **All** | 1043 | 375 |
+| **All** | 1052 | 381 |
