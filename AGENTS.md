@@ -279,8 +279,11 @@ Full how-to (step-by-step, `.ts` format, recompile command): see `docs/08-crossc
     `CanvasView.set_active_tool`.
   - Documentation before advertising (#976): the user-facing documents
     describe today's product; `tests/unit/test_docs_truth.py` guards them.
-  - Measurement units (#673, ADR-078): geometry and Agent API units stay cm;
-    display/input use the global preference and shared unit formatters.
+  - Measurement units (#673/#907, ADR-078/ADR-081): display units are per quantity
+    and stored additively; geometry, files, DXF export and the Agent API stay in
+    centimetres/kilograms/Celsius/millimetres. Read ADR-078/081 before adding a
+    display surface; subscribe multi-quantity views to `units_notifier().profile_changed`.
+    Canada (mixed) is provisional until Canadian feedback exists.
   - Distribution trust (ADR-073): the Microsoft Store listing is pending the owner's
     Partner Center registration and three `OGP_MSIX_*` repository variables. Never
     claim Store availability before the first certified version is live.
@@ -311,17 +314,11 @@ Full how-to (step-by-step, `.ts` format, recompile command): see `docs/08-crossc
     (`scripts/generate_examples.py`, `--check` in the suite); a plan's row in
     `tests/example_specs.py` is stated by hand. After a change to the look, re-shoot
     the README with `scripts/capture_readme_media.py` (real window, graphics card).
-  - Measurement units (#907, ADR-081): display units are per quantity and stored
-    additively; geometry, files and the Agent API stay in
-    centimetres/kilograms/Celsius/millimetres. Read the ADR before adding a display
-    surface. Canada (mixed) is provisional until Canadian feedback exists.
   - Open frames (#855): `open_frame_effective_length` trims an open frame's swept
-    prism to its own far member tip; the transmittance is measured against that trimmed
-    prism, so FR-SUN-13's area is unchanged and the shade ends where the frame does.
-    The table's reach column and `scripts/measure_built_world_shadows.py` carry the
-    numbers.
-  - Preferences (#986): the dialog is tabbed (General, Weather, Online services,
-    Agent API, 3D View); each tab scrolls, and Save/Cancel stay outside every viewport.
+    prism to its own far member tip (both ground and elevated receiver sweeps);
+    the transmittance is measured against that trimmed prism, so FR-SUN-13's area
+    is unchanged and the shade ends where the frame does. The table's reach column
+    and `scripts/measure_built_world_shadows.py` carry the numbers.
 - Docs of record: `docs/roadmap.md` (current work and status), the ADRs (decisions),
   `docs/functional-requirements.md` (capabilities), and the `ogp-architecture-contract`
   skill (invariants). If a fact is not there, it does not belong in this file.

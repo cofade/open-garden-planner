@@ -70,10 +70,8 @@ class _PasswordLineEdit(QWidget):
 
 
 class PreferencesDialog(QDialog):
-    """Preferences dialog with API Keys configuration.
-
-    Allows users to enter and persist their online-service API credentials
-    via QSettings so they don't need environment variables.
+    """Tabbed application preferences dialog (General, Weather, Online services,
+    Agent API, and 3D View; #986).
     """
 
     def __init__(self, parent: QWidget | None = None) -> None:
@@ -284,7 +282,7 @@ class PreferencesDialog(QDialog):
             self._unit_preset_combo.addItem(label, preset)
         self._unit_preset_combo.setToolTip(
             self.tr(
-                "Canada (mixed) is provisional: lengths in feet and inches, "
+                "Canada (mixed) is provisional: lengths and areas in feet and inches, "
                 "weather and harvest in metric units. Change any row to make it Custom."
             )
         )
@@ -577,7 +575,6 @@ class PreferencesDialog(QDialog):
 
         settings = get_settings()
         self._set_unit_profile(settings.unit_profile)
-        self._unit_system_combo.setCurrentIndex(self._unit_system_combo.findData(settings.unit_system))
         self._trefle_token.setText(settings.trefle_api_token)
         self._perenual_key.setText(settings.perenual_api_key)
         self._permapeople_key_id.setText(settings.permapeople_key_id)

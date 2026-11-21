@@ -122,45 +122,127 @@ def test_a_single_row_grid_is_not_halved(qtbot) -> None:
     assert image.height() == HEATMAP_UPSAMPLE
 
 
-def test_the_overlay_does_not_smooth_scale_on_every_repaint(qtbot) -> None:
-    """#852: the fill is interpolated once; paint uses nearest sampling."""
+def test_the_overlay_uses_premultiplied_smooth_scaling(qtbot) -> None:
+    """#852: smooth scaling on the QPixmap (stored premultiplied by Qt on upload)
+    keeps 400 % smooth without stair-step blocks while build_heatmap_image retains
+    exact ARGB32 colours for legend comparison."""
+    from PyQt6.QtGui import QPixmap
+
+    from open_garden_planner.ui.canvas.sun_heatmap import build_heatmap_image
+
     overlay = SunHeatmapOverlayItem()
-    assert overlay.transformationMode() == Qt.TransformationMode.FastTransformation
+    assert overlay.transformationMode() == Qt.TransformationMode.SmoothTransformation
+    image = build_heatmap_image(np.array([[0.0, 720.0], [720.0, 0.0]]), 720.0)
+    assert image.format() == QImage.Format.Format_ARGB32
+    assert QPixmap.fromImage(image).toImage().format() == QImage.Format.Format_ARGB32_Premultiplied
 
 
-def test_the_sun_badge_backing_leaves_the_suns_middle_clear(qtbot) -> None:
-    """#852: the accent-green warning ink needs a light ground on a green crown,
-    and the backing must not fill the sun ring's hollow centre."""
-    from PyQt6.QtWidgets import QGraphicsScene
+def test_the_sun_badge_backing_contrasts_in_both_themes_and_stays_in_bounds(qtbot) -> None:
+    """#852: the accent-green warning ink needs a theme-contrasting backing on a
+    green crown in BOTH light and dark themes (WCAG >= 3:1 graphical contrast),
+    stays strictly inside boundingRect, and leaves the sun ring's centre clear."""
+    from PyQt6.QtWidgets import QApplication, QGraphicsScene
 
+    from open_garden_planner.core.legibility import contrast_ratio
     from open_garden_planner.ui.canvas.items.garden_item import SunBadgeItem
     from open_garden_planner.ui.icons import get_pixmap
+    from open_garden_planner.ui.theme import ThemeColors, ThemeMode, apply_theme
 
-    scene = QGraphicsScene()
-    badge = SunBadgeItem()
-    pixmap = get_pixmap("sun_warning", 24)
-    assert pixmap is not None
-    badge.setPixmap(pixmap)
-    badge.set_icon("sun_warning")
-    scene.addItem(badge)
-    image = QImage(120, 120, QImage.Format.Format_ARGB32)
-    image.fill(QColor("#2E7D32"))
-    painter = QPainter(image)
+    def render_badge(mode: ThemeMode) -> tuple[QImage, tuple[int, int, int]]:
+        apply_theme(QApplication.instance(), mode)
+        scene = QGraphicsScene()
+        badge = SunBadgeItem()
+        pixmap = get_pixmap("sun_warning", 24)
+        assert pixmap is not None
+        badge.setPixmap(pixmap)
+        badge.set_icon("sun_warning")
+        scene.addItem(badge)
+        # Render with a 2-unit margin around 0..24 so any out-of-bounds leak shows up.
+        image = QImage(140, 140, QImage.Format.Format_ARGB32)
+        bg = QColor("#2E7D32")
+        image.fill(bg)
+        painter = QPainter(image)
+        try:
+            scene.render(painter, QRectF(0, 0, 140, 140), QRectF(-2, -2, 28, 28))
+        finally:
+            painter.end()
+        accent = QColor(ThemeColors.get_colors(mode)["accent"])
+        return image, (accent.red(), accent.green(), accent.blue())
+
     try:
-        scene.render(painter, QRectF(0, 0, 120, 120), QRectF(0, 0, 24, 24))
+        for mode, expect_light_backing in (
+            (ThemeMode.LIGHT, True),
+            (ThemeMode.DARK, False),
+        ):
+            image, accent_rgb = render_badge(mode)
+            # Sample inside the triangle near bottom-left of exclamation mark: (14.5, 19.5)
+            # Coordinate map: (-2..26) -> (0..140), scale = 5 px/unit
+            backing_px = image.pixelColor(int((14.5 + 2) * 5), int((19.5 + 2) * 5))
+            backing_rgb = (backing_px.red(), backing_px.green(), backing_px.blue())
+            if expect_light_backing:
+                assert min(backing_rgb) > 220, f"light theme needs light backing: {backing_rgb}"
+            else:
+                assert max(backing_rgb) < 60, f"dark theme needs dark backing: {backing_rgb}"
+            ratio = contrast_ratio(accent_rgb, backing_rgb)
+            assert ratio >= 3.0, f"{mode}: contrast {ratio:.2f} < 3.0 ({accent_rgb} on {backing_rgb})"
+            # Sun centre (9, 9) stays transparent -> green crown shows through.
+            middle = image.pixelColor(int((9.0 + 2) * 5), int((9.0 + 2) * 5))
+            assert middle.red() < 80 and middle.green() > 100, (
+                f"the sun's centre is filled ({(middle.red(), middle.green(), middle.blue())})"
+            )
+            # Outside boundingRect (x = 24.5 -> px 132, y = 22 -> px 120) must remain pure background.
+            outside = image.pixelColor(int((24.5 + 2) * 5), int((22.0 + 2) * 5))
+            assert (outside.red(), outside.green(), outside.blue()) == (0x2E, 0x7D, 0x32), (
+                f"backing painted outside boundingRect: {(outside.red(), outside.green(), outside.blue())}"
+            )
     finally:
-        painter.end()
-    brightest = 0
-    for y in range(image.height()):
-        for x in range(image.width()):
-            colour = image.pixelColor(x, y)
-            brightest = max(brightest, min(colour.red(), colour.green(), colour.blue()))
-    assert brightest > 235, f"no light backing behind the badge (brightest {brightest})"
-    # The icon's sun centre (9, 9 of 24) is transparent: the green ground shows.
-    middle = image.pixelColor(45, 45)
-    assert middle.red() < 120 and middle.green() > 100, (
-        f"the sun's centre is filled ({(middle.red(), middle.green(), middle.blue())})"
+        apply_theme(QApplication.instance(), ThemeMode.LIGHT)
+
+
+def test_label_safety_margin_keeps_hour_labels_clear_of_obstacles(qtbot) -> None:
+    """#852: ``_LABEL_SAFETY = 1.3`` rejects a contour label candidate that clears
+    an object at 1.0x box size but intrudes within the 1.3x safety margin."""
+    from open_garden_planner.ui.canvas.sun_heatmap import (
+        _LABEL_SAFETY,
+        _NOMINAL_VIEW_PX,
+        SunMapLabelItem,
     )
+
+    assert pytest.approx(1.3) == _LABEL_SAFETY
+    scene = CanvasScene(1000.0, 1000.0)
+    controller = SunHeatmapController(scene, lambda: BERLIN)
+    grid = HeatmapGrid(x0_cm=0.0, y0_cm=0.0, cell_cm=10.0, cols=100, rows=100)
+    # Single horizontal contour segment right across the middle (y = 500 cm)
+    segments = [((20.0, 50.0), (80.0, 50.0))]
+
+    box = SunMapLabelItem("8 h").boundingRect()
+    cm_per_px = 1000.0 / _NOMINAL_VIEW_PX
+    half_h_1x = box.height() / 2.0 * cm_per_px
+    half_h_safe = half_h_1x * _LABEL_SAFETY
+
+    class _BandObstacle:
+        """Standing band placed between 1.05x and 1.25x above the contour."""
+
+        def __init__(self, y_band_start: float) -> None:
+            self._y = y_band_start
+
+        def covers(self, area: QRectF) -> bool:
+            return area.bottom() >= self._y
+
+    # Grid row 50 maps to scene y = 505.0 cm (cell centre).
+    # Obstacle just outside 1.0x but inside 1.3x: must reject placement!
+    placed_blocked: list[tuple[float, float]] = []
+    controller._label_contour(
+        8, segments, grid, placed_blocked, _BandObstacle(505.0 + half_h_1x * 1.1)
+    )
+    assert placed_blocked == [], "label should be rejected inside the 1.3x safety band"
+
+    # Obstacle past 1.3x safety margin: label is placed cleanly!
+    placed_clear: list[tuple[float, float]] = []
+    controller._label_contour(
+        8, segments, grid, placed_clear, _BandObstacle(505.0 + half_h_safe + 2.0)
+    )
+    assert len(placed_clear) >= 1, "label should be placed once outside 1.3x safety band"
 
 
 class TestQImageRasterizer:

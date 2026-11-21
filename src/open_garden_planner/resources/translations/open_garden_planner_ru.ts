@@ -246,27 +246,27 @@
     <context>
         <name>ArrangeActions</name>
         <message>
-            <location filename="../../ui/canvas/items/garden_item.py" line="2022" />
+            <location filename="../../ui/canvas/items/garden_item.py" line="2037" />
             <source>Arrange</source>
             <translation>Упорядочить</translation>
         </message>
         <message>
-            <location filename="../../ui/canvas/items/garden_item.py" line="2036" />
+            <location filename="../../ui/canvas/items/garden_item.py" line="2051" />
             <source>Bring Forward</source>
             <translation>Переместить вперёд</translation>
         </message>
         <message>
-            <location filename="../../ui/canvas/items/garden_item.py" line="2031" />
+            <location filename="../../ui/canvas/items/garden_item.py" line="2046" />
             <source>Bring to Front</source>
             <translation>На передний план</translation>
         </message>
         <message>
-            <location filename="../../ui/canvas/items/garden_item.py" line="2041" />
+            <location filename="../../ui/canvas/items/garden_item.py" line="2056" />
             <source>Send Backward</source>
             <translation>Переместить назад</translation>
         </message>
         <message>
-            <location filename="../../ui/canvas/items/garden_item.py" line="2046" />
+            <location filename="../../ui/canvas/items/garden_item.py" line="2061" />
             <source>Send to Back</source>
             <translation>На задний план</translation>
         </message>
@@ -385,32 +385,32 @@
     <context>
         <name>BedActions</name>
         <message>
-            <location filename="../../ui/canvas/items/garden_item.py" line="1194" />
+            <location filename="../../ui/canvas/items/garden_item.py" line="1209" />
             <source>Add soil test…</source>
             <translation>Добавить анализ почвы…</translation>
         </message>
         <message>
-            <location filename="../../ui/canvas/items/garden_item.py" line="1187" />
+            <location filename="../../ui/canvas/items/garden_item.py" line="1202" />
             <source>Hide Grid</source>
             <translation>Скрыть сетку</translation>
         </message>
         <message>
-            <location filename="../../ui/canvas/items/garden_item.py" line="1200" />
+            <location filename="../../ui/canvas/items/garden_item.py" line="1215" />
             <source>Log Harvest…</source>
             <translation>Зафиксировать урожай…</translation>
         </message>
         <message>
-            <location filename="../../ui/canvas/items/garden_item.py" line="1197" />
+            <location filename="../../ui/canvas/items/garden_item.py" line="1212" />
             <source>Log Pest/Disease…</source>
             <translation>Зафиксировать вредителей/болезни…</translation>
         </message>
         <message>
-            <location filename="../../ui/canvas/items/garden_item.py" line="1203" />
+            <location filename="../../ui/canvas/items/garden_item.py" line="1218" />
             <source>Plan Succession…</source>
             <translation>Спланировать севооборот…</translation>
         </message>
         <message>
-            <location filename="../../ui/canvas/items/garden_item.py" line="1189" />
+            <location filename="../../ui/canvas/items/garden_item.py" line="1204" />
             <source>Show Grid</source>
             <translation>Показать сетку</translation>
         </message>
@@ -547,17 +547,17 @@
     <context>
         <name>CanvasScene</name>
         <message>
-            <location filename="../../ui/canvas/canvas_scene.py" line="1390" />
+            <location filename="../../ui/canvas/canvas_scene.py" line="1389" />
             <source>Calibration complete</source>
             <translation>Калибровка завершена</translation>
         </message>
         <message>
-            <location filename="../../ui/canvas/canvas_scene.py" line="1295" />
+            <location filename="../../ui/canvas/canvas_scene.py" line="1294" />
             <source>Calibration: Click first point on the image</source>
             <translation>Калибровка: кликните по первой точке на изображении</translation>
         </message>
         <message>
-            <location filename="../../ui/canvas/canvas_scene.py" line="1323" />
+            <location filename="../../ui/canvas/canvas_scene.py" line="1322" />
             <source>Calibration: Click second point on the image</source>
             <translation>Калибровка: кликните по второй точке на изображении</translation>
         </message>
@@ -2088,7 +2088,7 @@
             <translation>Защита от заморозков</translation>
         </message>
         <message>
-            <location filename="../../ui/panels/plant_database_panel.py" line="1664" />
+            <location filename="../../ui/panels/plant_database_panel.py" line="1674" />
             <source>functions</source>
             <translation>Функции</translation>
         </message>
@@ -2128,7 +2128,7 @@
             <translation>Стиль дорожки/ограждения</translation>
         </message>
         <message>
-            <location filename="../../ui/panels/plant_database_panel.py" line="1655" />
+            <location filename="../../ui/panels/plant_database_panel.py" line="1665" />
             <source>permaculture_layer</source>
             <translation>Ярус пермакультуры</translation>
         </message>
@@ -2203,7 +2203,7 @@
             <translation>Текст подписи</translation>
         </message>
         <message>
-            <location filename="../../ui/canvas/items/garden_item.py" line="2189" />
+            <location filename="../../ui/canvas/items/garden_item.py" line="2204" />
             <location filename="../../ui/panels/property_edits.py" line="178" />
             <source>type</source>
             <translation>Тип</translation>
@@ -5313,7 +5313,7 @@ Use 0.1 for DXF in mm, 100 for DXF in metres.</source>
             <translation>Сгруппировать</translation>
         </message>
         <message>
-            <location filename="../../ui/canvas/items/garden_item.py" line="579" />
+            <location filename="../../ui/canvas/items/garden_item.py" line="594" />
             <source>Lock position</source>
             <translation>Заблокировать положение</translation>
         </message>
@@ -5323,7 +5323,7 @@ Use 0.1 for DXF in mm, 100 for DXF in metres.</source>
             <translation>Разгруппировать</translation>
         </message>
         <message>
-            <location filename="../../ui/canvas/items/garden_item.py" line="577" />
+            <location filename="../../ui/canvas/items/garden_item.py" line="592" />
             <source>Unlock position</source>
             <translation>Разблокировать положение</translation>
         </message>
@@ -5331,12 +5331,12 @@ Use 0.1 for DXF in mm, 100 for DXF in metres.</source>
     <context>
         <name>GardenItemMixin</name>
         <message>
-            <location filename="../../ui/canvas/items/garden_item.py" line="2127" />
+            <location filename="../../ui/canvas/items/garden_item.py" line="2142" />
             <source>Change Type</source>
             <translation>Изменить тип</translation>
         </message>
         <message>
-            <location filename="../../ui/canvas/items/garden_item.py" line="1975" />
+            <location filename="../../ui/canvas/items/garden_item.py" line="1990" />
             <source>Move to Layer</source>
             <translation>Переместить на слой</translation>
         </message>
@@ -10259,48 +10259,48 @@ You can capture the satellite view directly from the map below instead.</source>
     <context>
         <name>PlantDatabasePanel</name>
         <message>
-            <location filename="../../ui/panels/plant_database_panel.py" line="2134" />
+            <location filename="../../ui/panels/plant_database_panel.py" line="2144" />
             <source> (ID: {id})</source>
             <translation> (ID: {id})</translation>
         </message>
         <message>
-            <location filename="../../ui/panels/plant_database_panel.py" line="1344" />
+            <location filename="../../ui/panels/plant_database_panel.py" line="1350" />
             <source>(future)</source>
             <translation>(в будущем)</translation>
         </message>
         <message>
-            <location filename="../../ui/panels/plant_database_panel.py" line="1352" />
+            <location filename="../../ui/panels/plant_database_panel.py" line="1358" />
             <source>({days} days)</source>
             <translation>({days} дней)</translation>
         </message>
         <message>
-            <location filename="../../ui/panels/plant_database_panel.py" line="1355" />
+            <location filename="../../ui/panels/plant_database_panel.py" line="1361" />
             <source>({months} mo)</source>
             <translation>({months} мес.)</translation>
         </message>
         <message>
-            <location filename="../../ui/panels/plant_database_panel.py" line="1360" />
+            <location filename="../../ui/panels/plant_database_panel.py" line="1366" />
             <source>({years}y {remaining_months}mo)</source>
             <translation>({years} лет {remaining_months} мес.)</translation>
         </message>
         <message>
-            <location filename="../../ui/panels/plant_database_panel.py" line="1362" />
+            <location filename="../../ui/panels/plant_database_panel.py" line="1368" />
             <source>({years}y)</source>
             <translation>({years} лет)</translation>
         </message>
         <message>
-            <location filename="../../ui/panels/plant_database_panel.py" line="895" />
+            <location filename="../../ui/panels/plant_database_panel.py" line="901" />
             <source>+ Add Field</source>
             <translation>+ Добавить поле</translation>
         </message>
         <message>
-            <location filename="../../ui/panels/plant_database_panel.py" line="896" />
+            <location filename="../../ui/panels/plant_database_panel.py" line="902" />
             <source>Add a custom metadata field</source>
             <translation>Добавить пользовательское поле метаданных</translation>
         </message>
         <message>
-            <location filename="../../ui/panels/plant_database_panel.py" line="2369" />
-            <location filename="../../ui/panels/plant_database_panel.py" line="431" />
+            <location filename="../../ui/panels/plant_database_panel.py" line="2379" />
+            <location filename="../../ui/panels/plant_database_panel.py" line="437" />
             <source>Add to Favorites</source>
             <translation>Добавить в избранное</translation>
         </message>
@@ -10328,47 +10328,47 @@ You can capture the satellite view directly from the map below instead.</source>
             <translation>В комплекте</translation>
         </message>
         <message>
-            <location filename="../../ui/panels/plant_database_panel.py" line="1628" />
+            <location filename="../../ui/panels/plant_database_panel.py" line="1638" />
             <source>Centre</source>
             <translation>Центр</translation>
         </message>
         <message>
-            <location filename="../../ui/panels/plant_database_panel.py" line="1296" />
+            <location filename="../../ui/panels/plant_database_panel.py" line="1302" />
             <source>Choose dates between {min} and {max}. Removal must be after planting.</source>
             <translation>Выберите даты между {min} и {max}. Удаление должно быть позже посадки.</translation>
         </message>
         <message>
-            <location filename="../../ui/panels/plant_database_panel.py" line="870" />
+            <location filename="../../ui/panels/plant_database_panel.py" line="876" />
             <source>Clear</source>
             <translation>Очистить</translation>
         </message>
         <message>
-            <location filename="../../ui/panels/plant_database_panel.py" line="1470" />
+            <location filename="../../ui/panels/plant_database_panel.py" line="1480" />
             <source>Cold stratification</source>
             <translation>Холодная стратификация</translation>
         </message>
         <message>
-            <location filename="../../ui/panels/plant_database_panel.py" line="579" />
+            <location filename="../../ui/panels/plant_database_panel.py" line="585" />
             <source>Common Name:</source>
             <translation>Обычное название:</translation>
         </message>
         <message>
-            <location filename="../../ui/panels/plant_database_panel.py" line="477" />
+            <location filename="../../ui/panels/plant_database_panel.py" line="483" />
             <source>Create Custom</source>
             <translation>Создать свой вид</translation>
         </message>
         <message>
-            <location filename="../../ui/panels/plant_database_panel.py" line="478" />
+            <location filename="../../ui/panels/plant_database_panel.py" line="484" />
             <source>Create a custom plant species entry</source>
             <translation>Создать собственную запись о виде растения</translation>
         </message>
         <message>
-            <location filename="../../ui/panels/plant_database_panel.py" line="720" />
+            <location filename="../../ui/panels/plant_database_panel.py" line="726" />
             <source>Current Height:</source>
             <translation>Текущая высота:</translation>
         </message>
         <message>
-            <location filename="../../ui/panels/plant_database_panel.py" line="731" />
+            <location filename="../../ui/panels/plant_database_panel.py" line="737" />
             <source>Current Spread:</source>
             <translation>Текущий диаметр разрастания:</translation>
         </message>
@@ -10378,22 +10378,22 @@ You can capture the satellite view directly from the map below instead.</source>
             <translation>Пользовательское растение</translation>
         </message>
         <message>
-            <location filename="../../ui/panels/plant_database_panel.py" line="2449" />
+            <location filename="../../ui/panels/plant_database_panel.py" line="2459" />
             <source>Custom Species</source>
             <translation>Собственные виды</translation>
         </message>
         <message>
-            <location filename="../../ui/panels/plant_database_panel.py" line="900" />
+            <location filename="../../ui/panels/plant_database_panel.py" line="906" />
             <source>Custom:</source>
             <translation>Пользовательское:</translation>
         </message>
         <message>
-            <location filename="../../ui/panels/plant_database_panel.py" line="614" />
+            <location filename="../../ui/panels/plant_database_panel.py" line="620" />
             <source>Cycle:</source>
             <translation>Жизненный цикл:</translation>
         </message>
         <message>
-            <location filename="../../ui/panels/plant_database_panel.py" line="2130" />
+            <location filename="../../ui/panels/plant_database_panel.py" line="2140" />
             <source>Data Source: {source}</source>
             <translation>Источник данных: {source}</translation>
         </message>
@@ -10413,128 +10413,128 @@ You can capture the satellite view directly from the map below instead.</source>
             <translation>Данные: {source} · бесплатно для личного и коммерческого использования</translation>
         </message>
         <message>
-            <location filename="../../ui/panels/plant_database_panel.py" line="624" />
+            <location filename="../../ui/panels/plant_database_panel.py" line="630" />
             <source>Dioecious Female (♀ only)</source>
             <translation>Двудомное, женское (только ♀)</translation>
         </message>
         <message>
-            <location filename="../../ui/panels/plant_database_panel.py" line="623" />
+            <location filename="../../ui/panels/plant_database_panel.py" line="629" />
             <source>Dioecious Male (♂ only)</source>
             <translation>Двудомное, мужское (только ♂)</translation>
         </message>
         <message>
-            <location filename="../../ui/panels/plant_database_panel.py" line="745" />
+            <location filename="../../ui/panels/plant_database_panel.py" line="751" />
             <source>Edible Parts:</source>
             <translation>Съедобные части:</translation>
         </message>
         <message>
-            <location filename="../../ui/panels/plant_database_panel.py" line="738" />
+            <location filename="../../ui/panels/plant_database_panel.py" line="744" />
             <source>Edible:</source>
             <translation>Съедобное:</translation>
         </message>
         <message>
-            <location filename="../../ui/panels/plant_database_panel.py" line="576" />
+            <location filename="../../ui/panels/plant_database_panel.py" line="582" />
             <source>Enter common name...</source>
             <translation>Введите обычное название...</translation>
         </message>
         <message>
-            <location filename="../../ui/panels/plant_database_panel.py" line="590" />
+            <location filename="../../ui/panels/plant_database_panel.py" line="596" />
             <source>Enter plant family...</source>
             <translation>Введите семейство растения...</translation>
         </message>
         <message>
-            <location filename="../../ui/panels/plant_database_panel.py" line="583" />
+            <location filename="../../ui/panels/plant_database_panel.py" line="589" />
             <source>Enter scientific name...</source>
             <translation>Введите научное название...</translation>
         </message>
         <message>
-            <location filename="../../ui/panels/plant_database_panel.py" line="597" />
+            <location filename="../../ui/panels/plant_database_panel.py" line="603" />
             <source>Enter variety or cultivar...</source>
             <translation>Введите сорт или культивар...</translation>
         </message>
         <message>
-            <location filename="../../ui/panels/plant_database_panel.py" line="593" />
+            <location filename="../../ui/panels/plant_database_panel.py" line="599" />
             <source>Family:</source>
             <translation>Семейство:</translation>
         </message>
         <message>
-            <location filename="../../ui/panels/plant_database_panel.py" line="1498" />
+            <location filename="../../ui/panels/plant_database_panel.py" line="1508" />
             <source>Field name</source>
             <translation>Имя поля</translation>
         </message>
         <message>
-            <location filename="../../ui/panels/plant_database_panel.py" line="928" />
+            <location filename="../../ui/panels/plant_database_panel.py" line="934" />
             <source>Fixer</source>
             <translation>Азотофиксатор</translation>
         </message>
         <message>
-            <location filename="../../ui/panels/plant_database_panel.py" line="835" />
+            <location filename="../../ui/panels/plant_database_panel.py" line="841" />
             <source>Fixer (legume)</source>
             <translation>Азотофиксатор (бобовое)</translation>
         </message>
         <message>
-            <location filename="../../ui/panels/plant_database_panel.py" line="633" />
+            <location filename="../../ui/panels/plant_database_panel.py" line="639" />
             <source>Flower Type:</source>
             <translation>Тип цветка:</translation>
         </message>
         <message>
-            <location filename="../../ui/panels/plant_database_panel.py" line="555" />
+            <location filename="../../ui/panels/plant_database_panel.py" line="561" />
             <source>Food-forest layer:</source>
             <translation>Ярус посадки:</translation>
         </message>
         <message>
-            <location filename="../../ui/panels/plant_database_panel.py" line="660" />
+            <location filename="../../ui/panels/plant_database_panel.py" line="666" />
             <source>Full Shade</source>
             <translation>Полная тень</translation>
         </message>
         <message>
-            <location filename="../../ui/panels/plant_database_panel.py" line="657" />
+            <location filename="../../ui/panels/plant_database_panel.py" line="663" />
             <source>Full Sun</source>
             <translation>Полное солнце</translation>
         </message>
         <message>
-            <location filename="../../ui/panels/plant_database_panel.py" line="1462" />
+            <location filename="../../ui/panels/plant_database_panel.py" line="1472" />
             <source>Germination: %1 days</source>
             <translation>Прорастание: %1 days</translation>
         </message>
         <message>
-            <location filename="../../ui/panels/plant_database_panel.py" line="570" />
+            <location filename="../../ui/panels/plant_database_panel.py" line="576" />
             <source>Guild:</source>
             <translation>Группа совместимости:</translation>
         </message>
         <message>
-            <location filename="../../ui/panels/plant_database_panel.py" line="781" />
+            <location filename="../../ui/panels/plant_database_panel.py" line="787" />
             <source>Hardiness:</source>
             <translation>Зимостойкость:</translation>
         </message>
         <message>
-            <location filename="../../ui/panels/plant_database_panel.py" line="832" />
+            <location filename="../../ui/panels/plant_database_panel.py" line="838" />
             <source>Heavy feeder</source>
             <translation>Требует много питания</translation>
         </message>
         <message>
-            <location filename="../../ui/panels/plant_database_panel.py" line="621" />
+            <location filename="../../ui/panels/plant_database_panel.py" line="627" />
             <source>Hermaphrodite (perfect flowers)</source>
             <translation>Обоеполое (идеальные цветки)</translation>
         </message>
         <message>
-            <location filename="../../ui/panels/plant_database_panel.py" line="675" />
-            <location filename="../../ui/panels/plant_database_panel.py" line="925" />
+            <location filename="../../ui/panels/plant_database_panel.py" line="681" />
+            <location filename="../../ui/panels/plant_database_panel.py" line="931" />
             <source>High</source>
             <translation>Высокий</translation>
         </message>
         <message>
-            <location filename="../../ui/panels/plant_database_panel.py" line="1295" />
+            <location filename="../../ui/panels/plant_database_panel.py" line="1301" />
             <source>Invalid plant dates</source>
             <translation>Недопустимые даты посадки</translation>
         </message>
         <message>
-            <location filename="../../ui/panels/plant_database_panel.py" line="1628" />
+            <location filename="../../ui/panels/plant_database_panel.py" line="1638" />
             <source>Invalid role</source>
             <translation>Недопустимая роль</translation>
         </message>
         <message>
-            <location filename="../../ui/panels/plant_database_panel.py" line="824" />
+            <location filename="../../ui/panels/plant_database_panel.py" line="830" />
             <source>K demand:</source>
             <translation>Потребность в калии:</translation>
         </message>
@@ -10544,92 +10544,92 @@ You can capture the satellite view directly from the map below instead.</source>
             <translation>Сохранить свои значения</translation>
         </message>
         <message>
-            <location filename="../../ui/panels/plant_database_panel.py" line="834" />
+            <location filename="../../ui/panels/plant_database_panel.py" line="840" />
             <source>Light feeder</source>
             <translation>Не требует много питания</translation>
         </message>
         <message>
-            <location filename="../../ui/panels/plant_database_panel.py" line="483" />
+            <location filename="../../ui/panels/plant_database_panel.py" line="489" />
             <source>Load Custom</source>
             <translation>Загрузить свой вид</translation>
         </message>
         <message>
-            <location filename="../../ui/panels/plant_database_panel.py" line="484" />
+            <location filename="../../ui/panels/plant_database_panel.py" line="490" />
             <source>Load a plant from your custom library</source>
             <translation>Загрузить растение из вашей библиотеки собственных видов</translation>
         </message>
         <message>
-            <location filename="../../ui/panels/plant_database_panel.py" line="673" />
-            <location filename="../../ui/panels/plant_database_panel.py" line="927" />
+            <location filename="../../ui/panels/plant_database_panel.py" line="679" />
+            <location filename="../../ui/panels/plant_database_panel.py" line="933" />
             <source>Low</source>
             <translation>Низкий</translation>
         </message>
         <message>
-            <location filename="../../ui/panels/plant_database_panel.py" line="698" />
+            <location filename="../../ui/panels/plant_database_panel.py" line="704" />
             <source>Max Height:</source>
             <translation>Макс. высота:</translation>
         </message>
         <message>
-            <location filename="../../ui/panels/plant_database_panel.py" line="709" />
+            <location filename="../../ui/panels/plant_database_panel.py" line="715" />
             <source>Max Spread:</source>
             <translation>Макс. диаметр разрастания:</translation>
         </message>
         <message>
-            <location filename="../../ui/panels/plant_database_panel.py" line="768" />
-            <location filename="../../ui/panels/plant_database_panel.py" line="802" />
+            <location filename="../../ui/panels/plant_database_panel.py" line="774" />
+            <location filename="../../ui/panels/plant_database_panel.py" line="808" />
             <source>Max:</source>
             <translation>Макс.:</translation>
         </message>
         <message>
-            <location filename="../../ui/panels/plant_database_panel.py" line="674" />
-            <location filename="../../ui/panels/plant_database_panel.py" line="926" />
+            <location filename="../../ui/panels/plant_database_panel.py" line="680" />
+            <location filename="../../ui/panels/plant_database_panel.py" line="932" />
             <source>Medium</source>
             <translation>Средний</translation>
         </message>
         <message>
-            <location filename="../../ui/panels/plant_database_panel.py" line="833" />
+            <location filename="../../ui/panels/plant_database_panel.py" line="839" />
             <source>Medium feeder</source>
             <translation>Умеренно потребляет питание</translation>
         </message>
         <message>
-            <location filename="../../ui/panels/plant_database_panel.py" line="754" />
-            <location filename="../../ui/panels/plant_database_panel.py" line="789" />
+            <location filename="../../ui/panels/plant_database_panel.py" line="760" />
+            <location filename="../../ui/panels/plant_database_panel.py" line="795" />
             <source>Min:</source>
             <translation>Мин.:</translation>
         </message>
         <message>
-            <location filename="../../ui/panels/plant_database_panel.py" line="622" />
+            <location filename="../../ui/panels/plant_database_panel.py" line="628" />
             <source>Monoecious (separate ♂/♀ flowers)</source>
             <translation>Однодомное (отдельные ♂/♀ цветки)</translation>
         </message>
         <message>
-            <location filename="../../ui/panels/plant_database_panel.py" line="2450" />
+            <location filename="../../ui/panels/plant_database_panel.py" line="2460" />
             <source>My Custom Plant</source>
             <translation>Мой собственный вид растения</translation>
         </message>
         <message>
-            <location filename="../../ui/panels/plant_database_panel.py" line="820" />
+            <location filename="../../ui/panels/plant_database_panel.py" line="826" />
             <source>N demand:</source>
             <translation>Потребность в азоте:</translation>
         </message>
         <message>
-            <location filename="../../ui/panels/plant_database_panel.py" line="2412" />
+            <location filename="../../ui/panels/plant_database_panel.py" line="2422" />
             <source>No Custom Plants</source>
             <translation>Нет собственных видов растений</translation>
         </message>
         <message>
-            <location filename="../../ui/panels/plant_database_panel.py" line="2400" />
-            <location filename="../../ui/panels/plant_database_panel.py" line="2442" />
+            <location filename="../../ui/panels/plant_database_panel.py" line="2410" />
+            <location filename="../../ui/panels/plant_database_panel.py" line="2452" />
             <source>No Plant Selected</source>
             <translation>Растение не выбрано</translation>
         </message>
         <message>
-            <location filename="../../ui/panels/plant_database_panel.py" line="1639" />
+            <location filename="../../ui/panels/plant_database_panel.py" line="1649" />
             <source>No guild</source>
             <translation>Нет группы совместимости</translation>
         </message>
         <message>
-            <location filename="../../ui/panels/plant_database_panel.py" line="1887" />
+            <location filename="../../ui/panels/plant_database_panel.py" line="1897" />
             <source>No species data.
 
 Click 'Search' to find species online,
@@ -10640,47 +10640,47 @@ or 'Create Custom' to define your own.</source>
 или 'Создать свой вид', чтобы задать собственный.</translation>
         </message>
         <message>
-            <location filename="../../ui/panels/plant_database_panel.py" line="865" />
+            <location filename="../../ui/panels/plant_database_panel.py" line="871" />
             <source>Not removed</source>
             <translation>Не удалено</translation>
         </message>
         <message>
-            <location filename="../../ui/panels/plant_database_panel.py" line="880" />
+            <location filename="../../ui/panels/plant_database_panel.py" line="886" />
             <source>Notes about this plant...</source>
             <translation>Заметки об этом растении...</translation>
         </message>
         <message>
-            <location filename="../../ui/panels/plant_database_panel.py" line="884" />
+            <location filename="../../ui/panels/plant_database_panel.py" line="890" />
             <source>Notes:</source>
             <translation>Заметки:</translation>
         </message>
         <message>
-            <location filename="../../ui/panels/plant_database_panel.py" line="1465" />
+            <location filename="../../ui/panels/plant_database_panel.py" line="1475" />
             <source>Opt. temp: {temp}</source>
             <translation>Опт. температура: {temp}</translation>
         </message>
         <message>
-            <location filename="../../ui/panels/plant_database_panel.py" line="840" />
+            <location filename="../../ui/panels/plant_database_panel.py" line="846" />
             <source>Overall demand:</source>
             <translation>Общая потребность в питании:</translation>
         </message>
         <message>
-            <location filename="../../ui/panels/plant_database_panel.py" line="822" />
+            <location filename="../../ui/panels/plant_database_panel.py" line="828" />
             <source>P demand:</source>
             <translation>Потребность в фосфоре:</translation>
         </message>
         <message>
-            <location filename="../../ui/panels/plant_database_panel.py" line="659" />
+            <location filename="../../ui/panels/plant_database_panel.py" line="665" />
             <source>Partial Shade</source>
             <translation>Полутень</translation>
         </message>
         <message>
-            <location filename="../../ui/panels/plant_database_panel.py" line="658" />
+            <location filename="../../ui/panels/plant_database_panel.py" line="664" />
             <source>Partial Sun</source>
             <translation>Полусолнце</translation>
         </message>
         <message>
-            <location filename="../../ui/panels/plant_database_panel.py" line="639" />
+            <location filename="../../ui/panels/plant_database_panel.py" line="645" />
             <source>Partially self-fertile</source>
             <translation>Частично самоплодное</translation>
         </message>
@@ -10689,84 +10689,84 @@ or 'Create Custom' to define your own.</source>
             <translation type="vanished">Многолетнее</translation>
         </message>
         <message>
-            <location filename="../../ui/panels/plant_database_panel.py" line="861" />
+            <location filename="../../ui/panels/plant_database_panel.py" line="867" />
             <source>Planted:</source>
             <translation>Посажено:</translation>
         </message>
         <message>
-            <location filename="../../ui/panels/plant_database_panel.py" line="2401" />
-            <location filename="../../ui/panels/plant_database_panel.py" line="2443" />
+            <location filename="../../ui/panels/plant_database_panel.py" line="2411" />
+            <location filename="../../ui/panels/plant_database_panel.py" line="2453" />
             <source>Please select a plant object (tree, shrub, or perennial) first.</source>
             <translation>Пожалуйста, сначала выберите объект растения (дерево, кустарник или многолетник).</translation>
         </message>
         <message>
-            <location filename="../../ui/panels/plant_database_panel.py" line="650" />
+            <location filename="../../ui/panels/plant_database_panel.py" line="656" />
             <source>Pollination:</source>
             <translation>Опыление:</translation>
         </message>
         <message>
-            <location filename="../../ui/panels/plant_database_panel.py" line="565" />
+            <location filename="../../ui/panels/plant_database_panel.py" line="571" />
             <source>Recorded functions:</source>
             <translation>Полезные свойства:</translation>
         </message>
         <message>
-            <location filename="../../ui/panels/plant_database_panel.py" line="2369" />
+            <location filename="../../ui/panels/plant_database_panel.py" line="2379" />
             <source>Remove from Favorites</source>
             <translation>Убрать из избранного</translation>
         </message>
         <message>
-            <location filename="../../ui/panels/plant_database_panel.py" line="1514" />
+            <location filename="../../ui/panels/plant_database_panel.py" line="1524" />
             <source>Remove this field</source>
             <translation>Удалить это поле</translation>
         </message>
         <message>
-            <location filename="../../ui/panels/plant_database_panel.py" line="874" />
+            <location filename="../../ui/panels/plant_database_panel.py" line="880" />
             <source>Removed on:</source>
             <translation>Удалено:</translation>
         </message>
         <message>
-            <location filename="../../ui/panels/plant_database_panel.py" line="586" />
+            <location filename="../../ui/panels/plant_database_panel.py" line="592" />
             <source>Scientific Name:</source>
             <translation>Научное название:</translation>
         </message>
         <message>
-            <location filename="../../ui/panels/plant_database_panel.py" line="472" />
+            <location filename="../../ui/panels/plant_database_panel.py" line="478" />
             <source>Search</source>
             <translation>Найти</translation>
         </message>
         <message>
-            <location filename="../../ui/panels/plant_database_panel.py" line="473" />
+            <location filename="../../ui/panels/plant_database_panel.py" line="479" />
             <source>Search for plant species in online databases</source>
             <translation>Поиск видов растений в онлайн‑базах данных</translation>
         </message>
         <message>
-            <location filename="../../ui/panels/plant_database_panel.py" line="918" />
+            <location filename="../../ui/panels/plant_database_panel.py" line="924" />
             <source>Seed Packet:</source>
             <translation>Пакет с семенами:</translation>
         </message>
         <message>
-            <location filename="../../ui/panels/plant_database_panel.py" line="2425" />
+            <location filename="../../ui/panels/plant_database_panel.py" line="2435" />
             <source>Select Custom Plant</source>
             <translation>Выбрать свой вид растения</translation>
         </message>
         <message>
-            <location filename="../../ui/panels/plant_database_panel.py" line="1837" />
-            <location filename="../../ui/panels/plant_database_panel.py" line="507" />
+            <location filename="../../ui/panels/plant_database_panel.py" line="1847" />
+            <location filename="../../ui/panels/plant_database_panel.py" line="513" />
             <source>Select a plant to view details</source>
             <translation>Выберите растение, чтобы посмотреть сведения</translation>
         </message>
         <message>
-            <location filename="../../ui/panels/plant_database_panel.py" line="638" />
+            <location filename="../../ui/panels/plant_database_panel.py" line="644" />
             <source>Self-fertile (no partner needed)</source>
             <translation>Самоплодное (партнёр не требуется)</translation>
         </message>
         <message>
-            <location filename="../../ui/panels/plant_database_panel.py" line="640" />
+            <location filename="../../ui/panels/plant_database_panel.py" line="646" />
             <source>Self-sterile (needs partner)</source>
             <translation>Самобесплодное (требуется партнёр)</translation>
         </message>
         <message>
-            <location filename="../../ui/panels/plant_database_panel.py" line="668" />
+            <location filename="../../ui/panels/plant_database_panel.py" line="674" />
             <source>Sun:</source>
             <translation>Освещение:</translation>
         </message>
@@ -10776,7 +10776,7 @@ or 'Create Custom' to define your own.</source>
             <translation>У этого растения свои настройки — они отличаются от общих в базе. Вернуть стандартные значения?</translation>
         </message>
         <message>
-            <location filename="../../ui/panels/plant_database_panel.py" line="641" />
+            <location filename="../../ui/panels/plant_database_panel.py" line="647" />
             <source>Triploid (sterile pollen)</source>
             <translation>Триплоидное (пыльца не даёт семян)</translation>
         </message>
@@ -10786,22 +10786,22 @@ or 'Create Custom' to define your own.</source>
             <translation>Неизвестный источник</translation>
         </message>
         <message>
-            <location filename="../../ui/panels/plant_database_panel.py" line="1506" />
+            <location filename="../../ui/panels/plant_database_panel.py" line="1516" />
             <source>Value</source>
             <translation>Значение</translation>
         </message>
         <message>
-            <location filename="../../ui/panels/plant_database_panel.py" line="600" />
+            <location filename="../../ui/panels/plant_database_panel.py" line="606" />
             <source>Variety:</source>
             <translation>Сорт/культивар:</translation>
         </message>
         <message>
-            <location filename="../../ui/panels/plant_database_panel.py" line="683" />
+            <location filename="../../ui/panels/plant_database_panel.py" line="689" />
             <source>Water:</source>
             <translation>Полив:</translation>
         </message>
         <message>
-            <location filename="../../ui/panels/plant_database_panel.py" line="2413" />
+            <location filename="../../ui/panels/plant_database_panel.py" line="2423" />
             <source>Your custom plant library is empty.
 
 Use 'Create Custom' to add plants, or use the Plants menu to manage your custom plant library.</source>
@@ -10810,41 +10810,41 @@ Use 'Create Custom' to add plants, or use the Plants menu to manage your custom 
 Используйте 'Создать свой вид', чтобы добавить растения, или меню «Растения» для управления библиотекой.</translation>
         </message>
         <message>
-            <location filename="../../ui/panels/plant_database_panel.py" line="742" />
+            <location filename="../../ui/panels/plant_database_panel.py" line="748" />
             <source>e.g., fruit, leaves, roots...</source>
             <translation>например, плоды, листья, корни...</translation>
         </message>
         <message>
-            <location filename="../../ui/panels/plant_database_panel.py" line="815" />
+            <location filename="../../ui/panels/plant_database_panel.py" line="821" />
             <source>pH range:</source>
             <translation>Диапазон pH почвы:</translation>
         </message>
         <message>
-            <location filename="../../ui/panels/plant_database_panel.py" line="1637" />
+            <location filename="../../ui/panels/plant_database_panel.py" line="1647" />
             <source>{name} — {role}</source>
             <translation>{name} — {role}</translation>
         </message>
         <message>
-            <location filename="../../ui/panels/plant_database_panel.py" line="608" />
-            <location filename="../../ui/panels/plant_database_panel.py" line="626" />
-            <location filename="../../ui/panels/plant_database_panel.py" line="643" />
-            <location filename="../../ui/panels/plant_database_panel.py" line="662" />
-            <location filename="../../ui/panels/plant_database_panel.py" line="677" />
-            <location filename="../../ui/panels/plant_database_panel.py" line="695" />
-            <location filename="../../ui/panels/plant_database_panel.py" line="706" />
-            <location filename="../../ui/panels/plant_database_panel.py" line="717" />
-            <location filename="../../ui/panels/plant_database_panel.py" line="728" />
-            <location filename="../../ui/panels/plant_database_panel.py" line="761" />
-            <location filename="../../ui/panels/plant_database_panel.py" line="775" />
-            <location filename="../../ui/panels/plant_database_panel.py" line="794" />
-            <location filename="../../ui/panels/plant_database_panel.py" line="807" />
-            <location filename="../../ui/panels/plant_database_panel.py" line="831" />
-            <location filename="../../ui/panels/plant_database_panel.py" line="924" />
+            <location filename="../../ui/panels/plant_database_panel.py" line="614" />
+            <location filename="../../ui/panels/plant_database_panel.py" line="632" />
+            <location filename="../../ui/panels/plant_database_panel.py" line="649" />
+            <location filename="../../ui/panels/plant_database_panel.py" line="668" />
+            <location filename="../../ui/panels/plant_database_panel.py" line="683" />
+            <location filename="../../ui/panels/plant_database_panel.py" line="701" />
+            <location filename="../../ui/panels/plant_database_panel.py" line="712" />
+            <location filename="../../ui/panels/plant_database_panel.py" line="723" />
+            <location filename="../../ui/panels/plant_database_panel.py" line="734" />
+            <location filename="../../ui/panels/plant_database_panel.py" line="767" />
+            <location filename="../../ui/panels/plant_database_panel.py" line="781" />
+            <location filename="../../ui/panels/plant_database_panel.py" line="800" />
+            <location filename="../../ui/panels/plant_database_panel.py" line="813" />
+            <location filename="../../ui/panels/plant_database_panel.py" line="837" />
+            <location filename="../../ui/panels/plant_database_panel.py" line="930" />
             <source>—</source>
             <translation>—</translation>
         </message>
         <message>
-            <location filename="../../ui/panels/plant_database_panel.py" line="1414" />
+            <location filename="../../ui/panels/plant_database_panel.py" line="1420" />
             <source>— No packet linked —</source>
             <translation>— Пакет не привязан —</translation>
         </message>
@@ -11413,53 +11413,53 @@ Please check your internet connection and API credentials.</source>
     <context>
         <name>PlantingCalendarView</name>
         <message>
-            <location filename="../../ui/views/planting_calendar_view.py" line="2034" />
+            <location filename="../../ui/views/planting_calendar_view.py" line="2040" />
             <source>Clear {name} from {bed} (succession)</source>
             <translation>Убрать {name} с грядки {bed} (севооборот)</translation>
         </message>
         <message>
-            <location filename="../../ui/views/planting_calendar_view.py" line="1358" />
+            <location filename="../../ui/views/planting_calendar_view.py" line="1364" />
             <source>Direct sow</source>
             <translation>Прямой посев в грунт</translation>
         </message>
         <message>
-            <location filename="../../ui/views/planting_calendar_view.py" line="1546" />
+            <location filename="../../ui/views/planting_calendar_view.py" line="1552" />
             <source>First frost</source>
             <translation>Первый заморозок</translation>
         </message>
         <message>
-            <location filename="../../ui/views/planting_calendar_view.py" line="1547" />
+            <location filename="../../ui/views/planting_calendar_view.py" line="1553" />
             <source>Germination</source>
             <translation>Прорастание</translation>
         </message>
         <message>
-            <location filename="../../ui/views/planting_calendar_view.py" line="1549" />
+            <location filename="../../ui/views/planting_calendar_view.py" line="1555" />
             <source>Harden off</source>
             <translation>Закалка рассады</translation>
         </message>
         <message>
-            <location filename="../../ui/views/planting_calendar_view.py" line="1360" />
+            <location filename="../../ui/views/planting_calendar_view.py" line="1366" />
             <source>Harvest</source>
             <translation>Сбор урожая</translation>
         </message>
         <message>
-            <location filename="../../ui/views/planting_calendar_view.py" line="1357" />
+            <location filename="../../ui/views/planting_calendar_view.py" line="1363" />
             <source>Indoor sow</source>
             <translation>Посев в помещении</translation>
         </message>
         <message>
-            <location filename="../../ui/views/planting_calendar_view.py" line="1545" />
+            <location filename="../../ui/views/planting_calendar_view.py" line="1551" />
             <source>Last frost</source>
             <translation>Последний заморозок</translation>
         </message>
         <message>
-            <location filename="../../ui/views/planting_calendar_view.py" line="1662" />
-            <location filename="../../ui/views/planting_calendar_view.py" line="1798" />
+            <location filename="../../ui/views/planting_calendar_view.py" line="1668" />
+            <location filename="../../ui/views/planting_calendar_view.py" line="1804" />
             <source>No detailed data available</source>
             <translation>Подробные данные недоступны</translation>
         </message>
         <message>
-            <location filename="../../ui/views/planting_calendar_view.py" line="1558" />
+            <location filename="../../ui/views/planting_calendar_view.py" line="1564" />
             <source>No location set.
 Use File › Set Garden Location to configure frost dates
 before the planting calendar can be shown.</source>
@@ -11468,7 +11468,7 @@ before the planting calendar can be shown.</source>
 прежде чем календарь посадок будет отображён.</translation>
         </message>
         <message>
-            <location filename="../../ui/views/planting_calendar_view.py" line="1566" />
+            <location filename="../../ui/views/planting_calendar_view.py" line="1572" />
             <source>No plants with calendar data found.
 Place plants on the canvas and use Search Plant Database
 to assign species data.</source>
@@ -11477,38 +11477,38 @@ to assign species data.</source>
 чтобы назначить данные о виде.</translation>
         </message>
         <message>
-            <location filename="../../ui/views/planting_calendar_view.py" line="1548" />
+            <location filename="../../ui/views/planting_calendar_view.py" line="1554" />
             <source>Prick out</source>
             <translation>Пикировка</translation>
         </message>
         <message>
-            <location filename="../../ui/views/planting_calendar_view.py" line="1375" />
+            <location filename="../../ui/views/planting_calendar_view.py" line="1381" />
             <source>Show propagation steps</source>
             <translation>Показать этапы размножения</translation>
         </message>
         <message>
-            <location filename="../../ui/views/planting_calendar_view.py" line="2032" />
+            <location filename="../../ui/views/planting_calendar_view.py" line="2038" />
             <source>Sow {name} in {bed} (succession)</source>
             <translation>Посеять {name} на грядке {bed} (севооборот)</translation>
         </message>
         <message>
-            <location filename="../../ui/views/planting_calendar_view.py" line="1769" />
+            <location filename="../../ui/views/planting_calendar_view.py" line="1775" />
             <source>The end date of a propagation step cannot be before its start date — the step was not changed.</source>
             <translation>Дата окончания этапа размножения не может быть раньше даты начала — этап не был изменён.</translation>
         </message>
         <message>
-            <location filename="../../ui/views/planting_calendar_view.py" line="1544" />
+            <location filename="../../ui/views/planting_calendar_view.py" line="1550" />
             <source>Today</source>
             <translation>Сегодня</translation>
         </message>
         <message>
-            <location filename="../../ui/views/planting_calendar_view.py" line="1359" />
-            <location filename="../../ui/views/planting_calendar_view.py" line="1550" />
+            <location filename="../../ui/views/planting_calendar_view.py" line="1365" />
+            <location filename="../../ui/views/planting_calendar_view.py" line="1556" />
             <source>Transplant</source>
             <translation>Высадка рассады</translation>
         </message>
         <message>
-            <location filename="../../ui/views/planting_calendar_view.py" line="2040" />
+            <location filename="../../ui/views/planting_calendar_view.py" line="2046" />
             <source>{title} — {names}</source>
             <translation>{title} — {names}</translation>
         </message>
@@ -11655,75 +11655,79 @@ to assign species data.</source>
     <context>
         <name>PreferencesDialog</name>
         <message>
-            <location filename="../../ui/dialogs/preferences_dialog.py" line="115" />
-            <location filename="../../ui/dialogs/preferences_dialog.py" line="418" />
+            <location filename="../../ui/dialogs/preferences_dialog.py" line="113" />
+            <location filename="../../ui/dialogs/preferences_dialog.py" line="416" />
             <source>3D View</source>
             <translation>3D-вид</translation>
         </message>
         <message>
-            <location filename="../../ui/dialogs/preferences_dialog.py" line="158" />
-            <location filename="../../ui/dialogs/preferences_dialog.py" line="212" />
+            <location filename="../../ui/dialogs/preferences_dialog.py" line="156" />
+            <location filename="../../ui/dialogs/preferences_dialog.py" line="210" />
             <source>API Key:</source>
             <translation>API-ключ:</translation>
         </message>
         <message>
-            <location filename="../../ui/dialogs/preferences_dialog.py" line="135" />
+            <location filename="../../ui/dialogs/preferences_dialog.py" line="133" />
             <source>API Token:</source>
             <translation>Токен API:</translation>
         </message>
         <message>
-            <location filename="../../ui/dialogs/preferences_dialog.py" line="403" />
+            <location filename="../../ui/dialogs/preferences_dialog.py" line="401" />
             <source>Access token:</source>
             <translation>Токен доступа:</translation>
         </message>
         <message>
-            <location filename="../../ui/dialogs/preferences_dialog.py" line="114" />
-            <location filename="../../ui/dialogs/preferences_dialog.py" line="333" />
+            <location filename="../../ui/dialogs/preferences_dialog.py" line="112" />
+            <location filename="../../ui/dialogs/preferences_dialog.py" line="331" />
             <source>Agent API</source>
             <translation>API агента</translation>
         </message>
         <message>
-            <location filename="../../ui/dialogs/preferences_dialog.py" line="371" />
+            <location filename="../../ui/dialogs/preferences_dialog.py" line="369" />
             <source>Allow AI assistants to edit the plan</source>
             <translation>Разрешить ИИ‑ассистентам редактировать план</translation>
         </message>
         <message>
-            <location filename="../../ui/dialogs/preferences_dialog.py" line="302" />
+            <location filename="../../ui/dialogs/preferences_dialog.py" line="300" />
             <source>Area:</source>
             <translation>Площадь:</translation>
         </message>
         <message>
-            <location filename="../../ui/dialogs/preferences_dialog.py" line="442" />
+            <location filename="../../ui/dialogs/preferences_dialog.py" line="440" />
             <source>Atmosphere with clouds</source>
             <translation>Атмосфера с облаками</translation>
         </message>
         <message>
-            <location filename="../../ui/dialogs/preferences_dialog.py" line="423" />
+            <location filename="../../ui/dialogs/preferences_dialog.py" line="421" />
             <source>Automatic</source>
             <translation>Автоматически</translation>
         </message>
         <message>
-            <location filename="../../ui/dialogs/preferences_dialog.py" line="281" />
+            <location filename="../../ui/dialogs/preferences_dialog.py" line="279" />
             <source>Canada (mixed)</source>
             <translation>Канада (смешанная)</translation>
         </message>
         <message>
-            <location filename="../../ui/dialogs/preferences_dialog.py" line="286" />
-            <source>Canada (mixed) is provisional: lengths in feet and inches, weather and harvest in metric units. Change any row to make it Custom.</source>
-            <translation>Канада (смешанная) — предварительно: длины в футах и дюймах, погода и урожай в метрических единицах. Измените любую строку, чтобы сделать профиль пользовательским.</translation>
+            <location filename="../../ui/dialogs/preferences_dialog.py" line="284" />
+            <source>Canada (mixed) is provisional: lengths and areas in feet and inches, weather and harvest in metric units. Change any row to make it Custom.</source>
+            <translation>Канада (смешанная) — предварительно: длины и площади в футах и дюймах, погода и урожай в метрических единицах. Измените любую строку, чтобы сделать профиль пользовательским.</translation>
         </message>
         <message>
-            <location filename="../../ui/dialogs/preferences_dialog.py" line="474" />
+            <source>Canada (mixed) is provisional: lengths in feet and inches, weather and harvest in metric units. Change any row to make it Custom.</source>
+            <translation type="vanished">Канада (смешанная) — предварительно: длины в футах и дюймах, погода и урожай в метрических единицах. Измените любую строку, чтобы сделать профиль пользовательским.</translation>
+        </message>
+        <message>
+            <location filename="../../ui/dialogs/preferences_dialog.py" line="472" />
             <source>Cancel</source>
             <translation>Отмена</translation>
         </message>
         <message>
-            <location filename="../../ui/dialogs/preferences_dialog.py" line="313" />
+            <location filename="../../ui/dialogs/preferences_dialog.py" line="311" />
             <source>Canvas</source>
             <translation>Холст</translation>
         </message>
         <message>
-            <location filename="../../ui/dialogs/preferences_dialog.py" line="119" />
+            <location filename="../../ui/dialogs/preferences_dialog.py" line="117" />
             <source>Configure API keys for online services below. Keys are stored locally in your user settings and are never included in garden plans or the installer. Environment variables (.env) are used as fallback.</source>
             <translation>Настройте ключи API для онлайн-сервисов ниже. Ключи хранятся локально в ваших пользовательских настройках и никогда не включаются в планы сада или установщик. В качестве резервного варианта используются переменные окружения (.env).</translation>
         </message>
@@ -11732,110 +11736,110 @@ to assign species data.</source>
             <translation type="vanished">Настройте ключи API для баз данных растений ниже. Ключи хранятся локально и никогда не передаются. В качестве резервного варианта используются переменные окружения (.env).</translation>
         </message>
         <message>
-            <location filename="../../ui/dialogs/preferences_dialog.py" line="362" />
+            <location filename="../../ui/dialogs/preferences_dialog.py" line="360" />
             <source>Connect AI Assistant…</source>
             <translation>Подключить ИИ‑ассистента…</translation>
         </message>
         <message>
-            <location filename="../../ui/dialogs/preferences_dialog.py" line="779" />
+            <location filename="../../ui/dialogs/preferences_dialog.py" line="776" />
             <source>Connection to {api} is working.</source>
             <translation>Соединение с {api} работает.</translation>
         </message>
         <message>
-            <location filename="../../ui/dialogs/preferences_dialog.py" line="392" />
+            <location filename="../../ui/dialogs/preferences_dialog.py" line="390" />
             <source>Copy</source>
             <translation>Копировать</translation>
         </message>
         <message>
-            <location filename="../../ui/dialogs/preferences_dialog.py" line="785" />
+            <location filename="../../ui/dialogs/preferences_dialog.py" line="782" />
             <source>Could not connect to {api}. Please check your credentials.</source>
             <translation>Не удалось подключиться к {api}. Проверьте учётные данные.</translation>
         </message>
         <message>
-            <location filename="../../ui/dialogs/preferences_dialog.py" line="282" />
+            <location filename="../../ui/dialogs/preferences_dialog.py" line="280" />
             <source>Custom</source>
             <translation>Пользовательский</translation>
         </message>
         <message>
-            <location filename="../../ui/dialogs/preferences_dialog.py" line="652" />
+            <location filename="../../ui/dialogs/preferences_dialog.py" line="649" />
             <source>Enable AI editing to generate a token</source>
             <translation>Включите редактирование ИИ, чтобы сгенерировать токен</translation>
         </message>
         <message>
-            <location filename="../../ui/dialogs/preferences_dialog.py" line="337" />
+            <location filename="../../ui/dialogs/preferences_dialog.py" line="335" />
             <source>Enable Agent API (local MCP server)</source>
             <translation>Включить API агента (локальный сервер MCP)</translation>
         </message>
         <message>
-            <location filename="../../ui/dialogs/preferences_dialog.py" line="317" />
+            <location filename="../../ui/dialogs/preferences_dialog.py" line="315" />
             <source>Enable touch gestures (pinch to zoom, two-finger pan)</source>
             <translation>Включить сенсорные жесты (масштабирование щипком, перемещение двумя пальцами)</translation>
         </message>
         <message>
-            <location filename="../../ui/dialogs/preferences_dialog.py" line="210" />
+            <location filename="../../ui/dialogs/preferences_dialog.py" line="208" />
             <source>Enter Google Maps API key...</source>
             <translation>Введите ключ API Google Maps…</translation>
         </message>
         <message>
-            <location filename="../../ui/dialogs/preferences_dialog.py" line="180" />
+            <location filename="../../ui/dialogs/preferences_dialog.py" line="178" />
             <source>Enter Key ID...</source>
             <translation>Введите ID ключа...</translation>
         </message>
         <message>
-            <location filename="../../ui/dialogs/preferences_dialog.py" line="184" />
+            <location filename="../../ui/dialogs/preferences_dialog.py" line="182" />
             <source>Enter Key Secret...</source>
             <translation>Введите секретный ключ...</translation>
         </message>
         <message>
-            <location filename="../../ui/dialogs/preferences_dialog.py" line="157" />
+            <location filename="../../ui/dialogs/preferences_dialog.py" line="155" />
             <source>Enter Perenual API key...</source>
             <translation>Введите API-ключ Perenual...</translation>
         </message>
         <message>
-            <location filename="../../ui/dialogs/preferences_dialog.py" line="134" />
+            <location filename="../../ui/dialogs/preferences_dialog.py" line="132" />
             <source>Enter Trefle API token...</source>
             <translation>Введите токен API Trefle...</translation>
         </message>
         <message>
-            <location filename="../../ui/dialogs/preferences_dialog.py" line="796" />
+            <location filename="../../ui/dialogs/preferences_dialog.py" line="793" />
             <source>Error testing {api}: {error}</source>
             <translation>Ошибка при проверке {api}: {error}</translation>
         </message>
         <message>
-            <location filename="../../ui/dialogs/preferences_dialog.py" line="111" />
+            <location filename="../../ui/dialogs/preferences_dialog.py" line="109" />
             <source>General</source>
             <translation>Общие</translation>
         </message>
         <message>
-            <location filename="../../ui/dialogs/preferences_dialog.py" line="138" />
-            <location filename="../../ui/dialogs/preferences_dialog.py" line="161" />
-            <location filename="../../ui/dialogs/preferences_dialog.py" line="188" />
+            <location filename="../../ui/dialogs/preferences_dialog.py" line="136" />
+            <location filename="../../ui/dialogs/preferences_dialog.py" line="159" />
+            <location filename="../../ui/dialogs/preferences_dialog.py" line="186" />
             <source>Get API Key</source>
             <translation>Получить API ключ</translation>
         </message>
         <message>
-            <location filename="../../ui/dialogs/preferences_dialog.py" line="205" />
+            <location filename="../../ui/dialogs/preferences_dialog.py" line="203" />
             <source>Google Maps</source>
             <translation>Google Maps</translation>
         </message>
         <message>
-            <location filename="../../ui/dialogs/preferences_dialog.py" line="306" />
+            <location filename="../../ui/dialogs/preferences_dialog.py" line="304" />
             <source>Harvest mass:</source>
             <translation>Масса урожая:</translation>
         </message>
         <message>
-            <location filename="../../ui/dialogs/preferences_dialog.py" line="426" />
+            <location filename="../../ui/dialogs/preferences_dialog.py" line="424" />
             <source>High</source>
             <translation>Высокое</translation>
         </message>
         <message>
-            <location filename="../../ui/dialogs/preferences_dialog.py" line="431" />
+            <location filename="../../ui/dialogs/preferences_dialog.py" line="429" />
             <source>How detailed the 3D view is drawn. Automatic picks a level from the frame rate it measures on this computer.</source>
             <translation>Детализация отрисовки 3D-вида. «Автоматически» выбирает уровень на основе измеренной частоты кадров на этом компьютере.</translation>
         </message>
         <message>
-            <location filename="../../ui/dialogs/preferences_dialog.py" line="274" />
-            <location filename="../../ui/dialogs/preferences_dialog.py" line="280" />
+            <location filename="../../ui/dialogs/preferences_dialog.py" line="272" />
+            <location filename="../../ui/dialogs/preferences_dialog.py" line="278" />
             <source>Imperial (US)</source>
             <translation>Имперская (США)</translation>
         </message>
@@ -11844,269 +11848,269 @@ to assign species data.</source>
             <translation type="vanished">Листья и трава остаются неподвижными вместо колыхания на ветру.</translation>
         </message>
         <message>
-            <location filename="../../ui/dialogs/preferences_dialog.py" line="458" />
+            <location filename="../../ui/dialogs/preferences_dialog.py" line="456" />
             <source>Keep leaves and grass still instead of swaying in the wind. The operating system's animation-effects setting also stops the wind.</source>
             <translation>Листья и трава остаются неподвижными вместо колыхания на ветру. Настройка эффектов анимации операционной системы также останавливает ветер.</translation>
         </message>
         <message>
-            <location filename="../../ui/dialogs/preferences_dialog.py" line="181" />
+            <location filename="../../ui/dialogs/preferences_dialog.py" line="179" />
             <source>Key ID:</source>
             <translation>ID ключа:</translation>
         </message>
         <message>
-            <location filename="../../ui/dialogs/preferences_dialog.py" line="185" />
+            <location filename="../../ui/dialogs/preferences_dialog.py" line="183" />
             <source>Key Secret:</source>
             <translation>Секретный ключ:</translation>
         </message>
         <message>
-            <location filename="../../ui/dialogs/preferences_dialog.py" line="301" />
+            <location filename="../../ui/dialogs/preferences_dialog.py" line="299" />
             <source>Length:</source>
             <translation>Длина:</translation>
         </message>
         <message>
-            <location filename="../../ui/dialogs/preferences_dialog.py" line="374" />
+            <location filename="../../ui/dialogs/preferences_dialog.py" line="372" />
             <source>Let connected assistants move and delete objects. Each edit is a single undo step. Requires the token below; off by default.</source>
             <translation>Разрешить подключённым ассистентам перемещать и удалять объекты. Каждое изменение — один шаг отмены. Требуется токен ниже; по умолчанию отключено.</translation>
         </message>
         <message>
-            <location filename="../../ui/dialogs/preferences_dialog.py" line="424" />
+            <location filename="../../ui/dialogs/preferences_dialog.py" line="422" />
             <source>Low</source>
             <translation>Низкое</translation>
         </message>
         <message>
-            <location filename="../../ui/dialogs/preferences_dialog.py" line="425" />
+            <location filename="../../ui/dialogs/preferences_dialog.py" line="423" />
             <source>Medium</source>
             <translation>Среднее</translation>
         </message>
         <message>
-            <location filename="../../ui/dialogs/preferences_dialog.py" line="273" />
-            <location filename="../../ui/dialogs/preferences_dialog.py" line="279" />
+            <location filename="../../ui/dialogs/preferences_dialog.py" line="271" />
+            <location filename="../../ui/dialogs/preferences_dialog.py" line="277" />
             <source>Metric</source>
             <translation>Метрическая</translation>
         </message>
         <message>
-            <location filename="../../ui/dialogs/preferences_dialog.py" line="257" />
+            <location filename="../../ui/dialogs/preferences_dialog.py" line="255" />
             <source>Notify about overdue tasks on startup</source>
             <translation>Уведомлять о просроченных задачах при запуске</translation>
         </message>
         <message>
-            <location filename="../../ui/dialogs/preferences_dialog.py" line="320" />
+            <location filename="../../ui/dialogs/preferences_dialog.py" line="318" />
             <source>On a touch screen, pinch with two fingers to zoom the plan and drag two fingers to move it. A single finger still selects and moves objects as a mouse does.</source>
             <translation>На сенсорном экране сведите два пальца для масштабирования плана и ведите двумя пальцами для его перемещения. Один палец по-прежнему выбирает и перемещает объекты как мышь.</translation>
         </message>
         <message>
-            <location filename="../../ui/dialogs/preferences_dialog.py" line="113" />
+            <location filename="../../ui/dialogs/preferences_dialog.py" line="111" />
             <source>Online services</source>
             <translation>Онлайн-сервисы</translation>
         </message>
         <message>
-            <location filename="../../ui/dialogs/preferences_dialog.py" line="238" />
+            <location filename="../../ui/dialogs/preferences_dialog.py" line="236" />
             <source>Orange warning threshold:</source>
             <translation>Оранжевый порог предупреждения:</translation>
         </message>
         <message>
-            <location filename="../../ui/dialogs/preferences_dialog.py" line="441" />
+            <location filename="../../ui/dialogs/preferences_dialog.py" line="439" />
             <source>Painted</source>
             <translation>Рисованное</translation>
         </message>
         <message>
-            <location filename="../../ui/dialogs/preferences_dialog.py" line="446" />
+            <location filename="../../ui/dialogs/preferences_dialog.py" line="444" />
             <source>Painted: the soft painted sky. Atmosphere with clouds: a physically based sky with volumetric clouds by day, which costs more on the graphics card. The sun, the shadows and the night are the same in both.</source>
             <translation>Рисованное: мягкое художественное небо. Атмосфера с облаками: физически рассчитанное небо с объёмными дневными облаками, создающее более высокую нагрузку на видеокарту. Солнце, тени и ночь одинаковы в обоих стилях.</translation>
         </message>
         <message>
-            <location filename="../../ui/dialogs/preferences_dialog.py" line="153" />
+            <location filename="../../ui/dialogs/preferences_dialog.py" line="151" />
             <source>Perenual (perenual.com)</source>
             <translation>Perenual (perenual.com)</translation>
         </message>
         <message>
-            <location filename="../../ui/dialogs/preferences_dialog.py" line="176" />
+            <location filename="../../ui/dialogs/preferences_dialog.py" line="174" />
             <source>Permapeople (permapeople.org)</source>
             <translation>Permapeople (permapeople.org)</translation>
         </message>
         <message>
-            <location filename="../../ui/dialogs/preferences_dialog.py" line="753" />
+            <location filename="../../ui/dialogs/preferences_dialog.py" line="750" />
             <source>Please enter a Perenual API key first.</source>
             <translation>Сначала введите API ключ Perenual.</translation>
         </message>
         <message>
-            <location filename="../../ui/dialogs/preferences_dialog.py" line="745" />
+            <location filename="../../ui/dialogs/preferences_dialog.py" line="742" />
             <source>Please enter a Trefle API token first.</source>
             <translation>Сначала введите токен API Trefle.</translation>
         </message>
         <message>
-            <location filename="../../ui/dialogs/preferences_dialog.py" line="764" />
+            <location filename="../../ui/dialogs/preferences_dialog.py" line="761" />
             <source>Please enter both Permapeople Key ID and Key Secret.</source>
             <translation>Введите и ID ключа, и секретный ключ для Permapeople</translation>
         </message>
         <message>
-            <location filename="../../ui/dialogs/preferences_dialog.py" line="354" />
+            <location filename="../../ui/dialogs/preferences_dialog.py" line="352" />
             <source>Port:</source>
             <translation>Порт:</translation>
         </message>
         <message>
-            <location filename="../../ui/dialogs/preferences_dialog.py" line="305" />
+            <location filename="../../ui/dialogs/preferences_dialog.py" line="303" />
             <source>Precipitation:</source>
             <translation>Осадки:</translation>
         </message>
         <message>
-            <location filename="../../ui/dialogs/preferences_dialog.py" line="81" />
+            <location filename="../../ui/dialogs/preferences_dialog.py" line="79" />
             <source>Preferences</source>
             <translation>Настройки</translation>
         </message>
         <message>
-            <location filename="../../ui/dialogs/preferences_dialog.py" line="292" />
+            <location filename="../../ui/dialogs/preferences_dialog.py" line="290" />
             <source>Preset:</source>
             <translation>Профиль:</translation>
         </message>
         <message>
-            <location filename="../../ui/dialogs/preferences_dialog.py" line="436" />
+            <location filename="../../ui/dialogs/preferences_dialog.py" line="434" />
             <source>Quality:</source>
             <translation>Качество:</translation>
         </message>
         <message>
-            <location filename="../../ui/dialogs/preferences_dialog.py" line="248" />
+            <location filename="../../ui/dialogs/preferences_dialog.py" line="246" />
             <source>Red alert threshold:</source>
             <translation>Красный порог тревоги:</translation>
         </message>
         <message>
-            <location filename="../../ui/dialogs/preferences_dialog.py" line="455" />
+            <location filename="../../ui/dialogs/preferences_dialog.py" line="453" />
             <source>Reduce motion in the 3D view</source>
             <translation>Уменьшить анимацию в 3D-виде</translation>
         </message>
         <message>
-            <location filename="../../ui/dialogs/preferences_dialog.py" line="395" />
+            <location filename="../../ui/dialogs/preferences_dialog.py" line="393" />
             <source>Regenerate</source>
             <translation>Сгенерировать заново</translation>
         </message>
         <message>
-            <location filename="../../ui/dialogs/preferences_dialog.py" line="397" />
+            <location filename="../../ui/dialogs/preferences_dialog.py" line="395" />
             <source>Replace the token; assistants using the old one must reconnect.</source>
             <translation>Замените токен; ассистенты, использующие старый, должны будут переподключиться.</translation>
         </message>
         <message>
-            <location filename="../../ui/dialogs/preferences_dialog.py" line="340" />
+            <location filename="../../ui/dialogs/preferences_dialog.py" line="338" />
             <source>Run a local MCP server so AI assistants can read this garden plan. Binds to 127.0.0.1 (this computer) only. Editing stays off unless you enable it below.</source>
             <translation>Запустите локальный сервер MCP, чтобы ИИ‑ассистенты могли читать этот план сада. Сервер доступен только на этом компьютере (127.0.0.1). Редактирование остаётся отключённым, пока вы не включите его ниже.</translation>
         </message>
         <message>
-            <location filename="../../ui/dialogs/preferences_dialog.py" line="478" />
+            <location filename="../../ui/dialogs/preferences_dialog.py" line="476" />
             <source>Save</source>
             <translation>Сохранить</translation>
         </message>
         <message>
-            <location filename="../../ui/dialogs/preferences_dialog.py" line="360" />
+            <location filename="../../ui/dialogs/preferences_dialog.py" line="358" />
             <source>Server URL:</source>
             <translation>URL сервера:</translation>
         </message>
         <message>
-            <location filename="../../ui/dialogs/preferences_dialog.py" line="260" />
+            <location filename="../../ui/dialogs/preferences_dialog.py" line="258" />
             <source>Show a reminder on startup when the open project has overdue tasks</source>
             <translation>Показывать напоминание при запуске, если в открытом проекте есть просроченные задачи</translation>
         </message>
         <message>
-            <location filename="../../ui/dialogs/preferences_dialog.py" line="364" />
+            <location filename="../../ui/dialogs/preferences_dialog.py" line="362" />
             <source>Show this URL and help register it with an AI assistant</source>
             <translation>Показать этот URL и помочь зарегистрировать его в ИИ-ассистенте</translation>
         </message>
         <message>
-            <location filename="../../ui/dialogs/preferences_dialog.py" line="452" />
+            <location filename="../../ui/dialogs/preferences_dialog.py" line="450" />
             <source>Sky:</source>
             <translation>Небо:</translation>
         </message>
         <message>
-            <location filename="../../ui/dialogs/preferences_dialog.py" line="253" />
+            <location filename="../../ui/dialogs/preferences_dialog.py" line="251" />
             <source>Tasks</source>
             <translation>Задачи</translation>
         </message>
         <message>
-            <location filename="../../ui/dialogs/preferences_dialog.py" line="236" />
+            <location filename="../../ui/dialogs/preferences_dialog.py" line="234" />
             <source>Temperature at or below which half-hardy plants are at risk</source>
             <translation>Температура, при которой или ниже которой полузимостойкие растения находятся в зоне риска</translation>
         </message>
         <message>
-            <location filename="../../ui/dialogs/preferences_dialog.py" line="246" />
+            <location filename="../../ui/dialogs/preferences_dialog.py" line="244" />
             <source>Temperature at or below which tender plants are at risk</source>
             <translation>Температура, при которой или ниже которой теплолюбивые растения находятся в зоне риска</translation>
         </message>
         <message>
-            <location filename="../../ui/dialogs/preferences_dialog.py" line="304" />
+            <location filename="../../ui/dialogs/preferences_dialog.py" line="302" />
             <source>Temperature:</source>
             <translation>Температура:</translation>
         </message>
         <message>
-            <location filename="../../ui/dialogs/preferences_dialog.py" line="143" />
-            <location filename="../../ui/dialogs/preferences_dialog.py" line="166" />
-            <location filename="../../ui/dialogs/preferences_dialog.py" line="195" />
-            <location filename="../../ui/dialogs/preferences_dialog.py" line="745" />
-            <location filename="../../ui/dialogs/preferences_dialog.py" line="753" />
-            <location filename="../../ui/dialogs/preferences_dialog.py" line="763" />
+            <location filename="../../ui/dialogs/preferences_dialog.py" line="141" />
+            <location filename="../../ui/dialogs/preferences_dialog.py" line="164" />
+            <location filename="../../ui/dialogs/preferences_dialog.py" line="193" />
+            <location filename="../../ui/dialogs/preferences_dialog.py" line="742" />
+            <location filename="../../ui/dialogs/preferences_dialog.py" line="750" />
+            <location filename="../../ui/dialogs/preferences_dialog.py" line="760" />
             <source>Test</source>
             <translation>Проверить</translation>
         </message>
         <message>
-            <location filename="../../ui/dialogs/preferences_dialog.py" line="795" />
+            <location filename="../../ui/dialogs/preferences_dialog.py" line="792" />
             <source>Test Error</source>
             <translation>Ошибка проверки</translation>
         </message>
         <message>
-            <location filename="../../ui/dialogs/preferences_dialog.py" line="784" />
+            <location filename="../../ui/dialogs/preferences_dialog.py" line="781" />
             <source>Test Failed</source>
             <translation>Проверка не пройдена</translation>
         </message>
         <message>
-            <location filename="../../ui/dialogs/preferences_dialog.py" line="778" />
+            <location filename="../../ui/dialogs/preferences_dialog.py" line="775" />
             <source>Test Successful</source>
             <translation>Проверка успешна</translation>
         </message>
         <message>
-            <location filename="../../ui/dialogs/preferences_dialog.py" line="385" />
+            <location filename="../../ui/dialogs/preferences_dialog.py" line="383" />
             <source>The access token an assistant must present to edit the plan. "Connect AI Assistant…" hands it to the client for you.</source>
             <translation>Токен доступа, который ассистент должен предоставить для редактирования плана. Кнопка «Подключить ИИ-ассистента…» передаёт его клиенту автоматически.</translation>
         </message>
         <message>
-            <location filename="../../ui/dialogs/preferences_dialog.py" line="406" />
+            <location filename="../../ui/dialogs/preferences_dialog.py" line="404" />
             <source>The running server still uses the previous token until you click Save — copying now won't work for a client yet.</source>
             <translation>Запущенный сервер продолжает использовать предыдущий токен, пока вы не нажмёте «Сохранить» — копирование токена сейчас не поможет клиенту подключиться.</translation>
         </message>
         <message>
-            <location filename="../../ui/dialogs/preferences_dialog.py" line="560" />
+            <location filename="../../ui/dialogs/preferences_dialog.py" line="558" />
             <source>The system used for lengths and the canvas.</source>
             <translation>Система для длин и холста.</translation>
         </message>
         <message>
-            <location filename="../../ui/dialogs/preferences_dialog.py" line="130" />
+            <location filename="../../ui/dialogs/preferences_dialog.py" line="128" />
             <source>Trefle (trefle.io)</source>
             <translation>Trefle (trefle.io)</translation>
         </message>
         <message>
-            <location filename="../../ui/dialogs/preferences_dialog.py" line="427" />
+            <location filename="../../ui/dialogs/preferences_dialog.py" line="425" />
             <source>Ultra</source>
             <translation>Ультра</translation>
         </message>
         <message>
-            <location filename="../../ui/dialogs/preferences_dialog.py" line="268" />
+            <location filename="../../ui/dialogs/preferences_dialog.py" line="266" />
             <source>Units</source>
             <translation>Единицы измерения</translation>
         </message>
         <message>
-            <location filename="../../ui/dialogs/preferences_dialog.py" line="215" />
+            <location filename="../../ui/dialogs/preferences_dialog.py" line="213" />
             <source>Used for Load Satellite Background. The key is stored only in your local user settings and is never included in plans or the installer.</source>
             <translation>Используется для загрузки спутникового фона. Ключ хранится только в ваших локальных пользовательских настройках и никогда не включается в планы или установщик.</translation>
         </message>
         <message>
-            <location filename="../../ui/dialogs/preferences_dialog.py" line="589" />
+            <location filename="../../ui/dialogs/preferences_dialog.py" line="586" />
             <source>Using OGP_GOOGLE_MAPS_KEY from environment</source>
             <translation>Используется OGP_GOOGLE_MAPS_KEY из переменных окружения</translation>
         </message>
         <message>
-            <location filename="../../ui/dialogs/preferences_dialog.py" line="303" />
+            <location filename="../../ui/dialogs/preferences_dialog.py" line="301" />
             <source>Volume:</source>
             <translation>Объём:</translation>
         </message>
         <message>
-            <location filename="../../ui/dialogs/preferences_dialog.py" line="112" />
-            <location filename="../../ui/dialogs/preferences_dialog.py" line="227" />
+            <location filename="../../ui/dialogs/preferences_dialog.py" line="110" />
+            <location filename="../../ui/dialogs/preferences_dialog.py" line="225" />
             <source>Weather</source>
             <translation>Погода</translation>
         </message>
@@ -14828,7 +14832,7 @@ The inventory is yours, not a plan's: every plan you open shows the same packets
     <context>
         <name>SuccessionBadgeItem</name>
         <message>
-            <location filename="../../ui/canvas/items/garden_item.py" line="243" />
+            <location filename="../../ui/canvas/items/garden_item.py" line="258" />
             <source>+{count} more</source>
             <translation>ещё {count}</translation>
         </message>
@@ -15056,7 +15060,7 @@ The inventory is yours, not a plan's: every plan you open shows the same packets
     <context>
         <name>SunHeatmapController</name>
         <message>
-            <location filename="../../ui/canvas/sun_heatmap.py" line="894" />
+            <location filename="../../ui/canvas/sun_heatmap.py" line="905" />
             <location filename="../../ui/canvas/sun_legend.py" line="94" />
             <source>{n} h</source>
             <translation>{n} ч</translation>
@@ -15452,103 +15456,103 @@ The inventory is yours, not a plan's: every plan you open shows the same packets
     <context>
         <name>TasksView</name>
         <message>
-            <location filename="../../ui/views/tasks_view.py" line="405" />
+            <location filename="../../ui/views/tasks_view.py" line="412" />
             <source>1 day</source>
             <translation>1 день</translation>
         </message>
         <message>
-            <location filename="../../ui/views/tasks_view.py" line="406" />
+            <location filename="../../ui/views/tasks_view.py" line="413" />
             <source>1 week</source>
             <translation>1 неделя</translation>
         </message>
         <message>
-            <location filename="../../ui/views/tasks_view.py" line="407" />
+            <location filename="../../ui/views/tasks_view.py" line="414" />
             <source>2 weeks</source>
             <translation>2 недели</translation>
         </message>
         <message>
-            <location filename="../../ui/views/tasks_view.py" line="127" />
+            <location filename="../../ui/views/tasks_view.py" line="131" />
             <source>Add Task</source>
             <translation>Добавить задачу</translation>
         </message>
         <message>
-            <location filename="../../ui/views/tasks_view.py" line="365" />
+            <location filename="../../ui/views/tasks_view.py" line="372" />
             <source>Delete</source>
             <translation>Удалить</translation>
         </message>
         <message>
-            <location filename="../../ui/views/tasks_view.py" line="368" />
+            <location filename="../../ui/views/tasks_view.py" line="375" />
             <source>Dismiss</source>
             <translation>Убрать</translation>
         </message>
         <message>
-            <location filename="../../ui/views/tasks_view.py" line="215" />
-            <location filename="../../ui/views/tasks_view.py" line="356" />
+            <location filename="../../ui/views/tasks_view.py" line="222" />
+            <location filename="../../ui/views/tasks_view.py" line="363" />
             <source>Done</source>
             <translation>Выполнено</translation>
         </message>
         <message>
-            <location filename="../../ui/views/tasks_view.py" line="363" />
+            <location filename="../../ui/views/tasks_view.py" line="370" />
             <source>Edit</source>
             <translation>Редактировать</translation>
         </message>
         <message>
-            <location filename="../../ui/views/tasks_view.py" line="201" />
+            <location filename="../../ui/views/tasks_view.py" line="208" />
             <source>No date</source>
             <translation>Без даты</translation>
         </message>
         <message>
-            <location filename="../../ui/views/tasks_view.py" line="221" />
+            <location filename="../../ui/views/tasks_view.py" line="228" />
             <source>No tasks — you're all caught up.</source>
             <translation>Нет задач — вы ничего не пропустили.</translation>
         </message>
         <message>
-            <location filename="../../ui/views/tasks_view.py" line="197" />
+            <location filename="../../ui/views/tasks_view.py" line="204" />
             <source>Overdue</source>
             <translation>Просрочено</translation>
         </message>
         <message>
-            <location filename="../../ui/views/tasks_view.py" line="373" />
+            <location filename="../../ui/views/tasks_view.py" line="380" />
             <source>Reopen</source>
             <translation>переоткрыть</translation>
         </message>
         <message>
-            <location filename="../../ui/views/tasks_view.py" line="327" />
+            <location filename="../../ui/views/tasks_view.py" line="334" />
             <source>Show on canvas</source>
             <translation>Показать на плане</translation>
         </message>
         <message>
-            <location filename="../../ui/views/tasks_view.py" line="359" />
+            <location filename="../../ui/views/tasks_view.py" line="366" />
             <source>Snooze</source>
             <translation>Отложить</translation>
         </message>
         <message>
-            <location filename="../../ui/views/tasks_view.py" line="211" />
+            <location filename="../../ui/views/tasks_view.py" line="218" />
             <source>Snoozed</source>
             <translation>Отложено</translation>
         </message>
         <message>
-            <location filename="../../ui/views/tasks_view.py" line="123" />
+            <location filename="../../ui/views/tasks_view.py" line="127" />
             <source>Tasks</source>
             <translation>Задачи</translation>
         </message>
         <message>
-            <location filename="../../ui/views/tasks_view.py" line="199" />
+            <location filename="../../ui/views/tasks_view.py" line="206" />
             <source>This Week</source>
             <translation>На этой неделе</translation>
         </message>
         <message>
-            <location filename="../../ui/views/tasks_view.py" line="198" />
+            <location filename="../../ui/views/tasks_view.py" line="205" />
             <source>Today</source>
             <translation>Сегодня</translation>
         </message>
         <message>
-            <location filename="../../ui/views/tasks_view.py" line="353" />
+            <location filename="../../ui/views/tasks_view.py" line="360" />
             <source>Un-snooze</source>
             <translation>Снять с отложенного</translation>
         </message>
         <message>
-            <location filename="../../ui/views/tasks_view.py" line="200" />
+            <location filename="../../ui/views/tasks_view.py" line="207" />
             <source>Upcoming</source>
             <translation>Предстоящие</translation>
         </message>
@@ -16277,184 +16281,184 @@ Open Garden Planner закроется, когда начнётся устано
     <context>
         <name>View3DInfoCard</name>
         <message>
-            <location filename="../../ui/view3d/info_card.py" line="453" />
+            <location filename="../../ui/view3d/info_card.py" line="452" />
             <source>Area:</source>
             <translation>Площадь:</translation>
         </message>
         <message>
-            <location filename="../../ui/view3d/info_card.py" line="355" />
+            <location filename="../../ui/view3d/info_card.py" line="354" />
             <source>Bed:</source>
             <translation>Грядка:</translation>
         </message>
         <message>
-            <location filename="../../ui/view3d/info_card.py" line="435" />
+            <location filename="../../ui/view3d/info_card.py" line="434" />
             <source>Canopy diameter:</source>
             <translation>Диаметр кроны:</translation>
         </message>
         <message>
-            <location filename="../../ui/view3d/info_card.py" line="246" />
+            <location filename="../../ui/view3d/info_card.py" line="245" />
             <source>Centre the plan on this object</source>
             <translation>Центрировать план на этом объекте</translation>
         </message>
         <message>
-            <location filename="../../ui/view3d/info_card.py" line="445" />
+            <location filename="../../ui/view3d/info_card.py" line="444" />
             <source>Diameter:</source>
             <translation>Диаметр:</translation>
         </message>
         <message>
-            <location filename="../../ui/view3d/info_card.py" line="463" />
+            <location filename="../../ui/view3d/info_card.py" line="462" />
             <source>Drawn on the ground in 3D: the plan gives it no height.</source>
             <translation>Отрисовано на грунте в 3D: на плане не указана высота.</translation>
         </message>
         <message>
-            <location filename="../../ui/view3d/info_card.py" line="387" />
+            <location filename="../../ui/view3d/info_card.py" line="386" />
             <source>Group</source>
             <translation>Группа</translation>
         </message>
         <message>
-            <location filename="../../ui/view3d/info_card.py" line="437" />
+            <location filename="../../ui/view3d/info_card.py" line="436" />
             <source>Growth:</source>
             <translation>Рост:</translation>
         </message>
         <message>
-            <location filename="../../ui/view3d/info_card.py" line="371" />
+            <location filename="../../ui/view3d/info_card.py" line="370" />
             <source>Harvest:</source>
             <translation>Сбор урожая:</translation>
         </message>
         <message>
-            <location filename="../../ui/view3d/info_card.py" line="410" />
-            <location filename="../../ui/view3d/info_card.py" line="412" />
-            <location filename="../../ui/view3d/info_card.py" line="417" />
+            <location filename="../../ui/view3d/info_card.py" line="409" />
+            <location filename="../../ui/view3d/info_card.py" line="411" />
+            <location filename="../../ui/view3d/info_card.py" line="416" />
             <source>Height:</source>
             <translation>Высота:</translation>
         </message>
         <message>
-            <location filename="../../ui/view3d/info_card.py" line="447" />
+            <location filename="../../ui/view3d/info_card.py" line="446" />
             <source>Length:</source>
             <translation>Длина:</translation>
         </message>
         <message>
-            <location filename="../../ui/view3d/info_card.py" line="462" />
+            <location filename="../../ui/view3d/info_card.py" line="461" />
             <source>Not shown in 3D: this kind of object has no 3D form.</source>
             <translation>Не отображается в 3D: данный тип объекта не имеет 3D-формы.</translation>
         </message>
         <message>
-            <location filename="../../ui/view3d/info_card.py" line="460" />
+            <location filename="../../ui/view3d/info_card.py" line="459" />
             <source>Not shown in 3D: {reason}.</source>
             <translation>Не отображается в 3D: {reason}.</translation>
         </message>
         <message>
-            <location filename="../../ui/view3d/info_card.py" line="388" />
+            <location filename="../../ui/view3d/info_card.py" line="387" />
             <source>Object</source>
             <translation>Объект</translation>
         </message>
         <message>
-            <location filename="../../ui/view3d/info_card.py" line="402" />
+            <location filename="../../ui/view3d/info_card.py" line="401" />
             <source>Scientific name:</source>
             <translation>Ботаническое название:</translation>
         </message>
         <message>
-            <location filename="../../ui/view3d/info_card.py" line="245" />
+            <location filename="../../ui/view3d/info_card.py" line="244" />
             <source>Show in Plan</source>
             <translation>Показать на плане</translation>
         </message>
         <message>
-            <location filename="../../ui/view3d/info_card.py" line="450" />
+            <location filename="../../ui/view3d/info_card.py" line="449" />
             <source>Size:</source>
             <translation>Размер:</translation>
         </message>
         <message>
-            <location filename="../../ui/view3d/info_card.py" line="357" />
+            <location filename="../../ui/view3d/info_card.py" line="356" />
             <source>Sizes on:</source>
             <translation>Размеры на:</translation>
         </message>
         <message>
-            <location filename="../../ui/view3d/info_card.py" line="370" />
+            <location filename="../../ui/view3d/info_card.py" line="369" />
             <source>Sow indoors:</source>
             <translation>Посев на рассаду:</translation>
         </message>
         <message>
-            <location filename="../../ui/view3d/info_card.py" line="370" />
+            <location filename="../../ui/view3d/info_card.py" line="369" />
             <source>Sow outdoors:</source>
             <translation>Посев в грунт:</translation>
         </message>
         <message>
-            <location filename="../../ui/view3d/info_card.py" line="400" />
+            <location filename="../../ui/view3d/info_card.py" line="399" />
             <source>Species:</source>
             <translation>Вид:</translation>
         </message>
         <message>
-            <location filename="../../ui/view3d/info_card.py" line="367" />
+            <location filename="../../ui/view3d/info_card.py" line="366" />
             <source>Sun:</source>
             <translation>Освещение:</translation>
         </message>
         <message>
-            <location filename="../../ui/view3d/info_card.py" line="343" />
+            <location filename="../../ui/view3d/info_card.py" line="342" />
             <source>Type:</source>
             <translation>Тип:</translation>
         </message>
         <message>
-            <location filename="../../ui/view3d/info_card.py" line="423" />
+            <location filename="../../ui/view3d/info_card.py" line="422" />
             <source>as measured</source>
             <translation>по замеру</translation>
         </message>
         <message>
-            <location filename="../../ui/view3d/info_card.py" line="426" />
+            <location filename="../../ui/view3d/info_card.py" line="425" />
             <source>fill height</source>
             <translation>высота заполнения</translation>
         </message>
         <message>
-            <location filename="../../ui/view3d/info_card.py" line="422" />
+            <location filename="../../ui/view3d/info_card.py" line="421" />
             <source>grown to the plan date</source>
             <translation>с учётом роста на дату плана</translation>
         </message>
         <message>
-            <location filename="../../ui/view3d/info_card.py" line="412" />
+            <location filename="../../ui/view3d/info_card.py" line="411" />
             <source>not known</source>
             <translation>неизвестно</translation>
         </message>
         <message>
-            <location filename="../../ui/view3d/info_card.py" line="425" />
+            <location filename="../../ui/view3d/info_card.py" line="424" />
             <source>set on the object</source>
             <translation>задано у объекта</translation>
         </message>
         <message>
-            <location filename="../../ui/view3d/info_card.py" line="424" />
+            <location filename="../../ui/view3d/info_card.py" line="423" />
             <source>species maximum</source>
             <translation>максимум для вида</translation>
         </message>
         <message>
-            <location filename="../../ui/view3d/info_card.py" line="427" />
+            <location filename="../../ui/view3d/info_card.py" line="426" />
             <source>usual for the type</source>
             <translation>обычно для этого типа</translation>
         </message>
         <message>
-            <location filename="../../ui/view3d/info_card.py" line="410" />
+            <location filename="../../ui/view3d/info_card.py" line="409" />
             <source>{height} (estimated)</source>
             <translation>{height} (расчётно)</translation>
         </message>
         <message>
-            <location filename="../../ui/view3d/info_card.py" line="416" />
+            <location filename="../../ui/view3d/info_card.py" line="415" />
             <source>{height} ({source})</source>
             <translation>{height} ({source})</translation>
         </message>
         <message>
-            <location filename="../../ui/view3d/info_card.py" line="367" />
+            <location filename="../../ui/view3d/info_card.py" line="366" />
             <source>{hours} h on {date} — {band}</source>
             <translation>{hours} ч на {date} — {band}</translation>
         </message>
         <message>
-            <location filename="../../ui/view3d/info_card.py" line="437" />
+            <location filename="../../ui/view3d/info_card.py" line="436" />
             <source>{percent} % of the way to full size</source>
             <translation>{percent} % от взрослого размера</translation>
         </message>
         <message>
-            <location filename="../../ui/view3d/info_card.py" line="373" />
+            <location filename="../../ui/view3d/info_card.py" line="372" />
             <source>{start} – {end}</source>
             <translation>{start} – {end}</translation>
         </message>
         <message>
-            <location filename="../../ui/view3d/info_card.py" line="450" />
+            <location filename="../../ui/view3d/info_card.py" line="449" />
             <source>{width} × {depth}</source>
             <translation>{width} × {depth}</translation>
         </message>
@@ -16592,12 +16596,12 @@ Open Garden Planner закроется, когда начнётся устано
             <translation>Дата</translation>
         </message>
         <message>
-            <location filename="../../ui/widgets/weather_widget.py" line="464" />
+            <location filename="../../ui/widgets/weather_widget.py" line="470" />
             <source>Last updated %1 h ago</source>
             <translation>Обновлено %1 ч назад</translation>
         </message>
         <message>
-            <location filename="../../ui/widgets/weather_widget.py" line="462" />
+            <location filename="../../ui/widgets/weather_widget.py" line="468" />
             <source>Last updated %1 min ago</source>
             <translation>Обновлено %1 мин назад</translation>
         </message>
@@ -16664,7 +16668,7 @@ Use File › Set Garden Location to configure GPS coordinates.</source>
             <translation>Прогноз погоды</translation>
         </message>
         <message>
-            <location filename="../../ui/widgets/weather_widget.py" line="438" />
+            <location filename="../../ui/widgets/weather_widget.py" line="444" />
             <source>Weather forecast unavailable:
 {message}</source>
             <translation>Прогноз погоды недоступен:

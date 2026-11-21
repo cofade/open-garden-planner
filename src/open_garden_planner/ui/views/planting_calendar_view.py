@@ -1277,6 +1277,12 @@ class PlantingCalendarView(QWidget):
         self._refresh_timer.setInterval(_REFRESH_DEBOUNCE_MS)
         self._refresh_timer.timeout.connect(self._on_refresh_timer)
         self._build_ui()
+        units_notifier().profile_changed.connect(self._on_units_profile_changed)
+
+    def _on_units_profile_changed(self, _profile: object) -> None:
+        """Refresh frost-alert dashboard titles when the temperature unit changes (#907)."""
+        if self._plan_state is not None or self._current_frost_alerts:
+            self._rebuild_dashboard()
 
     def set_soil_service(self, service: Any | None) -> None:
         """Inject the SoilService so the dashboard can show soil mismatch cards (US-12.10d)."""

@@ -4889,14 +4889,18 @@ map has a key — over the viewport on the canvas, a scene item in a picture —
 its hour labels are labels of the plan; while a map is shown the time-of-day
 shadows are solved but not painted (`SunShadowController.set_map_shown`: the map
 is translucent, and a shadow of one instant under it reads as fewer hours); the
-shadow's soft edge is a blurred field, not strokes. The map's fill is interpolated
-inside each 10 cm cell (`HEATMAP_UPSAMPLE`, #852) and drawn with nearest sampling:
-at 400 % a cell is a smooth field, not one flat blotch, and a repaint does not
-smooth-scale the whole overlay every time. An hour label keeps a 1.3× clearance when
-its place is chosen, so a fixed-pixel label stays off an object's edge when the plan
-is zoomed out. The sun-mismatch badge paints a light backing under its warning
-triangle (#852): the icon asset stays on the theme's accent sentinel, the sun's
-middle stays transparent, and the backing keeps the warning readable on a green crown.
+shadow's soft edge is a blurred field, not strokes. The map's fill is bilinearly
+interpolated inside each 10 cm cell (`HEATMAP_UPSAMPLE`, #852), uploaded to a
+`QPixmap` (stored premultiplied by Qt) and drawn with smooth scaling
+(`SmoothTransformation`): at 400 % a cell is a smooth field without blotches or
+stair-step blocks, and measured on the family garden at fit zoom the overlay
+itself adds ~0.3 ms (contours and haloed labels account for the rest).
+An hour label keeps a 1.3× clearance when its place is chosen, so a fixed-pixel
+label stays off an object's edge when the plan is zoomed out. The sun-mismatch
+badge paints a theme-contrasting backing (`core.legibility.halo_for` of the
+active theme's accent) under its warning triangle (#852): the icon asset stays
+on the theme's accent sentinel, the sun's middle stays transparent, and the
+backing keeps the warning readable on a green crown in both light and dark themes.
 
 **Threaded canvas-scale computation** (US-E4 heatmap; the pattern for any
 seconds-scale analysis): snapshot plain data on the GUI thread

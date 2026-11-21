@@ -57,7 +57,11 @@ def volume_text(litres: float, system: UnitSystem | None = None) -> str:
 
 
 def temperature_text(
-    celsius: float, system: UnitSystem | None = None, *, decimals: int = 0
+    celsius: float,
+    system: UnitSystem | None = None,
+    *,
+    decimals: int = 0,
+    with_unit: bool = True,
 ) -> str:
     return format_temperature(
         celsius,
@@ -65,11 +69,16 @@ def temperature_text(
         decimals=decimals,
         decimal_mark=current_locale().decimalPoint(),
         number_format=format_decimal,
+        with_unit=with_unit,
     )
 
 
 def precipitation_text(
-    mm: float, system: UnitSystem | None = None, *, decimals: int = 1
+    mm: float,
+    system: UnitSystem | None = None,
+    *,
+    decimals: int = 1,
+    with_unit: bool = True,
 ) -> str:
     return format_precipitation(
         mm,
@@ -77,6 +86,7 @@ def precipitation_text(
         decimals=decimals,
         decimal_mark=current_locale().decimalPoint(),
         number_format=format_decimal,
+        with_unit=with_unit,
     )
 
 

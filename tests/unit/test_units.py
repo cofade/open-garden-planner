@@ -97,10 +97,24 @@ def test_temperature_display(value, system, expected):
         ("68 °F", U.METRIC, 20.0),
         ("68", U.IMPERIAL, 20.0),
         ("-4", U.METRIC, -4.0),
+        ("-4 °F", U.IMPERIAL, -20.0),
+        ("-4 °F", U.METRIC, -20.0),
+        ("-20 °F", U.IMPERIAL, (-20.0 - 32.0) / 1.8),
+        ("-40 °F", U.IMPERIAL, -40.0),
+        ("-0.5", U.IMPERIAL, (-0.5 - 32.0) / 1.8),
+        ("-4", U.IMPERIAL, -20.0),
+        ("+32 °F", U.METRIC, 0.0),
     ],
 )
 def test_temperature_input_returns_celsius(text, system, expected):
     assert parse_temperature(text, system) == pytest.approx(expected)
+
+
+def test_temperature_and_precipitation_without_unit_suffix():
+    assert format_temperature(21.0, U.METRIC, decimals=1, with_unit=False) == "21.0"
+    assert format_temperature(21.0, U.IMPERIAL, decimals=1, with_unit=False) == "69.8"
+    assert format_precipitation(25.4, U.METRIC, with_unit=False) == "25.4"
+    assert format_precipitation(25.4, U.IMPERIAL, with_unit=False) == "1.00"
 
 
 @pytest.mark.parametrize(

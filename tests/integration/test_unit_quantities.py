@@ -2,6 +2,9 @@
 
 from __future__ import annotations
 
+import datetime
+
+import pytest
 from PyQt6.QtCore import Qt
 
 from open_garden_planner.core.unit_preference import (
@@ -57,7 +60,7 @@ def test_canada_preset_reaches_weather_and_germination_in_one_switch(qtbot) -> N
         for column in (2, 3, 4)
     ]
     assert headers == ["Max °C", "Min °C", "Rain mm"]
-    assert widget._table.item(0, 2).text() == "21.0 °C"
+    assert widget._table.item(0, 2).text() == "21.0"
 
     # ... and switching only the weather quantities leaves lengths alone.
     get_unit_preference().set_quantity_system(Quantity.TEMPERATURE, UnitSystem.IMPERIAL)
@@ -68,8 +71,8 @@ def test_canada_preset_reaches_weather_and_germination_in_one_switch(qtbot) -> N
         for column in (2, 3, 4)
     ]
     assert headers == ["Max °F", "Min °F", "Rain in"]
-    assert widget._table.item(0, 2).text() == "69.8 °F"
-    assert widget._table.item(0, 4).text() == "1.00 in"
+    assert widget._table.item(0, 2).text() == "69.8"
+    assert widget._table.item(0, 4).text() == "1.00"
     assert get_unit_preference().profile.system_for(Quantity.LENGTH) == UnitSystem.IMPERIAL
 
     panel = _DetailPanel()
@@ -102,6 +105,25 @@ def test_temperature_field_keeps_celsius_on_a_switch(qtbot) -> None:
     qtbot.keyClicks(field, "68 °F")
     qtbot.keyClick(field, Qt.Key.Key_Return)
     assert field.value() == 20.0
+
+    # Negative Fahrenheit must stay negative in Celsius (#907 review P0).
+    field.lineEdit().selectAll()
+    qtbot.keyClicks(field, "-4 °F")
+    qtbot.keyClick(field, Qt.Key.Key_Return)
+    assert field.value() == pytest.approx(-20.0)
+
+    field.lineEdit().selectAll()
+    qtbot.keyClicks(field, "-20 °F")
+    qtbot.keyClick(field, Qt.Key.Key_Return)
+    assert field.value() == pytest.approx((-20.0 - 32.0) / 1.8)
+
+    # Explicit °F entry also works while the field is displaying Metric (°C).
+    get_unit_preference().set_quantity_system(Quantity.TEMPERATURE, UnitSystem.METRIC)
+    field.lineEdit().selectAll()
+    qtbot.keyClicks(field, "68 °F")
+    qtbot.keyClick(field, Qt.Key.Key_Return)
+    assert field.value() == pytest.approx(20.0)
+    assert field.text() == "20.0 °C"
 
 
 def test_the_harvest_entry_offers_the_mass_profiles_unit(qtbot) -> None:
@@ -140,3 +162,85 @@ def test_harvest_mass_units_stay_explicit_and_do_not_mix_totals(qtbot) -> None:
         ("kg", 1.0),
         ("lb", 2.0),
     }
+
+
+def test_calendar_dashboard_frost_row_updates_on_live_temperature_switch(qtbot) -> None:
+    """#907: PlantingCalendarView subscribes to profile_changed so Today's Tasks
+    frost-alert titles switch between °C and °F without reopening the plan."""
+    from open_garden_planner.core.object_types import ObjectType
+    from open_garden_planner.core.project import ProjectManager
+    from open_garden_planner.services.weather_service import FrostAlert
+    from open_garden_planner.ui.canvas.canvas_scene import CanvasScene
+    from open_garden_planner.ui.canvas.items.circle_item import CircleItem
+    from open_garden_planner.ui.views.planting_calendar_view import PlantingCalendarView
+
+    get_unit_preference().set_profile(UnitProfile.all(UnitSystem.METRIC))
+    scene = CanvasScene(1000.0, 1000.0)
+    plant = CircleItem(200.0, 200.0, 30.0, object_type=ObjectType.PERENNIAL)
+    plant.name = "Tomato"
+    scene.addItem(plant)
+    pm = ProjectManager()
+    view = PlantingCalendarView(scene, pm)
+    qtbot.addWidget(view)
+
+    tomorrow = (datetime.date.today() + datetime.timedelta(days=1)).isoformat()
+    view._current_frost_alerts = [
+        FrostAlert(
+            date=tomorrow,
+            min_temp=-1.0,
+            severity="red",
+            affected_plant_ids=[str(plant.item_id)],
+        )
+    ]
+    view._rebuild_dashboard()
+    assert any("-1.0 °C" in t.display_name for t in view._current_dashboard_tasks)
+
+    get_unit_preference().set_quantity_system(Quantity.TEMPERATURE, UnitSystem.IMPERIAL)
+    qtbot.wait(1)
+    assert any("30.2 °F" in t.display_name for t in view._current_dashboard_tasks)
+    get_unit_preference().set_profile(UnitProfile.all(UnitSystem.METRIC))
+
+
+def test_area_only_custom_switch_refreshes_scene_info_card_and_status_bar(qtbot) -> None:
+    """#907: switching ONLY Quantity.AREA (leaving length metric) must refresh
+    CanvasScene, View3DInfoCard and GardenPlannerApp's selection status bar."""
+    from open_garden_planner.app.application import GardenPlannerApp
+    from open_garden_planner.core.object_types import ObjectType
+    from open_garden_planner.core.scene3d import Material, Params, Record, Transform
+    from open_garden_planner.ui.canvas.items.rectangle_item import RectangleItem
+    from open_garden_planner.ui.view3d.info_card import CardSubject, View3DInfoCard
+
+    get_unit_preference().set_profile(UnitProfile.all(UnitSystem.METRIC))
+    win = GardenPlannerApp()
+    qtbot.addWidget(win)
+
+    bed = RectangleItem(100.0, 100.0, 200.0, 100.0, object_type=ObjectType.GARDEN_BED)
+    bed.name = "Bed 1"
+    win.canvas_scene.addItem(bed)
+    bed.setSelected(True)
+    win.update_selection(1, [bed])
+    assert "m²" in win.selection_label.text()
+
+    card = View3DInfoCard()
+    qtbot.addWidget(card)
+    ring = ((0.0, 0.0), (200.0, 0.0), (200.0, 100.0), (0.0, 100.0))
+    rec = Record(
+        item_id=str(bed.item_id),
+        kind="GARDEN_BED",
+        shape="polygon",
+        footprints=(ring,),
+        transform=Transform(100.0, 100.0, 0.0, 0.0),
+        material=Material("GARDEN_BED"),
+        height_cm=25.0,
+        params=Params({"seed": str(bed.item_id)}),
+    )
+    card.show_subject(CardSubject(item=bed, record=rec, has_model=True))
+    assert "m²" in card._body.text()
+
+    rev_before = win.canvas_scene._paint_revision
+    get_unit_preference().set_quantity_system(Quantity.AREA, UnitSystem.IMPERIAL)
+    qtbot.wait(1)
+    assert win.canvas_scene._paint_revision > rev_before
+    assert "ft²" in win.selection_label.text()
+    assert "ft²" in card._body.text()
+    get_unit_preference().set_profile(UnitProfile.all(UnitSystem.METRIC))

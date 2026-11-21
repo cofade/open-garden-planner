@@ -678,6 +678,29 @@ def caster_transmittance(
     return 0.0
 
 
+def _caster_shadow_length(
+    height_cm: float,
+    elevation_deg: float,
+    azimuth_deg: float,
+    frame: OpenFrame | None = None,
+) -> float | None:
+    """Swept prism length for one caster, trimming open frames to their far tip (#855).
+
+    Shared by ``compute_grouped_shadows`` and ``compute_weighted_shadows`` so
+    ground-level and elevated receivers always sweep identical open-frame geometry.
+    An open frame with no members (for instance after slicing above a raised bed)
+    casts no shadow and returns ``None``.
+    """
+    length = shadow_length_cm(height_cm, elevation_deg)
+    if length is None:
+        return None
+    if frame is not None:
+        if not frame.triangles:
+            return None
+        return open_frame_effective_length(frame, height_cm, elevation_deg, azimuth_deg)
+    return length
+
+
 def compute_grouped_shadows(
     casters: Iterable[GroupedCaster | tuple[Sequence[Sequence[Point]], float]],
     elevation_deg: float,
@@ -693,6 +716,9 @@ def compute_grouped_shadows(
     ``(footprints, height_cm)`` pair stands on the ground. By TYPE, never by
     length (``caster_fields``). When ``roof_triangles`` is present on a
     ``GroupedCaster``, its 3D structural triangles are projected directly (#440).
+    When ``frame`` is present, its swept length is trimmed via
+    ``open_frame_effective_length`` (#855) so elevated receivers match
+    ``compute_weighted_shadows``.
     """
     direction = shadow_direction_scene(azimuth_deg)
     all_paths: list[list[tuple[int, int]]] = []
@@ -705,13 +731,14 @@ def compute_grouped_shadows(
             height = caster.height_cm
             base = caster.base_cm
             roof_tris = caster.roof_triangles
+            frame = caster.frame
         elif type(caster) is tuple and len(caster) == 2:
-            footprints, height, base, roof_tris = caster[0], caster[1], 0.0, ()
+            footprints, height, base, roof_tris, frame = caster[0], caster[1], 0.0, (), None
         else:
             raise TypeError(
                 "a grouped caster is a GroupedCaster or a (footprints, height_cm) tuple, "
                 f"not {type(caster).__name__}")
-        length = shadow_length_cm(height, elevation_deg)
+        length = _caster_shadow_length(height, elevation_deg, azimuth_deg, frame)
         paths: list[list[tuple[int, int]]] = []
         if length is not None:
             if roof_tris:
@@ -796,13 +823,7 @@ def compute_weighted_shadows(
             eff_height = top - max(base, receiver_elev_cm)
             # #855: an open frame's prism ends at its own topmost member's shadow,
             # not at height/tan a (a swing's beam is mid-frame).
-            length = (
-                open_frame_effective_length(
-                    frame, eff_height, elevation_deg, azimuth_deg
-                )
-                if frame is not None
-                else shadow_length_cm(eff_height, elevation_deg)
-            )
+            length = _caster_shadow_length(eff_height, elevation_deg, azimuth_deg, frame)
             if length is not None:
                 start = base_offset_cm(eff_base, elevation_deg)
                 for footprint in footprints:

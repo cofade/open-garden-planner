@@ -134,6 +134,11 @@ class TestTheShadowLiesOnTheLawn:
         controller.set_enabled(True)
         controller.set_sim_datetime(JUNE_NOON_UTC)
         after = _render(scene)
+        # Verify the shed's shadow actually darkened the lawn right beside the crown
+        # (tree is centred at (235, 190) r=30 -> north edge at y=220; shed shadow
+        # reaches ~y=280 at x=255), so a no-op shadow controller cannot pass.
+        shaded = _patch(before, (255.0, 240.0)) - _patch(after, (255.0, 240.0))
+        assert shaded.sum() > 60.0, f"the shadow is not on the lawn ({shaded})"
         crown = np.abs(_patch(before, (235.0, 190.0), 4) - _patch(after, (235.0, 190.0), 4))
         assert crown.max() < 1.0, f"the shadow tinted the crown: {crown}"
 

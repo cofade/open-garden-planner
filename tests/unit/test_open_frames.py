@@ -770,14 +770,47 @@ def test_the_weighted_sweep_holds_every_owner_s_shadow_as_the_grouped_sweep_make
         weighted = compute_weighted_shadows([*casters, clear], elevation, azimuth)
         assert grouped is not None and weighted is not None
         union, owned = grouped
-        # The non-frame owners are unchanged; the frame's own shadow is the TRIMMED
-        # prism (#855), so it can only be smaller than the grouped sweep's.
-        assert [polygons for polygons, _through in weighted.owned_shadows[:5]] == owned[:5]
+        # Both sweeps share _caster_shadow_length so every owner — including open
+        # frames (#855) — matches identically between grouped and weighted sweeps.
+        assert [polygons for polygons, _through in weighted.owned_shadows[:-1]] == owned
         assert weighted.owned_shadows[-2][0]  # the frame still casts its weighted shade
         assert weighted.owned_shadows[-1] == ([], 1.0)
-        assert sum(len(p) for p in weighted.union_polygons) > 0
-        # the frame's trim never adds ground the solid sweep did not have
-        assert _area_of(weighted.union_polygons) <= _area_of(union) + 1.0
+        assert weighted.union_polygons == union
+
+
+def test_elevated_receiver_in_swing_overhang_band_sees_trimmed_frame() -> None:
+    """#855: elevated receivers (e.g. plant in a raised bed) sweep via
+    ``compute_grouped_shadows`` and must trim open frames just like ground sweeps,
+    so a plant in the 71 cm overhang band past a swing's beam stays unshaded."""
+    from open_garden_planner.core.shade_aggregation import _slice_frame_for_elevation
+    from open_garden_planner.core.shadow_geometry import (
+        compute_grouped_shadows,
+        shadow_length_cm,
+    )
+
+    # Swing 200x150 cm centred at (500, 500), 220 cm tall, receiver on a 50 cm bed
+    ring = tuple((x + 500.0, y + 500.0) for x, y in _rect(200.0, 150.0))
+    frame = _frame("SWING", (200.0, 150.0), 0.0)
+    elev_cm = 50.0
+    eff_height = 220.0 - elev_cm
+    sliced = _slice_frame_for_elevation(frame, 0.0, elev_cm)
+    assert sliced is not None
+    caster = GroupedCaster((ring,), eff_height, 0.0, frame=sliced)
+
+    elevation_deg = 35.0
+    azimuth_deg = 180.0
+    grouped = compute_grouped_shadows([caster], elevation_deg, azimuth_deg)
+    weighted = compute_weighted_shadows([caster], elevation_deg, azimuth_deg)
+    assert grouped is not None and weighted is not None
+    assert grouped[1] == [polygons for polygons, _ in weighted.owned_shadows]
+
+    # Far reach of trimmed shadow is strictly shorter than untrimmed footprint + h/tan(a)
+    untrimmed_far_y = 500.0 + 75.0 + float(shadow_length_cm(eff_height, elevation_deg))
+    trimmed_far_y = max(y for poly in grouped[0] for _x, y in poly)
+    assert untrimmed_far_y - trimmed_far_y > 60.0, (
+        f"expected ~71 cm overhang trimmed off (untrimmed={untrimmed_far_y:.1f}, "
+        f"trimmed={trimmed_far_y:.1f})"
+    )
 
 
 def test_which_boxes_meet_another() -> None:

@@ -53,7 +53,7 @@ from open_garden_planner.core.plant_renderer import is_plant_type
 from open_garden_planner.core.solar import plan_place
 from open_garden_planner.core.tools import ToolType
 from open_garden_planner.core.unit_preference import get_unit_preference
-from open_garden_planner.core.units import LengthStyle, UnitSystem
+from open_garden_planner.core.units import LengthStyle
 from open_garden_planner.services.companion_planting_service import (
     ANTAGONISTIC,
     BENEFICIAL,
@@ -1950,7 +1950,7 @@ class GardenPlannerApp(QMainWindow):
         status_bar.addPermanentWidget(self._coord_icon)
         self.coord_label = QLabel()
         self.update_coordinates(0.0, 0.0)
-        units_notifier().changed.connect(self._on_unit_system_changed)
+        units_notifier().profile_changed.connect(self._on_unit_system_changed)
         status_bar.addPermanentWidget(self.coord_label)
 
         # Typed coordinate input (Package A US-A1/A2). Wired up after
@@ -6038,7 +6038,7 @@ class GardenPlannerApp(QMainWindow):
         from open_garden_planner.config.settings import get_settings
         get_unit_preference().set_profile(get_settings().unit_profile)
 
-    def _on_unit_system_changed(self, _system: UnitSystem) -> None:
+    def _on_unit_system_changed(self, _profile: object) -> None:
         self.update_coordinates(*self._last_cursor_cm)
         selected = self.canvas_scene.selectedItems()
         self.update_selection(len(selected), selected)

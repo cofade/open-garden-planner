@@ -196,6 +196,7 @@ def format_temperature(
     decimals: int = 0,
     decimal_mark: str = ".",
     number_format: Callable[[float, int], str] | None = None,
+    with_unit: bool = True,
 ) -> str:
     """A temperature in the reader's unit; the stored value is always Celsius (#907)."""
     if system == UnitSystem.IMPERIAL:
@@ -206,7 +207,8 @@ def format_temperature(
         unit = "°C"
     if abs(value) < 0.5 * 10 ** (-decimals):
         value = 0.0  # never show "-0" for a value that rounds to zero
-    return f"{_fixed(value, decimals, number_format)} {unit}".replace(".", decimal_mark)
+    number = _fixed(value, decimals, number_format).replace(".", decimal_mark)
+    return f"{number} {unit}" if with_unit else number
 
 
 def format_precipitation(
@@ -216,6 +218,7 @@ def format_precipitation(
     decimals: int = 1,
     decimal_mark: str = ".",
     number_format: Callable[[float, int], str] | None = None,
+    with_unit: bool = True,
 ) -> str:
     """Rainfall or snow-water equivalent; the stored value is always millimetres (#907).
 
@@ -229,7 +232,8 @@ def format_precipitation(
     else:
         value = mm
         unit = "mm"
-    return f"{_fixed(value, decimals, number_format)} {unit}".replace(".", decimal_mark)
+    number = _fixed(value, decimals, number_format).replace(".", decimal_mark)
+    return f"{number} {unit}" if with_unit else number
 
 
 def format_mass(
@@ -364,7 +368,7 @@ def parse_temperature(text: str, system: UnitSystem = UnitSystem.METRIC) -> floa
     if not match:
         raise ValueError("invalid temperature")
     sign, amount, unit = match.groups()
-    number = _amount(amount)
+    number = -_amount(amount) if sign == "-" else _amount(amount)
     unit = (unit or ("°f" if system == UnitSystem.IMPERIAL else "°c")).lower().replace(" ", "")
     if unit in ("°f", "f", "fahrenheit"):
         value = (number - FAHRENHEIT_OFFSET) / FAHRENHEIT_SCALE
@@ -372,7 +376,6 @@ def parse_temperature(text: str, system: UnitSystem = UnitSystem.METRIC) -> floa
         value = number
     else:  # pragma: no cover - the regex only accepts the two families
         raise ValueError("invalid temperature unit")
-    value = -value if sign == "-" else value
     if not math.isfinite(value):
         raise ValueError("non-finite temperature")
     return value

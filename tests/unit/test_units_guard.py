@@ -6,7 +6,6 @@ from pathlib import Path
 
 ROOT = Path("src/open_garden_planner")
 ALLOWLIST = {
-    "ui/widgets/weather_widget.py": "Precipitation stays in mm; separate quantity follow-up.",
     "services/svg_export.py": "SVG XML width/height physical-unit syntax, independent of display preference (FR-EXP-02).",
 }
 UNIT = r"(?:cm²|m²|cm|mm|km|m|L)\b"

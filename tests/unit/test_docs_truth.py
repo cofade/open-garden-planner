@@ -114,9 +114,9 @@ def test_the_website_catalog_docs_name_every_shipped_site_locale() -> None:
             encoding="utf-8"
         )
     )
-    for document in (
-        "docs/05-building-block-view/README.md",
-        "docs/07-deployment-view/README.md",
+    for document, needle in (
+        ("docs/05-building-block-view/README.md", "website controls"),
+        ("docs/07-deployment-view/README.md", "messages.json"),
     ):
-        sentence = _sentence_around(_text(document), "catalogs")
+        sentence = _sentence_around(_text(document), needle)
         assert _backticked_codes(sentence) == set(catalogs), document

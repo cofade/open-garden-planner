@@ -401,13 +401,19 @@ class WeatherWidget(QFrame):
                 condition_item.setIcon(condition_icon)
             self._table.setItem(row, 1, condition_item)
             self._table.setItem(
-                row, 2, QTableWidgetItem(temperature_text(day.max_c, decimals=1))
+                row,
+                2,
+                QTableWidgetItem(temperature_text(day.max_c, decimals=1, with_unit=False)),
             )
             self._table.setItem(
-                row, 3, QTableWidgetItem(temperature_text(day.min_c, decimals=1))
+                row,
+                3,
+                QTableWidgetItem(temperature_text(day.min_c, decimals=1, with_unit=False)),
             )
             self._table.setItem(
-                row, 4, QTableWidgetItem(precipitation_text(day.precipitation_mm))
+                row,
+                4,
+                QTableWidgetItem(precipitation_text(day.precipitation_mm, with_unit=False)),
             )
         self._table.setVisible(self._expanded)
 

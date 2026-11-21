@@ -232,6 +232,52 @@ class TemperatureSpinBox(_UnitSpinBox):
     def _parse_imperial(self, text: str) -> float:
         return parse_temperature(text, UnitSystem.IMPERIAL)
 
+    def _metric_temperature_text(self, text: str) -> str:
+        number = self._number_text(text)
+        suffix = self.suffix().strip()
+        if suffix and number.endswith(suffix):
+            stripped = number[: -len(suffix)].strip()
+            if stripped:
+                return stripped
+        return number
+
+    def valueFromText(self, text: str | None) -> float:
+        if self._system == UnitSystem.METRIC:
+            rendered = self.prefix() + super().textFromValue(super().value()) + self.suffix()
+            if text == rendered:
+                return self._exact
+            number = self._metric_temperature_text(text or "")
+            try:
+                return parse_temperature(number, UnitSystem.METRIC)
+            except ValueError:
+                return super().valueFromText(text)
+        return super().valueFromText(text)
+
+    def validate(self, text: str | None, pos: int) -> tuple[QValidator.State, str, int]:
+        if self._system == UnitSystem.METRIC:
+            state, out, out_pos = super().validate(text, pos)
+            if state == QValidator.State.Acceptable:
+                return state, out, out_pos
+            raw = text or ""
+            if self.specialValueText() and raw == self.specialValueText():
+                return QValidator.State.Acceptable, raw, pos
+            number = self._metric_temperature_text(raw)
+            try:
+                value = parse_temperature(number, UnitSystem.METRIC)
+                new_state = (
+                    QValidator.State.Acceptable
+                    if self.minimum() <= value <= self.maximum()
+                    else QValidator.State.Intermediate
+                )
+            except ValueError:
+                new_state = (
+                    QValidator.State.Intermediate
+                    if re.fullmatch(r"[\s\d.,+\-a-zA-Z°]*", number)
+                    else QValidator.State.Invalid
+                )
+            return new_state, raw, pos
+        return super().validate(text, pos)
+
     def stepBy(self, steps: int) -> None:
         if self._system == UnitSystem.METRIC:
             super().stepBy(steps)
