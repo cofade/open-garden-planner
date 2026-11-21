@@ -385,7 +385,11 @@ def _beyond(soak: dict[str, Any], curve: str) -> str:
 
 
 def _soak(scratch: Path, variant: str, **options: Any) -> dict[str, Any]:
-    run = _clean(run_gate(scratch, "soak", variant=variant, reloads=RELOADS, **options))
+    # #667: a fixed QHash seed makes the QTBUG-151940 leak share repeatable. It is
+    # the GATE's own environment only; the shipped app keeps Qt's random seed.
+    run = _clean(
+        run_gate(scratch, "soak", variant=variant, reloads=RELOADS, hash_seed=0, **options)
+    )
     step = run.step("soak")
     keys = ("variant", "frames", "grabs", "release", "ground", "ground_baker", "ground_tiles",
             "ground_tile_px", "ground_texture_mb", "reloads", "start_mb", "curve_mb",

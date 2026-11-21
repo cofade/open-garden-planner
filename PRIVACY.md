@@ -1,6 +1,6 @@
 # Privacy statement - Open Garden Planner
 
-Last updated: 7 November 2026
+Last updated: 21 November 2026
 
 **Open Garden Planner itself sends nothing to its developer.** It has no account, no
 telemetry, no analytics, no advertising and no crash reporting of its own. Your plans,
@@ -63,8 +63,10 @@ provider's privacy terms, not by Open Garden Planner.
 The *Connect AI Assistant* dialog runs the command-line tools of the assistants it finds on
 your computer to detect them. Connecting one runs that tool or writes Open Garden Planner's
 local address - with the access token, if AI editing is on - into that assistant's
-configuration file; those entries stay when you uninstall Open Garden Planner. You can turn
-the Agent API off in the preferences.
+configuration file; those entries stay when you uninstall Open Garden Planner. **Claude
+Desktop is only detected and is never written to**: it cannot reach a local server, so the
+dialog offers no connection for it and no Claude Desktop file is created or changed. You can
+turn the Agent API off in the preferences.
 
 ## Questions and changes
 

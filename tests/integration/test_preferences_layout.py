@@ -9,7 +9,6 @@ from PyQt6.QtWidgets import (
     QComboBox,
     QLineEdit,
     QPushButton,
-    QScrollArea,
     QWidget,
 )
 
@@ -39,6 +38,34 @@ def test_a_parented_dialog_sizes_from_the_parent_screen(qtbot) -> None:
     qtbot.waitExposed(dialog)
     assert dialog.height() >= dialog.minimumHeight()
     assert all(control.height() > 0 for control in _visible_controls(dialog))
+
+
+def test_preferences_are_split_into_structured_tabs(qtbot) -> None:
+    """#986: the one long form is a small set of named, single-purpose tabs."""
+    from PyQt6.QtWidgets import QGroupBox
+
+    dialog = PreferencesDialog()
+    qtbot.addWidget(dialog)
+    titles = [dialog._tabs.tabText(index) for index in range(dialog._tabs.count())]
+    assert titles == [
+        dialog.tr("General"),
+        dialog.tr("Weather"),
+        dialog.tr("Online services"),
+        dialog.tr("Agent API"),
+        dialog.tr("3D View"),
+    ]
+    homes: dict[str, int] = {}
+    for index in range(dialog._tabs.count()):
+        page = dialog._tabs.widget(index)
+        assert page is not None
+        for group in page.findChildren(QGroupBox):
+            homes[group.title()] = index
+    assert homes[dialog.tr("Units")] == 0
+    assert homes[dialog.tr("Canvas")] == 0
+    assert homes[dialog.tr("Weather")] == 1
+    assert homes[dialog.tr("Google Maps")] == 2
+    assert homes[dialog.tr("Agent API")] == 3
+    assert homes[dialog.tr("3D View")] == 4
 
 
 def test_default_height_is_sized_from_content_not_the_scroll_viewport(qtbot) -> None:
@@ -80,25 +107,39 @@ def test_preferences_controls_scroll_without_compression(
     qtbot.wait(20)
     try:
         assert dialog.height() == height
-        for control in _visible_controls(dialog):
-            # A themed stylesheet may shave a 2 px border from the hint; the
-            # regression this pins is 0/14 px against a 26 px hint, not that
-            # difference. Never accept a control below 24 px.
-            assert control.height() >= min(control.minimumSizeHint().height(), 24)
+        # #986: every tab is checked, not only the first one. A control must
+        # never be squeezed below its hint on any page.
+        for index in range(dialog._tabs.count()):
+            dialog._tabs.setCurrentIndex(index)
+            qtbot.wait(1)
+            for control in _visible_controls(dialog):
+                # A themed stylesheet may shave a 2 px border from the hint; the
+                # regression this pins is 0/14 px against a 26 px hint, not that
+                # difference. Never accept a control below 24 px.
+                assert control.height() >= min(control.minimumSizeHint().height(), 24)
 
-        scroll = dialog.findChild(QScrollArea)
-        assert scroll is not None
-        assert scroll.verticalScrollBar().maximum() > 0
+        # The longest tab still scrolls rather than compressing its groups.
+        scrolls = [
+            dialog._tabs.widget(index) for index in range(dialog._tabs.count())
+        ]
+        if height < 600:
+            # A laptop-height window must scroll rather than compress. At 800 px
+            # the #986 tabs fit the whole form, which is the point of the split.
+            assert any(scroll.verticalScrollBar().maximum() > 0 for scroll in scrolls)
         save = next(b for b in dialog.findChildren(QPushButton) if b.text() == dialog.tr("Save"))
         cancel = next(
             b for b in dialog.findChildren(QPushButton) if b.text() == dialog.tr("Cancel")
         )
-        for button in (save, cancel):
-            assert not scroll.isAncestorOf(button)
-            assert dialog.rect().contains(button.geometry())
+        for scroll in scrolls:
+            for button in (save, cancel):
+                assert not scroll.isAncestorOf(button)
+                assert dialog.rect().contains(button.geometry())
 
         # Tab from the penultimate setting must bring the last setting into view
         # (the Sky combo since Phase 17 L7, #391; the quality combo before it).
+        dialog._tabs.setCurrentIndex(4)  # 3D View
+        qtbot.wait(1)
+        scroll = dialog._tabs.currentWidget()
         dialog._view3d_sky_combo.setFocus()
         qtbot.keyClick(dialog._view3d_sky_combo, Qt.Key.Key_Tab)
         last = dialog._view3d_reduced_motion_check

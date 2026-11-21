@@ -86,32 +86,53 @@ def app_log_of(scratch: Path, store: str) -> str:
     return found[0].read_text(encoding="utf-8", errors="replace") if found else ""
 
 
-def run_gate(scratch: Path, scenario: str, *, plan: Path | None = PLANS / "bench_small.ogp",
-             store: str | None = None, command: list[str] | None = None,
-             software: bool = False, timer_paced: bool = True,
-             **arguments: Any) -> GateRun:
-    """Run one scenario in a fresh process and return what happened.
+def gate_extra_environment(
+    *,
+    software: bool = False,
+    timer_paced: bool = True,
+    hash_seed: int | None = None,
+) -> dict[str, str]:
+    """The switches a child is started with - pure, so a test can read them (#667).
 
-    ``command``: what to start instead of the source child — the frozen gate exe.
-    ``software``: start the process with Qt's own software switch (the render tier's
-    WARP run); the workspace's compatibility mode is a different, per-window route.
-    ``timer_paced`` (the default): Qt's own ``QT_D3D_NO_VBLANK_THREAD=1``. On Windows
-    Qt asks a display-vblank thread for its update requests, and with the display
-    asleep that thread is silent: a visible window presents its first frame and no
-    more. With the switch Qt paces them by timer, so frames are PRESENTED whatever
-    the display does — the ordinary render path, and what no scenario may depend
-    on is whether this machine's display happens to be awake. The memory soak needs
-    it most: what a destroyed Model held is given back at the end of a PRESENTED
-    frame (its ``frames="withheld"`` variant takes the frames away on purpose).
-    ``False`` runs the child as the product starts: paced by the display.
+    ``software``: Qt's own software switch (the render tier's WARP run); the
+    workspace's compatibility mode is a different, per-window route.
+    ``timer_paced``: Qt's own ``QT_D3D_NO_VBLANK_THREAD=1``. On Windows Qt asks a
+    display-vblank thread for its update requests, and with the display asleep that
+    thread is silent: a visible window presents its first frame and no more. With
+    the switch Qt paces them by timer, so frames are PRESENTED whatever the display
+    does - the ordinary render path, and what no scenario may depend on is whether
+    this machine's display happens to be awake. The memory soak needs it most: what
+    a destroyed Model held is given back at the end of a PRESENTED frame (its
+    ``frames="withheld"`` variant takes the frames away on purpose). ``False`` runs
+    the child as the product starts: paced by the display.
+    ``hash_seed``: ``QT_HASH_SEED`` for the child. The G7 soak pins it to 0 so the
+    QTBUG-151940 leak share is repeatable (#667); the shipped app is unchanged.
     """
-    spec, out, name = write_spec(scratch, scenario, store=store, **arguments)
-    argv = [*(command or [sys.executable, str(CHILD)]), *([str(plan)] if plan else [])]
-    extra = {}
+    extra: dict[str, str] = {}
     if software:
         extra["QSG_RHI_PREFER_SOFTWARE_RENDERER"] = "1"
     if timer_paced:
         extra["QT_D3D_NO_VBLANK_THREAD"] = "1"
+    if hash_seed is not None:
+        extra["QT_HASH_SEED"] = str(hash_seed)
+    return extra
+
+
+def run_gate(scratch: Path, scenario: str, *, plan: Path | None = PLANS / "bench_small.ogp",
+             store: str | None = None, command: list[str] | None = None,
+             software: bool = False, timer_paced: bool = True,
+             hash_seed: int | None = None,
+             **arguments: Any) -> GateRun:
+    """Run one scenario in a fresh process and return what happened.
+
+    ``command``: what to start instead of the source child - the frozen gate exe.
+    The environment switches are ``gate_extra_environment``'s.
+    """
+    spec, out, name = write_spec(scratch, scenario, store=store, **arguments)
+    argv = [*(command or [sys.executable, str(CHILD)]), *([str(plan)] if plan else [])]
+    extra = gate_extra_environment(
+        software=software, timer_paced=timer_paced, hash_seed=hash_seed
+    )
     proc = subprocess.run(
         argv, capture_output=True, text=True, timeout=GATE_TIMEOUT_S, cwd=scratch,
         env=render_env(scratch, OGP_WORKSPACE_GATE=str(spec), **extra))

@@ -4,7 +4,7 @@ Open Garden Planner is a free desktop application for precision garden planning.
 It combines a 2D canvas, plant records, garden tasks, exports, and a 3D view lit by the
 same sun as the plan, with shadows and hours-of-sun maps for the garden's own place and
 time zone.
-Choose metric or imperial lengths and areas, and litres or US quarts and gallons for container volumes.
+Choose metric or imperial lengths and areas, litres or US quarts and gallons for container volumes, and a per-quantity profile for temperature, precipitation and harvest mass (including a provisional Canada mixed preset).
 Browse plant categories with name and trait filters and scroll through the results.
 Place named reference points for snapping and measurement. Choose French in View → Language.
 

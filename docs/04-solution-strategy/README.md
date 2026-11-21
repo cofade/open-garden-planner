@@ -41,7 +41,7 @@
 | **Plant Data** | Custom entries first, then API fallback | User's own library always wins; APIs fill the gaps |
 | **API Fallback** | Custom library -> Trefle.io -> Perenual -> Permapeople -> Bundled DB | Graceful degradation |
 | **Theme** | Branded green with light/dark variants | Strong visual identity, garden-appropriate |
-| **i18n** | Qt Linguist, EN/DE/ES/RU/FR shipped | Native Qt integration, community can add languages |
+| **i18n** | Qt Linguist, EN/DE/ES/RU/FR shipped (extensible) | Native Qt integration, community can add languages |
 | **Graphics Assets** | AI-generated SVGs | Consistent style, fully custom, no licensing issues |
 
 ## 4.3 Architecture Approach

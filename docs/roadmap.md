@@ -32,13 +32,12 @@ No roadmap phase is active. Open work is tracked in GitHub issues; the current t
 
 | Theme | Open issues | Why it matters |
 |-------|-------------|----------------|
-| Measurement units | #907 | Temperature, precipitation, harvest mass and a Canadian mixed preset. |
-| Store/MSIX readiness | #767, #764, #375 | Distribution and user-data safety on the second channel. |
+| Store/MSIX readiness | #767, #375 | Distribution and user-data safety on the second channel. |
 | 3D rendering quality and performance | #744, #534, #531, #883, #894 | The 3D view's trust and frame budget. |
 | CAD and drawing tools | — | Precision and editing depth. |
-| Architecture and tech debt | #667 | Remove redundant surfaces and make tests repeatable. |
+| Architecture and tech debt | #667 | Remove redundant surfaces and make tests repeatable; its seed wiring shipped, the owner-run soak measurement is still owed. |
 | Documentation before advertising | #939 | The user-facing documents describe today's product before it is shared. |
-| 2D canvas follow-ups | #845 | First-zoom sprite rasterization cost. |
+| 2D canvas follow-ups | #845, #852, #855 | First-zoom sprite rasterization cost; sun-map contour/label repaint overhead (#852 fill, clearance and badge backing shipped in PR #989); open-frame weighted-path grazing-sun and food-forest performance (#855 reach trim shipped in PR #989). |
 
 This table is a pointer, not a tracker. Each issue owns its scope and acceptance criteria.
 
@@ -46,6 +45,7 @@ This table is a pointer, not a tracker. Each issue owns its scope and acceptance
 
 | Status | ID | Scope | Version / reference |
 |--------|----|-------|---------------------|
+| ✅ | Backlog package: locale docs, tabbed Preferences, per-quantity units and 2D truth (#987, #986, #907, #876, #764; partial #852, #855, #667) | Five-locale docs gate, five-tab scrollable Preferences, per-quantity unit profile with provisional Canada (mixed) preset, smooth hours-of-sun map fill with 1.3× label clearance and theme-contrasting mismatch badge, trimmed open-frame shade reach, detection-only Claude Desktop proof, and soak seed plumbing | [PR #989](https://github.com/cofade/open-garden-planner/pull/989); ADR-081, ADR-059 addendum; FR-MEAS-08–10, FR-SUN-13, FR-SUN-15, FR-UI-PREF-01 |
 | ✅ | French locale and reference points (#553, #666) | French application and installer, plus named reference points for snapping and measurement | v1.40.13; [PR #985](https://github.com/cofade/open-garden-planner/pull/985); ADR-080; FR-I18N-13, FR-REF-01–06 |
 | ✅ | Plant catalogue and export resolution (#850, #931, #942, #964, #967, #968) | Pictures written at the page's own resolution instead of the canvas's raster level, per-round performance evidence, a green Norway maple, a May-flowering rhododendron, bamboo genus matching, and bloom hardiness read from the species record | v1.40.12; [PR #980](https://github.com/cofade/open-garden-planner/pull/980); ADR-014 addendum, ADR-061 addendum; FR-EXP-02; PF-CAN-68 |
 | ✅ | Plan truth, CAD precision and documentation (#828, #829, #945, #875, #976) | Plan time zone and Today reset, selection-scoped split with raised-bed frames, CAD Esc follow-ups, xdist crash evidence, and current product documentation | v1.40.11; [PR #981](https://github.com/cofade/open-garden-planner/pull/981); ADR-053 addendum, ADR-075 addenda 4 and 5, ADR-079; FR-SPLIT-01/02, FR-SUN-04, FR-TOOL-ESC-01; PF-DOM-35 |

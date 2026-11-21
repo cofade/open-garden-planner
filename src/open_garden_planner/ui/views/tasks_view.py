@@ -48,6 +48,7 @@ from open_garden_planner.ui.theme import (
     theme_color,
     urgency_dot,
 )
+from open_garden_planner.ui.units_notifier import units_notifier
 from open_garden_planner.ui.views.task_text import task_row_text
 from open_garden_planner.ui.widgets.elided_label import ElidedLabel
 
@@ -102,6 +103,9 @@ class TasksView(QWidget):
         self._refresh_timer.timeout.connect(self._on_refresh_timer)
 
         self._build_ui()
+        # Frost titles are generated text (#907): a live unit switch must
+        # regenerate them, not wait for the next unrelated refresh.
+        units_notifier().profile_changed.connect(self._on_units_profile_changed)
         self.refresh()
 
     # ── setup ────────────────────────────────────────────────────────────────
@@ -147,6 +151,9 @@ class TasksView(QWidget):
 
     def apply_theme_colors(self, _colors: dict[str, str]) -> None:
         """Re-render on theme switch — urgency colors are palette-driven."""
+        self.schedule_refresh()
+
+    def _on_units_profile_changed(self, _profile: object) -> None:
         self.schedule_refresh()
 
     def _on_refresh_timer(self) -> None:

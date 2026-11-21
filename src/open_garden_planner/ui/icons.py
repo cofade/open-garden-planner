@@ -127,6 +127,11 @@ def get_pixmap(name: str, size: int = 64, color: str | None = None) -> QPixmap |
     return pixmap
 
 
+def has_icon(name: str) -> bool:
+    """Whether ``name`` resolves to an existing UI icon SVG."""
+    return _svg_text(name) is not None
+
+
 def paint_icon(
     painter: QPainter, name: str, target: QRectF, color: str | None = None
 ) -> bool:

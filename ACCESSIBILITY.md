@@ -8,7 +8,7 @@ Accessibility work remains incomplete. This statement describes current behaviou
 - Common actions have keyboard shortcuts. See [the shortcut reference](docs/12-glossary/README.md#122-keyboard-shortcuts).
 - Properties support numeric entry for position and dimensions.
 - Light and dark themes are available.
-- Application text supports English and German.
+- Application text supports English, German, Spanish, French and Russian.
 
 Windows 10/11 is the primary application environment.
 We have not verified compatibility with screen readers or other assistive technology.

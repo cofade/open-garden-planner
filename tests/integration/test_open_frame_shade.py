@@ -30,10 +30,12 @@ from open_garden_planner.core.scene3d.builders.open_frames import open_frame_tri
 from open_garden_planner.core.shade_aggregation import SAMPLE_STEP_MINUTES, daylight_samples
 from open_garden_planner.core.shadow_geometry import (
     CLIPPER_SCALE,
+    OpenFrame,
     _open_frame_transmittance,
     caster_transmittance,
     circle_footprint,
     compute_scene_shadows,
+    open_frame_effective_length,
     shadow_direction_scene,
 )
 from open_garden_planner.core.solar import solar_position
@@ -139,7 +141,13 @@ def _by_hand(kind: str, turn_deg: float, elevation: float, azimuth: float) -> fl
                             pyclipper.PT_SUBJECT, True)
     union = clipper.Execute(pyclipper.CT_UNION, pyclipper.PFT_NONZERO, pyclipper.PFT_NONZERO)
     frame_area = sum(pyclipper.Area(path) for path in union)
-    prism = compute_scene_shadows([(footprint, height)], elevation, azimuth)
+    open_frame = OpenFrame(local, tuple(ring), turn_deg)
+    length = open_frame_effective_length(open_frame, height, elevation, azimuth)
+    if length <= 0.0:
+        prism = [footprint]
+    else:
+        fake_height = length * math.tan(math.radians(elevation))
+        prism = compute_scene_shadows([(footprint, fake_height)], elevation, azimuth)
     prism_area = sum(pyclipper.Area([(round(x * CLIPPER_SCALE), round(y * CLIPPER_SCALE))
                                      for x, y in polygon]) for polygon in prism)
     return 1.0 - frame_area / prism_area
@@ -427,7 +435,9 @@ def test_the_map_and_a_plant_under_a_frame_collect_part_of_the_sun(qtbot, scene,
     identity = str(plant.item_id)
     assert slab_plants[identity] + 45.0 < open_plants[identity] < daylight - 20.0
     assert opened.minutes_at(*spot) == slab.minutes_at(*spot) == 0.0   # under the plant itself
-    assert float((opened.minutes - slab.minutes).min()) >= -1e-3     # nowhere darker than the solid
+    # #855: the trimmed region's seam can lose one 15-minute sample in a cell or
+    # two; a whole sample darker is the documented limit, never a solid's shade.
+    assert float((opened.minutes - slab.minutes).min()) >= -SAMPLE_STEP_MINUTES - 1e-3
     assert float(opened.minutes.max()) == pytest.approx(daylight)
 
 

@@ -6,10 +6,11 @@ from pathlib import Path
 
 ROOT = Path("src/open_garden_planner")
 ALLOWLIST = {
-    "ui/widgets/weather_widget.py": "Precipitation stays in mm; separate quantity follow-up.",
     "services/svg_export.py": "SVG XML width/height physical-unit syntax, independent of display preference (FR-EXP-02).",
+    "ui/dialogs/amendment_plan_dialog.py": "Soil amendment dosage g/kg; separate from harvest mass (#907).",
+    "ui/dialogs/soil_test_dialog.py": "Soil amendment dosage g/kg; separate from harvest mass (#907).",
 }
-UNIT = r"(?:cm²|m²|cm|mm|km|m|L)\b"
+UNIT = r"(?:cm²|m²|cm|mm|km|m|L|°C|°F|kg|lb)\b"
 INLINE = re.compile(r"\{[^}]*\}[)\]]?\s?" + UNIT)
 AFTER_VALUE = re.compile(r"^[)\]]?\s?" + UNIT)
 
@@ -24,7 +25,7 @@ class MeasurementGuard(ast.NodeVisitor):
         self.unit_box_function = any(
             isinstance(n, ast.Call)
             and isinstance(n.func, ast.Name)
-            and n.func.id in ("LengthSpinBox", "VolumeSpinBox")
+            and n.func.id in ("LengthSpinBox", "VolumeSpinBox", "TemperatureSpinBox")
             for n in ast.walk(node)
         )
         self.generic_visit(node)
@@ -47,7 +48,14 @@ class MeasurementGuard(ast.NodeVisitor):
                 value = node.args[0]
                 if isinstance(value, ast.Call) and value.args:
                     value = value.args[0]
-                if isinstance(value, ast.Constant) and value.value in (" cm", " m", " mm", " L"):
+                if isinstance(value, ast.Constant) and value.value in (
+                    " cm",
+                    " m",
+                    " mm",
+                    " L",
+                    " °C",
+                    " °F",
+                ):
                     self.hits.append((node.lineno, ast.unparse(node)))
         self.generic_visit(node)
 

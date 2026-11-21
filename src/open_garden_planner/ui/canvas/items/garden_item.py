@@ -19,7 +19,16 @@ from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any, cast
 
 from PyQt6.QtCore import QCoreApplication, QPointF, QRectF, Qt
-from PyQt6.QtGui import QAction, QColor, QFont, QFontMetricsF, QPainter, QPainterPath, QPen
+from PyQt6.QtGui import (
+    QAction,
+    QColor,
+    QFont,
+    QFontMetricsF,
+    QPainter,
+    QPainterPath,
+    QPen,
+    QPolygonF,
+)
 from PyQt6.QtWidgets import (
     QGraphicsEllipseItem,
     QGraphicsItem,
@@ -104,10 +113,46 @@ class SunBadgeItem(QGraphicsPixmapItem):
         if painter is None:
             return
         if self._icon_name is not None:
-            from open_garden_planner.ui.icons import paint_icon
+            from open_garden_planner.core.legibility import halo_for
+            from open_garden_planner.ui.icons import has_icon, paint_icon
+            from open_garden_planner.ui.theme import current_colors
 
             size = self.pixmap().deviceIndependentSize()
-            if paint_icon(painter, self._icon_name, QRectF(self.offset(), size)):
+            icon_rect = QRectF(self.offset(), size)
+            if (
+                self._icon_name == "sun_warning"
+                and not icon_rect.isEmpty()
+                and has_icon(self._icon_name)
+            ):
+                # #852: a contrasting backing under the warning triangle only, so
+                # its accent-green ink reads on green foliage in both light and dark
+                # themes (light halo behind dark green, dark halo behind light green).
+                # The asset stays on the theme's accent sentinel, the sun's middle
+                # stays transparent, and the backing stays strictly inside icon_rect.
+                accent = QColor(current_colors()["accent"])
+                halo_rgb = halo_for((accent.red(), accent.green(), accent.blue()))
+                backing = QColor(halo_rgb[0], halo_rgb[1], halo_rgb[2], 235)
+
+                def point(x: float, y: float) -> QPointF:
+                    return QPointF(
+                        icon_rect.left() + x / 24.0 * icon_rect.width(),
+                        icon_rect.top() + y / 24.0 * icon_rect.height(),
+                    )
+
+                painter.save()
+                painter.setRenderHint(QPainter.RenderHint.Antialiasing, True)
+                pen = QPen(backing, 0.8)
+                pen.setCapStyle(Qt.PenCapStyle.RoundCap)
+                pen.setJoinStyle(Qt.PenJoinStyle.RoundJoin)
+                painter.setPen(pen)
+                painter.setBrush(backing)
+                # Symmetric around x=17.0 matching sun_warning.svg (M17 10l6 12H11z),
+                # inset inside 0..24 so the 0.8-unit round stroke never escapes boundingRect.
+                painter.drawPolygon(
+                    QPolygonF([point(17.0, 9.6), point(23.2, 22.4), point(10.8, 22.4)])
+                )
+                painter.restore()
+            if paint_icon(painter, self._icon_name, icon_rect):
                 return
         super().paint(painter, option, widget)
 

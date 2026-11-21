@@ -177,6 +177,53 @@ def test_nothing_in_the_test_tree_imports_the_hook_into_the_test_process() -> No
             assert f"import {name}" not in source or path.name in children, path
 
 
+def test_the_gate_environment_pins_qt_hash_seed_only_when_asked() -> None:
+    """#667: the soak's fixed seed is the gate's own switch, not a product change."""
+    from tests.integration.workspace_gate_support import gate_extra_environment
+
+    assert "QT_HASH_SEED" not in gate_extra_environment()
+    assert gate_extra_environment(hash_seed=0)["QT_HASH_SEED"] == "0"
+
+
+def test_the_memory_soak_asks_its_child_for_a_fixed_hash_seed(tmp_path: Path) -> None:
+    """#667: the wiring, not just the helper - ``_soak`` is what starts every G7 run."""
+    from tests.integration import test_view3d_workspace_render as render
+    from tests.integration.workspace_gate_support import GateRun
+
+    seen: dict[str, Any] = {}
+
+    def fake_gate(scratch: Path, scenario: str, **options: Any) -> GateRun:
+        seen.update(options)
+        report = {
+            "network": "offline",
+            "steps": [
+                {
+                    "step": "soak",
+                    "variant": options.get("variant"),
+                    "ground_texture_mb": 1.0,
+                    "ground_tiles": 0,
+                    "cache_releases": 0,
+                    "reloads": render.RELOADS,
+                    "gpu_before": {"process_dedicated_mb": 0.0},
+                    "gpu_after": {"process_dedicated_mb": 0.0},
+                },
+                {"step": "closed"},
+            ],
+        }
+        return GateRun(
+            0, report, {"errors": [], "warnings": [], "adapter": "fake"}, "", "store", ""
+        )
+
+    original = render.run_gate
+    render.run_gate = fake_gate  # type: ignore[assignment]
+    try:
+        render._soak(tmp_path, "rebuild_on", ground="on")
+    finally:
+        render.run_gate = original  # type: ignore[assignment]
+    assert seen["hash_seed"] == 0
+    assert seen["reloads"] == render.RELOADS
+
+
 @pytest.mark.parametrize("name", [
     "test_workspace_gate.py", "test_view3d_workspace.py", "test_view3d_workspace_render.py",
     "workspace_gate_hook.py", "workspace_gate_child.py", "workspace_gate_measure.py",

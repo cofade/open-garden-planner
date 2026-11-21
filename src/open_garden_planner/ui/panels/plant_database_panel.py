@@ -33,9 +33,11 @@ from PyQt6.QtWidgets import (
     QWidget,
 )
 
+from open_garden_planner.core.measurement_display import temperature_text
 from open_garden_planner.core.object_types import ObjectType
 from open_garden_planner.core.plant_cycle_label import plant_cycle_label
 from open_garden_planner.core.sim_clock import MAX_PLAN_DATE, MIN_PLAN_DATE, plan_day_of
+from open_garden_planner.core.unit_preference import UnitProfile
 from open_garden_planner.core.units import LengthStyle
 from open_garden_planner.core.worker_lifecycle import retain_worker_until_finished
 from open_garden_planner.models.plant_data import (
@@ -59,6 +61,7 @@ from open_garden_planner.ui.plant_species_assignment import (
     plant_source_label,
 )
 from open_garden_planner.ui.theme import set_text_role, theme_color
+from open_garden_planner.ui.units_notifier import units_notifier
 from open_garden_planner.ui.widgets.unit_spin_box import LengthSpinBox
 
 
@@ -302,6 +305,10 @@ class PlantDatabasePanel(QWidget):
         super().__init__(parent)
         self._current_plant_data: PlantSpeciesData | None = None
         self._current_plant_item: QGraphicsItem | None = None
+        #: The packet whose germination temperature is on screen (#907), kept so
+        #: a live unit switch can re-render it.
+        self._current_seed_packet: Any | None = None
+        units_notifier().profile_changed.connect(self._on_units_profile_changed)
         self._thumb_worker: _ThumbnailWorker | None = None
         self._command_manager = None
         # True while applying model values to widgets or building a command:
@@ -1448,8 +1455,12 @@ class PlantDatabasePanel(QWidget):
         packet = get_seed_inventory().get(packet_id) if packet_id else None
         self._update_seed_packet_info(packet)
 
+    def _on_units_profile_changed(self, _profile: UnitProfile) -> None:
+        self._update_seed_packet_info(self._current_seed_packet)
+
     def _update_seed_packet_info(self, packet) -> None:
         """Show germination info for the linked seed packet."""
+        self._current_seed_packet = packet
         if packet is None:
             self.seed_packet_info_lbl.setText("")
             return
@@ -1461,7 +1472,9 @@ class PlantDatabasePanel(QWidget):
             parts.append(self.tr("Germination: %1 days").replace("%1", days))
         if packet.germination_temp_opt_c is not None:
             parts.append(
-                self.tr("Opt. temp: %1\u00b0C").replace("%1", str(int(packet.germination_temp_opt_c)))
+                self.tr("Opt. temp: {temp}").format(
+                    temp=temperature_text(packet.germination_temp_opt_c, decimals=0)
+                )
             )
         if packet.cold_stratification:
             parts.append(self.tr("Cold stratification"))

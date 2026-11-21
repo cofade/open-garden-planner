@@ -319,14 +319,32 @@ class TestInstallToClient:
     ) -> None:
         """Claude Desktop can't reach a localhost server, so an install attempt
         returns an honest failure that redirects to Claude Code / Cursor rather
-        than the old (misleading) "Add custom connector" guidance."""
+        than the old (misleading) "Add custom connector" guidance.
+
+        #764: it also writes NOTHING. Microsoft documents that an MSIX package
+        that creates a file under ``AppData`` gets a redirected copy in its
+        package ``LocalCache``; the earlier concern assumed OGP wrote Claude
+        Desktop's config. It does not - this test holds that even an explicit
+        install attempt leaves an existing file byte-for-byte alone and creates
+        no backup, so the Store question cannot arise for this client.
+        """
         monkeypatch.setattr(Path, "home", lambda: tmp_path)
+        appdata = tmp_path / "AppData" / "Roaming"
+        config_dir = appdata / "Claude"
+        config_dir.mkdir(parents=True)
+        config = config_dir / "claude_desktop_config.json"
+        original = '{"mcpServers": {"someone-elses": {"command": "keep-me"}}}'
+        config.write_text(original, encoding="utf-8")
+        monkeypatch.setattr(sys, "platform", "win32")
+        monkeypatch.setenv("APPDATA", str(appdata))
 
         result = onboarding.install_to_client("claude_desktop", url=_URL)
 
         assert result.success is False
         assert "local server" in result.detail.lower()
         assert "claude code or cursor" in result.detail.lower()
+        assert config.read_text(encoding="utf-8") == original
+        assert not list(config_dir.glob("*.bak"))
 
     def test_claude_code_direct_merge_when_cli_absent(
         self, monkeypatch: pytest.MonkeyPatch, tmp_path: Path

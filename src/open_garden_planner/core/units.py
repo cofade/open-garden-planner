@@ -38,6 +38,11 @@ CM2_PER_SQ_FOOT = 929.0304
 CM2_PER_SQ_INCH = 6.4516
 CUBIC_METRES_PER_CUBIC_FOOT = 0.028316846592
 SQUARE_METRES_PER_SQUARE_FOOT = 0.09290304
+MM_PER_INCH = 25.4
+KG_PER_POUND = 0.45359237
+KG_PER_OUNCE = 0.028349523125
+FAHRENHEIT_OFFSET = 32.0
+FAHRENHEIT_SCALE = 9.0 / 5.0
 
 
 def cm_to_inches(cm: float) -> float:
@@ -184,6 +189,71 @@ def format_volume(
     return result.replace(".", decimal_mark)
 
 
+def format_temperature(
+    celsius: float,
+    system: UnitSystem = UnitSystem.METRIC,
+    *,
+    decimals: int = 0,
+    decimal_mark: str = ".",
+    number_format: Callable[[float, int], str] | None = None,
+    with_unit: bool = True,
+) -> str:
+    """A temperature in the reader's unit; the stored value is always Celsius (#907)."""
+    if system == UnitSystem.IMPERIAL:
+        value = celsius * FAHRENHEIT_SCALE + FAHRENHEIT_OFFSET
+        unit = "°F"
+    else:
+        value = celsius
+        unit = "°C"
+    if abs(value) < 0.5 * 10 ** (-decimals):
+        value = 0.0  # never show "-0" for a value that rounds to zero
+    number = _fixed(value, decimals, number_format).replace(".", decimal_mark)
+    return f"{number} {unit}" if with_unit else number
+
+
+def format_precipitation(
+    mm: float,
+    system: UnitSystem = UnitSystem.METRIC,
+    *,
+    decimals: int = 1,
+    decimal_mark: str = ".",
+    number_format: Callable[[float, int], str] | None = None,
+    with_unit: bool = True,
+) -> str:
+    """Rainfall or snow-water equivalent; the stored value is always millimetres (#907).
+
+    An inch is 25.4 mm, so one decimal collapses a real drizzle to ``0.0 in``:
+    an imperial reading keeps at least two decimals (#907 review).
+    """
+    if system == UnitSystem.IMPERIAL:
+        value = mm / MM_PER_INCH
+        unit = "in"
+        decimals = max(decimals, 2)
+    else:
+        value = mm
+        unit = "mm"
+    number = _fixed(value, decimals, number_format).replace(".", decimal_mark)
+    return f"{number} {unit}" if with_unit else number
+
+
+def format_mass(
+    kg: float,
+    system: UnitSystem = UnitSystem.METRIC,
+    *,
+    decimals: int = 2,
+    decimal_mark: str = ".",
+    number_format: Callable[[float, int], str] | None = None,
+) -> str:
+    """A mass in the reader's unit; the stored value is always kilograms (#907)."""
+    if system == UnitSystem.IMPERIAL:
+        value = kg / KG_PER_POUND
+        unit = "lb"
+    else:
+        value = kg
+        unit = "kg"
+    return f"{_fixed(value, decimals, number_format)} {unit}".replace(".", decimal_mark)
+
+
 def format_coordinates(
     x_cm: float,
     y_cm: float,
@@ -211,6 +281,13 @@ _COMPOUND = re.compile(
 )
 _VOLUME = re.compile(
     rf"([+-]?)\s*({_AMOUNT})\s*(ml|litres?|liters?|l|quarts?|qt|gallons?|gal)?", re.I
+)
+_TEMPERATURE = re.compile(
+    rf"([+-]?)\s*({_AMOUNT})\s*(°?\s*c|celsius|°?\s*f|fahrenheit)?", re.I
+)
+_PRECIPITATION = re.compile(rf"([+-]?)\s*({_AMOUNT})\s*(mm|millimetres?|millimeters?|in|inches?|\")?", re.I)
+_MASS = re.compile(
+    rf"([+-]?)\s*({_AMOUNT})\s*(kg|kilograms?|g|grams?|lb|lbs|pounds?|oz|ounces?)?", re.I
 )
 
 
@@ -282,6 +359,62 @@ def parse_volume(text: str, system: UnitSystem = UnitSystem.METRIC) -> float:
     value = _amount(amount) * factor * (-1 if sign == "-" else 1)
     if not math.isfinite(value):
         raise ValueError("non-finite volume")
+    return value
+
+
+def parse_temperature(text: str, system: UnitSystem = UnitSystem.METRIC) -> float:
+    """Accept °C or °F explicitly in either system; return Celsius (#907)."""
+    match = _TEMPERATURE.fullmatch(text.strip())
+    if not match:
+        raise ValueError("invalid temperature")
+    sign, amount, unit = match.groups()
+    number = -_amount(amount) if sign == "-" else _amount(amount)
+    unit = (unit or ("°f" if system == UnitSystem.IMPERIAL else "°c")).lower().replace(" ", "")
+    if unit in ("°f", "f", "fahrenheit"):
+        value = (number - FAHRENHEIT_OFFSET) / FAHRENHEIT_SCALE
+    elif unit in ("°c", "c", "celsius"):
+        value = number
+    else:  # pragma: no cover - the regex only accepts the two families
+        raise ValueError("invalid temperature unit")
+    if not math.isfinite(value):
+        raise ValueError("non-finite temperature")
+    return value
+
+
+def parse_precipitation(text: str, system: UnitSystem = UnitSystem.METRIC) -> float:
+    """Accept mm or inches explicitly in either system; return millimetres (#907)."""
+    match = _PRECIPITATION.fullmatch(text.strip())
+    if not match:
+        raise ValueError("invalid precipitation")
+    sign, amount, unit = match.groups()
+    number = _amount(amount)
+    unit = (unit or ("in" if system == UnitSystem.IMPERIAL else "mm")).lower()
+    value = number * (MM_PER_INCH if unit in ("in", "inch", "inches", '"') else 1.0)
+    value = -value if sign == "-" else value
+    if not math.isfinite(value):
+        raise ValueError("non-finite precipitation")
+    return value
+
+
+def parse_mass(text: str, system: UnitSystem = UnitSystem.METRIC) -> float:
+    """Accept kg, g, lb or oz explicitly in either system; return kilograms (#907)."""
+    match = _MASS.fullmatch(text.strip())
+    if not match:
+        raise ValueError("invalid mass")
+    sign, amount, unit = match.groups()
+    number = _amount(amount)
+    unit = (unit or ("lb" if system == UnitSystem.IMPERIAL else "kg")).lower()
+    if unit in ("lb", "lbs", "pound", "pounds"):
+        value = number * KG_PER_POUND
+    elif unit in ("oz", "ounce", "ounces"):
+        value = number * KG_PER_OUNCE
+    elif unit in ("g", "gram", "grams"):
+        value = number / 1000.0
+    else:
+        value = number
+    value = -value if sign == "-" else value
+    if not math.isfinite(value):
+        raise ValueError("non-finite mass")
     return value
 
 
