@@ -14014,7 +14014,7 @@ does not participate in snapping or rectangle-based geometry editors.
 
 ## ADR-081: Per-quantity unit systems and the Canada (mixed) preset (issue #907)
 
-**Status**: Accepted (issue #907, 2026-11-21)
+**Status**: Shipped in v1.41.0 after owner acceptance (issue #907; [PR #989](https://github.com/cofade/open-garden-planner/pull/989)).
 
 **Context**: ADR-078 shipped one Metric/Imperial choice over the centimetre model. That
 choice covered layout lengths, areas and container volumes; temperature, precipitation
