@@ -13896,7 +13896,7 @@ automatic concrete slab keeps its legacy finish.
 
 ## ADR-080: A reference point is a circle record with additive metadata (#666)
 
-**Status**: Accepted (issue #666)
+**Status**: Shipped in v1.40.13 after owner acceptance ([PR #985](https://github.com/cofade/open-garden-planner/pull/985)).
 
 **Context**: A plan could record footprints, plants, annotations and construction
 geometry, but not a first-class survey stake, fence post, datum or measurement

@@ -6,6 +6,7 @@ same sun as the plan, with shadows and hours-of-sun maps for the garden's own pl
 time zone.
 Choose metric or imperial lengths and areas, and litres or US quarts and gallons for container volumes.
 Browse plant categories with name and trait filters and scroll through the results.
+Place named reference points for snapping and measurement. Choose French in View → Language.
 
 ## Start here
 
@@ -19,7 +20,7 @@ Browse plant categories with name and trait filters and scroll through the resul
 
 ## Current status
 
-Latest release: [v1.40.12](https://github.com/cofade/open-garden-planner/releases/latest).
+Latest release: [v1.40.13](https://github.com/cofade/open-garden-planner/releases/latest).
 Phases 1–15 and Phase 17 are complete. Phase 16, Platform & Community, is future work.
 
 The [canonical roadmap](https://github.com/cofade/open-garden-planner/blob/master/docs/roadmap.md)

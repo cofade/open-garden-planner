@@ -33,7 +33,6 @@ No roadmap phase is active. Open work is tracked in GitHub issues; the current t
 | Theme | Open issues | Why it matters |
 |-------|-------------|----------------|
 | Measurement units | #907 | Temperature, precipitation, harvest mass and a Canadian mixed preset. |
-| Localisation and measurement datums | #553, #666 | A French locale and a first-class reference-point object. |
 | Store/MSIX readiness | #767, #764, #375 | Distribution and user-data safety on the second channel. |
 | 3D rendering quality and performance | #744, #534, #531, #883, #894 | The 3D view's trust and frame budget. |
 | CAD and drawing tools | — | Precision and editing depth. |
@@ -47,6 +46,7 @@ This table is a pointer, not a tracker. Each issue owns its scope and acceptance
 
 | Status | ID | Scope | Version / reference |
 |--------|----|-------|---------------------|
+| ✅ | French locale and reference points (#553, #666) | French application and installer, plus named reference points for snapping and measurement | v1.40.13; [PR #985](https://github.com/cofade/open-garden-planner/pull/985); ADR-080; FR-I18N-13, FR-REF-01–06 |
 | ✅ | Plant catalogue and export resolution (#850, #931, #942, #964, #967, #968) | Pictures written at the page's own resolution instead of the canvas's raster level, per-round performance evidence, a green Norway maple, a May-flowering rhododendron, bamboo genus matching, and bloom hardiness read from the species record | v1.40.12; [PR #980](https://github.com/cofade/open-garden-planner/pull/980); ADR-014 addendum, ADR-061 addendum; FR-EXP-02; PF-CAN-68 |
 | ✅ | Plan truth, CAD precision and documentation (#828, #829, #945, #875, #976) | Plan time zone and Today reset, selection-scoped split with raised-bed frames, CAD Esc follow-ups, xdist crash evidence, and current product documentation | v1.40.11; [PR #981](https://github.com/cofade/open-garden-planner/pull/981); ADR-053 addendum, ADR-075 addenda 4 and 5, ADR-079; FR-SPLIT-01/02, FR-SUN-04, FR-TOOL-ESC-01; PF-DOM-35 |
 | ✅ | Plant gallery and 2D plan reliability (#951, #950, #946, #862, #879, #861, #866, #880) | Plant browsing, roof styles, repaint coverage, live theme and example plans | v1.40.10; [PR #978](https://github.com/cofade/open-garden-planner/pull/978); ADR-037, ADR-076; §8.4 |
