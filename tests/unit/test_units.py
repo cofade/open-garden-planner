@@ -142,6 +142,36 @@ def test_mass_display_and_input_round_trip():
     assert parse_mass("1", U.IMPERIAL) == pytest.approx(0.45359237)
 
 
+def test_new_quantities_use_the_locale_number_format(qtbot):
+    """#907 round 5: the formatter branch wins; ``decimal_mark`` is not applied twice.
+
+    This is the branch the weather/calendar/germination surfaces exercise through
+    ``core.measurement_display`` in de/es/fr/ru, and it was untested before.
+    """
+    from PyQt6.QtWidgets import QApplication
+
+    from open_garden_planner.core.i18n import format_decimal, load_translator
+
+    app = QApplication.instance()
+    assert app is not None
+    try:
+        assert load_translator(app, "de")
+        assert format_decimal(21.5, 1) == "21,5"
+        assert format_temperature(
+            21.5, U.METRIC, decimals=1, decimal_mark=".", number_format=format_decimal
+        ) == "21,5 °C"
+        assert format_temperature(
+            21.5, U.IMPERIAL, decimals=1, number_format=format_decimal
+        ) == "70,7 °F"
+        assert format_precipitation(25.4, U.METRIC, number_format=format_decimal) == "25,4 mm"
+        assert format_precipitation(
+            25.4, U.IMPERIAL, number_format=format_decimal
+        ) == "1,00 in"
+        assert format_mass(1.0, U.IMPERIAL, number_format=format_decimal) == "2,20 lb"
+    finally:
+        load_translator(app, "en")
+
+
 def test_new_quantities_locale_comma_decimal_round_trip():
     """#907: temperature, precipitation and mass respect locale comma decimal marks."""
     assert format_temperature(21.5, U.METRIC, decimals=1, decimal_mark=",") == "21,5 °C"

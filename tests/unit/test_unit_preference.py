@@ -80,6 +80,16 @@ def test_canada_mixed_is_provisional_and_round_trips():
     assert profile.mass == U.METRIC
 
 
+def test_settings_store_the_canada_preset(qtbot):
+    settings = AppSettings()
+    canada = UnitProfile.for_preset(UnitPreset.CANADA_MIXED)
+    settings.unit_profile = canada
+    assert settings.unit_profile == canada
+    assert settings.unit_profile.preset == UnitPreset.CANADA_MIXED
+    assert settings.unit_system == "imperial"  # the legacy key follows length
+    settings.unit_profile = UnitProfile.all(U.METRIC)
+
+
 def test_settings_store_a_custom_profile(qtbot):
     settings = AppSettings()
     custom = UnitProfile(

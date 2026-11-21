@@ -435,9 +435,10 @@ def test_the_map_and_a_plant_under_a_frame_collect_part_of_the_sun(qtbot, scene,
     identity = str(plant.item_id)
     assert slab_plants[identity] + 45.0 < open_plants[identity] < daylight - 20.0
     assert opened.minutes_at(*spot) == slab.minutes_at(*spot) == 0.0   # under the plant itself
-    # #855: the trimmed region's seam can lose one 15-minute sample in a cell or
-    # two; a whole sample darker is the documented limit, never a solid's shade.
-    assert float((opened.minutes - slab.minutes).min()) >= -SAMPLE_STEP_MINUTES - 1e-3
+    # #855: the trimmed prism is a subset of the solid one, so a darker cell can
+    # only be a raster seam - measured 0.997 min in one cell (ADR-059 addendum),
+    # never a whole 15-minute sample and never a solid's shade.
+    assert float((opened.minutes - slab.minutes).min()) >= -1.0
     assert float(opened.minutes.max()) == pytest.approx(daylight)
 
 

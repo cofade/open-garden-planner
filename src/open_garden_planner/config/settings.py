@@ -985,8 +985,9 @@ class AppSettings:
         """Every quantity's display system (#907).
 
         An absent ``units/profile`` keeps the pre-#907 behaviour: one system for
-        all quantities, read from ``units/system``. A preset is stored by name;
-        ``custom`` stores the six per-quantity keys.
+        all quantities, read from ``units/system``. A preset is read by name; a
+        ``custom`` profile reads the six per-quantity keys. The setter always
+        writes those keys as well, so a preset and a later edit stay coherent.
         """
         from open_garden_planner.core.unit_preference import UnitPreset, UnitProfile
 

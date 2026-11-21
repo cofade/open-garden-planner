@@ -12154,13 +12154,13 @@ member: a swing's top beam is mid-frame, so its shade ran 71 cm past the beam's
 shadow (4-71 cm across the five kinds). `core.shadow_geometry.open_frame_effective_length`
 now trims the swept length to the largest `x·dx + y·dy + z / tan a` of the frame's
 own members, minus the footprint's reach; the transmittance is measured against that
-trimmed prism, so the shade's area still equals the frame's real shadow area and its
-tip is the frame's. The table's reach column reads 0.0 cm for the four frames whose top
+trimmed prism, so its tip is the frame's while the frame's own shadow is spread over
+the smaller prism as before. The table's reach column reads 0.0 cm for the four frames whose top
 member is their far member and -0.8 cm for the pergola; the ratio column is 3D against
 the weighted, trimmed 2D area. The 3D analysis drape, the hours-of-sun map, the overlay
-and the per-plant estimates all read the same trimmed caster. One 15-minute sample can
-still be lost in a cell or two at a weighted-region seam (the #440 limitation, 0.99 of
-a sample measured); that is a seam, not a solid's shade. Tests:
+and the per-plant estimates all read the same trimmed caster. Less than one minute can
+still be lost in a cell or two at a weighted-region seam (the #440 limitation, 0.997 min
+measured); that is a seam, not a solid's shade. Tests:
 `tests/unit/test_open_frames.py` (the reach versus the measuring script's mesh shadow,
 the transmittance against the trimmed prism, and the turned frame) and
 `tests/integration/test_open_frame_shade.py` (the real overlay and map). FR-SUN-13,
@@ -13727,7 +13727,7 @@ before.
 
 ## ADR-078: A unit preference over the centimetre model (issue #673)
 
-**Status**: Shipped in v1.40.0; owner confirmed manual acceptance (issue #673; discussion #671, with defaults informed by @ciru-chan).
+**Status**: Shipped in v1.40.0; owner confirmed manual acceptance (issue #673; discussion #671, with defaults informed by @ciru-chan). Partly superseded by ADR-081 (#907): the display preference is per quantity.
 
 **Context**: US gardeners read seed packets, plants and site dimensions in different native units. Converting the model would break geometry, constraints, saved plans and clients. The issue's November 8 survey predates ADR-077's locale formatting and the shipped #782 PDF scale-bar correction; both remain in effect.
 
@@ -13750,7 +13750,7 @@ before.
 - *Use the issue's original 3 ft switch and fractions for plant sizes.* Superseded by the horticultural feedback in #671.
 - *Force English decimal marks to keep the pure module Qt-free.* Rejected: the explicit decimal-mark argument and thin adapter preserve the later locale contract.
 
-**Consequences**: No dependency or file-format change. Metric remains the default. Temperature, precipitation, harvest mass and a Canadian mixed preset need separate decisions (#907); DXF unit selection and per-plan overrides are deferred. Tests: `test_units.py`, `test_unit_preference.py`, `test_unit_spin_box.py`, `test_units_surfaces.py`, `test_unit_dialogs.py`, `test_unit_reports.py`, `test_units_guard.py`, `test_coordinate_units.py` and the save/reopen workflow in `tests/integration/test_unit_system.py`. FR-MEAS-07; §8.9.19.
+**Consequences**: No dependency or file-format change. Metric remains the default. ADR-081 extends the preference to temperature, precipitation, harvest mass and Canada (mixed), one system per quantity; DXF unit selection and per-plan overrides are deferred. Tests: `test_units.py`, `test_unit_preference.py`, `test_unit_spin_box.py`, `test_units_surfaces.py`, `test_unit_dialogs.py`, `test_unit_reports.py`, `test_units_guard.py`, `test_coordinate_units.py` and the save/reopen workflow in `tests/integration/test_unit_system.py`. FR-MEAS-07; §8.9.19.
 
 ## ADR-079: The IANA time-zone data (`tzdata`) is a runtime dependency (#945)
 
@@ -14037,7 +14037,9 @@ Agent API units and every saved file unchanged.
 3. **Pure conversions, one display seam.** `core/units.py` gains
    `format_temperature` / `parse_temperature` (Celsius), `format_precipitation` /
    `parse_precipitation` (millimetres) and `format_mass` / `parse_mass` (kilograms).
-   `core/measurement_display.py` adapts them to the active profile and Qt locale.
+   `core/measurement_display.py` adapts temperature and precipitation to the active
+   profile and Qt locale; the harvest log keeps its explicitly entered unit, with
+   `default_mass_unit()` choosing only a new entry's default.
    `TemperatureSpinBox` keeps its value in Celsius while displaying °C or °F.
 4. **Surfaces.** The preferences General tab exposes the preset and the six rows; the
    weather panel, frost thresholds, germination temperature and harvest log read the

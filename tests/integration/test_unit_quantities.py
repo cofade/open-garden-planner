@@ -276,11 +276,24 @@ def test_preferences_save_commits_uncommitted_frost_edit_before_unit_switch(qtbo
         get_unit_preference().set_profile(UnitProfile.all(UnitSystem.METRIC))
 
 
-def test_seed_packet_temp_spinboxes_fit_imperial_range_and_accept_input(qtbot) -> None:
+@pytest.mark.parametrize("font_size", [10, 14])
+def test_seed_packet_temp_spinboxes_fit_imperial_range_and_accept_input(
+    qtbot, font_size
+) -> None:
     """#907: SeedPacketEditDialog temperature fields must not clip Imperial readouts
-    (e.g. 140.0 °F) and must accept native °F input while storing Celsius."""
+    (e.g. 140.0 °F) and must accept native °F input while storing Celsius. The
+    14 pt row is the project's large-font layout case."""
+    from PyQt6.QtGui import QFont
+    from PyQt6.QtWidgets import QApplication
+
     from open_garden_planner.ui.dialogs.seed_inventory_dialog import SeedPacketEditDialog
 
+    app = QApplication.instance()
+    assert app is not None
+    previous_font = app.font()
+    font = QFont(previous_font)
+    font.setPointSize(font_size)
+    app.setFont(font)
     get_unit_preference().set_profile(UnitProfile.all(UnitSystem.IMPERIAL))
     try:
         dialog = SeedPacketEditDialog()
@@ -307,4 +320,5 @@ def test_seed_packet_temp_spinboxes_fit_imperial_range_and_accept_input(qtbot) -
         dialog._temp_opt.interpretText()
         assert dialog._temp_opt.value() == pytest.approx(dialog._temp_opt.minimum())
     finally:
+        app.setFont(previous_font)
         get_unit_preference().set_profile(UnitProfile.all(UnitSystem.METRIC))

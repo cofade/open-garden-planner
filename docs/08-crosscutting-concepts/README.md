@@ -4901,10 +4901,12 @@ shadow's soft edge is a blurred field, not strokes. The map's fill is bilinearly
 interpolated inside each 10 cm cell (`HEATMAP_UPSAMPLE`, #852), uploaded to a
 `QPixmap` (stored premultiplied by Qt) and drawn with smooth scaling
 (`SmoothTransformation`): at 400 % a cell is a smooth field without blotches or
-stair-step blocks (the overlay bitmap itself adds ~0.5 ms on the family garden
-at fit zoom; contour and label repaint overhead stays tracked on #852).
+stair-step blocks (the overlay bitmap's own draw adds ~0.5 ms on the family garden
+at fit zoom; rebuilding the image when the map changes is separate, and contour and
+label repaint overhead stays tracked on #852).
 An hour label keeps a 1.3× clearance when its place is chosen, so a fixed-pixel
-label stays off an object's edge when the plan is zoomed out. The sun-mismatch
+label stays off an object's edge when the plan is zoomed out up to 1.3× the
+nominal fit. The sun-mismatch
 badge paints a theme-contrasting backing (`core.legibility.halo_for` of the
 active theme's accent) under its warning triangle (#852): the icon asset stays
 on the theme's accent sentinel, the sun's middle stays transparent, and the
@@ -7766,9 +7768,9 @@ rule a new object kind has to be placed under:
   past a swing's top beam, which is mid-frame, and left the 2D shade 4-71 cm beyond the real
   one. `open_frame_effective_length` shortens the swept prism to the largest
   `x·dx + y·dy + z ÷ tan a` of the frame's members, minus the footprint's own reach; the
-  transmittance is measured against that trimmed prism, so the shade's area is unchanged and
-  its tip is the frame's. The table's reach column is 0.0 cm for the four frames whose top is
-  their far member and −0.8 cm for the pergola.
+  transmittance is measured against that trimmed prism, so its tip is the frame's while
+  the frame's own shadow is spread over the smaller prism. The table's reach column is
+  0.0 cm for the four frames whose top is their far member and -0.8 cm for the pergola.
 - **One hook**: the caster walk sets `IdentifiedCaster.frame` (an `OpenFrame`: the members in
   the item's OWN coordinates, its turn beside them); the overlay, the 3D drape, the
   hours-of-sun grid and the plant estimates read `caster_transmittance`. A consumer that asks

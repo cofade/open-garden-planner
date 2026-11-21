@@ -5742,7 +5742,14 @@ class GardenPlannerApp(QMainWindow):
 
         before = _agent_api_state()
         dialog = PreferencesDialog(self)
-        if dialog.exec():
+        try:
+            accepted = dialog.exec()
+        finally:
+            # #986 review: the dialog is not WA_DeleteOnClose, and its unit spin
+            # boxes stay connected to profile_changed; do not leave a hidden
+            # responder behind after every Preferences visit.
+            dialog.deleteLater()
+        if accepted:
             self._apply_unit_setting()
             self._update_satellite_menu_state()
             self._workspace.apply_look_settings()  # 3D quality, reduced motion (L1.4), sky (L7)

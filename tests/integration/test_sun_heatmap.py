@@ -146,7 +146,14 @@ def test_the_sun_badge_backing_contrasts_in_both_themes_and_stays_in_bounds(qtbo
     from open_garden_planner.core.legibility import contrast_ratio
     from open_garden_planner.ui.canvas.items.garden_item import SunBadgeItem
     from open_garden_planner.ui.icons import get_pixmap
-    from open_garden_planner.ui.theme import ThemeColors, ThemeMode, apply_theme
+    from open_garden_planner.ui.theme import (
+        ThemeColors,
+        ThemeMode,
+        apply_theme,
+        is_dark_theme,
+    )
+
+    previous_theme = ThemeMode.DARK if is_dark_theme() else ThemeMode.LIGHT
 
     def render_badge(mode: ThemeMode) -> tuple[QImage, tuple[int, int, int]]:
         apply_theme(QApplication.instance(), mode)
@@ -183,6 +190,9 @@ def test_the_sun_badge_backing_contrasts_in_both_themes_and_stays_in_bounds(qtbo
                 assert min(backing_rgb) > 220, f"light theme needs light backing: {backing_rgb}"
             else:
                 assert max(backing_rgb) < 60, f"dark theme needs dark backing: {backing_rgb}"
+            # The icon's ink is the accent sentinel, so backing-vs-accent is the
+            # contrast the drawn triangle will have (the backing is sampled, not
+            # the antialiased stroke).
             ratio = contrast_ratio(accent_rgb, backing_rgb)
             assert ratio >= 3.0, f"{mode}: contrast {ratio:.2f} < 3.0 ({accent_rgb} on {backing_rgb})"
             # Sun centre (9, 9) stays transparent -> green crown shows through.
@@ -196,7 +206,7 @@ def test_the_sun_badge_backing_contrasts_in_both_themes_and_stays_in_bounds(qtbo
                 f"backing painted outside boundingRect: {(outside.red(), outside.green(), outside.blue())}"
             )
     finally:
-        apply_theme(QApplication.instance(), ThemeMode.LIGHT)
+        apply_theme(QApplication.instance(), previous_theme)
 
 
 def test_label_safety_margin_keeps_hour_labels_clear_of_obstacles(qtbot) -> None:

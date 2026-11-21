@@ -5,6 +5,8 @@
 | Term | Definition |
 |------|-----------|
 | **Unit system** | The display/input system of one quantity (length, area, volume, temperature, precipitation or mass); the profile holds one per quantity, and a preset names a set of them. Stored scene geometry and Agent API values remain centimetres/kilograms/Celsius/millimetres (ADR-078, ADR-081). |
+| **Unit profile** | The six per-quantity display systems held by `UnitPreference` and `AppSettings`; a preset names a set, and Custom may mix any rows. A plan never stores it (ADR-081). |
+| **Canada (mixed)** | The provisional unit preset with imperial length and area and metric volume, weather and harvest mass; changing any row makes the profile Custom (ADR-081). |
 | **Length style** | The formatting role of a length: layout, coordinate, ruler, scale bar, plant size or seed depth. It controls precision and notation without changing the value unit (ADR-078). |
 | **Receiver sun estimate** | Direct sun accumulated at a plant footprint's heatmap cell centre at ground level, excluding only its own solid shadow; 15-minute sampling, no leaf-height or translucent-canopy model (ADR-056). |
 | **Sun evaluation** | Cached hours for a runtime document/date/geometry snapshot, or an explicit unavailable reason. An absent mismatch is not evidence of completed evaluation. |

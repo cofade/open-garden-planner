@@ -232,8 +232,17 @@ def _by_hand(kind: str, size: object, turn_deg: float, elevation: float, azimuth
                             pyclipper.PT_SUBJECT, True)
     union = clipper.Execute(pyclipper.CT_UNION, pyclipper.PFT_NONZERO, pyclipper.PFT_NONZERO)
     frame_area = sum(pyclipper.Area(path) for path in union)
-    frame = OpenFrame(local, record.footprints[0], turn_deg)
-    length = open_frame_effective_length(frame, float(record.height_cm), elevation, azimuth)
+    # #855: the trimmed length BY HAND, from the turned members and the turned
+    # footprint - not by calling ``open_frame_effective_length``, which is the
+    # code this helper exists to check.
+    along = corners[:, :, 0] * direction[0] + corners[:, :, 1] * direction[1]
+    frame_far = float(
+        (along + np.maximum(corners[:, :, 2], 0.0) / math.tan(math.radians(elevation))).max()
+    )
+    ring = np.asarray(footprint, dtype=np.float64)
+    footprint_far = float((ring[:, 0] * direction[0] + ring[:, 1] * direction[1]).max())
+    full_length = float(record.height_cm or 0.0) / math.tan(math.radians(elevation))
+    length = max(0.0, min(full_length, frame_far - footprint_far))
     if length <= 0.0:
         prism = [list(footprint)]
     else:
@@ -375,11 +384,13 @@ def test_the_shade_ends_at_the_frames_own_far_tip(kind: str) -> None:
         [(x / script.SCALE, y / script.SCALE) for x, y in polygon] for polygon in mesh
     ]
     trimmed = _trimmed_prism(record, 15.0, script.SOUTH)
-    full = compute_scene_shadows(
-        [(list(record.footprints[0]), float(record.height_cm))], 15.0, script.SOUTH
-    )
-    assert _reach_cm(trimmed, direction) - _reach_cm(mesh_cm, direction) <= 1.0
-    assert _reach_cm(full, direction) >= _reach_cm(mesh_cm, direction) - 1.0
+    trimmed_reach = _reach_cm(trimmed, direction)
+    mesh_reach = _reach_cm(mesh_cm, direction)
+    # Two-sided: the trimmed prism's tip lands ON the mesh shadow's tip. The old
+    # one-sided "no longer reaches past" reading also passed an over-trim. Only
+    # the reach is a contract: the weighted model spreads the frame's shade over
+    # the prism, so the real shadow may still sit partly outside it laterally.
+    assert abs(trimmed_reach - mesh_reach) <= 1.0
 
 
 @pytest.mark.parametrize("kind", OPEN_KINDS)

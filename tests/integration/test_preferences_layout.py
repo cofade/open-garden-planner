@@ -110,17 +110,21 @@ def test_tab_bar_fits_all_five_tabs_without_scroll_arrows_on_open(qtbot, theme) 
             screen = dialog.screen() or app.primaryScreen()
             assert screen is not None
             max_w = max(dialog.minimumWidth(), screen.availableGeometry().width() - 40)
-            if tab_bar.sizeHint().width() + 48 <= max_w:
-                assert tab_bar.sizeHint().width() <= dialog._tabs.width(), (
-                    f"{theme.value}/{lang}: tab bar {tab_bar.sizeHint().width()}px "
-                    f"overflows tabs widget {dialog._tabs.width()}px"
+            if tab_bar.sizeHint().width() + 48 > max_w:
+                pytest.skip(
+                    f"{theme.value}/{lang}: screen {max_w}px cannot fit the "
+                    f"uncapped tab bar {tab_bar.sizeHint().width()}px"
                 )
-                visible_arrows = [
-                    b for b in tab_bar.findChildren(QToolButton) if b.isVisible()
-                ]
-                assert visible_arrows == [], (
-                    f"{theme.value}/{lang}: unexpected tab bar scroll arrows"
-                )
+            assert tab_bar.sizeHint().width() <= dialog._tabs.width(), (
+                f"{theme.value}/{lang}: tab bar {tab_bar.sizeHint().width()}px "
+                f"overflows tabs widget {dialog._tabs.width()}px"
+            )
+            visible_arrows = [
+                b for b in tab_bar.findChildren(QToolButton) if b.isVisible()
+            ]
+            assert visible_arrows == [], (
+                f"{theme.value}/{lang}: unexpected tab bar scroll arrows"
+            )
             dialog.close()
     finally:
         load_translator(app, "en")

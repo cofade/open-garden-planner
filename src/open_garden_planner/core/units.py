@@ -198,7 +198,10 @@ def format_temperature(
     number_format: Callable[[float, int], str] | None = None,
     with_unit: bool = True,
 ) -> str:
-    """A temperature in the reader's unit; the stored value is always Celsius (#907)."""
+    """A temperature in the reader's unit; the stored value is always Celsius (#907).
+
+    ``number_format`` wins; ``decimal_mark`` applies only when no formatter is given.
+    """
     if system == UnitSystem.IMPERIAL:
         value = celsius * FAHRENHEIT_SCALE + FAHRENHEIT_OFFSET
         unit = "°F"
@@ -226,6 +229,7 @@ def format_precipitation(
 
     An inch is 25.4 mm, so one decimal collapses a real drizzle to ``0.0 in``:
     an imperial reading keeps at least two decimals (#907 review).
+    ``number_format`` wins; ``decimal_mark`` applies only when no formatter is given.
     """
     if system == UnitSystem.IMPERIAL:
         value = mm / MM_PER_INCH
@@ -248,7 +252,10 @@ def format_mass(
     decimal_mark: str = ".",
     number_format: Callable[[float, int], str] | None = None,
 ) -> str:
-    """A mass in the reader's unit; the stored value is always kilograms (#907)."""
+    """A mass in the reader's unit; the stored value is always kilograms (#907).
+
+    ``number_format`` wins; ``decimal_mark`` applies only when no formatter is given.
+    """
     if system == UnitSystem.IMPERIAL:
         value = kg / KG_PER_POUND
         unit = "lb"

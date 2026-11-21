@@ -624,13 +624,14 @@ def open_frame_transmittance(
     """The share of the sun an open frame lets through, in ``[0.0, 1.0]`` (#698).
 
     ``1 - A(frame) / A(prism)``: ``A(prism)`` is the ground shadow of the caster the
-    2D model casts — the frame's footprint, ``height_cm`` high — and ``A(frame)`` the
-    ground shadow of the frame's own solid members, both for this sun. The prism
-    keeps its shape — it is where the shade can fall — and this number is how dark
-    it is there: the frame's shade, spread evenly over the prism's. So the shade
-    the 2D model reports, area times depth, is the frame's real shadow area, at
-    every elevation and azimuth and for every size and turn of the item — nothing
-    is tabulated.
+    2D model casts — the frame's footprint swept to its own far member tip
+    (``open_frame_effective_length``, #855) — and ``A(frame)`` the ground shadow of
+    the frame's own solid members, both for this sun. The trimmed prism keeps its
+    shape — it is where the shade can fall — and this number is how dark it is
+    there: the frame's shade, spread evenly over the prism's. So the shade the 2D
+    model reports, area times depth, is the frame's real shadow area, at every
+    elevation and azimuth and for every size and turn of the item — nothing is
+    tabulated.
 
     ``azimuth_deg`` is the sun's bearing in the SCENE; the frame's turn is the
     frame's own (``OpenFrame.rotation_deg``). A base under the caster moves the

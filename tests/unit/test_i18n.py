@@ -1,5 +1,6 @@
 """Tests for internationalization (i18n) infrastructure."""
 
+import xml.etree.ElementTree as ET
 from typing import Any
 
 import pytest
@@ -142,6 +143,28 @@ class TestTranslationFiles:
         assert 'type="unfinished"' not in content, (
             "Russian .ts file contains unfinished translations"
         )
+
+    def test_russian_units_preferences_match_their_canonical_record(self, qtbot) -> None:
+        """Russian has no fill script, so ``scripts.translations_units_prefs.RU``
+        is its record; the shipped .ts must not drift from it (#986/#907)."""
+        from scripts.translations_units_prefs import RU
+
+        root = ET.parse(_TRANSLATIONS_DIR / "open_garden_planner_ru.ts").getroot()
+        messages: dict[tuple[str, str], str] = {}
+        for context in root.findall("context"):
+            context_name = context.findtext("name") or ""
+            for message in context.findall("message"):
+                source = message.find("source")
+                target = message.find("translation")
+                if source is not None and target is not None:
+                    messages[(context_name, source.text or "")] = target.text or ""
+        drift = [
+            (context, source, messages.get((context, source)), target)
+            for context, entries in RU.items()
+            for source, target in entries.items()
+            if messages.get((context, source)) != target
+        ]
+        assert not drift, f"Russian .ts drifted from its record: {drift}"
 
     def test_french_ts_has_no_unfinished(self, qtbot) -> None:
         """All translations in the French .ts file should be complete."""

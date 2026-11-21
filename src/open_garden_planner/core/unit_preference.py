@@ -1,10 +1,10 @@
 """The process's display preference; never persisted in a plan.
 
 One profile carries the unit system of each quantity a surface displays
-(#673, #907). Length, area and volume keep the original single-system
-behaviour; temperature, precipitation and harvest mass joined them when the
-measurement follow-up shipped. A preset is a named profile, and the Canadian
-(mixed) preset is the one profile that deliberately mixes the two systems.
+(#673, #907): length, area, volume, temperature, precipitation and harvest
+mass are independently configurable. A preset is a named profile; Canada
+(mixed) deliberately mixes imperial length/area with metric weather and mass,
+and Custom may mix any rows.
 
 Qt-free and plan-free: this is a preference of the running process, not of a
 garden file (ADR-078).

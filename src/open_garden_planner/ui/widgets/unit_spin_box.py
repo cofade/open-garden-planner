@@ -92,6 +92,8 @@ class _UnitSpinBox(QDoubleSpinBox):
         self._on_units_changed(profile.system_for(self._quantity))
 
     def _on_units_changed(self, system: UnitSystem) -> None:
+        if system == self._system:
+            return  # another quantity's row moved; this editor is unchanged
         exact = self._exact
         self._system = system
         with QSignalBlocker(self):
@@ -266,20 +268,20 @@ class TemperatureSpinBox(_UnitSpinBox):
             raw = text or ""
             if self.specialValueText() and raw == self.specialValueText():
                 return QValidator.State.Acceptable, raw, pos
-            number = self._metric_temperature_text(raw)
-            try:
-                value = parse_temperature(number, UnitSystem.METRIC)
+            value = self._parse_metric(raw)
+            if value is not None:
                 new_state = (
                     QValidator.State.Acceptable
                     if self.minimum() <= value <= self.maximum()
                     else QValidator.State.Intermediate
                 )
-            except ValueError:
-                new_state = (
-                    QValidator.State.Intermediate
-                    if re.fullmatch(r"[\s\d.,+\-a-zA-Z°]*", number)
-                    else QValidator.State.Invalid
-                )
+                return new_state, raw, pos
+            number = self._metric_temperature_text(raw)
+            new_state = (
+                QValidator.State.Intermediate
+                if re.fullmatch(r"[\s\d.,+\-a-zA-Z°]*", number)
+                else QValidator.State.Invalid
+            )
             return new_state, raw, pos
         return super().validate(text, pos)
 

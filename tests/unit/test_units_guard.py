@@ -7,10 +7,18 @@ from pathlib import Path
 ROOT = Path("src/open_garden_planner")
 ALLOWLIST = {
     "services/svg_export.py": "SVG XML width/height physical-unit syntax, independent of display preference (FR-EXP-02).",
-    "ui/dialogs/amendment_plan_dialog.py": "Soil amendment dosage g/kg; separate from harvest mass (#907).",
-    "ui/dialogs/soil_test_dialog.py": "Soil amendment dosage g/kg; separate from harvest mass (#907).",
 }
-UNIT = r"(?:cm²|m²|cm|mm|km|m|L|°C|°F|kg|lb|oz)\b"
+#: Soil amendment dosage is grams/kilograms on its own scale, not the harvest
+#: mass profile (#907). These files may format a dosage, and ONLY a hit whose
+#: expression names grams/quantity_g is allowed - a length or temperature in
+#: the same file still fails the guard.
+DOSAGE_FILES = {
+    "services/task_generator.py",
+    "ui/dialogs/amendment_plan_dialog.py",
+    "ui/dialogs/soil_test_dialog.py",
+}
+DOSAGE_HIT = re.compile(r"\b(?:grams|quantity_g)\b.*\}\s*(?:g|kg)\b")
+UNIT = r"(?:cm²|m²|cm|mm|km|m|L|g|kg|lb|oz|°C|°F)\b"
 INLINE = re.compile(r"\{[^}]*\}[)\]]?\s?" + UNIT)
 AFTER_VALUE = re.compile(r"^[)\]]?\s?" + UNIT)
 
@@ -93,7 +101,10 @@ def test_no_inline_measurement_formats():
             continue
         visitor = MeasurementGuard()
         visitor.visit(ast.parse(path.read_text(encoding="utf-8")))
-        hits.extend(f"{relative}:{line}: {text}" for line, text in visitor.hits)
+        for line, text in visitor.hits:
+            if relative in DOSAGE_FILES and DOSAGE_HIT.search(text):
+                continue
+            hits.append(f"{relative}:{line}: {text}")
     assert not hits, "\n".join(hits)
 
 
@@ -113,3 +124,20 @@ def test_guard_catches_paired_coordinate_units():
         visitor = MeasurementGuard()
         visitor.visit(ast.parse(source))
         assert visitor.hits
+
+
+def test_guard_catches_mass_units():
+    """#907: g and oz are mass units too, not only kg and lb."""
+    for source in ['text = f"{grams:.0f} g"', 'text = f"{mass:.1f} oz"']:
+        visitor = MeasurementGuard()
+        visitor.visit(ast.parse(source))
+        assert visitor.hits
+
+
+def test_dosage_allowance_is_narrow():
+    """The dosage files may format grams; they are not blind to other units."""
+    assert DOSAGE_HIT.search("f'{grams:.0f} g'")
+    assert DOSAGE_HIT.search("f'{format_decimal(grams / 1000.0, 2)} kg'")
+    assert DOSAGE_HIT.search("f'~{rec.quantity_g:.0f} g'")
+    assert not DOSAGE_HIT.search("f'{length_cm:.0f} cm'")
+    assert not DOSAGE_HIT.search("f'{temperature_c:.1f} °C'")

@@ -329,12 +329,17 @@ def caster_shadow(record: Record, elevation_deg: float,
             length = open_frame_effective_length(
                 frame, float(record.height_cm or 0.0), elevation_deg, azimuth_deg
             )
-            fake_height = length * math.tan(math.radians(elevation_deg))
-            polygons = compute_scene_shadows(
-                [(list(ring), fake_height) for ring in record.footprints],
-                elevation_deg,
-                azimuth_deg,
-            )
+            if length <= 0.0:
+                # The frame's far tip is its footprint: no sweep, no empty
+                # caster for the row below to measure.
+                polygons = [list(ring) for ring in record.footprints]
+            else:
+                fake_height = length * math.tan(math.radians(elevation_deg))
+                polygons = compute_scene_shadows(
+                    [(list(ring), fake_height) for ring in record.footprints],
+                    elevation_deg,
+                    azimuth_deg,
+                )
         else:
             polygons = compute_scene_shadows(
                 [(list(ring), record.height_cm) for ring in record.footprints],

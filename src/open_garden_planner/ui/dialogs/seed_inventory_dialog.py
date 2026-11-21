@@ -371,7 +371,11 @@ class SeedPacketEditDialog(QDialog):
         sb.setSuffix(" °C")
         sb.setSpecialValueText("—")
         sb.setValue(sb.minimum())
-        sb.setMinimumWidth(115)
+        # #907 review: size from the font, not one hardcoded width, so the
+        # 14 pt layout case fits the same "140.0 °F" readout.
+        sb.setMinimumWidth(
+            max(115, sb.fontMetrics().horizontalAdvance("140.0 °F") + 40)
+        )
         return sb
 
     @staticmethod
