@@ -653,13 +653,15 @@ def scenario_soak(window: Any, args: dict[str, Any]) -> Iterator[Any]:
     parts_before = host.part_count()
     from open_garden_planner.core.plant_art import PLANT_KINDS
     from open_garden_planner.core.scene3d.builders import production_registry
+    from open_garden_planner.core.scene3d.mesh import surface_pieces
 
     # A document reload invalidates forge admission even when SceneSync retains
     # the identical v0 records. A full reset uploads v0 AND the forged replacements.
     # Count these two production stages separately; final Model count is neither.
+    # Quick3DSink._create uploads one geometry buffer per non-empty surface piece (#803).
     registry = production_registry()
-    v0_parts = sum(bool(part.mesh.triangle_count) for record in controller.sync.records.values()
-                   for part in registry.build(record))
+    v0_parts = sum(bool(piece.mesh.triangle_count) for record in controller.sync.records.values()
+                   for part in registry.build(record) for piece in surface_pieces(part))
     forged_parts = sum(controller.sync.sink.part_count(record.item_id)
                        for record in controller.sync.records.values() if record.kind in PLANT_KINDS)
     before_unchanged = controller.sync.sink.geometry_uploads

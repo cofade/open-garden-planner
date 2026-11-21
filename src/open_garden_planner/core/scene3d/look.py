@@ -64,13 +64,14 @@ __all__ = [
     "MEADOW_FLAT", "MEADOW_GRASS", "MEADOW_GRASS_VARIED", "OPEN_GROUND_GRASS",
     "LOW_SUN", "MEADOW_ALBEDO", "MOON_AZIMUTH_DEG", "MOON_ELEVATION_DEG", "NEUTRAL_DAY", "NIGHT",
     "NIGHT_BELOW_DEG", "NIGHT_SKY_ENERGY", "NOON", "NOON_DEG", "PRESETS", "PRESET_SPECS",
-    "AMBIENT_GROUND_GAIN", "PROBE_GROUND_GAIN", "TWILIGHT_FILL_DAY_SHARE", "TWILIGHT_FILL_TARGET",
-    "TWILIGHT_FILL_TOP_DEG",
+    "AMBIENT_GROUND_GAIN", "NIGHT_FILL_SKY_SHARE", "PROBE_GROUND_GAIN", "TWILIGHT_FILL_DAY_SHARE",
+    "TWILIGHT_FILL_TARGET", "TWILIGHT_FILL_TOP_DEG",
     "PAINTED", "QUALITY_CHOICES", "RECORDING_SKY_REBUILD_DEG", "SKY_MIN_ELEVATION_DEG",
     "SKY_MODELS", "SKY_REBUILD_DEG",
     "TWILIGHT_DEG", "AutoPolicy",
     "AutoPreset", "LookSpec", "MoodSpec", "PresetSpec", "Rig", "ShadowSpec", "SkySpec",
-    "anchor_lights", "ao_distance_scale", "day_rig", "ground_light", "night_ground_light",
+    "anchor_lights", "ao_distance_scale", "day_rig", "ground_light", "night_fill_linear",
+    "night_ground_light",
     "fill_linear", "fog_color", "fog_depth_cm", "fog_linear", "linear_to_srgb_hex", "look_for", "mix_linear",
     "mix_rig", "moon_travel_scene", "normalise_quality", "normalise_sky_model", "scale_linear",
     "sky_is_stale",
@@ -128,7 +129,7 @@ WIND_STRENGTH: Final = 2.5
 #: 1 cm: the stripes on a backlit crown -44 % (AO off -50 %), a box caster's contact as
 #: before (0.0223 -> 0.0214 on its lit foot, High), open ground's self-occlusion
 #: 16.9 -> 11.4 levels; 2 cm halved the contact. ADR-059 addendum (#800, #805).
-AO_FLAT_BIAS_CM: Final = 1.0
+AO_FLAT_BIAS_CM: Final = 1.4
 #: The moon of the night rig: fixed, high in the south (spike). It is a LOOK, not an
 #: ephemeris — the plan's sun is below the horizon, and the scene still needs a key.
 MOON_ELEVATION_DEG: Final = 38.0
@@ -755,12 +756,12 @@ PROBE_GROUND_GAIN: Final = 1.15
 AMBIENT_GROUND_GAIN: Final = 1.2
 #: What the twilight fill holds the garden to (``twilight_fill``), in units of the
 #: weather's night light. IN TWILIGHT a line through these (sun elevation, share) corners:
-#: the night's own at the end of civil twilight, 1.07 at sunset, steeper at first (from
+#: the night's own at the end of civil twilight, 1.035 at sunset, steeper at first (from
 #: -6° to -3°) so the morning dew's nearer, dark fog cannot tip a dawn into a dip. BY DAY
 #: (from sunset up) the ground keeps ``TWILIGHT_FILL_DAY_SHARE`` of its own fall: the
 #: target is the sunset share plus that share of how far the look's own light lies above
 #: the weather's sunset light.
-TWILIGHT_FILL_TARGET: Final = ((TWILIGHT_DEG, 1.0), (-3.0, 1.05), (NIGHT_BELOW_DEG, 1.07))
+TWILIGHT_FILL_TARGET: Final = ((TWILIGHT_DEG, 1.0), (-3.0, 1.02), (NIGHT_BELOW_DEG, 1.035))
 #: Two cameras set it (family garden, 21 June; the measured frame responses, three
 #: sweeps). On the default framing the ground at 4° is only 9 % above the night, so the
 #: target ends at the night; on the board's golden-hour camera the fill lifts the ground
@@ -778,7 +779,39 @@ TWILIGHT_FILL_TARGET: Final = ((TWILIGHT_DEG, 1.0), (-3.0, 1.05), (NIGHT_BELOW_D
 TWILIGHT_FILL_DAY_SHARE: Final = 0.4
 #: No fill from the golden anchor up, whatever the weather: the sunset shot is the rig's.
 TWILIGHT_FILL_TOP_DEG: Final = GOLDEN_DEG
+#: #953: minimum night ambient fill as a share of the clear night sky's linear top colour
+#: (``NIGHT.sky_top``). Without it, faces turned away from the fixed moon (azimuth 165°)
+#: get only the near-black night probe (~0.0002 linear) and render pure black (<= 3 per
+#: channel). At 0.75x ``NIGHT.sky_top``, moon-away walls read at cool night-blue sRGB
+#: well above <= 3 while open meadow stays dark night, sunset (5.89°) stays untouched
+#: with ``TWILIGHT_FILL_DAY_SHARE = 0.4``, and dusk/dawn stays strictly monotone on every
+#: preset and weather.
+NIGHT_FILL_SKY_SHARE: Final = 0.75
+_NIGHT_FILL_CLOUD_DROP: Final = 0.40
 _REC709_LUMINANCE: Final = np.array((0.2126, 0.7152, 0.0722))
+
+
+def night_fill_linear(look: LookSpec) -> tuple[float, float, float]:
+    """The minimum cool night ambient fill (linear rgb) for ``look`` (#953).
+
+    Zero while the sun is up (``mood.twilight == 0``), ramping linearly through twilight
+    to ``NIGHT_FILL_SKY_SHARE`` of ``NIGHT.sky_top`` (linear) at full night (dimmed
+    slightly under cloud cover so a cloudy night stays darker than a clear one). At full
+    night under clear weather it is collinear with ``look.sky.top``; during twilight it
+    is bounded by the night sky's radiance so it never creates a mid-twilight bump."""
+    t = float(look.mood.twilight)
+    if t <= 0.0:
+        return (0.0, 0.0, 0.0)
+    scale = NIGHT_FILL_SKY_SHARE * t * (1.0 - _NIGHT_FILL_CLOUD_DROP * float(look.sky.cloud))
+    # Use the night sky's radiance level in the current sky's direction so twilight
+    # stays strictly collinear with look.sky.top while never exceeding the night floor.
+    night_top = _linear(NIGHT.sky_top)
+    cur_top = _linear(look.sky.top)
+    night_ref = _reflected(night_top)
+    cur_ref = _reflected(cur_top)
+    base = cur_top * (night_ref / cur_ref) if cur_ref > night_ref and cur_ref > 0.0 else cur_top
+    rgb = base * scale
+    return (float(rgb[0]), float(rgb[1]), float(rgb[2]))
 
 
 def _reflected(linear: object) -> float:
@@ -819,26 +852,23 @@ def twilight_fill_share(elevation_deg: float) -> float:
 
 def twilight_fill(look: LookSpec, night_light: float,
                   sunset_light: float) -> tuple[float, float, float]:
-    """The twilight fill of ``look`` (linear rgb), from its weather's anchors:
-    ``night_light`` and ``sunset_light`` are ``ground_light`` of that weather's night look
-    and of its look at ``NIGHT_BELOW_DEG`` (no fill). It lifts the garden to the target
-    wherever the look's own light falls short — in twilight ``twilight_fill_share`` of the
-    night's light; by day the sunset share plus ``TWILIGHT_FILL_DAY_SHARE`` of the look's
-    own light above the sunset light — and is black where it does not, at night, and from
-    ``TWILIGHT_FILL_TOP_DEG`` up. In the sky's colour (its top: what the probe gives the
-    ground).
+    """The twilight and night ambient fill of ``look`` (linear rgb), from its weather's
+    anchors: ``night_light`` is ``ground_light`` of that weather's night look WITH its
+    ``night_fill_linear`` floor (#953), and ``sunset_light`` is ``ground_light`` at
+    ``NIGHT_BELOW_DEG`` (no fill). It starts from ``night_fill_linear(look)`` (black by
+    day, cool moonlit floor at night) and adds sky-tinted fill wherever the look's own
+    light falls short of the monotone twilight target — black from ``TWILIGHT_FILL_TOP_DEG``
+    up.
 
-    Why (#802): the night rig is "day for night" — a 0.32 moon 38° high on flat ground at
-    exposure 2.4 — while a 0.5° sun lights the ground from the sky alone (probe 0.42,
-    exposure 1.25). The ground at the end of the day was about 0.95 EV under the night it
-    ends in, and twilight sank further before the moon rose to it: the garden brightened
-    as night fell (family garden, default framing: ground 0.0196 at 0.5°, 0.0188 at −1°,
-    0.0379 at night). Neither anchor moves (the owner's decision: the sunset shot and the
-    night stay); the gap between them is filled on the ground, not in the sky."""
+    Why (#802, #953): the night rig is "day for night" — a 0.32 moon 38° high on flat ground
+    at exposure 2.4 — while a 0.5° sun lights the ground from the sky alone (probe 0.42,
+    exposure 1.25). Without a fill, twilight sank below the night it ends in (#802), and
+    at night faces turned away from the moon dropped to pure black (#953)."""
     elevation = look.sky.sun_elevation_deg
     if elevation >= TWILIGHT_FILL_TOP_DEG:
         return (0.0, 0.0, 0.0)
-    natural = ground_light(look, with_fill=False)
+    floor = night_fill_linear(look)
+    natural = ground_light(replace(look, twilight_fill_linear=floor), with_fill=True)
     sunset = TWILIGHT_FILL_TARGET[-1][1] * night_light
     if elevation >= NIGHT_BELOW_DEG:
         target = sunset + TWILIGHT_FILL_DAY_SHARE * (natural - sunset_light)
@@ -848,8 +878,8 @@ def twilight_fill(look: LookSpec, night_light: float,
     top = _linear(look.sky.top)
     per_unit = AMBIENT_GROUND_GAIN * _reflected(top)
     if short <= 0.0 or per_unit <= 0.0:
-        return (0.0, 0.0, 0.0)
-    rgb = top * (short / per_unit)
+        return floor
+    rgb = np.asarray(floor, dtype=np.float64) + top * (short / per_unit)
     return (float(rgb[0]), float(rgb[1]), float(rgb[2]))
 
 
@@ -869,7 +899,8 @@ def look_for(sun: SunState, preset: str = "high") -> LookSpec:
     ``TWILIGHT_DEG``: the low-sun rig fades into the night rig (``twilight_rig``),
     the sky draws no sun, the key is the moon fading in. NIGHT below: the night rig.
     Where the garden would fall below the night's light, the twilight fill lifts the
-    ground (``twilight_fill``, #802).
+    ground (``twilight_fill``, #802); at night a cool minimum floor keeps faces turned
+    away from the moon from dropping to pure black (#953).
     """
     look = _rig_look(sun, preset)
     return replace(look, twilight_fill_linear=twilight_fill(look, *anchor_lights()))
@@ -879,12 +910,14 @@ _ANCHOR_LIGHTS: list[tuple[float, float]] = []
 
 
 def anchor_lights() -> tuple[float, float]:
-    """``ground_light`` of the clear night look and of the clear look at sunset
-    (``NIGHT_BELOW_DEG``), no fill: the clear twilight fill's anchors (``twilight_fill``).
-    Computed once."""
+    """``ground_light`` of the clear night look (with its ``night_fill_linear`` floor)
+    and of the clear look at sunset (``NIGHT_BELOW_DEG``, no fill): the clear twilight
+    fill's anchors (``twilight_fill``). Computed once."""
     if not _ANCHOR_LIGHTS:
+        night_rig_look = _rig_look(_NIGHT_SUN, "high")
+        night_with_floor = replace(night_rig_look, twilight_fill_linear=night_fill_linear(night_rig_look))
         _ANCHOR_LIGHTS.append((
-            ground_light(_rig_look(_NIGHT_SUN, "high"), with_fill=False),
+            ground_light(night_with_floor, with_fill=True),
             ground_light(_rig_look(_SUNSET_SUN, "high"), with_fill=False)))
     return _ANCHOR_LIGHTS[0]
 

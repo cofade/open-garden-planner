@@ -2699,3 +2699,38 @@ def test_a_capture_restores_the_view_when_its_resting_frame_raises(host) -> None
     assert host.scene_property("windTime") == wind_before
     assert host._camera_scene == PerspectiveShot(  # noqa: SLF001
         (0.0, 0.0, 500.0), (0.0, 0.0, 0.0), 40.0)
+
+
+def test_a_capture_keeps_fitted_shadows_when_not_overridden_and_restores_true(host) -> None:
+    """#894: once a resting live view runs with ``fittedShadows=True``, a default
+    ``capture()`` (``fitted_shadows=None``) keeps the view's fit for the grab, and an
+    explicit override (``fitted_shadows=False``) restores ``True`` on exit."""
+    from open_garden_planner.ui.view3d.quick3d.host import EngineError
+
+    _force(host)
+    host.set_camera((0.0, 0.0, 500.0), (0.0, 0.0, 0.0), 40.0)
+    host.set_fitted_shadows(True)
+    observed: list[bool] = []
+
+    def spy_apply_photo() -> None:
+        observed.append(bool(host.scene_property("fittedShadows")))
+
+    orig_apply_photo = host._apply_photo  # noqa: SLF001
+
+    def wrapped_apply_photo() -> None:
+        if host.scene_property("captureWanted"):
+            spy_apply_photo()
+            raise RuntimeError("stop after capture setup")
+        orig_apply_photo()
+
+    host._apply_photo = wrapped_apply_photo  # type: ignore[method-assign]
+    with pytest.raises((RuntimeError, EngineError)):
+        host.capture((64, 48))
+    assert observed == [True], "default fitted_shadows=None must preserve the resting view's True fit"
+    assert host.scene_property("fittedShadows") is True
+
+    observed.clear()
+    with pytest.raises((RuntimeError, EngineError)):
+        host.capture((64, 48), fitted_shadows=False)
+    assert observed == [False], "explicit fitted_shadows=False must override for that frame"
+    assert host.scene_property("fittedShadows") is True, "finally must restore prior True state"

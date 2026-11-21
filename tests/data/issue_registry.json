@@ -806,7 +806,7 @@
   },
   "553": {
     "is_pr": false,
-    "state": "OPEN",
+    "state": "CLOSED",
     "title": "Add a French (fr) translation"
   },
   "556": {
@@ -1061,7 +1061,7 @@
   },
   "666": {
     "is_pr": false,
-    "state": "OPEN",
+    "state": "CLOSED",
     "title": "Reference-point object for survey stakes and measurement datums"
   },
   "670": {
@@ -1434,11 +1434,6 @@
     "state": "CLOSED",
     "title": "Text-note letter spacing is pinned only by the font's hinting setting, not by a pixel test"
   },
-  "875": {
-    "is_pr": false,
-    "state": "CLOSED",
-    "title": "One unexplained xdist worker crash in test_agent_task_soil_tools"
-  },
   "877": {
     "is_pr": false,
     "state": "CLOSED",
@@ -1454,6 +1449,16 @@
     "state": "CLOSED",
     "title": "Partial and full repaint differ by a few pixels at a selected item's handles"
   },
+  "883": {
+    "is_pr": false,
+    "state": "OPEN",
+    "title": "3D Ultra: screen-space reflections flicker on the glossier built surfaces (windows, railing, grill)"
+  },
+  "884": {
+    "is_pr": false,
+    "state": "OPEN",
+    "title": "3D: the tiled roof and matte walls clip red at noon"
+  },
   "885": {
     "is_pr": false,
     "state": "CLOSED",
@@ -1463,6 +1468,11 @@
     "is_pr": false,
     "state": "CLOSED",
     "title": "Beauty Board never ends with status ok: the set-sun sky dip check fails on master too"
+  },
+  "887": {
+    "is_pr": false,
+    "state": "OPEN",
+    "title": "3D: shed slate roof reads as a patchwork, and the ridge cap no longer stands out"
   },
   "889": {
     "is_pr": false,
@@ -1483,6 +1493,11 @@
     "is_pr": false,
     "state": "CLOSED",
     "title": "Intermittent access violation at exit of a 3D render driver after a clean run"
+  },
+  "894": {
+    "is_pr": false,
+    "state": "OPEN",
+    "title": "3D: fit the live view's shadow map while the camera rests"
   },
   "896": {
     "is_pr": false,
@@ -1593,6 +1608,36 @@
     "is_pr": false,
     "state": "CLOSED",
     "title": "Selecting plants - View changes and unable to find and use desired plant."
+  },
+  "953": {
+    "is_pr": false,
+    "state": "OPEN",
+    "title": "3D: at night, faces turned away from the moon are pure black"
+  },
+  "957": {
+    "is_pr": false,
+    "state": "OPEN",
+    "title": "3D: a raised bed's frame is always timber, whatever its fill"
+  },
+  "958": {
+    "is_pr": false,
+    "state": "OPEN",
+    "title": "3D Ultra: pool water mirrors the house like a perfect mirror"
+  },
+  "959": {
+    "is_pr": false,
+    "state": "OPEN",
+    "title": "3D: pebble and compost surfaces read as bubble wrap from close by"
+  },
+  "961": {
+    "is_pr": false,
+    "state": "OPEN",
+    "title": "3D: a pond reads as a plastic pool (grey rim, cobalt water)"
+  },
+  "965": {
+    "is_pr": false,
+    "state": "OPEN",
+    "title": "3D: a flat-roofed house gets cottage windows and a lilac roof"
   },
   "976": {
     "is_pr": false,

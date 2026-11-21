@@ -63,6 +63,7 @@ from .look import (
     linear_to_srgb_hex,
     look_for,
     mix_linear,
+    night_fill_linear,
     twilight_fill,
 )
 from .sink import SunState
@@ -401,16 +402,19 @@ _ANCHOR_LIGHTS: dict[WeatherSpec, tuple[float, float]] = {}
 
 
 def _anchor_lights(spec: WeatherSpec) -> tuple[float, float]:
-    """``look.ground_light`` of ``spec``'s night and of its look at sunset
-    (``NIGHT_BELOW_DEG``), no dew, no fill: the anchors of its twilight fill
-    (``look.twilight_fill``). Computed once per weather."""
+    """``look.ground_light`` of ``spec``'s night (with its ``night_fill_linear`` floor,
+    #953) and of its look at sunset (``NIGHT_BELOW_DEG``, no dew, no fill): the anchors
+    of its twilight fill (``look.twilight_fill``). Computed once per weather."""
     if spec not in _ANCHOR_LIGHTS:
-        lights = []
-        for elevation in (-30.0, NIGHT_BELOW_DEG):
-            sun = SunState(elevation_deg=elevation, azimuth_deg=0.0)
-            lights.append(ground_light(_weathered(look_for(sun), spec, sun, dew=False,
-                                                  southern=False), with_fill=False))
-        _ANCHOR_LIGHTS[spec] = (lights[0], lights[1])
+        night_sun = SunState(elevation_deg=-30.0, azimuth_deg=0.0)
+        night_look = _weathered(look_for(night_sun), spec, night_sun, dew=False, southern=False)
+        night_with_floor = replace(night_look, twilight_fill_linear=night_fill_linear(night_look))
+        sunset_sun = SunState(elevation_deg=NIGHT_BELOW_DEG, azimuth_deg=0.0)
+        sunset_look = _weathered(look_for(sunset_sun), spec, sunset_sun, dew=False, southern=False)
+        _ANCHOR_LIGHTS[spec] = (
+            ground_light(night_with_floor, with_fill=True),
+            ground_light(sunset_look, with_fill=False),
+        )
     return _ANCHOR_LIGHTS[spec]
 
 
