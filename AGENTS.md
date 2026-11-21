@@ -263,6 +263,13 @@ Full how-to (step-by-step, `.ts` format, recompile command): see `docs/08-crossc
     `SimClock.set_timezone` keeps the wall reading, and a document boundary
     stores the zone silently (`notify=False`) so a raising listener cannot
     abort a load. `tzdata` is a runtime dependency and `ogp.spec` collects it.
+  - Reference points (#666, ADR-080): a reference point is the ordinary
+    `GENERIC_CIRCLE` record plus `metadata.reference_point`; its `pos()` is the
+    only snap/measure anchor; the parent binding is `reference_point_parent_id`,
+    never `parent_bed_id`; move commands carry attached points in the same undo
+    step; it has no footprint and no 3D form.
+  - Locales (#553): en/de/es/ru/fr are all required. `scripts/fill_translations.py`
+    now fills German, Spanish and French; a new UI string needs all five.
   - Split (#828, ADR-075 addenda 4 and 5): a preselection scopes the cut.
     A straight cut of a sprite-painted, rectangle-only object (a raised bed
     or hedge section) keeps its type and picture. `shape_split.axis_parallel_rect`

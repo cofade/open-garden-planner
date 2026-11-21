@@ -274,3 +274,9 @@
 | Case study: an explicit flat roof lost its fill in 3D (PR #978) | [Read](274-flat-roof-3d-fill-978.md) |
 | Case study: an explicit tool-shed roof lost its 2D drawing (PR #978) | [Read](275-tool-shed-explicit-roof-978.md) |
 | Case study: Split cut the lawn under a selected raised bed (PR #981) | [Read](276-split-preselection-and-tracking-records.md) |
+| Case study: a reference-point branch crashed the suite once every ten app windows (#666) | [Read](277-reference-point-teardown-0xc0000374.md) |
+| Case study: Undo shifted a reference point (#666) | [Read](278-reference-point-projected-undo.md) |
+| Case study: A construction guide blocked reference-point placement (#666) | [Read](279-reference-point-construction-parent.md) |
+| Case study: A late viewport event reached the touch filter without its flag (#666 review) | [Read](280-touch-filter-cleared-instance-state.md) |
+| Case study: Plant filters appeared as windows during startup (#666 review) | [Read](281-startup-trait-scroll-area.md) |
+| Case study: Edit handles refreshed after their canvas scene was destroyed (#666 review) | [Read](282-edit-handle-refresh-closed-scene.md) |

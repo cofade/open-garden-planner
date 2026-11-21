@@ -3,10 +3,12 @@
   "name_de": "Balkon mit Kräutergefäßen",
   "name_es": "Macetas de hierbas en el balcón",
   "name_ru": "Балкон с контейнерами для трав",
+  "name_fr": "Bacs à herbes de balcon",
   "description_en": "A furnished 5 x 3 m balcony: 4 basil, 6 parsley and 4 thyme plants, three rails, a north wall and a parasol. Soil-test and shadow tutorial; Freiburg reference. Opens on its teaching date, 21 September 2026, in daylight. Illustrative layout; check the site's light and load limits.",
   "description_de": "Ein möblierter 5 x 3 m Balkon: 4 Basilikum-, 6 Petersilien- und 4 Thymianpflanzen, drei Geländerseiten, Nordwand und Schirm. Bodentest- und Schattenübung; Referenz Freiburg. Öffnet am Übungsdatum, dem 21. September 2026, bei Tageslicht. Beispielentwurf; Licht und Tragfähigkeit vor Ort prüfen.",
   "description_es": "Un balcón amueblado de 5 x 3 m: 4 albahacas, 6 perejiles y 4 tomillos, tres barandillas, pared norte y sombrilla. Tutorial de suelo y sombras; referencia Friburgo. Se abre en su fecha didáctica, el 21 de septiembre de 2026, con luz de día. Diseño ilustrativo; compruebe la luz y la capacidad de carga del lugar.",
   "description_ru": "Обустроенный балкон 5 x 3 м: 4 базилика, 6 петрушек и 4 тимьяна, три ограждения, северная стена и зонт. Обучение анализу почвы и теням; координаты Фрайбурга. Открывается на учебную дату, 21 сентября 2026 года, при дневном свете. Пример планировки; проверьте освещенность и допустимую нагрузку на месте.",
+  "description_fr": "Un balcon meublé de 5 x 3 m : 4 basilic, 6 persil et 4 thym, trois garde-corps, un mur nord et un parasol. Tutoriel d’analyse de sol et d’ombre ; référence : Fribourg. S’ouvre à sa date pédagogique, le 21 septembre 2026, en plein jour. Disposition illustrative ; vérifiez la lumière et les limites de charge du site.",
   "order": 13,
   "tags": [
     "balcony",

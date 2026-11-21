@@ -818,7 +818,8 @@ Acceptance (L7, FR-3D-LOOK-08 and FR-3D-LOOK-04's operating-system half): `tests
 - **FR-3D-GROUND-06** (L1.5): Baking the ground never holds the application for a whole plan: one pass paints for at most 10 ms plus the one ground tile it is in — and one tile more when an edit arrives while older tiles are still waiting, so that a drag cannot starve them — and the tiles it has not reached keep their older picture (bare ground when a plan is first opened) until a later pass paints them, nearest to the last edit first. A ground tile that cannot be painted at all (no memory for its image) keeps its older picture, takes no other tile with it and is tried again with the next edit. Once no work is pending the ground is exactly the ground of one complete bake. A plan built to be slow can still make ONE tile cost seconds (measured: 0.9 s for a tile crossed by two styled paths of 16,384 points; 19 s for a tile under one comb-shaped polygon of 16,384 vertices — which the plan view itself needs 186 s to paint).
 
 - **FR-3D-GROUND-07** (L1.5): The 3D view paints the plan's ground while the user works: an edit appears on the ground in the pass that applies it, and the tiles a time budget left are painted in passes of their own — each takes no reading of the whole plan — while the view is visible; a hidden view does no ground work and goes on when it is shown again. A new or opened plan never shows the previous plan's ground: a piece of the new ground not yet painted is bare meadow.
-- **FR-3D-GROUND-08** (L1.5): What the 3D ground cannot show is reported, not hidden: an object whose paint on the ground failed is named in the list ("it could not be painted completely on the 3D ground") — it is shown, cut off, so the strip does not count it among the objects not shown in 3D — and the list opens with a note when the ground could not be finished (it is tried again with the next change), when places of the ground hold more surfaces than it can show (the smallest are left out), when pieces of it could not be painted (they show an older picture), or when the ground could not be painted at all; in each of these cases the strip says that the 3D ground does not show all of the plan. A ground that keeps failing never keeps the application busy: it is tried again with the next change of the plan. In the user's language (English, German, Spanish).
+- **FR-3D-GROUND-08** (L1.5): What the 3D ground cannot show is reported, not hidden: an object whose paint on the ground failed is named in the list ("it could not be painted completely on the 3D ground") — it is shown, cut off, so the strip does not count it among the objects not shown in 3D — and the list opens with a note when the ground could not be finished (it is tried again with the next change), when places of the ground hold more surfaces than it can show (the smallest are left out), when pieces of it could not be painted (they show an older picture), or when the ground could not be painted at all; in each of these cases the strip says that the 3D ground does not show all of the plan. A ground that keeps failing never keeps the application busy: it is tried again with the next change of the plan. In the user's language (English, German, Spanish, Russian,
+French).
 
 Acceptance (L1.5): `tests/integration/test_scene3d_ground_bake.py` (§8.10 — parity per pattern, shape, path style, sprite and pen; north-up on `bench_small.ogp`; the live scene spied on; one small edit on both bench plans; an edit session against a from-scratch bake; stacking; refused outlines; the hostile corpus by counts), `tests/unit/test_scene3d_ground.py`, `tests/unit/test_path_style_paint.py`, `tests/ui/test_quick3d_ground_tiles.py`, `tests/unit/test_quick3d_ground_tiles.py`, `tests/integration/test_scene3d_ground_rules.py` (a tile loses its smallest records — four lawns under 255, 256 and 2,000 pavers, and a real scene against the canvas; the time budget with a clock the test owns, the backlog under an edit a pass; a tile that cannot be painted; a painter that raises; the tip of a mitred hairpin); render tier `tests/integration/test_scene3d_ground_render.py` (the engine shows the bake north up; no seam; a re-textured tile keeps its picture; a ground that arrives over several passes; the keep-alive rule in objects and — unconditionally — in memory). The 2D defects the bake found are pinned in the 2D suites: `tests/integration/test_item_style_in_step.py`, `tests/integration/test_item_roundtrip_matrix.py`, `tests/integration/test_polyline_style_paint.py` — and the class behind them by a teardown fixture over every integration test (`tests/integration/conftest.py`, §8.10.10). Wired into the workspace (FR-3D-GROUND-07, -08): `tests/integration/test_scene3d_ground_wiring.py`; the frozen `--selftest` bakes a lawn (`tests/unit/test_quick3d_selftest.py`).
 
@@ -1408,3 +1409,27 @@ Pins: `tests/unit/test_shape_split.py`, `tests/integration/test_split_shapes.py`
 `tests/integration/test_group_drill_down.py`, `tests/unit/test_project.py::TestItemReferences`,
 `tests/integration/test_tool_switching.py::TestEscapeReturnsToSelect`,
 `tests/unit/test_object_height.py::TestHeightAcrossATypeChange`.
+
+## FR-36: Reference points for survey stakes and measurement datums (issue #666, ADR-080)
+
+- **FR-REF-01**: The Reference point tool places a named point at a clicked coordinate.
+  The point is the ordinary `GENERIC_CIRCLE` record with `metadata.reference_point =
+  true`; older versions read it as a small circle and no `FILE_VERSION` bump is needed.
+- **FR-REF-02**: The exact centre is `item.pos()` and `rect()` is centred on it. A
+  reference point exposes exactly one snap/measure anchor, `CENTER` at that coordinate;
+  its halo arms are never snap targets.
+- **FR-REF-03**: A point is independent or bound to a parent's outline through
+  `reference_point_parent_id` and `reference_point_on_contour`. A bound point is
+  projected onto the nearest straight parent edge when placed or moved, and an
+  off-contour move is refused; "Independent point" in the dialog is the explicit
+  detach. Parent translation moves the point in the same undo step; parent rotation or
+  vertex edits do not move an existing point.
+- **FR-REF-04**: The symbol is fixed in the plan (default 6 cm, scales with zoom) or
+  constant on screen (default 16 px). Colour and cosmetic stroke width are editable.
+  The symbol is a target/cross with a solid centre dot.
+- **FR-REF-05**: Placement and every edit are exactly one undo step, and moving a
+  parent carries its attached points in that same step. Layer, lock, copy/duplicate,
+  delete and save/reload follow the ordinary object rules. A reference point has no
+  3D form.
+- **FR-REF-06**: Every user-visible string is complete in every registered locale
+  (en/de/es/ru/fr).

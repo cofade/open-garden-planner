@@ -8,9 +8,15 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from enum import Enum, auto
+from typing import TYPE_CHECKING, cast
 
 from PyQt6.QtCore import QPointF
 from PyQt6.QtWidgets import QGraphicsItem
+
+if TYPE_CHECKING:
+    from open_garden_planner.ui.canvas.items.reference_point_item import (
+        ReferencePointItem,
+    )
 
 
 class AnchorType(Enum):
@@ -178,6 +184,20 @@ def get_anchor_points(item: QGraphicsItem) -> list[AnchorPoint]:
     )
 
     anchors: list[AnchorPoint] = []
+
+    from open_garden_planner.core.reference_points import is_reference_point
+
+    if is_reference_point(getattr(item, "metadata", None)):
+        # A reference point has ONE meaningful coordinate: its exact centre.
+        # The halo/cross arms are decoration, not snap targets (#666).
+        reference = cast("ReferencePointItem", item)
+        return [
+            AnchorPoint(
+                point=reference.mapToScene(reference.rect().center()),
+                anchor_type=AnchorType.CENTER,
+                item=reference,
+            )
+        ]
 
     if isinstance(item, RectangleItem):
         anchors = _rect_anchors(item)

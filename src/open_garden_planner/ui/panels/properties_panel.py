@@ -3,7 +3,7 @@
 import contextlib
 from collections.abc import Callable
 from pathlib import Path
-from typing import Any
+from typing import TYPE_CHECKING, Any, cast
 
 from PyQt6.QtCore import QCoreApplication, QSize, Qt, QTimer, pyqtSignal
 from PyQt6.QtGui import QColor, QFocusEvent, QIcon
@@ -119,6 +119,11 @@ _EXTRA_SVG_FILES: dict[ObjectType, Path] = {
 }
 
 FIELD_WIDTH = 120
+
+if TYPE_CHECKING:
+    from open_garden_planner.ui.canvas.items.reference_point_item import (
+        ReferencePointItem,
+    )
 
 
 def _style_numeric_field(field: QAbstractSpinBox) -> None:
@@ -752,6 +757,56 @@ class PropertiesPanel(QWidget):
                     layer_combo,
                     lambda c=layer_combo, it=item: self._refresh_layer_combo(c, it),
                 )
+            self._add_arrange_section([item])
+            self._updating = False
+            return
+
+        # Reference point — ONE editor (ADR-080 decision 7). The generic Type,
+        # name and styling controls are second write paths (a Type change would
+        # turn the datum into a tree), so the panel stops here (#666 review).
+        from open_garden_planner.core import reference_points as ref
+
+        if ref.is_reference_point(getattr(item, "metadata", None)):
+            from open_garden_planner.ui.reference_points import (
+                edit_reference_point,
+                reference_summary,
+            )
+
+            reference = cast("ReferencePointItem", item)
+            summary = QLabel(reference_summary(reference))
+            summary.setWordWrap(True)
+            summary.setTextInteractionFlags(Qt.TextInteractionFlag.TextSelectableByMouse)
+            self._form_layout.addRow(summary)
+            edit_button = QPushButton(
+                QCoreApplication.translate("ReferencePoints", "Edit reference point…")
+            )
+            edit_button.clicked.connect(lambda: edit_reference_point(reference))
+            self._form_layout.addRow(edit_button)
+            if hasattr(item, "layer_id"):
+                layer_combo = QComboBox()
+                _style_combo(layer_combo)
+                self._populate_layer_combo(layer_combo, item)
+                if item.parentItem() is not None:
+                    layer_combo.setEnabled(False)
+                    layer_combo.setToolTip(
+                        self.tr("A group member stays on its group's layer")
+                    )
+                def _change_layer(
+                    _index: int,
+                    target: QGraphicsItem = item,
+                    combo: QComboBox = layer_combo,
+                ) -> None:
+                    self._on_property_changed(target, "layer_id", combo.currentData())
+
+                layer_combo.currentIndexChanged.connect(_change_layer)
+                self._form_layout.addRow(self.tr("Layer:"), layer_combo)
+
+                def _refresh_layer(
+                    combo: QComboBox = layer_combo, target: QGraphicsItem = item
+                ) -> None:
+                    self._refresh_layer_combo(combo, target)
+
+                self._register_refresh(layer_combo, _refresh_layer)
             self._add_arrange_section([item])
             self._updating = False
             return

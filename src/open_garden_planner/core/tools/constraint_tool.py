@@ -389,6 +389,14 @@ class ConstraintTool(BaseTool):
             anchor_index=anchor_b.anchor_index,
         )
 
+        from open_garden_planner.core.reference_points import is_attached_reference_point
+
+        if is_attached_reference_point(anchor_a.item) or is_attached_reference_point(anchor_b.item):
+            from open_garden_planner.ui.reference_points import attachment_constraint_message
+
+            self._view.set_status_message(attachment_constraint_message())
+            return
+
         if not self._view.is_constraint_feasible(
             ref_a, ref_b, target_distance, self._CONSTRAINT_TYPE
         ):

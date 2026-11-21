@@ -3,7 +3,7 @@
 This script:
 1. Reads the source-generated .ts files
 2. Fills in all German translations (including missing contexts)
-3. Invokes Spanish translation populator (fill_spanish_translations)
+3. Invokes Spanish and French translation populators
 4. Writes the completed .ts files
 """
 
@@ -149,6 +149,8 @@ TRANSLATIONS: dict[str, dict[str, str]] = {
         "Distribute vertically": "Vertikal verteilen",
         "Distribute items": "Objekte verteilen",
         "Apply species data": "Artdaten anwenden",
+        "Reference point": "Referenzpunkt",
+        "reference point": "Referenzpunkt",
     },
 
     # ── BackgroundImageItem ──
@@ -2688,6 +2690,36 @@ TRANSLATIONS: dict[str, dict[str, str]] = {
 
     },
 
+    # ── Reference point (#666, ADR-080) ──
+    "ReferencePoints": {
+        " cm": " cm",
+        " px": " px",
+        "Attached to": "Angehängt an",
+        "Attached to: {name}": "Angehängt an: {name}",
+        "Choose a visible, unlocked layer to place a reference point.":
+            "Wähle eine sichtbare, entsperrte Ebene, um einen Referenzpunkt zu setzen.",
+        "Color": "Farbe",
+        "Constant on screen": "Konstant auf dem Bildschirm",
+        "Edit reference point…": "Referenzpunkt bearbeiten…",
+        "Fixed in plan (scales with zoom)": "Im Plan fest (zoomt mit)",
+        "Independent point": "Unabhängiger Punkt",
+        "Keep on the parent outline": "Auf der Kontur des Elternteils bleiben",
+        "Name": "Name",
+        "On outline of: {name}": "Auf der Kontur von: {name}",
+        "Place a survey stake or measurement datum":
+            "Setzt einen Messpunkt oder ein Bezugsmaß",
+        "Reference point": "Referenzpunkt",
+        "Size mode": "Größenmodus",
+        "Stroke width": "Linienbreite",
+        "Symbol size": "Symbolgröße",
+        "Unlock the layer to edit this reference point.":
+            "Entsperre die Ebene, um diesen Referenzpunkt zu bearbeiten.",
+        "cm": "cm",
+        "px": "px",
+        "{name}\n{status}\nSymbol: {size} {unit}; stroke: {width} px":
+            "{name}\n{status}\nSymbol: {size} {unit}; Linie: {width} px",
+    },
+
 }
 
 
@@ -3862,6 +3894,11 @@ def fill_translations() -> None:
     from scripts.fill_spanish_translations import fill_spanish_translations
 
     fill_spanish_translations()
+
+    # And French translations
+    from scripts.fill_french_translations import fill_french_translations
+
+    fill_french_translations()
 
 
 if __name__ == "__main__":

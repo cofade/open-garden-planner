@@ -128,6 +128,9 @@ class ToolType(Enum):
     CHAMFER = auto()
     # Phase 13 Package B (US-B4) — reflect selection across an axis
     MIRROR = auto()
+    # Named survey stake / measurement datum (#666); appended so no existing
+    # ToolType value moves (settings and action data may carry the number).
+    REFERENCE_POINT = auto()
 
 
 class BaseTool(ABC):

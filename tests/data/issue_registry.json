@@ -804,6 +804,11 @@
     "state": "CLOSED",
     "title": "Vertex editing a dense polygon creates four scene items per vertex - 1,000+ items for a 255-vertex shape"
   },
+  "553": {
+    "is_pr": false,
+    "state": "OPEN",
+    "title": "Add a French (fr) translation"
+  },
   "556": {
     "is_pr": true,
     "state": "MERGED",
@@ -1053,6 +1058,11 @@
     "is_pr": false,
     "state": "CLOSED",
     "title": "Fill patterns: angle, scale and X/Y offset controls"
+  },
+  "666": {
+    "is_pr": false,
+    "state": "OPEN",
+    "title": "Reference-point object for survey stakes and measurement datums"
   },
   "670": {
     "is_pr": false,
@@ -1321,12 +1331,12 @@
   },
   "828": {
     "is_pr": false,
-    "state": "OPEN",
+    "state": "CLOSED",
     "title": "Split pieces of a raised bed lose the wooden frame in 2D"
   },
   "829": {
     "is_pr": false,
-    "state": "OPEN",
+    "state": "CLOSED",
     "title": "CAD editing follow-ups from the PR #783 review (Esc plumbing, overlay typing, minimap)"
   },
   "831": {
@@ -1426,7 +1436,7 @@
   },
   "875": {
     "is_pr": false,
-    "state": "OPEN",
+    "state": "CLOSED",
     "title": "One unexplained xdist worker crash in test_agent_task_soil_tools"
   },
   "877": {
@@ -1571,7 +1581,7 @@
   },
   "945": {
     "is_pr": false,
-    "state": "OPEN",
+    "state": "CLOSED",
     "title": "The plan's time zone is never read: the clock and a tour's time range use the computer's time zone"
   },
   "950": {
@@ -1586,7 +1596,7 @@
   },
   "976": {
     "is_pr": false,
-    "state": "OPEN",
+    "state": "CLOSED",
     "title": "docs: bring the documentation, user-facing parts first, up to date before the tool is advertised"
   },
   "978": {
@@ -1596,7 +1606,7 @@
   },
   "981": {
     "is_pr": true,
-    "state": "OPEN",
+    "state": "MERGED",
     "title": "feat(#828, #829, #945, #875, #976): plan time zone, split frames and documentation truth"
   }
 }

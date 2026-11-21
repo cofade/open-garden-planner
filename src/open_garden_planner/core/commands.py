@@ -1183,81 +1183,92 @@ def bed_child_has_constraints(scene: QGraphicsScene, child_id: UUID) -> bool:
 def expand_with_bed_children(
     scene: QGraphicsScene,
     item_deltas: list[tuple[QGraphicsItem, QPointF]],
-) -> list[tuple[QGraphicsItem, QPointF]]:
-    """Add each moved plant-parent's plants, carrying the parent's delta.
+) -> tuple[list[tuple[QGraphicsItem, QPointF]], set[QGraphicsItem]]:
+    """Expand parent moves, returning the carried datums that move exactly.
 
-    Issue #443 (vi): a bed moved by a typed coordinate or by align/distribute
-    left its plants behind, unlike the drag, arrow-key and agent paths. A plant
-    that is itself in ``item_deltas`` keeps its own delta — the user moved it.
+    A directly moved plant keeps its own delta (#443). A selected datum
+    follows its binding parent's delta when that parent also moves (#666).
     """
-    result = list(item_deltas)
-    moved = {item for item, _delta in result}
+    from open_garden_planner.core.reference_points import carried_by_moved, carried_delta
+
+    deltas = dict(item_deltas)
     finder = getattr(scene, "find_item_by_id", None)
     if not callable(finder):
-        return result
-    for item, delta in list(item_deltas):
+        return item_deltas, set()
+    for item, delta in item_deltas:
         for parent in iter_plant_parents([item]):
             for child_id in parent.child_item_ids:
                 child = finder(child_id)
-                if child is None or child in moved or bed_child_has_constraints(scene, child_id):
+                if child is None or child in deltas or bed_child_has_constraints(scene, child_id):
                     continue
-                moved.add(child)
-                result.append((child, QPointF(delta)))
-    return result
+                deltas[child] = QPointF(delta)
+
+    carries = carried_by_moved(scene, list(deltas), exclude_moved=False)
+    for point, carrier in carries:
+        deltas.pop(point, None)
+        deltas[point] = carried_delta(point, carrier, deltas[carrier])
+    return list(deltas.items()), {point for point, _ in carries}
 
 
-class MoveItemsCommand(Command):
-    """Command for moving one or more items."""
+class _MoveItemDeltasCommand(Command):
+    """Replay translated items and capture reference points after projection."""
 
-    def __init__(
-        self,
-        items: list[QGraphicsItem],
-        delta: QPointF,
-    ) -> None:
-        """Initialize the move command.
+    def __init__(self, item_deltas: list[tuple[QGraphicsItem, QPointF]]) -> None:
+        from open_garden_planner.core.reference_points import is_reference_point
 
-        Args:
-            items: List of items to move
-            delta: Movement offset (dx, dy)
-        """
-        self._items = list(items)
-        self._delta = delta
-        scene = self._items[0].scene() if self._items else None
-        if scene is not None:
-            # One rule: a moved bed takes its plants along (#443 (vi) — the typed
-            # coordinate and align/distribute used to leave them behind).
-            self._items = [
-                moved
-                for moved, _carried in expand_with_bed_children(
-                    scene, [(item, delta) for item in self._items]
-                )
-            ]
-        self._membership = _membership_change_for_move(scene, self._items)
+        scene = item_deltas[0][0].scene() if item_deltas else None
+        self._item_deltas, self._carried = (
+            expand_with_bed_children(scene, item_deltas) if scene is not None else (item_deltas, set())
+        )
+        items = [item for item, _delta in self._item_deltas]
+        self._reference_positions: dict[QGraphicsItem, tuple[QPointF, QPointF | None]] = {
+            item: (item.pos(), None) for item in items if is_reference_point(item)
+        }
+        self._membership = _membership_change_for_move(scene, items)
+
+    def execute(self) -> None:
+        """Project direct reference moves once and replay the resulting coordinate."""
+        for item, delta in self._item_deltas:
+            if item not in self._reference_positions:
+                item.moveBy(delta.x(), delta.y())
+                continue
+            old, new = self._reference_positions[item]
+            if new is not None:
+                _apply_captured_position(item, new)
+                continue
+            if item in self._carried:
+                _apply_captured_position(item, old + delta)
+            else:
+                item.moveBy(delta.x(), delta.y())
+            self._reference_positions[item] = old, item.pos()
+        if self._membership is not None:
+            self._membership.reconcile()
+
+    def undo(self) -> None:
+        """Restore bed links and pre-move positions."""
+        if self._membership is not None:
+            self._membership.restore()
+        for item, delta in self._item_deltas:
+            if item in self._reference_positions:
+                _apply_captured_position(item, self._reference_positions[item][0])
+            else:
+                item.moveBy(-delta.x(), -delta.y())
+
+
+class MoveItemsCommand(_MoveItemDeltasCommand):
+    """Move one or more items by the same delta."""
+
+    def __init__(self, items: list[QGraphicsItem], delta: QPointF) -> None:
+        super().__init__([(item, delta) for item in items])
 
     @property
     def description(self) -> str:
-        """Human-readable description."""
-        count = len(self._items)
+        count = len(self._item_deltas)
         if count == 1:
             return QCoreApplication.translate("Commands", "Move item")
         return QCoreApplication.translate("Commands", "Move {count} items").format(
             count=count
         )
-
-    def execute(self) -> None:
-        """Move items by delta, then re-derive their bed links from where they are."""
-        for item in self._items:
-            item.moveBy(self._delta.x(), self._delta.y())
-        if self._membership is not None:
-            self._membership.reconcile()
-
-    def undo(self) -> None:
-        """Restore the bed links, then move items back by negative delta."""
-        if self._membership is not None:
-            self._membership.restore()
-        for item in self._items:
-            item.moveBy(-self._delta.x(), -self._delta.y())
-
 
 
 class CompoundCommand(Command):
@@ -2168,56 +2179,22 @@ class AddVertexCommand(Command):
             graph.restore_topology_state(self._before)  # type: ignore[attr-defined]
 
 
-class AlignItemsCommand(Command):
-    """Command for aligning/distributing items with per-item deltas.
-
-    Unlike MoveItemsCommand (uniform delta), each item can move a different amount.
-    Used by alignment and distribution operations.
-    """
+class AlignItemsCommand(_MoveItemDeltasCommand):
+    """Move items by individual deltas for alignment or distribution."""
 
     def __init__(
         self,
         item_deltas: list[tuple[QGraphicsItem, QPointF]],
         description_text: str | None = None,
     ) -> None:
-        """Initialize the alignment command.
-
-        Args:
-            item_deltas: List of (item, delta) tuples.
-            description_text: Already-translated description for the undo menu;
-                callers should pass a tr()/translate() result. Falls back to a
-                translated generic label when omitted.
-        """
-        self._item_deltas = list(item_deltas)
+        super().__init__(list(item_deltas))
         self._description_text = description_text
-        scene = self._item_deltas[0][0].scene() if self._item_deltas else None
-        if scene is not None:
-            # A moved bed takes its plants along, one rule for every path (#443 (vi)).
-            self._item_deltas = expand_with_bed_children(scene, self._item_deltas)
-        self._membership = _membership_change_for_move(
-            scene, [item for item, _delta in self._item_deltas]
-        )
 
     @property
     def description(self) -> str:
-        """Human-readable description."""
         if self._description_text is not None:
             return self._description_text
         return QCoreApplication.translate("Commands", "Align items")
-
-    def execute(self) -> None:
-        """Move each item by its individual delta, then re-derive bed links."""
-        for item, delta in self._item_deltas:
-            item.moveBy(delta.x(), delta.y())
-        if self._membership is not None:
-            self._membership.reconcile()
-
-    def undo(self) -> None:
-        """Restore bed links, then move each item back by its individual delta."""
-        if self._membership is not None:
-            self._membership.restore()
-        for item, delta in self._item_deltas:
-            item.moveBy(-delta.x(), -delta.y())
 
 
 class DeleteVertexCommand(Command):
@@ -2375,7 +2352,32 @@ def _capture_bed_child_moves(
                 continue
             current = child.pos()
             moves.append((child, current, current + delta))
+    # A one-shot solver move must also carry the points bound to a moved item
+    # or to a child of a moved group (FR-REF-03); they translate exactly, not
+    # through the contour projection, so undo returns to the same coordinate.
+    from open_garden_planner.core.reference_points import carried_by_moved, carried_delta
+
+    for item, old, new in item_moves:
+        scene = item.scene()
+        if scene is None:
+            continue
+        delta = new - old
+        for point, _carrier in carried_by_moved(scene, [item]):
+            if id(point) in moved_ids:
+                continue
+            moved_ids.add(id(point))
+            current = point.pos()
+            moves.append((point, current, current + carried_delta(point, item, delta)))
     return moves
+
+
+def _apply_captured_position(item: QGraphicsItem, position: QPointF) -> None:
+    """Place a captured child, exactly for a reference point (no projection)."""
+    exact = getattr(item, "set_pos_exact", None)
+    if callable(exact):
+        exact(position)
+    else:
+        item.setPos(position)
 
 
 class AddConstraintCommand(Command):
@@ -2461,7 +2463,7 @@ class AddConstraintCommand(Command):
             self._children_captured = True
             self._child_moves = _capture_bed_child_moves(self._item_moves)
         for child, _old, new in self._child_moves:
-            child.setPos(new)
+            _apply_captured_position(child, new)
         if self._membership is not None:
             self._membership.reconcile()
 
@@ -2472,7 +2474,7 @@ class AddConstraintCommand(Command):
             self._membership.restore()
         # Revert the carried children's positions first.
         for child, old, _new in self._child_moves:
-            child.setPos(old)
+            _apply_captured_position(child, old)
         # Revert vertex moves first (reverse order)
         for item, idx, old_local, _new_local in reversed(self._vertex_moves):
             if hasattr(item, '_move_vertex_to'):
@@ -2940,7 +2942,7 @@ class EditConstraintDistanceCommand(Command):
             self._children_captured = True
             self._child_moves = _capture_bed_child_moves(self._item_moves)
         for child, _old, new in self._child_moves:
-            child.setPos(new)
+            _apply_captured_position(child, new)
         if self._membership is not None:
             self._membership.reconcile()
 
@@ -2951,7 +2953,7 @@ class EditConstraintDistanceCommand(Command):
         if self._membership is not None:
             self._membership.restore()
         for child, old, _new in self._child_moves:
-            child.setPos(old)
+            _apply_captured_position(child, old)
         for item, idx, old_local, _new_local in reversed(self._vertex_moves):
             if hasattr(item, '_move_vertex_to'):
                 item._move_vertex_to(idx, old_local)

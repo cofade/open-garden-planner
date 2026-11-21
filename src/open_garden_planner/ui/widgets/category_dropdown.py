@@ -303,7 +303,8 @@ class CategoryDropdown(QWidget):
 
         self.trait_filters = TraitFilters()
         self.trait_filters.changed.connect(lambda: self._apply_filter(self._search_box.text()))
-        self._trait_scroll = QScrollArea()
+        # Set the parent before changing visibility, or Qt shows this as a window.
+        self._trait_scroll = QScrollArea(self)
         self._trait_scroll.setFrameShape(QScrollArea.Shape.NoFrame)
         self._trait_scroll.setWidgetResizable(True)
         self._trait_scroll.setSizePolicy(QSizePolicy.Policy.Ignored, QSizePolicy.Policy.Fixed)

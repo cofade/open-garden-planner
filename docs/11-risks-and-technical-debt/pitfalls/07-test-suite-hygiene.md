@@ -2,6 +2,16 @@
 
 One entry per lesson, each under its permanent `PF-<AREA>-<NN>` ID. Each entry gives its rule, the test that pins it, its sources and its status. Index: [§11.4](../README.md#114-known-development-pitfalls).
 
+### PF-TST-41
+
+- **Rule:** A UI test file builds one `GardenPlannerApp`; a per-assertion app amplifies teardown heap faults.
+- **Pinned by:** `tests/ui/test_language_menu.py`
+- **Source:** #553/#666
+- **Status:** standing
+- **Legacy:** none
+
+Branch 3/5 on the trio, master 0/10, one window 0/6; full-suite crashes were preview mode's armed 50ms timer and a window per assertion (PF-TST-14). Never hide it with a scheduler marker (PF-TST-40).
+
 ### PF-TST-40
 
 - **Rule:** A parallel test that passes alone and fails under load is not fixed by a scheduler marker or a lock without measuring it on `master` first. `xdist_group` is inert under `--dist worksteal`; the MP4 `4_mf` flake is a Qt 6.12/Media Foundation defect that survived a cross-process lock and a pre-stop drain. Record it as a known flake and leave the product tests unmodified.

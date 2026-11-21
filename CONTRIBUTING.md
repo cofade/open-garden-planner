@@ -120,7 +120,7 @@ Keep `AGENTS.md` and `CLAUDE.md` synchronized. Keep project skills in both agent
 ## Contributing translations and adding languages
 
 Open Garden Planner supports internationalization through Qt Linguist (`.ts` and `.qm` files).
-Shipped languages currently include English (`en`, source), German (`de`), and Spanish (`es`).
+Shipped languages currently include English (`en`, source), German (`de`), Spanish (`es`), Russian (`ru`), and French (`fr`).
 
 All supported languages are registered in `src/open_garden_planner/core/i18n.py` under `SUPPORTED_LANGUAGES`.
 A strict quality gate (`scripts/check_translations.py`) enforces that **every registered target language must have 100% coverage** of the active UI source inventory.
@@ -134,9 +134,9 @@ A strict quality gate (`scripts/check_translations.py`) enforces that **every re
 
 ### Updating or improving existing translations
 
-To fix or improve translations for an existing language (e.g. `de` or `es`):
+To fix or improve translations for an existing language (e.g. `de`, `es`, or `fr`):
 
-1. Edit the relevant `.ts` catalog in `src/open_garden_planner/resources/translations/open_garden_planner_<lang>.ts` (using Qt Linguist or a text editor) or update the translation mapping scripts (e.g. `scripts/translations_es/`).
+1. Edit the relevant `.ts` catalog in `src/open_garden_planner/resources/translations/open_garden_planner_<lang>.ts` (using Qt Linguist or a text editor) or update the translation mapping scripts (e.g. `scripts/translations_es/` or `scripts/translations_fr/`).
 2. Recompile the binary catalog:
    ```powershell
    $env:PYTHONUTF8 = "1"
@@ -163,7 +163,8 @@ To add a new language to Open Garden Planner:
        "en": "English",
        "de": "Deutsch",
        "es": "Español",
-       "fr": "Français",  # Example
+       "ru": "Русский",
+       "fr": "Français",
    }
    ```
 2. **Extract source keys**:

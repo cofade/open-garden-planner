@@ -11,6 +11,7 @@ from open_garden_planner.core import (
     AddConstraintCommand,
 )
 from open_garden_planner.core.constraints import APPLY_TOLERANCE_CM
+from open_garden_planner.core.reference_points import constraint_pins
 
 if TYPE_CHECKING:
     from open_garden_planner.ui.canvas.canvas_scene import CanvasScene
@@ -250,7 +251,7 @@ class DragConstraints:
         result = graph.solve_anchored(
             item_positions=item_positions,
             anchor_offsets=anchor_offsets,
-            pinned_items=dragged_ids | construction_ids,
+            pinned_items=dragged_ids | construction_ids | constraint_pins(item_map),
             max_iterations=20,
             tolerance=1.0,
             deformable_items=deformable_items,
@@ -316,10 +317,12 @@ class DragConstraints:
         for did in dragged_ids:
             connected_ids.update(graph.get_connected_component(did))
 
+        from open_garden_planner.ui.canvas.items import ReferencePointItem
+
         # Identify all construction items in scene (needed for soft_dragged logic below)
         scene_construction_ids: set[Any] = set()
         for scene_item in cast("CanvasScene", host.scene()).items():
-            if isinstance(scene_item, (ConstructionLineItem, ConstructionCircleItem)):
+            if isinstance(scene_item, (ConstructionLineItem, ConstructionCircleItem, ReferencePointItem)):
                 scene_construction_ids.add(scene_item.item_id)
 
         # Collect FIXED item IDs — they act as pinned anchors just like construction items
@@ -377,7 +380,7 @@ class DragConstraints:
         for item in cast("CanvasScene", host.scene()).items():
             if isinstance(item, GardenItemMixin) and item.item_id in connected_ids:
                 item_map[item.item_id] = item
-                if item.item_id in fixed_ids:
+                if item.item_id in pinned_reference_ids:
                     # FIXED garden items are treated as pinned anchors like construction items
                     construction_ids.add(item.item_id)
             elif (
@@ -446,7 +449,7 @@ class DragConstraints:
         result = graph.solve_anchored(
             item_positions=item_positions,
             anchor_offsets=anchor_offsets,
-            pinned_items=truly_dragged | construction_ids,
+            pinned_items=truly_dragged | construction_ids | constraint_pins(item_map),
             max_iterations=20,
             tolerance=1.0,
             deformable_items=deformable_items,
@@ -908,7 +911,7 @@ class DragConstraints:
         result = graph.solve_anchored(
             item_positions=item_positions,
             anchor_offsets=anchor_offsets,
-            pinned_items=construction_ids | (extra_pinned or set()),
+            pinned_items=construction_ids | (extra_pinned or set()) | constraint_pins(item_map),
             max_iterations=20,
             # A committed application must reach the precision the panel
             # displays (#670 cause 4).  Live drags keep the coarser default.

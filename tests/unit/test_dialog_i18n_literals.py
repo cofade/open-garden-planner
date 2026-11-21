@@ -143,7 +143,7 @@ class TestPlaceholderAndInterpolationPairing:
 class TestTrLiteralsAreRegistered:
     """Every dialog tr() literal must be a real, translated key in the .ts."""
 
-    @pytest.mark.parametrize("locale", ["de", "es"])
+    @pytest.mark.parametrize("locale", ["de", "es", "fr"])
     @pytest.mark.parametrize("literal", DIALOG_LITERALS)
     def test_dialog_literal_is_registered_and_translated(
         self, locale: str, literal: str

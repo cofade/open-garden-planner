@@ -13,6 +13,7 @@ from .journal_pin_item import JournalPinItem
 from .polygon_item import PolygonItem
 from .polyline_item import PolylineItem
 from .rectangle_item import RectangleItem
+from .reference_point_item import ReferencePointItem
 from .resize_handle import HandlePosition, ResizeHandle, ResizeHandlesMixin
 from .smart_symbol_item import SmartSymbolItem
 from .soil_badge_item import SoilBadgeItem
@@ -34,6 +35,7 @@ __all__ = [
     "PolygonItem",
     "PolylineItem",
     "RectangleItem",
+    "ReferencePointItem",
     "ResizeHandle",
     "ResizeHandlesMixin",
     "SmartSymbolItem",

@@ -29,6 +29,7 @@ _FOREIGN_SYSTEMS = [
     pytest.param("de", "en_US", ",", id="german-ui-on-an-american-system"),
     pytest.param("es", "de_DE", ",", id="spanish-ui-on-a-german-system"),
     pytest.param("ru", "en_US", ",", id="russian-ui-on-an-american-system"),
+    pytest.param("fr", "en_US", ",", id="french-ui-on-an-american-system"),
 ]
 
 
@@ -162,7 +163,7 @@ def test_a_shown_number_is_accepted_back(qtbot, speak, language, system, mark) -
     assert (result.point.x(), abs(result.point.y())) == pytest.approx((155.8, 20.5))
 
 
-@pytest.mark.parametrize("language", ["en", "de", "es", "ru"])
+@pytest.mark.parametrize("language", ["en", "de", "es", "ru", "fr"])
 def test_either_decimal_mark_is_accepted_in_free_text(qtbot, speak, language) -> None:
     speak(language, "de_DE")
     assert i18n.parse_decimal("155,8") == pytest.approx(155.8)

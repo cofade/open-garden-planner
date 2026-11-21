@@ -135,6 +135,7 @@ from open_garden_planner.core.tools import (
     PolygonTool,
     PolylineTool,
     RectangleTool,
+    ReferencePointTool,
     SelectTool,
     SplitShapeTool,
     SymmetryConstraintTool,
@@ -283,6 +284,8 @@ class CanvasView(QGraphicsView):
     #: that has none of its own left. An ``AttributeError`` in a virtual that
     #: Qt calls ends the process (PyQt calls ``qFatal``; PF-CAN-61).
     _sun_legend_rect = QRect()
+    #: The viewport can call the filter after the view's instance state is gone.
+    _touch_gestures_enabled = False
     # US-12.9: emitted when one or more journal pins are part of a keyboard
     # Delete-key batch (no per-pin confirmation; matches Delete-key UX for
     # regular items and is undoable). Args: list[str] of note ids.
@@ -424,6 +427,10 @@ class CanvasView(QGraphicsView):
         self._constraint_propagated_starts: dict[QGraphicsItem, QPointF] = {}
         # Child items moved during bed drag (original positions)
         self._child_drag_origins: dict[QGraphicsItem, QPointF] = {}
+        # (point, carrier) bound points carried by the drag; built once per
+        # gesture, not on every mouse move (a 5,000-item scene scan is ~3 ms).
+        self._drag_carried_points: dict[QGraphicsItem, QGraphicsItem] = {}
+        self._drag_carried_points_built = False
         # Active handle being dragged — used to re-grab if Qt silently drops it
         self._active_drag_handle: QGraphicsItem | None = None
         # A journal pin dragged through the view's undo/lost-release path.
@@ -588,6 +595,8 @@ class CanvasView(QGraphicsView):
 
         journal_pin_tool = JournalPinTool(self)
         self._tool_manager.register_tool(journal_pin_tool)
+
+        self._tool_manager.register_tool(ReferencePointTool(self))
 
         # Register property object tools (polygon-based)
         house_tool = PolygonTool(self, object_type=ObjectType.HOUSE)
@@ -870,10 +879,13 @@ class CanvasView(QGraphicsView):
         """Refresh screen-sized editing affordances after selection or zoom (#840)."""
         if not hasattr(self, "_drill_down_item"):
             return
+        scene = self.scene()
+        if not isinstance(scene, CanvasScene):
+            return
         from .items.group_item import selection_tree
 
-        self._canvas_scene.invalidate_edit_decoration_covers()
-        for item in selection_tree(self._canvas_scene.selectedItems()):
+        scene.invalidate_edit_decoration_covers()
+        for item in selection_tree(scene.selectedItems()):
             for name in ("update_resize_handles", "update_rotation_handle"):
                 refresh = getattr(item, name, None)
                 if refresh is not None:
@@ -1390,7 +1402,7 @@ class CanvasView(QGraphicsView):
 
     def eventFilter(self, watched: QObject, event: QEvent) -> bool:
         """Route pinch gestures and native trackpad gestures to the handlers."""
-        if watched is self.viewport() and self._touch_gestures_enabled:
+        if self._touch_gestures_enabled and watched is self.viewport():
             kind = event.type()
             if kind == QEvent.Type.MouseButtonPress:
                 # The first finger of a pinch is Qt's synthesised mouse press; remember
@@ -1555,6 +1567,8 @@ class CanvasView(QGraphicsView):
         if self._rotating_item is None:
             self._constraint_propagated_starts.clear()
         self._child_drag_origins.clear()
+        self._drag_carried_points.clear()
+        self._drag_carried_points_built = False
         self._thaw_fixed_drag_items()
 
     def _end_pinch(self) -> None:
@@ -2020,8 +2034,18 @@ class CanvasView(QGraphicsView):
         moves, vertex_moves = self._compute_constraint_solve_moves(
             scope_ids=scope_ids
         )
-        for item, _old, new in moves:
-            item.setPos(new)
+        # A one-shot solve is a parent translation too: carry the attached
+        # points and place every captured item exactly (FR-REF-03, #666 review).
+        from open_garden_planner.core.commands import (
+            _apply_captured_position,
+            _capture_bed_child_moves,
+        )
+
+        carried = _capture_bed_child_moves(moves)
+        for move_item, _old, new in moves:
+            _apply_captured_position(move_item, new)
+        for child, _old, new in carried:
+            _apply_captured_position(child, new)
         for item, idx, _old_local, new_local in vertex_moves:
             if hasattr(item, "_move_vertex_to"):
                 item._move_vertex_to(idx, new_local)
@@ -2088,6 +2112,18 @@ class CanvasView(QGraphicsView):
                 return item
         return None
 
+    def _constraint_uses_attached_datum(self, *anchors: object) -> bool:
+        from open_garden_planner.core.reference_points import is_attached_reference_point
+
+        for anchor in anchors:
+            item_id = getattr(anchor, "item_id", None)
+            if item_id is None:
+                continue
+            item = self._canvas_scene.find_item_by_id(item_id)
+            if is_attached_reference_point(item):
+                return True
+        return False
+
     def _execute_constraint_with_solve(
         self, command: AddConstraintCommand, *, conflicts_checked: bool = False
     ) -> None:
@@ -2099,6 +2135,14 @@ class CanvasView(QGraphicsView):
         addition + position changes) is a single Ctrl+Z step.
         """
         from open_garden_planner.core.constraints import ConstraintType as _CT
+
+        if command._constraint_type != _CT.FIXED and self._constraint_uses_attached_datum(
+            command._anchor_a, command._anchor_b, command._anchor_c,
+        ):
+            from open_garden_planner.ui.reference_points import attachment_constraint_message
+
+            self.set_status_message(attachment_constraint_message())
+            return
 
         # PARALLEL / PERPENDICULAR / EQUAL are rotation-only: the solver skips them.
         # Bundling solver moves from OTHER constraints would shift polygon vertices and
@@ -2164,6 +2208,7 @@ class CanvasView(QGraphicsView):
         from open_garden_planner.core.measure_snapper import (
             anchor_offset_table,
         )
+        from open_garden_planner.core.reference_points import constraint_pins
         from open_garden_planner.ui.canvas.items import GardenItemMixin
         from open_garden_planner.ui.canvas.items.construction_item import (
             ConstructionCircleItem,
@@ -2220,7 +2265,7 @@ class CanvasView(QGraphicsView):
                 tolerance=1.0,
                 # #670 review P1: the scan must pin what the application pins,
                 # or it reports a conflict the applied solve would not create.
-                pinned_items=construction_ids
+                pinned_items=construction_ids | constraint_pins(item_map)
                 | self._constraint_reference_pins(command._anchor_a, command._anchor_b),
             )
         except Exception:
@@ -2305,12 +2350,19 @@ class CanvasView(QGraphicsView):
             True  — the constraint is compatible with the existing system.
             False — adding it would create an irresolvable conflict.
         """
+        from open_garden_planner.core.constraints import ConstraintType
         from open_garden_planner.core.measure_snapper import anchor_offset_table
+        from open_garden_planner.core.reference_points import constraint_pins
         from open_garden_planner.ui.canvas.items import GardenItemMixin
         from open_garden_planner.ui.canvas.items.construction_item import (
             ConstructionCircleItem,
             ConstructionLineItem,
         )
+
+        if constraint_type != ConstraintType.FIXED and self._constraint_uses_attached_datum(
+            anchor_a, anchor_b, anchor_c,
+        ):
+            return False
 
         graph = self._canvas_scene.constraint_graph
 
@@ -2359,7 +2411,7 @@ class CanvasView(QGraphicsView):
             deformable_items=deformable_items,
             deformable_vertices=deformable_vertices,
             # #670 cause 2: the trial must pin what the application pins.
-            pinned_items=construction_ids
+            pinned_items=construction_ids | constraint_pins(item_map)
             | self._constraint_reference_pins(anchor_a, anchor_b),
         )
 
@@ -4196,6 +4248,8 @@ class CanvasView(QGraphicsView):
             if command_is(last_cmd, (ResizeItemCommand, RotateItemCommand)):
                 self._drag_start_positions.clear()
                 self._constraint_propagated_starts.clear()
+                self._drag_carried_points.clear()
+                self._drag_carried_points_built = False
                 self._thaw_fixed_drag_items()
                 return
 
@@ -4242,6 +4296,21 @@ class CanvasView(QGraphicsView):
                     child_start_positions[child] = child_start_pos
                     item_deltas.append((child, delta))
 
+        # Bound reference points moved with a parent are reset here and moved
+        # again by the command's own expansion, so the whole gesture is one
+        # undo step (#666, ADR-080).
+        from open_garden_planner.core.reference_points import carried_by_moved
+
+        # A moved group carries the points bound to its descendants too; the
+        # live propagation moved them, so the reset must know them or the
+        # command's second delta doubles the move (#666 review).
+        for point, _carrier in carried_by_moved(
+            self._canvas_scene, [item for item, _delta in item_deltas]
+        ):
+            if point in self._drag_start_positions or point in child_start_positions:
+                continue
+            child_start_positions[point] = self._child_drag_origins.get(point, point.pos())
+
         if item_deltas:
             # Ask the LINK question where the drag left everything - the FINAL
             # positions: a bed dragged in the same gesture is at its new place, and
@@ -4249,13 +4318,16 @@ class CanvasView(QGraphicsView):
             # then reset for the move command, which re-applies the deltas.
             links = self._plant_bed_link_commands()
 
-            # Reset all items to their start positions
+            # Reset all items to their start positions. A bound point goes back
+            # EXACTLY: the parent is still at its dragged place here, so a
+            # projected setPos would snap the point onto the wrong contour
+            # before the command re-applies the parent's delta (#666 review).
             for item, start_pos in self._drag_start_positions.items():
-                item.setPos(start_pos)
+                self._set_position_exact(item, start_pos)
             for item, start_pos in self._constraint_propagated_starts.items():
-                item.setPos(start_pos)
+                self._set_position_exact(item, start_pos)
             for item, start_pos in child_start_positions.items():
-                item.setPos(start_pos)
+                self._set_position_exact(item, start_pos)
 
             # Use AlignItemsCommand for per-item deltas (supports undo)
             has_propagated = len(self._constraint_propagated_starts) > 0
@@ -4283,22 +4355,37 @@ class CanvasView(QGraphicsView):
         # action the user made on purpose (ADR-037 addendum decision 5).
         self._drag_start_positions.clear()
         self._constraint_propagated_starts.clear()
+        self._drag_carried_points.clear()
+        self._drag_carried_points_built = False
         if hasattr(self, "_child_drag_origins"):
             self._child_drag_origins.clear()
 
+    @staticmethod
+    def _set_position_exact(item: QGraphicsItem, position: QPointF) -> None:
+        """Restore a drag start position without a bound point's projection."""
+        exact = getattr(item, "set_pos_exact", None)
+        if callable(exact):
+            exact(position)
+        else:
+            item.setPos(position)
+
     def _propagate_bed_children_during_drag(self) -> None:
-        """Move child plants to follow their parent bed during a live drag."""
+        """Move child plants and bound reference points with their parent."""
         if not self._drag_start_positions:
             return
 
+        from open_garden_planner.core.reference_points import carried_by_moved, carried_delta
+
+        if not self._drag_carried_points_built:
+            self._drag_carried_points = dict(
+                carried_by_moved(self._canvas_scene, list(self._drag_start_positions))
+            )
+            self._drag_carried_points_built = True
         for item, start_pos in self._drag_start_positions.items():
-            parents = iter_plant_parents([item])
-            if not parents:
-                continue
             delta = item.pos() - start_pos
             if delta.x() == 0 and delta.y() == 0:
                 continue
-            for parent in parents:
+            for parent in iter_plant_parents([item]):
                 for child_id in parent.child_item_ids:
                     child = self._canvas_scene.find_item_by_id(child_id)
                     if (
@@ -4314,6 +4401,19 @@ class CanvasView(QGraphicsView):
                     if child not in self._child_drag_origins:
                         self._child_drag_origins[child] = child.pos()
                     child.setPos(self._child_drag_origins[child] + delta)
+        for point, carrier in self._drag_carried_points.items():
+            start_pos = self._drag_start_positions.get(carrier)
+            if start_pos is None or point in self._drag_start_positions:
+                continue
+            delta = carrier.pos() - start_pos
+            if point not in self._child_drag_origins:
+                self._child_drag_origins[point] = point.pos()
+            exact = getattr(point, "set_pos_exact", None)
+            target = self._child_drag_origins[point] + carried_delta(point, carrier, delta)
+            if callable(exact):
+                exact(target)
+            else:
+                point.setPos(target)
 
     def _update_plant_bed_relationships(self) -> None:
         """Re-evaluate parent-child links for all selected plants at their CURRENT
