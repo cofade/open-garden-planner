@@ -1316,21 +1316,29 @@ Pin: `tests/integration/test_sun_map_legend.py`,
 `tests/unit/test_heatmap_render.py` and, through the real window,
 `tests/integration/test_sun_map_workflow.py`. PF-CAN-57, PF-CAN-58.
 
-### 8.9.19 Unit-aware measurement fields (ADR-078, #673)
+### 8.9.19 Unit-aware measurement fields (ADR-078 / ADR-081, #673 / #907)
 
-Use `LengthSpinBox` for physical lengths and `VolumeSpinBox` for real litres. Their
-value, ranges, setValue and valueChanged retain the caller's metric unit. A field
-whose existing value is metres supplies `value_unit_cm=100`; all others use cm.
+Use `LengthSpinBox` for physical lengths, `VolumeSpinBox` for real litres, and
+`TemperatureSpinBox` for temperatures in Celsius. Their value, ranges, `setValue`
+and `valueChanged` retain the caller's metric unit (cm, litres, Celsius). A length
+field whose existing value is metres supplies `value_unit_cm=100`; all others use cm.
 Keep the existing metric decimals, suffix and singleStep calls. Style specifies
 layout, plant size, depth or elevation. Leave angles, percentages, pixels and DXF
 scale factors as ordinary numeric fields.
 
-Read-only text uses `core/measurement_display.length_text`, `area_text` and
-`volume_text`, which supply the active preference and UI decimal mark to the pure
-`core/units.py` formatters. Never append a physical unit after formatting a number.
-Qt surfaces subscribe through `units_notifier().changed`; the scene refreshes retained
-vertex/circle labels and handle tooltips, the Constraints panel rebuilds its rows while
-keeping the selected constraint, and the view refreshes the active measurement readout.
+Read-only text uses `core/measurement_display.length_text`, `area_text`,
+`volume_text`, `temperature_text`, and `precipitation_text`, which supply the active
+per-quantity `UnitProfile` and UI decimal mark to the pure `core/units.py` formatters.
+Harvest records keep their explicitly entered unit without mass conversion: new entries
+default via `core/harvest_units.default_mass_unit()`, and saved rows format quantities
+with `core/i18n.format_trimmed` plus `core/harvest_units.harvest_unit_label`.
+Never append a physical unit after formatting a number. Qt surfaces subscribe through
+`units_notifier().profile_changed` (reserve `.changed` for length-only legacy callers,
+because `UnitPreference.set_profile` emits `.changed` only when `Quantity.LENGTH` moves).
+The scene refreshes retained vertex/circle labels, area readouts and handle tooltips,
+the Constraints panel rebuilds its rows while keeping the selected constraint, the
+weather panel, Tasks tab, Calendar dashboard, status bar and 3D info card refresh in
+place, and the view refreshes the active measurement readout.
 The plain tools and graphics-item mixins never subscribe to an application-wide Qt
 signal themselves: the owning view/scene supplies their lifetime. Other transient
 overlays read the preference on their next redraw. A preference switch must not emit a value edit
@@ -4889,7 +4897,20 @@ map has a key — over the viewport on the canvas, a scene item in a picture —
 its hour labels are labels of the plan; while a map is shown the time-of-day
 shadows are solved but not painted (`SunShadowController.set_map_shown`: the map
 is translucent, and a shadow of one instant under it reads as fewer hours); the
-shadow's soft edge is a blurred field, not strokes.
+shadow's soft edge is a blurred field, not strokes. The map's fill is bilinearly
+interpolated inside each 10 cm cell (`HEATMAP_UPSAMPLE`, #852), uploaded to a
+`QPixmap` (stored premultiplied by Qt) and drawn with smooth scaling
+(`SmoothTransformation`): at 400 % a cell is a smooth field without blotches or
+stair-step blocks (the overlay bitmap's own draw adds ~0.5 ms on the family garden
+at fit zoom; rebuilding the image when the map changes is separate, and contour and
+label repaint overhead stays tracked on #852).
+An hour label keeps a 1.3× clearance when its place is chosen, so a fixed-pixel
+label stays off an object's edge when the plan is zoomed out up to 1.3× the
+nominal fit. The sun-mismatch
+badge paints a theme-contrasting backing (`core.legibility.halo_for` of the
+active theme's accent) under its warning triangle (#852): the icon asset stays
+on the theme's accent sentinel, the sun's middle stays transparent, and the
+backing keeps the warning readable on a green crown in both light and dark themes.
 
 **Threaded canvas-scale computation** (US-E4 heatmap; the pattern for any
 seconds-scale analysis): snapshot plain data on the GUI thread
@@ -7711,14 +7732,14 @@ far, −, the 3D shadow extends along the shadow direction: where its tip is), e
 | house, sun along the ridge | 1.00 / 1.00 / 1.00 | 1.00 / 1.00 / 1.00 | 0.0 / 0.0 / 0.0 | gable roof (#440: shared roof+wall triangles; was +30.0 vs flat prism) |
 | wall | 1.04 / 1.10 / 1.24 | 0.96 / 0.91 / 0.81 | +15.0 / +15.0 / +15.8 | nominal section: WIDER in 3D |
 | stone-wall fence, hedge fence | 1.04–1.06 / 1.13–1.15 / 1.31–1.37 | 0.94–0.96 / 0.87–0.89 / 0.73–0.76 | +14.5 … +15.3, +19.5 … +19.6 | nominal section |
-| picket fence | 1.00 / 1.00 / 1.00 | 0.65 / 0.66 / 0.68 | +2.0 / +2.0 / +2.4 | porosity (#440 weighted 2D area; unweighted IoU vs full strip) |
+| picket fence | 1.01 / 1.01 / 1.00 | 0.66 / 0.67 / 0.68 | +2.0 / +2.0 / +2.4 | porosity (#440 weighted 2D area; unweighted IoU vs full strip) |
 | metal fence | 0.99 / 0.99 / 0.98 | 0.19 / 0.20 / 0.24 | +0.8 / +0.8 / +0.8 | porosity (#440 weighted 2D area; unweighted IoU vs full strip) |
 | chain-link fence | 1.09 / 1.03 / 1.08 | 0.12 / 0.13 / 0.19 | +1.5 / +1.5 / +1.5 | porosity (#440 weighted 2D area; unweighted IoU vs full strip) |
-| pergola | 0.99 / 0.99 / 0.99 | 0.28 / 0.32 / 0.36 | −16.7 / −7.5 / −3.8 | open frame (#698 weighted 2D area; unweighted IoU vs solid prism) |
-| trellis | 1.00 / 1.00 / 1.00 | 0.32 / 0.34 / 0.39 | −7.0 / −7.0 / −6.8 | open frame (#698 weighted 2D area; unweighted IoU vs solid prism) |
-| swing | 1.00 / 1.00 / 1.00 | 0.17 / 0.16 / 0.15 | −71.0 / −71.0 / −70.6 | open frame (#698 weighted 2D area; unweighted IoU vs solid prism) |
-| hammock | 1.00 / 1.00 / 1.00 | 0.21 / 0.26 / 0.30 | −56.3 / −56.3 / −56.0 | open frame (#698 weighted 2D area; unweighted IoU vs solid prism) |
-| garden light | 1.00 / 1.00 / 1.00 | 0.21 / 0.28 / 0.37 | −18.4 / −12.0 / −9.6 | open frame (#698 weighted 2D area; unweighted IoU vs solid prism) |
+| pergola | 0.99 / 0.99 / 0.99 | 0.29 / 0.32 / 0.36 | −0.8 / −0.8 / −0.5 | open frame (#698 weighted, #855 reach-trimmed 2D area; IoU vs trimmed prism) |
+| trellis | 1.00 / 1.00 / 1.00 | 0.33 / 0.35 / 0.41 | 0.0 / 0.0 / 0.0 | open frame (#698 weighted, #855 reach-trimmed 2D area; IoU vs trimmed prism) |
+| swing | 1.00 / 1.00 / 1.00 | 0.18 / 0.19 / 0.21 | 0.0 / 0.0 / 0.0 | open frame (#698 weighted, #855 reach-trimmed 2D area; IoU vs trimmed prism) |
+| hammock | 1.00 / 1.00 / 1.00 | 0.23 / 0.33 / 0.43 | 0.0 / 0.0 / 0.0 | open frame (#698 weighted, #855 reach-trimmed 2D area; IoU vs trimmed prism) |
+| garden light | 1.00 / 1.00 / 1.00 | 0.21 / 0.29 / 0.39 | 0.0 / 0.0 / 0.0 | open frame (#698 weighted, #855 reach-trimmed 2D area; IoU vs trimmed prism) |
 
 So: a solid line item casts a wider shadow in 3D than the 2D model, more at a high sun; a porous
 fence casts a fraction of its solid strip — and since #440 the 2D analysis weights a styled
@@ -7743,6 +7764,13 @@ rule a new object kind has to be placed under:
   `core/pergola.layout`). To make a kind an open frame, add its name and nothing else — its
   production builder is read. Do not add a table of shares: the members' sizes are capped, so
   a share that is right for one footprint is wrong for the next.
+- **The prism is trimmed to the frame's own far member tip (#855).** `height ÷ tan a` reaches
+  past a swing's top beam, which is mid-frame, and left the 2D shade 4-71 cm beyond the real
+  one. `open_frame_effective_length` shortens the swept prism to the largest
+  `x·dx + y·dy + z ÷ tan a` of the frame's members, minus the footprint's own reach; the
+  transmittance is measured against that trimmed prism, so its tip is the frame's while
+  the frame's own shadow is spread over the smaller prism. The table's reach column is
+  0.0 cm for the four frames whose top is their far member and -0.8 cm for the pergola.
 - **One hook**: the caster walk sets `IdentifiedCaster.frame` (an `OpenFrame`: the members in
   the item's OWN coordinates, its turn beside them); the overlay, the 3D drape, the
   hours-of-sun grid and the plant estimates read `caster_transmittance`. A consumer that asks

@@ -6,10 +6,19 @@ from pathlib import Path
 
 ROOT = Path("src/open_garden_planner")
 ALLOWLIST = {
-    "ui/widgets/weather_widget.py": "Precipitation stays in mm; separate quantity follow-up.",
     "services/svg_export.py": "SVG XML width/height physical-unit syntax, independent of display preference (FR-EXP-02).",
 }
-UNIT = r"(?:cm²|m²|cm|mm|km|m|L)\b"
+#: Soil amendment dosage is grams/kilograms on its own scale, not the harvest
+#: mass profile (#907). These files may format a dosage, and ONLY a hit whose
+#: expression names grams/quantity_g is allowed - a length or temperature in
+#: the same file still fails the guard.
+DOSAGE_FILES = {
+    "services/task_generator.py",
+    "ui/dialogs/amendment_plan_dialog.py",
+    "ui/dialogs/soil_test_dialog.py",
+}
+DOSAGE_HIT = re.compile(r"f'~?\{[^{}]*(?:grams|quantity_g)[^{}]*\}\s?(?:g|kg)'")
+UNIT = r"(?:cm²|m²|cm|mm|km|m|L|g|kg|lb|oz|°C|°F)\b"
 INLINE = re.compile(r"\{[^}]*\}[)\]]?\s?" + UNIT)
 AFTER_VALUE = re.compile(r"^[)\]]?\s?" + UNIT)
 
@@ -24,7 +33,7 @@ class MeasurementGuard(ast.NodeVisitor):
         self.unit_box_function = any(
             isinstance(n, ast.Call)
             and isinstance(n.func, ast.Name)
-            and n.func.id in ("LengthSpinBox", "VolumeSpinBox")
+            and n.func.id in ("LengthSpinBox", "VolumeSpinBox", "TemperatureSpinBox")
             for n in ast.walk(node)
         )
         self.generic_visit(node)
@@ -47,7 +56,18 @@ class MeasurementGuard(ast.NodeVisitor):
                 value = node.args[0]
                 if isinstance(value, ast.Call) and value.args:
                     value = value.args[0]
-                if isinstance(value, ast.Constant) and value.value in (" cm", " m", " mm", " L"):
+                if isinstance(value, ast.Constant) and value.value in (
+                    " cm",
+                    " m",
+                    " mm",
+                    " L",
+                    " °C",
+                    " °F",
+                    " kg",
+                    " lb",
+                    " g",
+                    " oz",
+                ):
                     self.hits.append((node.lineno, ast.unparse(node)))
         self.generic_visit(node)
 
@@ -81,7 +101,10 @@ def test_no_inline_measurement_formats():
             continue
         visitor = MeasurementGuard()
         visitor.visit(ast.parse(path.read_text(encoding="utf-8")))
-        hits.extend(f"{relative}:{line}: {text}" for line, text in visitor.hits)
+        for line, text in visitor.hits:
+            if relative in DOSAGE_FILES and DOSAGE_HIT.fullmatch(text):
+                continue
+            hits.append(f"{relative}:{line}: {text}")
     assert not hits, "\n".join(hits)
 
 
@@ -101,3 +124,21 @@ def test_guard_catches_paired_coordinate_units():
         visitor = MeasurementGuard()
         visitor.visit(ast.parse(source))
         assert visitor.hits
+
+
+def test_guard_catches_mass_units():
+    """#907: g and oz are mass units too, not only kg and lb."""
+    for source in ['text = f"{grams:.0f} g"', 'text = f"{mass:.1f} oz"']:
+        visitor = MeasurementGuard()
+        visitor.visit(ast.parse(source))
+        assert visitor.hits
+
+
+def test_dosage_allowance_is_narrow():
+    """The dosage files may format grams; they are not blind to other units."""
+    assert DOSAGE_HIT.fullmatch("f'{grams:.0f} g'")
+    assert DOSAGE_HIT.fullmatch("f'{format_decimal(grams / 1000.0, 2)} kg'")
+    assert DOSAGE_HIT.fullmatch("f'~{rec.quantity_g:.0f} g'")
+    assert not DOSAGE_HIT.fullmatch("f'{length_cm:.0f} cm'")
+    assert not DOSAGE_HIT.fullmatch("f'{temperature_c:.1f} °C'")
+    assert not DOSAGE_HIT.fullmatch("f'{grams:.0f} g / {depth_cm:.0f} kg'")

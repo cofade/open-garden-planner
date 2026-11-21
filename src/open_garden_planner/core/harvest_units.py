@@ -10,9 +10,22 @@ from __future__ import annotations
 
 from PyQt6.QtCore import QCoreApplication
 
+from open_garden_planner.core.unit_preference import Quantity, active_unit_system
+from open_garden_planner.core.units import UnitSystem
+
 #: The units the dialog offers. A gardener may type another one; that custom
 #: text is shown as typed in every language.
-UNIT_CHOICES = ("kg", "g", "pcs", "bunch", "L")
+UNIT_CHOICES = ("kg", "g", "lb", "oz", "pcs", "bunch", "L")
+
+
+def default_mass_unit() -> str:
+    """The unit the harvest entry offers first, from the mass profile (#907).
+
+    Only the DEFAULT moves: a saved record keeps the unit it was entered in,
+    which stays its aggregation key (ADR-081). ``pcs``/``bunch``/``L`` remain
+    one click away in the editable combo.
+    """
+    return "lb" if active_unit_system(Quantity.MASS) == UnitSystem.IMPERIAL else "kg"
 
 
 def harvest_unit_label(unit: str) -> str:
@@ -25,6 +38,10 @@ def harvest_unit_label(unit: str) -> str:
         return QCoreApplication.translate("HarvestUnits", "kg")
     if unit == "g":
         return QCoreApplication.translate("HarvestUnits", "g")
+    if unit == "lb":
+        return QCoreApplication.translate("HarvestUnits", "lb")
+    if unit == "oz":
+        return QCoreApplication.translate("HarvestUnits", "oz")
     if unit == "pcs":
         return QCoreApplication.translate("HarvestUnits", "pcs")
     if unit == "bunch":

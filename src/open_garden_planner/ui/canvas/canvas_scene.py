@@ -40,7 +40,6 @@ from open_garden_planner.core.object_types import ObjectType, is_plant_type
 from open_garden_planner.core.plan_timeline import plant_present
 from open_garden_planner.core.sim_clock import SimClock
 from open_garden_planner.core.sprite_raster import clear_sprite_cache
-from open_garden_planner.core.units import UnitSystem
 from open_garden_planner.models.layer import Layer, create_default_layers
 from open_garden_planner.ui.units_notifier import units_notifier
 
@@ -259,7 +258,7 @@ class CanvasScene(QGraphicsScene):
     active_layer_changed = pyqtSignal(object)  # Layer or None
     layer_auto_unhidden = pyqtSignal(UUID)  # emitted when a draw auto-reveals a hidden layer
 
-    def _on_unit_system_changed(self, _system: UnitSystem) -> None:
+    def _on_unit_system_changed(self, _profile: object) -> None:
         for item in self.items():
             if hasattr(item, "refresh_measurement_text"):
                 item.refresh_measurement_text()
@@ -375,7 +374,7 @@ class CanvasScene(QGraphicsScene):
         from open_garden_planner.ui.canvas.dimension_lines import DimensionLineManager
 
         self._dimension_line_manager = DimensionLineManager(self)
-        units_notifier().changed.connect(self._on_unit_system_changed)
+        units_notifier().profile_changed.connect(self._on_unit_system_changed)
 
         # Guide lines (persistent horizontal/vertical reference lines)
         self._guide_lines: list[GuideLine] = []

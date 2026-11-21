@@ -7036,7 +7036,7 @@ only, and correct their heights with a fit after the fact.
 
   | Kind | 3D area ÷ 2D area | IoU | Reach 3D − 2D (cm) | Why |
   |---|---|---|---|---|
-  | picket fence | 1.00 / 1.00 / 1.00 | 0.65 / 0.66 / 0.68 | +2.0 / +2.0 / +2.4 | porosity (weighted 2D area; IoU vs solid strip) |
+  | picket fence | 1.01 / 1.01 / 1.00 | 0.66 / 0.67 / 0.68 | +2.0 / +2.0 / +2.4 | porosity (weighted 2D area; IoU vs solid strip) |
   | metal fence | 0.99 / 0.99 / 0.98 | 0.19 / 0.20 / 0.24 | +0.8 / +0.8 / +0.8 | porosity (weighted 2D area; IoU vs solid strip) |
   | chain-link fence | 1.09 / 1.03 / 1.08 | 0.12 / 0.13 / 0.19 | +1.5 / +1.5 / +1.5 | porosity (weighted 2D area; IoU vs solid strip) |
   | hedge fence | 1.04 / 1.13 / 1.31 | 0.96 / 0.89 / 0.76 | +19.6 / +19.5 / +19.6 | nominal section |
@@ -7069,17 +7069,17 @@ only, and correct their heights with a fit after the fact.
   | planter pot | 0.83 / 0.81 / 0.81 | 0.83 / 0.81 / 0.81 | -0.6 / -0.6 / -0.3 | shape and porosity vs solid 2D prism |
   | sandbox | 1.00 / 1.00 / 1.00 | 1.00 / 1.00 / 1.00 | 0.0 / 0.0 / 0.0 | shape and porosity vs solid 2D prism |
   | hot tub | 1.00 / 0.85 / 0.60 | 1.00 / 0.85 / 0.60 | 0.0 / 0.0 / 0.0 | shape and porosity vs solid 2D prism |
-  | swing | 1.00 / 1.00 / 1.00 | 0.17 / 0.16 / 0.15 | -71.0 / -71.0 / -70.6 | open frame (#698 weighted 2D area; IoU vs solid prism) |
-  | hammock | 1.00 / 1.00 / 1.00 | 0.21 / 0.26 / 0.30 | -56.3 / -56.3 / -56.0 | open frame (#698 weighted 2D area; IoU vs solid prism) |
+  | swing | 1.00 / 1.00 / 1.00 | 0.18 / 0.19 / 0.21 | 0.0 / 0.0 / 0.0 | open frame (#698 weighted, #855 reach-trimmed 2D area; IoU vs trimmed prism) |
+  | hammock | 1.00 / 1.00 / 1.00 | 0.23 / 0.33 / 0.43 | 0.0 / 0.0 / 0.0 | open frame (#698 weighted, #855 reach-trimmed 2D area; IoU vs trimmed prism) |
   | compost bin | 0.93 / 0.94 / 0.89 | 0.93 / 0.94 / 0.89 | -0.8 / -0.8 / -0.5 | shape and porosity vs solid 2D prism |
   | cold frame | 1.00 / 1.00 / 1.00 | 1.00 / 1.00 / 1.00 | 0.0 / 0.0 / 0.0 | shape and porosity vs solid 2D prism |
   | rain barrel | 0.81 / 0.79 / 0.76 | 0.81 / 0.79 / 0.76 | -20.1 / -10.9 / -7.5 | shape and porosity vs solid 2D prism |
   | water tap | 0.64 / 0.63 / 0.61 | 0.64 / 0.63 / 0.61 | -6.0 / -6.0 / -6.0 | shape and porosity vs solid 2D prism |
   | wheelbarrow | 0.44 / 0.45 / 0.46 | 0.44 / 0.45 / 0.46 | -22.0 / -22.0 / -22.0 | shape and porosity vs solid 2D prism |
   | bird bath | 0.40 / 0.47 / 0.61 | 0.40 / 0.47 / 0.61 | -0.8 / -0.8 / -0.8 | shape and porosity vs solid 2D prism |
-  | pergola | 0.99 / 0.99 / 0.99 | 0.28 / 0.32 / 0.36 | -16.7 / -7.5 / -3.8 | open frame (#698 weighted 2D area; IoU vs solid prism) |
-  | trellis | 1.00 / 1.00 / 1.00 | 0.32 / 0.34 / 0.39 | -7.0 / -7.0 / -6.8 | open frame (#698 weighted 2D area; IoU vs solid prism) |
-  | garden light | 1.00 / 1.00 / 1.00 | 0.21 / 0.28 / 0.37 | -18.4 / -12.0 / -9.6 | open frame (#698 weighted 2D area; IoU vs solid prism) |
+  | pergola | 0.99 / 0.99 / 0.99 | 0.29 / 0.32 / 0.36 | -0.8 / -0.8 / -0.5 | open frame (#698 weighted, #855 reach-trimmed 2D area; IoU vs trimmed prism) |
+  | trellis | 1.00 / 1.00 / 1.00 | 0.33 / 0.35 / 0.41 | 0.0 / 0.0 / 0.0 | open frame (#698 weighted, #855 reach-trimmed 2D area; IoU vs trimmed prism) |
+  | garden light | 1.00 / 1.00 / 1.00 | 0.21 / 0.29 / 0.39 | 0.0 / 0.0 / 0.0 | open frame (#698 weighted, #855 reach-trimmed 2D area; IoU vs trimmed prism) |
 
   Follow-up #624 extends the analytic reference to all 24 L4 object kinds; Phase 17 L5.4
   (#389, ADR-070) adds the garden light. A string of lights casts no 2D shadow (ADR-070's
@@ -11156,8 +11156,8 @@ Raw snapshot/delta CSV schemas and meanings remain unchanged. No in-app/web infe
 The standard-library report module emits a daily series, SVG and a local-asset website.
 Its browser code SUMS days into Monday weeks, calendar months or years after applying
 the selected date range; cut-off buckets retain partial labels and estimate components.
-Default view: daily, last 365 covered calendar dates. Website English/German/Spanish catalogs
-are separate from Qt: reporting runs on a plain Python runner, not an installed app.
+Default view: daily, last 365 covered calendar dates. Website catalogs
+(`en`/`de`/`es`/`fr`/`ru`) are separate from Qt: reporting runs on a plain Python runner, not an installed app.
 Both themes, mobile layout, accessible bar descriptions and keyboard inspection are
 supported without an external chart dependency or CDN.
 
@@ -12054,13 +12054,13 @@ runner bean tied to a trellis read 0 h of sun and wore a "too little sun" badge.
 **Measured** (`scripts/measure_built_world_shadows.py`; one item of the stated footprint at
 its default height, the sun due south, at 15° / 35° / 60°):
 
-| Kind (footprint, height) | 3D shadow ÷ 2D prism | Transmittance | 3D ÷ weighted 2D |
+| Kind (footprint, height) | IoU, 3D vs trimmed 2D | Transmittance | 3D ÷ weighted 2D |
 |---|---|---|---|
-| pergola (300 × 300 cm, 250 cm) | 0.28 / 0.32 / 0.36 | 0.71 / 0.68 / 0.64 | 0.99 / 0.99 / 0.99 |
-| trellis (200 × 20 cm, 180 cm) | 0.32 / 0.34 / 0.39 | 0.68 / 0.66 / 0.61 | 1.00 / 1.00 / 1.00 |
-| swing (200 × 150 cm, 220 cm) | 0.17 / 0.16 / 0.15 | 0.83 / 0.84 / 0.85 | 1.00 / 1.00 / 1.00 |
-| hammock (300 × 120 cm, 110 cm) | 0.21 / 0.26 / 0.30 | 0.79 / 0.74 / 0.70 | 1.00 / 1.00 / 1.00 |
-| garden light (radius 20 cm, 110 cm) | 0.21 / 0.28 / 0.37 | 0.79 / 0.72 / 0.63 | 1.00 / 1.00 / 1.00 |
+| pergola (300 × 300 cm, 250 cm) | 0.29 / 0.32 / 0.36 | 0.71 / 0.67 / 0.64 | 0.99 / 0.99 / 0.99 |
+| trellis (200 × 20 cm, 180 cm) | 0.33 / 0.35 / 0.41 | 0.67 / 0.65 / 0.59 | 1.00 / 1.00 / 1.00 |
+| swing (200 × 150 cm, 220 cm) | 0.18 / 0.19 / 0.21 | 0.82 / 0.81 / 0.79 | 1.00 / 1.00 / 1.00 |
+| hammock (300 × 120 cm, 110 cm) | 0.23 / 0.33 / 0.43 | 0.77 / 0.67 / 0.57 | 1.00 / 1.00 / 1.00 |
+| garden light (radius 20 cm, 110 cm) | 0.21 / 0.29 / 0.39 | 0.78 / 0.70 / 0.59 | 1.00 / 1.00 / 1.00 |
 
 The last column is the issue's gate — within 10 %, as #440 held fences — and it is the
 ratio column of the builders addendum's table for these five rows. It is 1.00 where the 2D
@@ -12068,9 +12068,10 @@ model reads the very mesh the measurement projects; the pergola's 0.99 is the la
 plain boxes against the chamfered timber. The gate is not trivially met for that reason:
 the measurement unites every triangle of the mesh in its own code, and
 `tests/unit/test_open_frames.py` holds the 2D weight to it within 0.02 over three sizes,
-five elevations and seven azimuths per kind. The table's reach column is unchanged: an
-open frame's shade still ends where its prism's does, 4–71 cm further than the frame's
-real shadow (a swing's top beam is mid-frame).
+five elevations and seven azimuths per kind. The table's reach column now reads 0.0 cm
+for the four frames whose top member is their far member and −0.8 cm for the pergola:
+since #855 the prism is trimmed to the frame's own far member tip, so the shade no
+longer ends 4-71 cm past the real shadow (a swing's top beam is mid-frame).
 
 **What changes for existing plans.** No file-format change; a plan with one of the five
 kinds shows more sun under and behind it the next time the map is computed. On the bundled
@@ -12145,6 +12146,25 @@ twin, the soft edge, the heatmap worker, a pergola placed through the command st
 undone), `tests/unit/test_scene3d_shadow_agreement.py` (the five rows).
 
 
+
+**Addendum (issue #855): the prism is trimmed to the frame's own far tip.** The
+weighted model above spread the frame's shade over the whole `height / tan a` prism.
+That prism ends at the shadow of the frame's nominal height, not at its topmost
+member: a swing's top beam is mid-frame, so its shade ran 71 cm past the beam's
+shadow (4-71 cm across the five kinds). `core.shadow_geometry.open_frame_effective_length`
+now trims the swept length to the largest `x·dx + y·dy + z / tan a` of the frame's
+own members, minus the footprint's reach; the transmittance is measured against that
+trimmed prism, so its tip is the frame's while the frame's own shadow is spread over
+the smaller prism as before. The table's reach column reads 0.0 cm for the four frames whose top
+member is their far member and -0.8 cm for the pergola; the ratio column is 3D against
+the weighted, trimmed 2D area. The 3D analysis drape, the hours-of-sun map, the overlay
+and the per-plant estimates all read the same trimmed caster. Less than one minute can
+still be lost in a cell or two at a weighted-region seam (the #440 limitation, 0.997 min
+measured); that is a seam, not a solid's shade. Tests:
+`tests/unit/test_open_frames.py` (the reach versus the measuring script's mesh shadow,
+the transmittance against the trimmed prism, and the turned frame) and
+`tests/integration/test_open_frame_shade.py` (the real overlay and map). FR-SUN-13,
+§8.29.6 and the shadow table carry the new numbers.
 
 ## ADR-071: Per-object fill transform as additive appearance metadata (issue #665)
 
@@ -13707,7 +13727,7 @@ before.
 
 ## ADR-078: A unit preference over the centimetre model (issue #673)
 
-**Status**: Shipped in v1.40.0; owner confirmed manual acceptance (issue #673; discussion #671, with defaults informed by @ciru-chan).
+**Status**: Shipped in v1.40.0; owner confirmed manual acceptance (issue #673; discussion #671, with defaults informed by @ciru-chan). Partly superseded by ADR-081 (#907): the display preference is per quantity.
 
 **Context**: US gardeners read seed packets, plants and site dimensions in different native units. Converting the model would break geometry, constraints, saved plans and clients. The issue's November 8 survey predates ADR-077's locale formatting and the shipped #782 PDF scale-bar correction; both remain in effect.
 
@@ -13730,7 +13750,7 @@ before.
 - *Use the issue's original 3 ft switch and fractions for plant sizes.* Superseded by the horticultural feedback in #671.
 - *Force English decimal marks to keep the pure module Qt-free.* Rejected: the explicit decimal-mark argument and thin adapter preserve the later locale contract.
 
-**Consequences**: No dependency or file-format change. Metric remains the default. Temperature, precipitation, harvest mass and a Canadian mixed preset need separate decisions (#907); DXF unit selection and per-plan overrides are deferred. Tests: `test_units.py`, `test_unit_preference.py`, `test_unit_spin_box.py`, `test_units_surfaces.py`, `test_unit_dialogs.py`, `test_unit_reports.py`, `test_units_guard.py`, `test_coordinate_units.py` and the save/reopen workflow in `tests/integration/test_unit_system.py`. FR-MEAS-07; §8.9.19.
+**Consequences**: No dependency or file-format change. Metric remains the default. ADR-081 extends the preference to temperature, precipitation, harvest mass and Canada (mixed), one system per quantity; DXF unit selection and per-plan overrides are deferred. Tests: `test_units.py`, `test_unit_preference.py`, `test_unit_spin_box.py`, `test_units_surfaces.py`, `test_unit_dialogs.py`, `test_unit_reports.py`, `test_units_guard.py`, `test_coordinate_units.py` and the save/reopen workflow in `tests/integration/test_unit_system.py`. FR-MEAS-07; §8.9.19.
 
 ## ADR-079: The IANA time-zone data (`tzdata`) is a runtime dependency (#945)
 
@@ -13991,3 +14011,58 @@ participate in a geometric constraint. Attachment still permits centre snapping,
 measurement and a position lock. The dialog offers only persistent rectangles
 and polygons for new bindings; construction guides remain snap aids. The datum's rendered perimeter
 does not participate in snapping or rectangle-based geometry editors.
+
+## ADR-081: Per-quantity unit systems and the Canada (mixed) preset (issue #907)
+
+**Status**: Accepted (issue #907, 2026-11-21)
+
+**Context**: ADR-078 shipped one Metric/Imperial choice over the centimetre model. That
+choice covered layout lengths, areas and container volumes; temperature, precipitation
+and harvest mass stayed metric, and a Canadian gardener could not have feet for beds and
+degrees Celsius for the weather at the same time. Issue #907 asked for a per-quantity
+profile and a Canadian mixed preset, while keeping the centimetre geometry model, the
+Agent API units and every saved file unchanged.
+
+**Decision**:
+1. **One immutable profile, six quantities.** `core/unit_preference.py` defines
+   `Quantity` (length, area, volume, temperature, precipitation, mass) and a frozen
+   `UnitProfile` mapping each to `UnitSystem`. `UnitPreference` holds the process
+   profile, emits the legacy `changed(length)` signal and a `profile_changed(profile)`
+   signal for the new surfaces. `set_system` remains the one-value API and sets every
+   quantity; `set_quantity_system` moves one.
+2. **Presets and storage.** `UnitPreset` names Metric, Imperial (US), Canada (mixed)
+   and Custom. `AppSettings` stores `units/profile` plus one `units/<quantity>` key;
+   an absent profile reads the legacy `units/system` for every quantity, and the
+   legacy key is kept truthful as the length system. No `.ogp` key changes.
+3. **Pure conversions, one display seam.** `core/units.py` gains
+   `format_temperature` / `parse_temperature` (Celsius), `format_precipitation` /
+   `parse_precipitation` (millimetres) and `format_mass` / `parse_mass` (kilograms).
+   `core/measurement_display.py` adapts temperature and precipitation to the active
+   profile and Qt locale; the harvest log keeps its explicitly entered unit, with
+   `default_mass_unit()` choosing only a new entry's default.
+   `TemperatureSpinBox` keeps its value in Celsius while displaying °C or °F.
+4. **Surfaces.** The preferences General tab exposes the preset and the six rows; the
+   weather panel, frost thresholds, germination temperature and harvest log read the
+   profile. Harvest records keep their explicit unit as the aggregation key
+   (`kg`, `g`, `lb`, `oz`, `pcs`, `bunch`, `L`), so totals never mix units.
+5. **Canada (mixed), provisionally.** Length and area are imperial; volume,
+   temperature, precipitation and mass are metric. This is a recorded starting point,
+   not a claim that every Canadian gardener chooses it; changing any row yields
+   Custom, and the defaults are revisited when feedback exists.
+
+**Alternatives considered**:
+- *One global system only.* Rejected: it cannot express the mixed profile the issue
+  asks for, and it forces a Canadian user to choose between feet and Celsius.
+- *Convert stored values when the display changes.* Rejected: it mutates geometry and
+  saved data, violating ADR-078 and the Agent API's centimetre contract.
+- *Convert harvest totals to one unit.* Rejected: a bunch, a kilogram and a pound are
+  not interchangeable records; the existing per-unit aggregation is the honest total.
+- *A locale-derived unit default.* Rejected: the UI language decides formats, not
+  measurement systems; the user chooses the profile.
+
+**Consequences**: Adds `UnitProfile`, `UnitPreset`, `Quantity`, the three conversion
+families, `TemperatureSpinBox`, and the per-quantity preferences rows. Weather and
+germination displays refresh on `profile_changed`; existing settings and plans open
+unchanged. Tests: `tests/unit/test_units.py`, `tests/unit/test_unit_preference.py`,
+`tests/integration/test_unit_quantities.py`, `tests/ui/test_plant_database_panel.py` and the
+preferences suites. Cross-refs: ADR-078, FR-MEAS-07..10, §8.3 (locale), issue #907.

@@ -382,6 +382,23 @@ class TestTasksView:
         texts = [w.text() for w in view.findChildren(QLabel)]
         assert not any("Prune" in t for t in texts)
 
+    def test_a_unit_switch_schedules_a_frost_title_refresh(self, qtbot, monkeypatch) -> None:
+        """#907: a Tasks tab already open must not keep the old unit."""
+        from open_garden_planner.core.unit_preference import (
+            Quantity,
+            UnitProfile,
+            get_unit_preference,
+        )
+        from open_garden_planner.core.units import UnitSystem
+
+        get_unit_preference().set_profile(UnitProfile.all(UnitSystem.METRIC))
+        view = self._view(qtbot, ProjectManager())
+        calls: list[int] = []
+        monkeypatch.setattr(view, "schedule_refresh", lambda: calls.append(1))
+        get_unit_preference().set_quantity_system(Quantity.TEMPERATURE, UnitSystem.IMPERIAL)
+        assert calls, "the Tasks view ignored the unit profile"
+        get_unit_preference().set_profile(UnitProfile.all(UnitSystem.METRIC))
+
     def test_navigate_to_bed_signal(self, qtbot) -> None:
         pm = ProjectManager()
         today = datetime.date.today().isoformat()

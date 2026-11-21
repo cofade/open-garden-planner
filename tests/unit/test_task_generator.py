@@ -306,6 +306,30 @@ class TestFrostTasks:
         assert red.task_id.startswith("frost:")
         assert tasks[1].task_type == "frost_alert_orange"
         assert tasks[1].item_ids == ("p3",)
+        assert red.title == "Frost -1.0 °C"
+
+    def test_a_frost_title_follows_the_temperature_profile(self) -> None:
+        """#907: the title is generated per refresh, so a live switch reaches it."""
+        from open_garden_planner.core.unit_preference import (
+            Quantity,
+            UnitProfile,
+            get_unit_preference,
+        )
+        from open_garden_planner.core.units import UnitSystem
+
+        alert = FrostAlert(
+            date=(TODAY + datetime.timedelta(days=1)).isoformat(),
+            min_temp=0.0,
+            severity="red",
+            affected_plant_ids=["p1"],
+        )
+        try:
+            get_unit_preference().set_profile(UnitProfile.all(UnitSystem.METRIC))
+            assert generate_frost_tasks(_state(frost_alerts=(alert,)))[0].title == "Frost 0.0 °C"
+            get_unit_preference().set_quantity_system(Quantity.TEMPERATURE, UnitSystem.IMPERIAL)
+            assert generate_frost_tasks(_state(frost_alerts=(alert,)))[0].title == "Frost 32.0 °F"
+        finally:
+            get_unit_preference().set_profile(UnitProfile.all(UnitSystem.METRIC))
 
     def test_empty_alerts_no_tasks(self) -> None:
         assert generate_frost_tasks(_state(frost_alerts=())) == []

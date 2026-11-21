@@ -40,7 +40,11 @@ from PyQt6.QtWidgets import (
 )
 
 from open_garden_planner.app.paths import default_dialog_dir
-from open_garden_planner.core.harvest_units import UNIT_CHOICES, harvest_unit_label
+from open_garden_planner.core.harvest_units import (
+    UNIT_CHOICES,
+    default_mass_unit,
+    harvest_unit_label,
+)
 from open_garden_planner.core.i18n import format_trimmed
 from open_garden_planner.models.harvest_log import HarvestHistory, HarvestRecord
 from open_garden_planner.ui.date_fields import as_date_field
@@ -140,7 +144,8 @@ class HarvestLogDialog(QDialog):
         self._unit_combo.setEditable(True)
         for unit in _UNIT_CHOICES:
             self._unit_combo.addItem(harvest_unit_label(unit), unit)
-        self._unit_combo.setCurrentIndex(0)
+        default_index = self._unit_combo.findData(default_mass_unit())
+        self._unit_combo.setCurrentIndex(default_index if default_index >= 0 else 0)
         form.addRow(self.tr("Unit"), self._unit_combo)
 
         # Quality
@@ -494,7 +499,7 @@ class HarvestLogDialog(QDialog):
         for unit in UNIT_CHOICES:
             if text and text == harvest_unit_label(unit):
                 return unit
-        return text or "kg"
+        return text or default_mass_unit()
 
     # ── Test helpers ─────────────────────────────────────────────────────────
 

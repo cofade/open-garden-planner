@@ -7,7 +7,7 @@ Its detailed architecture follows [arc42](https://arc42.org/).
 
 | Subsystem | Responsibility |
 |---|---|
-| Application | Main window, document lifecycle, settings, UI state and the global Metric / Imperial (US) display preference. Geometry and Agent API lengths stay centimetres ([ADR-078](https://github.com/cofade/open-garden-planner/blob/master/docs/09-architecture-decisions/README.md#adr-078-a-unit-preference-over-the-centimetre-model-issue-673)). |
+| Application | Main window, document lifecycle, settings, UI state and per-quantity Metric / Imperial / Canada (mixed) / Custom display units (lengths, areas, volumes, temperature, precipitation, harvest mass). Geometry, saved files and Agent API units stay metric ([ADR-078](https://github.com/cofade/open-garden-planner/blob/master/docs/09-architecture-decisions/README.md#adr-078-a-unit-preference-over-the-centimetre-model-issue-673), [ADR-081](https://github.com/cofade/open-garden-planner/blob/master/docs/09-architecture-decisions/README.md#adr-081-per-quantity-unit-systems-and-the-canada-mixed-preset-issue-907)). |
 | Canvas and tools | Drawing, selection, snapping, constraints, annotations, layers, and item rendering. |
 | Commands and project data | Undo/redo, snapshots, shared complete-plan serialization for Save and crash recovery, discovery of saved-plan backups, document-owned cleanup, clipboard data, and atomic plan loading. |
 | Garden models and services | Plant data, companion planting, crop rotation, succession, soil, weather, tasks, harvest, and journal records. |

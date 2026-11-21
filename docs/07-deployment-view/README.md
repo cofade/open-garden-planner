@@ -663,8 +663,8 @@ midnight are not knowable from counters. The original CSVs remain exact window r
 downloads (`new_total > 0 and normal_total == 0`).
 
 The Qt-free report uses only the Python standard library and local HTML/CSS/JavaScript,
-with no CDN, browser API calls or app telemetry. Website text uses complete English/German/Spanish
-catalogs (`messages.json`, checked by report tests), independent of desktop Qt catalogs.
+with no CDN, browser API calls or app telemetry. Website text uses complete
+catalogs (`messages.json`, checked by report tests; `en`/`de`/`es`/`fr`/`ru`), independent of desktop Qt catalogs.
 Language follows the browser; appearance follows the system with light/dark overrides.
 Bars have accessible `role="img"` + `aria-label` descriptions, Left/Right, Home/End and Escape
 navigation, and a single HTML `#tooltip` overlay (no duplicate SVG `<title>`) showing observation

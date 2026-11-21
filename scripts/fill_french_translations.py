@@ -21,6 +21,7 @@ from scripts.translations_fr.app import TRANSLATIONS as T_APP
 from scripts.translations_fr.canvas import TRANSLATIONS as T_CANVAS
 from scripts.translations_fr.reference_points import TRANSLATIONS as T_REFERENCE
 from scripts.translations_fr.workspace import TRANSLATIONS as T_WORKSPACE
+from scripts.translations_units_prefs import FR as T_UNITS_PREFS
 
 if sys.stdout is not None and hasattr(sys.stdout, "reconfigure"):
     sys.stdout.reconfigure(encoding="utf-8", errors="replace")
@@ -39,7 +40,7 @@ TS_FILE = (
 def get_french_translations() -> dict[str, dict[str, str]]:
     """Assemble the modular French translations into one dictionary."""
     assembled: dict[str, dict[str, str]] = {}
-    for module_trans in (T_WORKSPACE, T_APP, T_CANVAS, T_REFERENCE):
+    for module_trans in (T_WORKSPACE, T_APP, T_CANVAS, T_REFERENCE, T_UNITS_PREFS):
         for context, mapping in module_trans.items():
             assembled.setdefault(context, {}).update(mapping)
     return assembled
