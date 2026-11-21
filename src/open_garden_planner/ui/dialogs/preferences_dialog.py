@@ -702,6 +702,15 @@ class PreferencesDialog(QDialog):
     def _save_and_accept(self) -> None:
         from open_garden_planner.app.settings import get_settings
 
+        # Commit and capture spinbox edits BEFORE applying the new unit profile:
+        # switching temperature units triggers TemperatureSpinBox._on_units_changed()
+        # which resets the text to the last committed value under QSignalBlocker,
+        # discarding any uncommitted keystrokes in Imperial mode (#907).
+        self._frost_orange_spin.interpretText()
+        self._frost_red_spin.interpretText()
+        frost_orange_c = self._frost_orange_spin.value()
+        frost_red_c = self._frost_red_spin.value()
+
         settings = get_settings()
         profile = self._profile_from_combos()
         settings.unit_profile = profile
@@ -715,8 +724,8 @@ class PreferencesDialog(QDialog):
         settings.permapeople_key_id = self._permapeople_key_id.text().strip()
         settings.permapeople_key_secret = self._permapeople_key_secret.text().strip()
         settings.google_maps_api_key = self._google_maps_key.text().strip()
-        settings.frost_warning_orange_c = self._frost_orange_spin.value()
-        settings.frost_warning_red_c = self._frost_red_spin.value()
+        settings.frost_warning_orange_c = frost_orange_c
+        settings.frost_warning_red_c = frost_red_c
         settings.notify_overdue_tasks_on_startup = self._notify_overdue_check.isChecked()
         settings.touch_gestures_enabled = self._touch_gestures_check.isChecked()
         settings.agent_api_enabled = self._agent_api_check.isChecked()

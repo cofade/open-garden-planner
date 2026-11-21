@@ -4893,8 +4893,8 @@ shadow's soft edge is a blurred field, not strokes. The map's fill is bilinearly
 interpolated inside each 10 cm cell (`HEATMAP_UPSAMPLE`, #852), uploaded to a
 `QPixmap` (stored premultiplied by Qt) and drawn with smooth scaling
 (`SmoothTransformation`): at 400 % a cell is a smooth field without blotches or
-stair-step blocks, and measured on the family garden at fit zoom the overlay
-itself adds ~0.3 ms (contours and haloed labels account for the rest).
+stair-step blocks (the overlay bitmap itself adds ~0.5 ms on the family garden
+at fit zoom; contour and label repaint overhead stays tracked on #852).
 An hour label keeps a 1.3× clearance when its place is chosen, so a fixed-pixel
 label stays off an object's edge when the plan is zoomed out. The sun-mismatch
 badge paints a theme-contrasting backing (`core.legibility.halo_for` of the

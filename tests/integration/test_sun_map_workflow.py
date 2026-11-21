@@ -182,6 +182,7 @@ def test_hours_of_sun_from_the_button_to_the_export_and_back(
     # Compare the badges' own rectangles only. The legend's glyph
     # antialiasing differs by a unit or two across platforms, which is not
     # what this test is about; a badge that leaks is inside these boxes.
+    assert badges, "expected at least one visible SunBadgeItem to test export exclusion"
     canvas = scene.canvas_rect
     badge_area = np.zeros(picture_rgb.shape[:2], dtype=bool)
     for hidden_badge in badges:
@@ -190,11 +191,12 @@ def test_hours_of_sun_from_the_button_to_the_export_and_back(
         right = (box.right() - canvas.left()) / canvas.width() * picture.width()
         top = (canvas.bottom() - box.top()) / canvas.height() * picture.height()
         bottom = (canvas.bottom() - box.bottom()) / canvas.height() * picture.height()
-        x0 = max(0, int(np.floor(left)) - 2)
-        x1 = min(picture.width(), int(np.ceil(right)) + 2)
-        y0 = max(0, int(np.floor(top)) - 2)
-        y1 = min(picture.height(), int(np.ceil(bottom)) + 2)
+        x0 = max(0, int(np.floor(min(left, right))) - 2)
+        x1 = min(picture.width(), int(np.ceil(max(left, right))) + 2)
+        y0 = max(0, int(np.floor(min(top, bottom))) - 2)
+        y1 = min(picture.height(), int(np.ceil(max(top, bottom))) + 2)
         badge_area[y0:y1, x0:x1] = True
+    assert badge_area.any(), "badge_area mask must cover at least one exported pixel"
     difference = np.abs(picture_rgb - exported_rgb).sum(axis=2)
     leaked = difference[badge_area]
     if (leaked > 0).any():

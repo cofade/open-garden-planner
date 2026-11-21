@@ -1,8 +1,8 @@
 """Measurement fields whose value unit never follows their display unit.
 
 value(), setValue(), ranges and valueChanged stay in cm (or the explicitly
-supplied value_unit_cm), and litres for volumes. Metric uses Qt's native text,
-decimals, suffix and steps. A unit switch blocks signals and retains the exact
+supplied value_unit_cm), litres for volumes, and Celsius for temperatures.
+Metric uses Qt's native text, decimals, suffix and steps. A unit switch blocks signals and retains the exact
 value; merely focusing a rounded imperial readout never writes it back.
 """
 

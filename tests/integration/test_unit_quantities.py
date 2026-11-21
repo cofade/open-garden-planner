@@ -244,3 +244,61 @@ def test_area_only_custom_switch_refreshes_scene_info_card_and_status_bar(qtbot)
     assert "ft²" in win.selection_label.text()
     assert "ft²" in card._body.text()
     get_unit_preference().set_profile(UnitProfile.all(UnitSystem.METRIC))
+
+
+def test_preferences_save_commits_uncommitted_frost_edit_before_unit_switch(qtbot) -> None:
+    """#907: saving Preferences with an uncommitted Imperial frost edit AND a unit
+    switch in the same dialog must commit the typed frost threshold first."""
+    from open_garden_planner.app.settings import get_settings
+
+    settings = get_settings()
+    prev_orange = settings.frost_warning_orange_c
+    prev_profile = settings.unit_profile
+    try:
+        get_unit_preference().set_profile(UnitProfile.all(UnitSystem.IMPERIAL))
+        settings.unit_profile = UnitProfile.all(UnitSystem.IMPERIAL)
+        settings.frost_warning_orange_c = 5.0
+
+        dialog = PreferencesDialog()
+        qtbot.addWidget(dialog)
+        dialog._frost_orange_spin.lineEdit().selectAll()
+        qtbot.keyClicks(dialog._frost_orange_spin, "35.0 °F")
+        # Change temperature unit back to Metric WITHOUT blurring or hitting Return first.
+        dialog._unit_temperature_combo.setCurrentIndex(
+            dialog._unit_temperature_combo.findData(UnitSystem.METRIC.value)
+        )
+        dialog._save_and_accept()
+
+        assert settings.frost_warning_orange_c == pytest.approx((35.0 - 32.0) / 1.8)
+    finally:
+        settings.frost_warning_orange_c = prev_orange
+        settings.unit_profile = prev_profile
+        get_unit_preference().set_profile(UnitProfile.all(UnitSystem.METRIC))
+
+
+def test_seed_packet_temp_spinboxes_fit_imperial_range_and_accept_input(qtbot) -> None:
+    """#907: SeedPacketEditDialog temperature fields must not clip Imperial readouts
+    (e.g. 140.0 °F) and must accept native °F input while storing Celsius."""
+    from open_garden_planner.ui.dialogs.seed_inventory_dialog import SeedPacketEditDialog
+
+    get_unit_preference().set_profile(UnitProfile.all(UnitSystem.IMPERIAL))
+    try:
+        dialog = SeedPacketEditDialog()
+        qtbot.addWidget(dialog)
+        dialog._temp_max.setValue(60.0)
+        dialog.show()
+        qtbot.wait(1)
+        le = dialog._temp_max.lineEdit()
+        assert le is not None
+        advance = le.fontMetrics().horizontalAdvance(dialog._temp_max.text())
+        assert le.width() >= advance, (
+            f"SeedPacketEditDialog temp field clips {dialog._temp_max.text()!r}: "
+            f"lineEdit width {le.width()} < text advance {advance}"
+        )
+
+        dialog._temp_opt.lineEdit().selectAll()
+        qtbot.keyClicks(dialog._temp_opt, "68 °F")
+        dialog._temp_opt.interpretText()
+        assert dialog._temp_opt.value() == pytest.approx(20.0)
+    finally:
+        get_unit_preference().set_profile(UnitProfile.all(UnitSystem.METRIC))

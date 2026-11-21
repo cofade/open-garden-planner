@@ -399,9 +399,10 @@ class SunHeatmapOverlayItem(QGraphicsPixmapItem):
         self.setZValue(_HEATMAP_Z)
         self.setAcceptedMouseButtons(Qt.MouseButton.NoButton)
         # #852: bilinear upsampling inside each 10 cm cell plus smooth scaling of
-        # the premultiplied bitmap keeps 400 % zoom free of stair-step blocks;
-        # measured on family-garden at fit zoom, the overlay itself adds ~0.3 ms
-        # with SmoothTransformation (faster than FastTransformation's ~0.6 ms).
+        # the QPixmap (stored premultiplied by Qt on upload) keeps 400 % zoom
+        # free of 10 cm blotches and nearest-neighbor stair-step blocks. The
+        # overlay bitmap itself adds ~0.5 ms on family-garden at fit zoom;
+        # contour and label repaint overhead stays tracked on #852.
         self.setTransformationMode(Qt.TransformationMode.SmoothTransformation)
 
 

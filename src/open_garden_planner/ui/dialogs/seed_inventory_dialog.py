@@ -371,7 +371,7 @@ class SeedPacketEditDialog(QDialog):
         sb.setSuffix(" °C")
         sb.setSpecialValueText("—")
         sb.setValue(sb.minimum())
-        sb.setFixedWidth(80)
+        sb.setMinimumWidth(115)
         return sb
 
     @staticmethod
