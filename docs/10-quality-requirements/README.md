@@ -7,7 +7,7 @@ Quality
 ├── Usability
 │   ├── Intuitive UI (first-time user can draw in < 5 minutes)
 │   ├── Keyboard shortcuts for all actions
-│   └── Multilingual (EN + DE)
+│   └── Multilingual (UI: `en`, `de`, `es`, `ru`, `fr`)
 ├── Performance
 │   ├── Smooth canvas (60fps pan/zoom with 500 objects)
 │   ├── Fast save/load (< 2 seconds typical)

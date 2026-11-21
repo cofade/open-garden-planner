@@ -35,7 +35,7 @@ from PyQt6.QtWidgets import (
 from open_garden_planner.app.settings import get_settings
 from open_garden_planner.core.frost_dates import parse_frost
 from open_garden_planner.core.i18n import format_day_month, month_abbreviation
-from open_garden_planner.core.measurement_display import length_text
+from open_garden_planner.core.measurement_display import length_text, temperature_text
 from open_garden_planner.core.sim_clock import plan_day_of
 from open_garden_planner.core.solar import plan_place
 from open_garden_planner.core.units import LengthStyle
@@ -881,7 +881,9 @@ class _DetailPanel(QFrame):
     def __init__(self, parent: QWidget | None = None) -> None:
         super().__init__(parent)
         self._last_species_args: tuple[PlantSpeciesData, str] | None = None
-        units_notifier().changed.connect(self._on_units_changed)
+        # ``profile_changed`` also fires for a length change; connecting the
+        # legacy length signal too would render this panel twice (#907).
+        units_notifier().profile_changed.connect(self._on_units_changed)
         self.setFrameShape(QFrame.Shape.StyledPanel)
         layout = QVBoxLayout(self)
         layout.setContentsMargins(10, 6, 10, 6)
@@ -1121,7 +1123,11 @@ class _DetailPanel(QFrame):
             parts.append(self.tr("Germination: {min}–{max} days").format(
                 min=sp.days_to_germination_min, max=sp.days_to_germination_max))
         if sp.min_germination_temp_c is not None:
-            parts.append(self.tr("Min. germ. temp: {temp} °C").format(temp=sp.min_germination_temp_c))
+            parts.append(
+                self.tr("Min. germ. temp: {temp}").format(
+                    temp=temperature_text(sp.min_germination_temp_c)
+                )
+            )
         if sp.seed_depth_cm is not None:
             parts.append(self.tr("Seed depth: {depth}").format(depth=length_text(sp.seed_depth_cm, style=LengthStyle.DEPTH)))
         if sp.frost_tolerance:

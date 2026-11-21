@@ -10,6 +10,9 @@ from open_garden_planner.core.units import (
     default_bare_unit_cm,
     format_area,
     format_length,
+    format_mass,
+    format_precipitation,
+    format_temperature,
     format_volume,
     grid_size_cm,
     imperial_step_inches,
@@ -17,6 +20,9 @@ from open_garden_planner.core.units import (
     nice_distances,
     nudge_fine_cm,
     parse_length,
+    parse_mass,
+    parse_precipitation,
+    parse_temperature,
     parse_volume,
 )
 
@@ -68,6 +74,58 @@ IMPERIAL_CASES = [
     (762.0, S.SCALE_BAR, "25 ft"),
     (120000.0, S.FEET, "3937 ft"),
 ]
+
+
+@pytest.mark.parametrize(
+    ("value", "system", "expected"),
+    [
+        (0.0, U.METRIC, "0 °C"),
+        (21.5, U.METRIC, "22 °C"),
+        (0.0, U.IMPERIAL, "32 °F"),
+        (21.5, U.IMPERIAL, "71 °F"),
+        (-17.8, U.IMPERIAL, "0 °F"),
+    ],
+)
+def test_temperature_display(value, system, expected):
+    assert format_temperature(value, system) == expected
+
+
+@pytest.mark.parametrize(
+    ("text", "system", "expected"),
+    [
+        ("20 °C", U.IMPERIAL, 20.0),
+        ("68 °F", U.METRIC, 20.0),
+        ("68", U.IMPERIAL, 20.0),
+        ("-4", U.METRIC, -4.0),
+    ],
+)
+def test_temperature_input_returns_celsius(text, system, expected):
+    assert parse_temperature(text, system) == pytest.approx(expected)
+
+
+@pytest.mark.parametrize(
+    ("value", "system", "expected"),
+    [(25.4, U.METRIC, "25.4 mm"), (25.4, U.IMPERIAL, "1.00 in"), (0.0, U.IMPERIAL, "0.00 in"),
+     (0.5, U.IMPERIAL, "0.02 in")],
+)
+def test_precipitation_display(value, system, expected):
+    assert format_precipitation(value, system) == expected
+
+
+@pytest.mark.parametrize(
+    ("text", "system", "expected"),
+    [("2 in", U.METRIC, 50.8), ("50.8", U.METRIC, 50.8), ("1", U.IMPERIAL, 25.4)],
+)
+def test_precipitation_input_returns_millimetres(text, system, expected):
+    assert parse_precipitation(text, system) == pytest.approx(expected)
+
+
+def test_mass_display_and_input_round_trip():
+    assert format_mass(1.0, U.METRIC) == "1.00 kg"
+    assert format_mass(1.0, U.IMPERIAL) == "2.20 lb"
+    assert parse_mass("2.2046226218 lb", U.METRIC) == pytest.approx(1.0)
+    assert parse_mass("16 oz", U.METRIC) == pytest.approx(0.45359237)
+    assert parse_mass("1", U.IMPERIAL) == pytest.approx(0.45359237)
 
 
 @pytest.mark.parametrize(("cm", "style", "expected"), METRIC_CASES)

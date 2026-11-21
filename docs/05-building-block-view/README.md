@@ -32,7 +32,7 @@ for sun-map contours. See the ADR-076 editing addendum and section 8.9.17.
 | `core/unit_preference.py` | Process-wide unit preference, with weak bound-method subscriptions through `Channel`; never part of a plan. |
 | `core/measurement_display.py` | Adapts the active preference and the UI locale to the pure formatters. Legacy measurement exports alias these adapters. |
 | `ui/units_notifier.py` | Qt signal adapter; destroyed widgets disconnect through Qt, without leaving dead signal emitters on the plain channel. |
-| `ui/widgets/unit_spin_box.py` | Length/volume fields keep their callers' metric value unit and preserve exact values while displaying native units. |
+| `ui/widgets/unit_spin_box.py` | Length, volume and temperature fields keep their callers' metric value unit (cm, litres, Celsius) and preserve exact values while displaying native units. |
 
 ### Reference points (ADR-080, #666)
 
@@ -788,7 +788,7 @@ telemetry, deriving elapsed-hour window values and `SUMMARY.md`.
 `scripts/download_stats_report.py` freezes the first observation before any replacement,
 allocates historical counts using exact fractions and emits the UTC daily series, SVG
 and self-contained website. Its local browser module sums days into Monday weeks,
-calendar months and years; English/German/Spanish catalogs translate all website controls.
+calendar months and years; catalogs (`en`/`de`/`es`/`fr`/`ru`) translate all website controls.
 The data branch holds durable history; the workflow deploys only `site/` after pushing
 the data. No application-runtime dependencies are added. See ADR-067 and section 7.4.
 

@@ -555,6 +555,44 @@ class TestContainerProperties:
             f"Effective volume did not refresh on footprint change: {before!r} -> {after!r}"
         )
 
+    def test_effective_volume_follows_a_live_volume_switch(self, qtbot):
+        """#907: volume is its own quantity; a length-only signal left it stale."""
+        from PyQt6.QtWidgets import QLabel
+
+        from open_garden_planner.core.unit_preference import (
+            Quantity,
+            UnitProfile,
+            get_unit_preference,
+        )
+        from open_garden_planner.core.units import UnitSystem
+
+        get_unit_preference().set_profile(UnitProfile.all(UnitSystem.METRIC))
+        item = RectangleItem(0, 0, 100, 100, object_type=ObjectType.CONTAINER)
+        panel = PropertiesPanel()
+        panel.set_selected_items([item])
+
+        def effective_text() -> str:
+            for i in range(panel._form_layout.rowCount()):
+                lbl = panel._form_layout.itemAt(i, panel._form_layout.ItemRole.LabelRole)
+                fld = panel._form_layout.itemAt(i, panel._form_layout.ItemRole.FieldRole)
+                if (
+                    lbl and isinstance(lbl.widget(), QLabel)
+                    and lbl.widget().text() == "Effective:"
+                    and fld and isinstance(fld.widget(), QLabel)
+                ):
+                    return fld.widget().text()
+            return ""
+
+        before = effective_text()
+        get_unit_preference().set_quantity_system(Quantity.VOLUME, UnitSystem.IMPERIAL)
+        qtbot.wait(1)
+        after = effective_text()
+        assert before and before != after, (
+            f"Effective volume ignored the Volume row: {before!r} -> {after!r}"
+        )
+        assert "gal" in after or "qt" in after, after
+        get_unit_preference().set_profile(UnitProfile.all(UnitSystem.METRIC))
+
 
 class TestObjectHeightField:
     """Every short input shares one control column; the height source tooltip updates (#596)."""

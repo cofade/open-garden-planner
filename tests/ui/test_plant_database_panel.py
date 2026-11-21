@@ -293,3 +293,30 @@ class TestProfileHeaderHeight:
         for label in (panel._profile_name, panel._profile_description):
             assert label.height() >= label.heightForWidth(label.width())
         assert panel.details_scroll.height() > 400
+
+class TestSeedPacketUnits:
+    def test_germination_temperature_refreshes_on_a_live_switch(self, qtbot) -> None:
+        """#907: the panel is open while Preferences changes the temperature row."""
+        from types import SimpleNamespace
+
+        from open_garden_planner.core.unit_preference import (
+            Quantity,
+            UnitProfile,
+            get_unit_preference,
+        )
+        from open_garden_planner.core.units import UnitSystem
+
+        get_unit_preference().set_profile(UnitProfile.all(UnitSystem.METRIC))
+        panel = PlantDatabasePanel()
+        qtbot.addWidget(panel)
+        packet = SimpleNamespace(
+            germination_days_min=None,
+            germination_days_max=None,
+            germination_temp_opt_c=10.0,
+            cold_stratification=False,
+        )
+        panel._update_seed_packet_info(packet)
+        assert "10 °C" in panel.seed_packet_info_lbl.text()
+        get_unit_preference().set_quantity_system(Quantity.TEMPERATURE, UnitSystem.IMPERIAL)
+        assert "50 °F" in panel.seed_packet_info_lbl.text()
+        get_unit_preference().set_profile(UnitProfile.all(UnitSystem.METRIC))

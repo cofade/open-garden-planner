@@ -19,7 +19,16 @@ from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any, cast
 
 from PyQt6.QtCore import QCoreApplication, QPointF, QRectF, Qt
-from PyQt6.QtGui import QAction, QColor, QFont, QFontMetricsF, QPainter, QPainterPath, QPen
+from PyQt6.QtGui import (
+    QAction,
+    QColor,
+    QFont,
+    QFontMetricsF,
+    QPainter,
+    QPainterPath,
+    QPen,
+    QPolygonF,
+)
 from PyQt6.QtWidgets import (
     QGraphicsEllipseItem,
     QGraphicsItem,
@@ -107,7 +116,28 @@ class SunBadgeItem(QGraphicsPixmapItem):
             from open_garden_planner.ui.icons import paint_icon
 
             size = self.pixmap().deviceIndependentSize()
-            if paint_icon(painter, self._icon_name, QRectF(self.offset(), size)):
+            icon_rect = QRectF(self.offset(), size)
+            if self._icon_name == "sun_warning":
+                # #852: a light backing under the warning triangle only, so its
+                # accent-green ink reads on green foliage. The asset stays on the
+                # theme's accent sentinel (the icon gate allows no second baked
+                # colour), and the sun's middle stays transparent. The triangle
+                # is `M17 10l6 12H11z` in sun_warning.svg, with a small margin.
+                def point(x: float, y: float) -> QPointF:
+                    return QPointF(
+                        icon_rect.left() + x / 24.0 * icon_rect.width(),
+                        icon_rect.top() + y / 24.0 * icon_rect.height(),
+                    )
+
+                painter.save()
+                painter.setRenderHint(QPainter.RenderHint.Antialiasing, True)
+                painter.setPen(QPen(QColor(255, 255, 255, 235), 1.2))
+                painter.setBrush(QColor(255, 255, 255, 235))
+                painter.drawPolygon(
+                    QPolygonF([point(16.4, 9.4), point(23.4, 22.4), point(10.6, 22.4)])
+                )
+                painter.restore()
+            if paint_icon(painter, self._icon_name, icon_rect):
                 return
         super().paint(painter, option, widget)
 

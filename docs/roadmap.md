@@ -36,9 +36,10 @@ No roadmap phase is active. Open work is tracked in GitHub issues; the current t
 | Store/MSIX readiness | #767, #764, #375 | Distribution and user-data safety on the second channel. |
 | 3D rendering quality and performance | #744, #534, #531, #883, #894 | The 3D view's trust and frame budget. |
 | CAD and drawing tools | — | Precision and editing depth. |
-| Architecture and tech debt | #667 | Remove redundant surfaces and make tests repeatable. |
+| Architecture and tech debt | #667 | Remove redundant surfaces and make tests repeatable; its seed wiring shipped, the owner-run soak measurement is still owed. |
 | Documentation before advertising | #939 | The user-facing documents describe today's product before it is shared. |
 | 2D canvas follow-ups | #845 | First-zoom sprite rasterization cost. |
+| Backlog package (in review) | #987, #986, #907, #876, #855, #852, #764 | Locale-document drift, tabbed preferences, per-quantity units and the Canada preset, 2D sun-map legibility, an open frame's trimmed reach and two 2D visual re-checks. [PR #989](https://github.com/cofade/open-garden-planner/pull/989). |
 
 This table is a pointer, not a tracker. Each issue owns its scope and acceptance criteria.
 

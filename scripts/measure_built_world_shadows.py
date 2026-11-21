@@ -89,6 +89,7 @@ from open_garden_planner.core.shadow_geometry import (
     circle_footprint,
     compute_scene_shadows,
     compute_weighted_shadows,
+    open_frame_effective_length,
     polyline_footprint,
     shadow_direction_scene,
 )
@@ -321,8 +322,25 @@ def caster_shadow(record: Record, elevation_deg: float,
         )
         polygons = res.union_polygons if res is not None else []
     else:
-        polygons = compute_scene_shadows(
-            [(list(ring), record.height_cm) for ring in record.footprints], elevation_deg, azimuth_deg)
+        members = open_frame_triangles_for_record(record)
+        if members is not None:
+            # #855: an open frame's prism is trimmed to its own far member tip.
+            frame = OpenFrame(members, record.footprints[0])
+            length = open_frame_effective_length(
+                frame, float(record.height_cm or 0.0), elevation_deg, azimuth_deg
+            )
+            fake_height = length * math.tan(math.radians(elevation_deg))
+            polygons = compute_scene_shadows(
+                [(list(ring), fake_height) for ring in record.footprints],
+                elevation_deg,
+                azimuth_deg,
+            )
+        else:
+            polygons = compute_scene_shadows(
+                [(list(ring), record.height_cm) for ring in record.footprints],
+                elevation_deg,
+                azimuth_deg,
+            )
     return [_to_grid(polygon) for polygon in polygons]
 
 
@@ -386,7 +404,7 @@ def measure(selected: Sequence[Case] | None = None) -> tuple[Row, ...]:
 #: moves a number updates this table AND the docs.
 Triple = tuple[float, float, float]
 DOCUMENTED: dict[str, tuple[Triple, Triple, Triple]] = {
-    "picket fence": ((1.00, 1.00, 1.00), (0.65, 0.66, 0.68), (2.0, 2.0, 2.4)),
+    "picket fence": ((1.01, 1.01, 1.00), (0.66, 0.67, 0.68), (2.0, 2.0, 2.4)),
     "metal fence": ((0.99, 0.99, 0.98), (0.19, 0.20, 0.24), (0.8, 0.8, 0.8)),
     "chain-link fence": ((1.09, 1.03, 1.08), (0.12, 0.13, 0.19), (1.5, 1.5, 1.5)),
     "hedge fence": ((1.04, 1.13, 1.31), (0.96, 0.89, 0.76), (19.6, 19.5, 19.6)),
@@ -420,21 +438,21 @@ DOCUMENTED: dict[str, tuple[Triple, Triple, Triple]] = {
     "planter pot": ((0.83, 0.81, 0.81), (0.83, 0.81, 0.81), (-0.6, -0.6, -0.3)),
     "sandbox": ((1.00, 1.00, 1.00), (1.00, 1.00, 1.00), (0.0, 0.0, 0.0)),
     "hot tub": ((1.00, 0.85, 0.60), (1.00, 0.85, 0.60), (0.0, 0.0, 0.0)),
-    "swing": ((1.00, 1.00, 1.00), (0.17, 0.16, 0.15), (-71.0, -71.0, -70.6)),
-    "hammock": ((1.00, 1.00, 1.00), (0.21, 0.26, 0.30), (-56.3, -56.3, -56.0)),
+    "swing": ((1.00, 1.00, 1.00), (0.18, 0.19, 0.21), (0.0, 0.0, 0.0)),
+    "hammock": ((1.00, 1.00, 1.00), (0.23, 0.33, 0.43), (0.0, 0.0, 0.0)),
     "compost bin": ((0.93, 0.94, 0.89), (0.93, 0.94, 0.89), (-0.8, -0.8, -0.5)),
     "cold frame": ((1.00, 1.00, 1.00), (1.00, 1.00, 1.00), (0.0, 0.0, 0.0)),
     "rain barrel": ((0.81, 0.79, 0.76), (0.81, 0.79, 0.76), (-20.1, -10.9, -7.5)),
     "water tap": ((0.64, 0.63, 0.61), (0.64, 0.63, 0.61), (-6.0, -6.0, -6.0)),
     "wheelbarrow": ((0.44, 0.45, 0.46), (0.44, 0.45, 0.46), (-22.0, -22.0, -22.0)),
     "bird bath": ((0.40, 0.47, 0.61), (0.40, 0.47, 0.61), (-0.8, -0.8, -0.8)),
-    # #698: the five open frames are weighted by their transmittance — the area column
-    # is 3D against the WEIGHTED 2D prism; their IoU column still shows how little of
-    # the prism the frame shades (it is that share: the frame's shadow lies inside it)
-    "pergola": ((0.99, 0.99, 0.99), (0.28, 0.32, 0.36), (-16.7, -7.5, -3.8)),
+    # #698: the five open frames are weighted by their transmittance - the area column
+    # is 3D against the WEIGHTED, REACH-TRIMMED 2D prism (#855); their IoU column still
+    # shows how little of the prism the frame shades (the frame's shadow lies inside it)
+    "pergola": ((0.99, 0.99, 0.99), (0.29, 0.32, 0.36), (-0.8, -0.8, -0.5)),
     # Phase 17 L5.4 (#389): a lantern's post and head
-    "garden light": ((1.00, 1.00, 1.00), (0.21, 0.28, 0.37), (-18.4, -12.0, -9.6)),
-    "trellis": ((1.00, 1.00, 1.00), (0.32, 0.34, 0.39), (-7.0, -7.0, -6.8)),
+    "garden light": ((1.00, 1.00, 1.00), (0.21, 0.29, 0.39), (0.0, 0.0, 0.0)),
+    "trellis": ((1.00, 1.00, 1.00), (0.33, 0.35, 0.41), (0.0, 0.0, 0.0)),
 }
 
 

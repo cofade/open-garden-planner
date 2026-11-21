@@ -6036,7 +6036,7 @@ class GardenPlannerApp(QMainWindow):
 
     def _apply_unit_setting(self) -> None:
         from open_garden_planner.config.settings import get_settings
-        get_unit_preference().set_system(UnitSystem(get_settings().unit_system))
+        get_unit_preference().set_profile(get_settings().unit_profile)
 
     def _on_unit_system_changed(self, _system: UnitSystem) -> None:
         self.update_coordinates(*self._last_cursor_cm)

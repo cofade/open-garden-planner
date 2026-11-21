@@ -311,6 +311,17 @@ Full how-to (step-by-step, `.ts` format, recompile command): see `docs/08-crossc
     (`scripts/generate_examples.py`, `--check` in the suite); a plan's row in
     `tests/example_specs.py` is stated by hand. After a change to the look, re-shoot
     the README with `scripts/capture_readme_media.py` (real window, graphics card).
+  - Measurement units (#907, ADR-081): display units are per quantity and stored
+    additively; geometry, files and the Agent API stay in
+    centimetres/kilograms/Celsius/millimetres. Read the ADR before adding a display
+    surface. Canada (mixed) is provisional until Canadian feedback exists.
+  - Open frames (#855): `open_frame_effective_length` trims an open frame's swept
+    prism to its own far member tip; the transmittance is measured against that trimmed
+    prism, so FR-SUN-13's area is unchanged and the shade ends where the frame does.
+    The table's reach column and `scripts/measure_built_world_shadows.py` carry the
+    numbers.
+  - Preferences (#986): the dialog is tabbed (General, Weather, Online services,
+    Agent API, 3D View); each tab scrolls, and Save/Cancel stay outside every viewport.
 - Docs of record: `docs/roadmap.md` (current work and status), the ADRs (decisions),
   `docs/functional-requirements.md` (capabilities), and the `ogp-architecture-contract`
   skill (invariants). If a fact is not there, it does not belong in this file.

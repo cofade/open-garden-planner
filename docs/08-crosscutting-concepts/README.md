@@ -4889,7 +4889,14 @@ map has a key — over the viewport on the canvas, a scene item in a picture —
 its hour labels are labels of the plan; while a map is shown the time-of-day
 shadows are solved but not painted (`SunShadowController.set_map_shown`: the map
 is translucent, and a shadow of one instant under it reads as fewer hours); the
-shadow's soft edge is a blurred field, not strokes.
+shadow's soft edge is a blurred field, not strokes. The map's fill is interpolated
+inside each 10 cm cell (`HEATMAP_UPSAMPLE`, #852) and drawn with nearest sampling:
+at 400 % a cell is a smooth field, not one flat blotch, and a repaint does not
+smooth-scale the whole overlay every time. An hour label keeps a 1.3× clearance when
+its place is chosen, so a fixed-pixel label stays off an object's edge when the plan
+is zoomed out. The sun-mismatch badge paints a light backing under its warning
+triangle (#852): the icon asset stays on the theme's accent sentinel, the sun's
+middle stays transparent, and the backing keeps the warning readable on a green crown.
 
 **Threaded canvas-scale computation** (US-E4 heatmap; the pattern for any
 seconds-scale analysis): snapshot plain data on the GUI thread
@@ -7711,14 +7718,14 @@ far, −, the 3D shadow extends along the shadow direction: where its tip is), e
 | house, sun along the ridge | 1.00 / 1.00 / 1.00 | 1.00 / 1.00 / 1.00 | 0.0 / 0.0 / 0.0 | gable roof (#440: shared roof+wall triangles; was +30.0 vs flat prism) |
 | wall | 1.04 / 1.10 / 1.24 | 0.96 / 0.91 / 0.81 | +15.0 / +15.0 / +15.8 | nominal section: WIDER in 3D |
 | stone-wall fence, hedge fence | 1.04–1.06 / 1.13–1.15 / 1.31–1.37 | 0.94–0.96 / 0.87–0.89 / 0.73–0.76 | +14.5 … +15.3, +19.5 … +19.6 | nominal section |
-| picket fence | 1.00 / 1.00 / 1.00 | 0.65 / 0.66 / 0.68 | +2.0 / +2.0 / +2.4 | porosity (#440 weighted 2D area; unweighted IoU vs full strip) |
+| picket fence | 1.01 / 1.01 / 1.00 | 0.66 / 0.67 / 0.68 | +2.0 / +2.0 / +2.4 | porosity (#440 weighted 2D area; unweighted IoU vs full strip) |
 | metal fence | 0.99 / 0.99 / 0.98 | 0.19 / 0.20 / 0.24 | +0.8 / +0.8 / +0.8 | porosity (#440 weighted 2D area; unweighted IoU vs full strip) |
 | chain-link fence | 1.09 / 1.03 / 1.08 | 0.12 / 0.13 / 0.19 | +1.5 / +1.5 / +1.5 | porosity (#440 weighted 2D area; unweighted IoU vs full strip) |
-| pergola | 0.99 / 0.99 / 0.99 | 0.28 / 0.32 / 0.36 | −16.7 / −7.5 / −3.8 | open frame (#698 weighted 2D area; unweighted IoU vs solid prism) |
-| trellis | 1.00 / 1.00 / 1.00 | 0.32 / 0.34 / 0.39 | −7.0 / −7.0 / −6.8 | open frame (#698 weighted 2D area; unweighted IoU vs solid prism) |
-| swing | 1.00 / 1.00 / 1.00 | 0.17 / 0.16 / 0.15 | −71.0 / −71.0 / −70.6 | open frame (#698 weighted 2D area; unweighted IoU vs solid prism) |
-| hammock | 1.00 / 1.00 / 1.00 | 0.21 / 0.26 / 0.30 | −56.3 / −56.3 / −56.0 | open frame (#698 weighted 2D area; unweighted IoU vs solid prism) |
-| garden light | 1.00 / 1.00 / 1.00 | 0.21 / 0.28 / 0.37 | −18.4 / −12.0 / −9.6 | open frame (#698 weighted 2D area; unweighted IoU vs solid prism) |
+| pergola | 0.99 / 0.99 / 0.99 | 0.29 / 0.32 / 0.36 | −0.8 / −0.8 / −0.5 | open frame (#698 weighted, #855 reach-trimmed 2D area; IoU vs trimmed prism) |
+| trellis | 1.00 / 1.00 / 1.00 | 0.33 / 0.35 / 0.41 | 0.0 / 0.0 / 0.0 | open frame (#698 weighted, #855 reach-trimmed 2D area; IoU vs trimmed prism) |
+| swing | 1.00 / 1.00 / 1.00 | 0.18 / 0.19 / 0.21 | 0.0 / 0.0 / 0.0 | open frame (#698 weighted, #855 reach-trimmed 2D area; IoU vs trimmed prism) |
+| hammock | 1.00 / 1.00 / 1.00 | 0.23 / 0.33 / 0.43 | 0.0 / 0.0 / 0.0 | open frame (#698 weighted, #855 reach-trimmed 2D area; IoU vs trimmed prism) |
+| garden light | 1.00 / 1.00 / 1.00 | 0.21 / 0.29 / 0.39 | 0.0 / 0.0 / 0.0 | open frame (#698 weighted, #855 reach-trimmed 2D area; IoU vs trimmed prism) |
 
 So: a solid line item casts a wider shadow in 3D than the 2D model, more at a high sun; a porous
 fence casts a fraction of its solid strip — and since #440 the 2D analysis weights a styled
@@ -7743,6 +7750,13 @@ rule a new object kind has to be placed under:
   `core/pergola.layout`). To make a kind an open frame, add its name and nothing else — its
   production builder is read. Do not add a table of shares: the members' sizes are capped, so
   a share that is right for one footprint is wrong for the next.
+- **The prism is trimmed to the frame's own far member tip (#855).** `height ÷ tan a` reaches
+  past a swing's top beam, which is mid-frame, and left the 2D shade 4-71 cm beyond the real
+  one. `open_frame_effective_length` shortens the swept prism to the largest
+  `x·dx + y·dy + z ÷ tan a` of the frame's members, minus the footprint's own reach; the
+  transmittance is measured against that trimmed prism, so the shade's area is unchanged and
+  its tip is the frame's. The table's reach column is 0.0 cm for the four frames whose top is
+  their far member and −0.8 cm for the pergola.
 - **One hook**: the caster walk sets `IdentifiedCaster.frame` (an `OpenFrame`: the members in
   the item's OWN coordinates, its turn beside them); the overlay, the 3D drape, the
   hours-of-sun grid and the plant estimates read `caster_transmittance`. A consumer that asks

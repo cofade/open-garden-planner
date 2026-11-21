@@ -22,6 +22,9 @@ from PyQt6.QtWidgets import (
 )
 
 from open_garden_planner.core.i18n import current_locale, format_decimal, list_separator
+from open_garden_planner.core.measurement_display import precipitation_text, temperature_text
+from open_garden_planner.core.unit_preference import Quantity, active_unit_system
+from open_garden_planner.core.units import UnitSystem
 from open_garden_planner.services.forecast_holder import (
     ForecastHolder,
     WeatherFetchWorker,
@@ -34,6 +37,7 @@ from open_garden_planner.services.weather_service import (
 )
 from open_garden_planner.ui.icons import get_icon, get_pixmap
 from open_garden_planner.ui.theme import set_compact, set_text_role
+from open_garden_planner.ui.units_notifier import units_notifier
 
 # Alias for backwards compatibility (historical tests patch weather_widget.get_weather_service)
 get_weather_service = get_weather_service
@@ -196,18 +200,13 @@ class WeatherWidget(QFrame):
         # ── Expandable table ────────────────────────────────────────────
         self._table = QTableWidget()
         self._table.setColumnCount(5)
-        self._table.setHorizontalHeaderLabels([
-            self.tr("Date"),
-            self.tr("Weather"),
-            self.tr("Max °C"),
-            self.tr("Min °C"),
-            self.tr("Rain mm"),
-        ])
+        self._update_unit_headers()
         self._table.horizontalHeader().setStretchLastSection(False)
         self._table.horizontalHeader().setSectionResizeMode(1, self._table.horizontalHeader().ResizeMode.Stretch)
         self._table.setMaximumHeight(280)
         self._table.hide()
         outer.addWidget(self._table)
+        units_notifier().profile_changed.connect(self._on_units_changed)
 
         # ── Offline / age label ─────────────────────────────────────────
         self._age_lbl = QLabel()
@@ -355,6 +354,30 @@ class WeatherWidget(QFrame):
 
     # ── rendering ───────────────────────────────────────────────────────
 
+    def _update_unit_headers(self) -> None:
+        """#907: the table names the reader's temperature and rain units."""
+        temperature = self.tr("Max °F") if active_unit_system(
+            Quantity.TEMPERATURE
+        ) == UnitSystem.IMPERIAL else self.tr("Max °C")
+        minimum = self.tr("Min °F") if active_unit_system(
+            Quantity.TEMPERATURE
+        ) == UnitSystem.IMPERIAL else self.tr("Min °C")
+        rain = self.tr("Rain in") if active_unit_system(
+            Quantity.PRECIPITATION
+        ) == UnitSystem.IMPERIAL else self.tr("Rain mm")
+        self._table.setHorizontalHeaderLabels([
+            self.tr("Date"),
+            self.tr("Weather"),
+            temperature,
+            minimum,
+            rain,
+        ])
+
+    def _on_units_changed(self, _profile: object) -> None:
+        self._update_unit_headers()
+        if self._last_forecast is not None:
+            self._render_forecast(self._last_forecast)
+
     def _render_forecast(self, forecast: WeatherForecast) -> None:
         self._last_forecast = forecast
         self._hide_all_content()
@@ -377,9 +400,15 @@ class WeatherWidget(QFrame):
             if condition_icon is not None:
                 condition_item.setIcon(condition_icon)
             self._table.setItem(row, 1, condition_item)
-            self._table.setItem(row, 2, QTableWidgetItem(format_decimal(day.max_c, 1)))
-            self._table.setItem(row, 3, QTableWidgetItem(format_decimal(day.min_c, 1)))
-            self._table.setItem(row, 4, QTableWidgetItem(format_decimal(day.precipitation_mm, 1)))
+            self._table.setItem(
+                row, 2, QTableWidgetItem(temperature_text(day.max_c, decimals=1))
+            )
+            self._table.setItem(
+                row, 3, QTableWidgetItem(temperature_text(day.min_c, decimals=1))
+            )
+            self._table.setItem(
+                row, 4, QTableWidgetItem(precipitation_text(day.precipitation_mm))
+            )
         self._table.setVisible(self._expanded)
 
         # Age label
@@ -484,9 +513,11 @@ class _DayCell(QFrame):
         pixmap = get_pixmap(wmo_to_icon(day.weathercode), 36)
         if pixmap is not None:
             self._icon_lbl.setPixmap(pixmap)
-        self._temp_lbl.setText(f"{day.max_c:.0f}° / {day.min_c:.0f}°")
+        high = temperature_text(day.max_c, decimals=0).replace(" °", "°")
+        low = temperature_text(day.min_c, decimals=0).replace(" °", "°")
+        self._temp_lbl.setText(f"{high} / {low}")
         if day.precipitation_mm > 0:
-            self._rain_lbl.setText(f"{format_decimal(day.precipitation_mm, 1)} mm")
+            self._rain_lbl.setText(precipitation_text(day.precipitation_mm))
             self._rain_lbl.show()
         else:
             self._rain_lbl.hide()

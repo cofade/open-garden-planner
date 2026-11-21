@@ -52,7 +52,8 @@ from open_garden_planner.core.object_types import (
     is_bed_type,
 )
 from open_garden_planner.core.plant_renderer import is_plant_type
-from open_garden_planner.core.units import LengthStyle, UnitSystem
+from open_garden_planner.core.unit_preference import UnitProfile
+from open_garden_planner.core.units import LengthStyle
 from open_garden_planner.ui.canvas.items import (
     CircleItem,
     EllipseItem,
@@ -294,7 +295,10 @@ class PropertiesPanel(QWidget):
         # edit is not destroyed with its widget and lost from undo (#210).
         self._pending_text_commits: list[Callable[[], None]] = []
         self._setup_ui()
-        units_notifier().changed.connect(self._on_unit_system_changed)
+        # ``profile_changed`` covers every quantity; the legacy length-only
+        # signal would leave the volume label stale when only Volume moved
+        # (#907). It fires once for a length change too, so nothing replays.
+        units_notifier().profile_changed.connect(self._on_unit_system_changed)
         # Wire history_navigated at construction: the application hands the
         # manager to the constructor and never calls set_command_manager(), so
         # connecting only there left the #560 history refresh dead in production.
@@ -376,7 +380,7 @@ class PropertiesPanel(QWidget):
         """
         QTimer.singleShot(0, self._rebuild_for_theme)
 
-    def _on_unit_system_changed(self, _system: UnitSystem) -> None:
+    def _on_unit_system_changed(self, _profile: UnitProfile) -> None:
         # Unit fields reformat themselves. Reuse the normal in-place refresh
         # for derived labels: it protects the focused editor and never has to
         # destroy a form whose focus was just restored by Preferences.

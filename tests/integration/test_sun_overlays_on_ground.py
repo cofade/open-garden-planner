@@ -32,6 +32,7 @@ from open_garden_planner.models.layer import Layer
 from open_garden_planner.services.scene_rendering import render_scene_region
 from open_garden_planner.ui.canvas.canvas_scene import GROUND_Z_RANGE, CanvasScene, ground_z
 from open_garden_planner.ui.canvas.canvas_view import CanvasView
+from open_garden_planner.ui.canvas.items.circle_item import CircleItem
 from open_garden_planner.ui.canvas.items.journal_pin_item import JournalPinItem
 from open_garden_planner.ui.canvas.items.polygon_item import PolygonItem
 from open_garden_planner.ui.canvas.items.rectangle_item import RectangleItem
@@ -120,6 +121,21 @@ class TestTheShadowLiesOnTheLawn:
         assert np.abs(_patch(before, IN_THE_SUN) - _patch(after, IN_THE_SUN)).max() < 1.0
         roof = np.abs(_patch(before, ON_THE_SHED) - _patch(after, ON_THE_SHED))
         assert roof.max() < 1.0, "the shed stands above its own shadow"
+
+    def test_a_plant_crown_stands_above_the_shadow(self, view) -> None:
+        """#876: a shadow must not tint a crown that stands in it."""
+        scene = view.scene()
+        _shed(view)
+        _lawn(view)
+        tree = CircleItem(235.0, 190.0, 30.0, object_type=ObjectType.TREE)
+        _add(view, tree)
+        controller = SunShadowController(scene, lambda: BERLIN)
+        before = _render(scene)
+        controller.set_enabled(True)
+        controller.set_sim_datetime(JUNE_NOON_UTC)
+        after = _render(scene)
+        crown = np.abs(_patch(before, (235.0, 190.0), 4) - _patch(after, (235.0, 190.0), 4))
+        assert crown.max() < 1.0, f"the shadow tinted the crown: {crown}"
 
     def test_the_hours_of_sun_lie_on_the_lawn_too(self, view, qtbot) -> None:
         scene = view.scene()

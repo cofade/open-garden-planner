@@ -10,13 +10,15 @@ from open_garden_planner.core.i18n import (
     format_trimmed,
     list_separator,
 )
-from open_garden_planner.core.unit_preference import active_unit_system
+from open_garden_planner.core.unit_preference import Quantity, active_unit_system
 from open_garden_planner.core.units import (
     LengthStyle,
     UnitSystem,
     format_area,
     format_coordinates,
     format_length,
+    format_precipitation,
+    format_temperature,
     format_volume,
 )
 
@@ -26,7 +28,7 @@ def length_text(
 ) -> str:
     return format_length(
         cm,
-        active_unit_system() if system is None else system,
+        active_unit_system(Quantity.LENGTH) if system is None else system,
         style,
         decimal_mark=current_locale().decimalPoint(),
         # Shopping-list plant-size summaries previously used whole-number
@@ -39,7 +41,7 @@ def length_text(
 def area_text(cm2: float, system: UnitSystem | None = None) -> str:
     return format_area(
         cm2,
-        active_unit_system() if system is None else system,
+        active_unit_system(Quantity.AREA) if system is None else system,
         decimal_mark=current_locale().decimalPoint(),
         number_format=format_decimal,
     )
@@ -48,7 +50,31 @@ def area_text(cm2: float, system: UnitSystem | None = None) -> str:
 def volume_text(litres: float, system: UnitSystem | None = None) -> str:
     return format_volume(
         litres,
-        active_unit_system() if system is None else system,
+        active_unit_system(Quantity.VOLUME) if system is None else system,
+        decimal_mark=current_locale().decimalPoint(),
+        number_format=format_decimal,
+    )
+
+
+def temperature_text(
+    celsius: float, system: UnitSystem | None = None, *, decimals: int = 0
+) -> str:
+    return format_temperature(
+        celsius,
+        active_unit_system(Quantity.TEMPERATURE) if system is None else system,
+        decimals=decimals,
+        decimal_mark=current_locale().decimalPoint(),
+        number_format=format_decimal,
+    )
+
+
+def precipitation_text(
+    mm: float, system: UnitSystem | None = None, *, decimals: int = 1
+) -> str:
+    return format_precipitation(
+        mm,
+        active_unit_system(Quantity.PRECIPITATION) if system is None else system,
+        decimals=decimals,
         decimal_mark=current_locale().decimalPoint(),
         number_format=format_decimal,
     )
@@ -58,7 +84,7 @@ def coordinate_text(x_cm: float, y_cm: float, system: UnitSystem | None = None) 
     return format_coordinates(
         x_cm,
         y_cm,
-        active_unit_system() if system is None else system,
+        active_unit_system(Quantity.LENGTH) if system is None else system,
         decimal_mark=current_locale().decimalPoint(),
         separator=list_separator(),
         number_format=format_decimal,

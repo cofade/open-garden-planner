@@ -159,7 +159,30 @@ class TestWeatherWidgetForecast:
         day_text = cell._day_lbl.text()
         # 2024-06-01 is a Saturday
         assert "Sat" in day_text
-        assert cell._temp_lbl.text() == "20° / 10°"
+        assert cell._temp_lbl.text() == "20°C / 10°C"
+
+    def test_day_cell_follows_a_live_temperature_switch(self, qtbot: object) -> None:
+        """#907: the strip cell is a temperature surface, not a metric label."""
+        from open_garden_planner.core.unit_preference import (
+            Quantity,
+            UnitProfile,
+            get_unit_preference,
+        )
+        from open_garden_planner.core.units import UnitSystem
+
+        get_unit_preference().set_profile(UnitProfile.all(UnitSystem.METRIC))
+        widget = WeatherWidget()
+        qtbot.addWidget(widget)
+        widget.show()
+        widget.set_location(52.5, 13.4)
+        widget._on_fetch_success(_make_forecast(days=1))
+        cell = widget._day_cells[0]
+        assert cell._temp_lbl.text() == "20°C / 10°C"
+
+        get_unit_preference().set_quantity_system(Quantity.TEMPERATURE, UnitSystem.IMPERIAL)
+        qtbot.wait(1)
+        assert cell._temp_lbl.text() == "68°F / 50°F"
+        get_unit_preference().set_profile(UnitProfile.all(UnitSystem.METRIC))
 
     def test_expandable_table_hidden_by_default(self, qtbot: object) -> None:
         widget = WeatherWidget()

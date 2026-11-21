@@ -70,6 +70,99 @@ def _run_and_wait(qtbot, controller: SunHeatmapController, day: date) -> None:
     assert blocker.args == [True]
 
 
+def test_the_fill_is_interpolated_inside_a_cell(qtbot) -> None:
+    """#852: a 10 cm cell is a smooth field at 400 %, not one flat blotch."""
+    from open_garden_planner.ui.canvas.sun_heatmap import (
+        HEATMAP_UPSAMPLE,
+        build_heatmap_image,
+    )
+
+    image = build_heatmap_image(np.array([[0.0, 720.0], [720.0, 0.0]]), 720.0)
+    expected = 2 * HEATMAP_UPSAMPLE
+    assert image.width() == expected and image.height() == expected
+    middle = expected // 2
+    centre = image.pixelColor(middle, middle)
+    corner = image.pixelColor(0, 0)
+    assert (centre.red(), centre.green(), centre.blue()) != (
+        corner.red(),
+        corner.green(),
+        corner.blue(),
+    ), "the centre must be a blend of the four cell colours"
+
+
+def test_the_overlay_covers_the_whole_grid(qtbot, wall_scene) -> None:
+    """#852: one sub-cell per sample, starting at the grid's own origin.
+
+    A cell-centre image started half a sub-cell inside and left the outer
+    quarter cell unpainted; the map must reach every edge it computed.
+    """
+    from open_garden_planner.ui.canvas.sun_heatmap import HEATMAP_UPSAMPLE
+
+    controller = SunHeatmapController(wall_scene, lambda: BERLIN)
+    _run_and_wait(qtbot, controller, SUMMER)
+    grid = controller.last_grid
+    overlay = controller._alive_overlay()
+    assert overlay is not None and grid is not None
+    assert overlay.scale() == pytest.approx(grid.cell_cm / HEATMAP_UPSAMPLE)
+    assert overlay.pos().x() == pytest.approx(grid.x0_cm)
+    assert overlay.pos().y() == pytest.approx(grid.y0_cm)
+    assert overlay.pixmap().width() == grid.cols * HEATMAP_UPSAMPLE
+    assert overlay.pixmap().height() == grid.rows * HEATMAP_UPSAMPLE
+
+
+def test_a_single_row_grid_is_not_halved(qtbot) -> None:
+    """A degenerate grid keeps a full sub-cell per sample, never a half-size map."""
+    from open_garden_planner.ui.canvas.sun_heatmap import (
+        HEATMAP_UPSAMPLE,
+        build_heatmap_image,
+    )
+
+    image = build_heatmap_image(np.array([[0.0, 720.0]]), 720.0)
+    assert image.width() == 2 * HEATMAP_UPSAMPLE
+    assert image.height() == HEATMAP_UPSAMPLE
+
+
+def test_the_overlay_does_not_smooth_scale_on_every_repaint(qtbot) -> None:
+    """#852: the fill is interpolated once; paint uses nearest sampling."""
+    overlay = SunHeatmapOverlayItem()
+    assert overlay.transformationMode() == Qt.TransformationMode.FastTransformation
+
+
+def test_the_sun_badge_backing_leaves_the_suns_middle_clear(qtbot) -> None:
+    """#852: the accent-green warning ink needs a light ground on a green crown,
+    and the backing must not fill the sun ring's hollow centre."""
+    from PyQt6.QtWidgets import QGraphicsScene
+
+    from open_garden_planner.ui.canvas.items.garden_item import SunBadgeItem
+    from open_garden_planner.ui.icons import get_pixmap
+
+    scene = QGraphicsScene()
+    badge = SunBadgeItem()
+    pixmap = get_pixmap("sun_warning", 24)
+    assert pixmap is not None
+    badge.setPixmap(pixmap)
+    badge.set_icon("sun_warning")
+    scene.addItem(badge)
+    image = QImage(120, 120, QImage.Format.Format_ARGB32)
+    image.fill(QColor("#2E7D32"))
+    painter = QPainter(image)
+    try:
+        scene.render(painter, QRectF(0, 0, 120, 120), QRectF(0, 0, 24, 24))
+    finally:
+        painter.end()
+    brightest = 0
+    for y in range(image.height()):
+        for x in range(image.width()):
+            colour = image.pixelColor(x, y)
+            brightest = max(brightest, min(colour.red(), colour.green(), colour.blue()))
+    assert brightest > 235, f"no light backing behind the badge (brightest {brightest})"
+    # The icon's sun centre (9, 9 of 24) is transparent: the green ground shows.
+    middle = image.pixelColor(45, 45)
+    assert middle.red() < 120 and middle.green() > 100, (
+        f"the sun's centre is filled ({(middle.red(), middle.green(), middle.blue())})"
+    )
+
+
 class TestQImageRasterizer:
     TRIANGLE = [[(35.0, 20.0), (370.0, 90.0), (150.0, 280.0)]]
     GRID = HeatmapGrid(x0_cm=0.0, y0_cm=0.0, cell_cm=10.0, cols=40, rows=30)

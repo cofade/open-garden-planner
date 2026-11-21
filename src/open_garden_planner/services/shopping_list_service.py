@@ -26,7 +26,7 @@ from open_garden_planner.core import container_model as _container_model
 from open_garden_planner.core.measurement_display import length_text
 from open_garden_planner.core.measurements import calculate_area_and_perimeter
 from open_garden_planner.core.object_types import ObjectType, is_bed_type, is_container_type
-from open_garden_planner.core.unit_preference import active_unit_system
+from open_garden_planner.core.unit_preference import Quantity, active_unit_system
 from open_garden_planner.core.units import (
     CUBIC_METRES_PER_CUBIC_FOOT,
     SQUARE_METRES_PER_SQUARE_FOOT,
@@ -330,24 +330,31 @@ class ShoppingListService:
                 total_soil_m3 += area * depth_m
                 total_mulch_m2 += area
 
+        # A soil fill is a VOLUME and mulch an AREA; each asks its own quantity
+        # (#907). A Custom profile may mix them, so the length choice cannot
+        # stand in for either.
+        soil_imperial = (
+            active_unit_system(Quantity.VOLUME) == UnitSystem.IMPERIAL
+        )
+        mulch_imperial = active_unit_system(Quantity.AREA) == UnitSystem.IMPERIAL
         if total_soil_m3 > 0:
             out.append(
                 ShoppingListItem(
-                    id="soil_fill:ft3" if active_unit_system() == UnitSystem.IMPERIAL else "soil_fill:m3",
+                    id="soil_fill:ft3" if soil_imperial else "soil_fill:m3",
                     category=ShoppingListCategory.MATERIALS,
                     name=_tr("Soil fill"),
-                    quantity=round(total_soil_m3 / CUBIC_METRES_PER_CUBIC_FOOT, 2) if active_unit_system() == UnitSystem.IMPERIAL else round(total_soil_m3, 3),
-                    unit=_tr("ft³") if active_unit_system() == UnitSystem.IMPERIAL else _tr("m³"),
+                    quantity=round(total_soil_m3 / CUBIC_METRES_PER_CUBIC_FOOT, 2) if soil_imperial else round(total_soil_m3, 3),
+                    unit=_tr("ft³") if soil_imperial else _tr("m³"),
                 )
             )
         if total_mulch_m2 > 0:
             out.append(
                 ShoppingListItem(
-                    id="mulch:ft2" if active_unit_system() == UnitSystem.IMPERIAL else "mulch:m2",
+                    id="mulch:ft2" if mulch_imperial else "mulch:m2",
                     category=ShoppingListCategory.MATERIALS,
                     name=_tr("Mulch"),
-                    quantity=round(total_mulch_m2 / SQUARE_METRES_PER_SQUARE_FOOT, 2) if active_unit_system() == UnitSystem.IMPERIAL else round(total_mulch_m2, 2),
-                    unit=_tr("ft²") if active_unit_system() == UnitSystem.IMPERIAL else _tr("m²"),
+                    quantity=round(total_mulch_m2 / SQUARE_METRES_PER_SQUARE_FOOT, 2) if mulch_imperial else round(total_mulch_m2, 2),
+                    unit=_tr("ft²") if mulch_imperial else _tr("m²"),
                 )
             )
 

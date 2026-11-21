@@ -569,12 +569,45 @@ def _frame_shadow_area_cm2(
 
 
 @lru_cache(maxsize=4096)
+def open_frame_effective_length(
+    frame: OpenFrame, height_cm: float, elevation_deg: float, azimuth_deg: float
+) -> float:
+    """The prism length an open frame really shades (#855).
+
+    The full ``height / tan a`` prism reaches past the frame's own topmost
+    member along the sun ray - a swing's top beam is mid-frame, so its prism's
+    far tip stands 71 cm past the beam's shadow. The frame's far tip is the
+    largest ``x*dx + y*dy + z/tan a`` of its members; the prism is trimmed to
+    that reach, minus the footprint's own reach, so its far edge lands on the
+    real shadow's tip. Nothing else about the weighted model changes.
+    """
+    length = shadow_length_cm(height_cm, elevation_deg)
+    if length is None or not frame.triangles:
+        return 0.0
+    import numpy as np
+
+    direction = shadow_direction_scene(azimuth_deg + frame.rotation_deg)
+    corners = np.asarray(frame.triangles, dtype=np.float64).reshape(-1, 3, 3)
+    along = corners[:, :, 0] * direction[0] + corners[:, :, 1] * direction[1]
+    reach = along + np.maximum(corners[:, :, 2], 0.0) / math.tan(math.radians(elevation_deg))
+    frame_far = float(reach.max())
+    footprint = np.asarray(frame.footprint, dtype=np.float64)
+    if footprint.size:
+        footprint_far = float(
+            (footprint[:, 0] * direction[0] + footprint[:, 1] * direction[1]).max()
+        )
+    else:
+        footprint_far = 0.0
+    return float(max(0.0, min(length, frame_far - footprint_far)))
+
+
+@lru_cache(maxsize=4096)
 def _open_frame_transmittance(
     frame: OpenFrame, height_cm: float, elevation_deg: float, azimuth_deg: float
 ) -> float:
-    length = shadow_length_cm(height_cm, elevation_deg)
-    if length is None:
-        return 1.0
+    if shadow_length_cm(height_cm, elevation_deg) is None:
+        return 1.0  # no height: no shadow at all
+    length = open_frame_effective_length(frame, height_cm, elevation_deg, azimuth_deg)
     # in the frame's own coordinates: the item turned counter-clockwise by t sees the
     # sun at the bearing it has in the scene plus t (a bearing runs clockwise)
     direction = shadow_direction_scene(azimuth_deg + frame.rotation_deg)
@@ -727,8 +760,9 @@ def compute_weighted_shadows(
             height = caster.height_cm
             base = float(getattr(caster, "base_cm", 0.0) or 0.0)
             roof_tris = getattr(caster, "roof_triangles", ()) or ()
+            frame = getattr(caster, "frame", None)
         elif type(caster) is tuple and len(caster) == 2:
-            footprints, height, base, roof_tris = caster[0], caster[1], 0.0, ()
+            footprints, height, base, roof_tris, frame = caster[0], caster[1], 0.0, (), None
         else:
             raise TypeError(
                 "a weighted caster must provide footprints and height_cm, "
@@ -760,7 +794,15 @@ def compute_weighted_shadows(
         else:
             eff_base = max(base, receiver_elev_cm) - receiver_elev_cm
             eff_height = top - max(base, receiver_elev_cm)
-            length = shadow_length_cm(eff_height, elevation_deg)
+            # #855: an open frame's prism ends at its own topmost member's shadow,
+            # not at height/tan a (a swing's beam is mid-frame).
+            length = (
+                open_frame_effective_length(
+                    frame, eff_height, elevation_deg, azimuth_deg
+                )
+                if frame is not None
+                else shadow_length_cm(eff_height, elevation_deg)
+            )
             if length is not None:
                 start = base_offset_cm(eff_base, elevation_deg)
                 for footprint in footprints:

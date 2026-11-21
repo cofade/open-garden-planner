@@ -806,7 +806,7 @@
   },
   "553": {
     "is_pr": false,
-    "state": "OPEN",
+    "state": "CLOSED",
     "title": "Add a French (fr) translation"
   },
   "556": {
@@ -1061,7 +1061,7 @@
   },
   "666": {
     "is_pr": false,
-    "state": "OPEN",
+    "state": "CLOSED",
     "title": "Reference-point object for survey stakes and measurement datums"
   },
   "670": {
@@ -1404,6 +1404,11 @@
     "state": "CLOSED",
     "title": "Sun shadow: a faint lighter hairline runs along a shade's outline"
   },
+  "855": {
+    "is_pr": false,
+    "state": "OPEN",
+    "title": "2D shade of an open frame ends where its prism ends, 4-71 cm past the real shadow; many small frames cost 2.5x at a grazing sun"
+  },
   "861": {
     "is_pr": false,
     "state": "CLOSED",
@@ -1433,11 +1438,6 @@
     "is_pr": false,
     "state": "CLOSED",
     "title": "Text-note letter spacing is pinned only by the font's hinting setting, not by a pixel test"
-  },
-  "875": {
-    "is_pr": false,
-    "state": "CLOSED",
-    "title": "One unexplained xdist worker crash in test_agent_task_soil_tools"
   },
   "877": {
     "is_pr": false,
@@ -1508,6 +1508,11 @@
     "is_pr": false,
     "state": "CLOSED",
     "title": "Plant details header occupies too much space"
+  },
+  "907": {
+    "is_pr": false,
+    "state": "OPEN",
+    "title": "Unit-system follow-up: temperature, precipitation, harvest mass and Canadian mixed preset"
   },
   "909": {
     "is_pr": false,
@@ -1608,5 +1613,10 @@
     "is_pr": true,
     "state": "MERGED",
     "title": "feat(#828, #829, #945, #875, #976): plan time zone, split frames and documentation truth"
+  },
+  "986": {
+    "is_pr": false,
+    "state": "OPEN",
+    "title": "Refinement of preferences menu"
   }
 }
