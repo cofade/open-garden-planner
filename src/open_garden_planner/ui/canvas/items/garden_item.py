@@ -129,8 +129,10 @@ class SunBadgeItem(QGraphicsPixmapItem):
                 # themes (light halo behind dark green, dark halo behind light green).
                 # The asset stays on the theme's accent sentinel, the sun's middle
                 # stays transparent, and the backing stays strictly inside icon_rect.
-                # has_icon + a non-empty rect is paint_icon's success invariant
-                # (test_sun_badge_sharpness pins both sides).
+                # has_icon + a non-empty rect is the badge's path; paint_icon's
+                # own 24 px success and 0 px failure are pinned by
+                # test_sun_badge_sharpness. A target it cannot paint still falls
+                # back to the pixmap over this backing.
                 accent = QColor(current_colors()["accent"])
                 halo_rgb = halo_for((accent.red(), accent.green(), accent.blue()))
                 backing = QColor(halo_rgb[0], halo_rgb[1], halo_rgb[2], 235)

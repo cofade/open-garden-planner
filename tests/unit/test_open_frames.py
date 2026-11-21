@@ -169,8 +169,10 @@ def _full_share(record, elevation: float, azimuth: float) -> float:
 
 
 def _measured_share(record, elevation: float, azimuth: float) -> float:
-    """The independent number: ALL triangles of the production mesh, projected and
-    united by the measuring script, over the TRIMMED 2D prism's shadow (#855)."""
+    """The transmittance reference: ALL triangles of the production mesh, projected
+    and united by the measuring script, over the production trimmed prism (#855).
+    The trim's independent arithmetic is ``_by_hand`` and the reach test; this
+    number is the consumer comparison."""
     script = _script()
     parts = production_registry().build(record)
     in_3d = script._area_cm2(script.mesh_shadow(parts, elevation, azimuth))

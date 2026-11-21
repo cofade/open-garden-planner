@@ -13,6 +13,7 @@ from PyQt6.QtWidgets import (
 )
 
 from open_garden_planner.app.settings import get_settings
+from open_garden_planner.core.i18n import SUPPORTED_LANGUAGES
 from open_garden_planner.ui.dialogs.preferences_dialog import PreferencesDialog
 from open_garden_planner.ui.theme import ThemeMode, generate_stylesheet
 
@@ -87,45 +88,48 @@ def test_default_height_is_sized_from_content_not_the_scroll_viewport(qtbot) -> 
 
 
 @pytest.mark.parametrize("theme", [ThemeMode.LIGHT, ThemeMode.DARK])
-def test_tab_bar_fits_all_five_tabs_without_scroll_arrows_on_open(qtbot, theme) -> None:
+@pytest.mark.parametrize("lang", list(SUPPORTED_LANGUAGES))
+def test_tab_bar_fits_all_five_tabs_without_scroll_arrows_on_open(
+    qtbot, theme, lang
+) -> None:
     """#986: initial width sizes from the styled tab bar so all 5 tabs fit without
-    horizontal scroll arrows in every shipped locale."""
+    horizontal scroll arrows in every shipped locale. A narrow screen skips only
+    the locale it cannot fit, not the rest."""
     from PyQt6.QtWidgets import QToolButton
 
-    from open_garden_planner.core.i18n import SUPPORTED_LANGUAGES, load_translator
+    from open_garden_planner.core.i18n import load_translator
 
     app = QApplication.instance()
     assert isinstance(app, QApplication)
     prev_sheet = app.styleSheet()
     app.setStyleSheet(generate_stylesheet(theme))
     try:
-        for lang in SUPPORTED_LANGUAGES:
-            load_translator(app, lang)
-            dialog = PreferencesDialog()
-            qtbot.addWidget(dialog)
-            dialog.show()
-            qtbot.waitExposed(dialog)
-            tab_bar = dialog._tabs.tabBar()
-            assert tab_bar is not None
-            screen = dialog.screen() or app.primaryScreen()
-            assert screen is not None
-            max_w = max(dialog.minimumWidth(), screen.availableGeometry().width() - 40)
-            if tab_bar.sizeHint().width() + 48 > max_w:
-                pytest.skip(
-                    f"{theme.value}/{lang}: screen {max_w}px cannot fit the "
-                    f"uncapped tab bar {tab_bar.sizeHint().width()}px"
-                )
-            assert tab_bar.sizeHint().width() <= dialog._tabs.width(), (
-                f"{theme.value}/{lang}: tab bar {tab_bar.sizeHint().width()}px "
-                f"overflows tabs widget {dialog._tabs.width()}px"
+        load_translator(app, lang)
+        dialog = PreferencesDialog()
+        qtbot.addWidget(dialog)
+        dialog.show()
+        qtbot.waitExposed(dialog)
+        tab_bar = dialog._tabs.tabBar()
+        assert tab_bar is not None
+        screen = dialog.screen() or app.primaryScreen()
+        assert screen is not None
+        max_w = max(dialog.minimumWidth(), screen.availableGeometry().width() - 40)
+        if tab_bar.sizeHint().width() + 48 > max_w:
+            pytest.skip(
+                f"{theme.value}/{lang}: screen {max_w}px cannot fit the "
+                f"uncapped tab bar {tab_bar.sizeHint().width()}px"
             )
-            visible_arrows = [
-                b for b in tab_bar.findChildren(QToolButton) if b.isVisible()
-            ]
-            assert visible_arrows == [], (
-                f"{theme.value}/{lang}: unexpected tab bar scroll arrows"
-            )
-            dialog.close()
+        assert tab_bar.sizeHint().width() <= dialog._tabs.width(), (
+            f"{theme.value}/{lang}: tab bar {tab_bar.sizeHint().width()}px "
+            f"overflows tabs widget {dialog._tabs.width()}px"
+        )
+        visible_arrows = [
+            b for b in tab_bar.findChildren(QToolButton) if b.isVisible()
+        ]
+        assert visible_arrows == [], (
+            f"{theme.value}/{lang}: unexpected tab bar scroll arrows"
+        )
+        dialog.close()
     finally:
         load_translator(app, "en")
         app.setStyleSheet(prev_sheet)

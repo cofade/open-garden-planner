@@ -155,10 +155,22 @@ def test_new_quantities_use_the_locale_number_format(qtbot):
     app = QApplication.instance()
     assert app is not None
     try:
+        # English's formatter returns a dot. With an explicit comma mark, the
+        # guard is what keeps that dot: deleting ``if number_format is None``
+        # would rewrite it to a comma and fail here.
+        assert load_translator(app, "en")
+        assert format_decimal(21.5, 1) == "21.5"
+        assert format_temperature(
+            21.5, U.METRIC, decimals=1, decimal_mark=",", number_format=format_decimal
+        ) == "21.5 °C"
+        assert format_mass(
+            1.0, U.IMPERIAL, decimal_mark=",", number_format=format_decimal
+        ) == "2.20 lb"
+
         assert load_translator(app, "de")
         assert format_decimal(21.5, 1) == "21,5"
         assert format_temperature(
-            21.5, U.METRIC, decimals=1, decimal_mark=".", number_format=format_decimal
+            21.5, U.METRIC, decimals=1, number_format=format_decimal
         ) == "21,5 °C"
         assert format_temperature(
             21.5, U.IMPERIAL, decimals=1, number_format=format_decimal
@@ -172,7 +184,7 @@ def test_new_quantities_use_the_locale_number_format(qtbot):
         load_translator(app, "en")
 
 
-def test_new_quantities_locale_comma_decimal_round_trip():
+def test_new_quantities_decimal_mark_applies_without_a_formatter():
     """#907: temperature, precipitation and mass respect locale comma decimal marks."""
     assert format_temperature(21.5, U.METRIC, decimals=1, decimal_mark=",") == "21,5 °C"
     assert format_temperature(21.5, U.IMPERIAL, decimals=1, decimal_mark=",") == "70,7 °F"

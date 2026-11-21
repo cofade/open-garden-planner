@@ -294,8 +294,8 @@ def test_seed_packet_temp_spinboxes_fit_imperial_range_and_accept_input(
     font = QFont(previous_font)
     font.setPointSize(font_size)
     app.setFont(font)
-    get_unit_preference().set_profile(UnitProfile.all(UnitSystem.IMPERIAL))
     try:
+        get_unit_preference().set_profile(UnitProfile.all(UnitSystem.IMPERIAL))
         dialog = SeedPacketEditDialog()
         qtbot.addWidget(dialog)
         dialog._temp_max.setValue(60.0)

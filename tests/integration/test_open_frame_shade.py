@@ -30,12 +30,10 @@ from open_garden_planner.core.scene3d.builders.open_frames import open_frame_tri
 from open_garden_planner.core.shade_aggregation import SAMPLE_STEP_MINUTES, daylight_samples
 from open_garden_planner.core.shadow_geometry import (
     CLIPPER_SCALE,
-    OpenFrame,
     _open_frame_transmittance,
     caster_transmittance,
     circle_footprint,
     compute_scene_shadows,
-    open_frame_effective_length,
     shadow_direction_scene,
 )
 from open_garden_planner.core.solar import solar_position
@@ -141,8 +139,18 @@ def _by_hand(kind: str, turn_deg: float, elevation: float, azimuth: float) -> fl
                             pyclipper.PT_SUBJECT, True)
     union = clipper.Execute(pyclipper.CT_UNION, pyclipper.PFT_NONZERO, pyclipper.PFT_NONZERO)
     frame_area = sum(pyclipper.Area(path) for path in union)
-    open_frame = OpenFrame(local, tuple(ring), turn_deg)
-    length = open_frame_effective_length(open_frame, height, elevation, azimuth)
+    # #855: the trimmed length BY HAND, from the turned members and footprint -
+    # not by calling ``open_frame_effective_length``, the code under test.
+    along = corners[:, :, 0] * direction[0] + corners[:, :, 1] * direction[1]
+    frame_far = float(
+        (along + np.maximum(corners[:, :, 2], 0.0) / math.tan(math.radians(elevation))).max()
+    )
+    ring_points = np.asarray(footprint, dtype=np.float64)
+    footprint_far = float(
+        (ring_points[:, 0] * direction[0] + ring_points[:, 1] * direction[1]).max()
+    )
+    full_length = height / math.tan(math.radians(elevation))
+    length = max(0.0, min(full_length, frame_far - footprint_far))
     if length <= 0.0:
         prism = [footprint]
     else:

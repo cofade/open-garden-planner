@@ -17,7 +17,7 @@ DOSAGE_FILES = {
     "ui/dialogs/amendment_plan_dialog.py",
     "ui/dialogs/soil_test_dialog.py",
 }
-DOSAGE_HIT = re.compile(r"\b(?:grams|quantity_g)\b.*\}\s*(?:g|kg)\b")
+DOSAGE_HIT = re.compile(r"f'~?\{[^{}]*(?:grams|quantity_g)[^{}]*\}\s?(?:g|kg)'")
 UNIT = r"(?:cm²|m²|cm|mm|km|m|L|g|kg|lb|oz|°C|°F)\b"
 INLINE = re.compile(r"\{[^}]*\}[)\]]?\s?" + UNIT)
 AFTER_VALUE = re.compile(r"^[)\]]?\s?" + UNIT)
@@ -102,7 +102,7 @@ def test_no_inline_measurement_formats():
         visitor = MeasurementGuard()
         visitor.visit(ast.parse(path.read_text(encoding="utf-8")))
         for line, text in visitor.hits:
-            if relative in DOSAGE_FILES and DOSAGE_HIT.search(text):
+            if relative in DOSAGE_FILES and DOSAGE_HIT.fullmatch(text):
                 continue
             hits.append(f"{relative}:{line}: {text}")
     assert not hits, "\n".join(hits)
@@ -136,8 +136,9 @@ def test_guard_catches_mass_units():
 
 def test_dosage_allowance_is_narrow():
     """The dosage files may format grams; they are not blind to other units."""
-    assert DOSAGE_HIT.search("f'{grams:.0f} g'")
-    assert DOSAGE_HIT.search("f'{format_decimal(grams / 1000.0, 2)} kg'")
-    assert DOSAGE_HIT.search("f'~{rec.quantity_g:.0f} g'")
-    assert not DOSAGE_HIT.search("f'{length_cm:.0f} cm'")
-    assert not DOSAGE_HIT.search("f'{temperature_c:.1f} °C'")
+    assert DOSAGE_HIT.fullmatch("f'{grams:.0f} g'")
+    assert DOSAGE_HIT.fullmatch("f'{format_decimal(grams / 1000.0, 2)} kg'")
+    assert DOSAGE_HIT.fullmatch("f'~{rec.quantity_g:.0f} g'")
+    assert not DOSAGE_HIT.fullmatch("f'{length_cm:.0f} cm'")
+    assert not DOSAGE_HIT.fullmatch("f'{temperature_c:.1f} °C'")
+    assert not DOSAGE_HIT.fullmatch("f'{grams:.0f} g / {depth_cm:.0f} kg'")

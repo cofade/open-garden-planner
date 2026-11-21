@@ -249,3 +249,22 @@ def test_temperature_spin_box_imperial_negative_comma_special_and_return(qtbot):
         assert box.text().endswith("°C")
     finally:
         get_unit_preference().set_profile(UnitProfile.all(U.METRIC))
+
+
+def test_a_length_switch_leaves_an_in_flight_temperature_edit_alone(qtbot):
+    """#907 round 6: an unchanged quantity's editor is not rewritten, so text
+    typed into a temperature field survives a length-only profile change."""
+    from open_garden_planner.core.unit_preference import Quantity, UnitProfile
+
+    get_unit_preference().set_profile(UnitProfile.all(U.IMPERIAL))
+    try:
+        box = make(qtbot, TemperatureSpinBox)
+        box.setRange(-30.0, 60.0)
+        box.setDecimals(1)
+        box.setValue(10.0)
+        box.lineEdit().setText("68 °F")
+        get_unit_preference().set_quantity_system(Quantity.LENGTH, U.METRIC)
+        assert box.lineEdit().text() == "68 °F"
+        assert box.unit_system() == U.IMPERIAL
+    finally:
+        get_unit_preference().set_profile(UnitProfile.all(U.METRIC))

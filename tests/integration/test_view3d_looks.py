@@ -362,15 +362,17 @@ def test_the_main_windows_preferences_offer_the_3d_view_group(
         qtbot, monkeypatch: pytest.MonkeyPatch, look_settings) -> None:  # noqa: ARG001
     """The Edit → Preferences action of the real window: the dialog it opens shows the
     3D View group."""
-    opened: list[PreferencesDialog] = []
+    seen: list[bool] = []
 
     def record(self: PreferencesDialog) -> int:
-        opened.append(self)
+        # Inspect inside exec(): _on_preferences deleteLater()s the dialog after
+        # it returns, so holding a Python reference past that is a hidden crash.
+        seen.append(not self._view3d_quality_combo.parentWidget().isHidden())
         return 0
 
     monkeypatch.setattr(PreferencesDialog, "exec", record)
     window = GardenPlannerApp()
     qtbot.addWidget(window)
     window._on_preferences()
-    assert not opened[-1]._view3d_quality_combo.parentWidget().isHidden()
+    assert seen == [True]
     window.close()

@@ -117,8 +117,8 @@ _LABEL_TEXT_COLOR = QColor(18, 22, 42)
 _LABEL_SPACING_CM = 500.0
 _LABEL_MIN_DIST_CM = 160.0
 #: #852: a label keeps this much more clear of an object than its own box. The
-#: place is chosen for a 1100 px plan; zoomed further out the fixed-pixel label
-#: covers more of the plan, and this margin keeps it off an object's edge then.
+#: place is chosen for a 1100 px plan; zoomed out up to 1.3x the fixed-pixel
+#: label covers more of the plan, and this margin keeps it off an object's edge.
 _LABEL_SAFETY = 1.3
 
 #: The width (pixels) of the window a plan is taken to be shown in when a label's

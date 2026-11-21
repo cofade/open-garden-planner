@@ -254,6 +254,10 @@ class TemperatureSpinBox(_UnitSpinBox):
         return number
 
     def _parse_metric(self, text: str) -> float | None:
+        """The text in the field's STORED unit (cm, litres or Celsius), or None
+        when it is not a valid Metric value. The one parse seam shared by
+        ``valueFromText`` and ``validate``; a subclass overriding it must keep
+        that contract."""
         number = self._metric_temperature_text(text)
         try:
             return parse_temperature(number, UnitSystem.METRIC)
