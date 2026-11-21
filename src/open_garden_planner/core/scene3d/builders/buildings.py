@@ -60,7 +60,6 @@ from ..mesh import Mesh, MeshPart
 from ..record import (
     PARAM_DOOR_WALL,
     PARAM_RIDGE,
-    PARAM_SURFACE_PATTERN,
     SHAPE_RECTANGLE,
     Material,
     Params,
@@ -305,17 +304,11 @@ def _building(record: Record, height_cm: float, base: RoofStyle,
     if built.fill_cap is None:
         roof = (MeshPart(built.roof, "roof", name="roof"),)
     else:
-        # #965: concrete / solid flat roofs take the neutral charcoal flat_roof surface;
-        # custom user fills (e.g. a green sedum roof) keep matte concrete (specular=0,
-        # albedo_scale=0.85) so their 2D fill colour is preserved (FR-3D-BUILT-02).
-        pattern = record.params.get(PARAM_SURFACE_PATTERN)
-        fill_surface = (
-            "flat_roof"
-            if pattern in (None, "SOLID", "CONCRETE")
-            else "concrete"
-        )
+        # #965: explicit flat roofs carry the neutral matte flat_roof surface; custom 2D
+        # fills (e.g. a green sedum roof) switch to matte concrete on the material path
+        # (quick3d/materials.fill_surface_name) with no geometry rebuild (FR-3D-BUILT-02).
         roof = (
-            MeshPart(built.fill_cap, "roof", name="roof", fill_texture=True, surface=fill_surface),
+            MeshPart(built.fill_cap, "roof", name="roof", fill_texture=True, surface="flat_roof"),
             MeshPart(built.roof, "roof", name="roof_trim"),
         )
     return (MeshPart(built.walls, "vc", tinted=True, name="walls", surface=walls_surface),

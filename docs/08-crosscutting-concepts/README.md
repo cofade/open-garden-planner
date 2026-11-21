@@ -7469,7 +7469,7 @@ takes a raised bed and two real plants through both).
 | `GARAGE_SHED`, `TOOL_SHED` | `buildings`, `roofs` | `walls`: vc · `roof`: roof | walls tinted, roof = shingle |
 | `FENCE` | `lines` → `fences` / `walls` | `fence`: vc — or `hedge`: foliage (hedge style), `wall`: vc (stone style) | tinted (the item's stroke) |
 | `WALL` | `lines` → `walls` / `fences` | `wall`: vc — or the fence of its style | tinted |
-| `RAISED_BED` | `beds` | `bed`: vc (default/wood) · `walls` + `soil`: vc (architectural fill, #957) | baked oak planks + soil by default; tinted frame (`corten`/`masonry`/`brick`/`concrete`/`terracotta`) + baked soil for architectural 2D fills |
+| `RAISED_BED` | `beds` | `bed`: vc (default/wood) · `walls` + `soil`: vc (architectural fill, #957) | baked oak planks + soil by default; tinted frame (`corten`/`masonry`/`concrete`/`terracotta`) + baked soil for architectural 2D fills |
 | `CONTAINER`, `WALL_PLANTER`, `CONTAINER_ROUND` | `beds` | `walls`: vc · `soil`: vc | walls tinted, soil baked (the palette's soil) |
 | a `GARDEN_BED` with a height | `beds` | `walls`: vc · `soil`: vc | walls tinted, soil = the item's own fill (`fill_texture`: its "Boden-Substrat") |
 | `HEDGE_SECTION`, `HEDGE_POLYGON` | `hedges` | `hedge`: foliage (the dark core and the leaf shell in one mesh) | baked: the hedge texture's greens |
@@ -8911,7 +8911,7 @@ not shimmer (#883). ONE path carries
 it: a palette entry names its surface (`builders/palette.py`, `SURFACE_BY_COLOUR`), a tinted
 part names its own in its builder (a house's walls `plaster`, a shed's `wood_cladding`, a
 garden wall `masonry`, a flat roof `flat_roof`, a ridge cap `roof_cap`, a raised bed frame by
-its 2D `FillPattern` such as `corten`/`masonry`/`brick`/`concrete`/`terracotta`, a fence by its style,
+its 2D `FillPattern` such as `corten`/`masonry`/`concrete`/`terracotta`, a fence by its style,
 a container by its material, a deck `wood`),
 `builders.common.with_surfaces` writes a part's `surface` or — a trampoline is a rubber mat,
 a plastic pad and a steel frame — its `surface_runs` (its triangles grouped run by run; it

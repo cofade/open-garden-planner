@@ -166,7 +166,7 @@ def _frame(ring: F64, height_cm: float, thickness: float, soil_cm: float, *, row
 RAISED_BED_FILL_FRAMES: Final[dict[str, tuple[float, str]]] = {
     "CORTEN": (1.5, "corten"),
     "STONE": (8.0, "masonry"),
-    "BRICK": (8.0, "brick"),
+    "BRICK": (8.0, "masonry"),
     "FLAGSTONE": (8.0, "masonry"),
     "SLATE": (8.0, "masonry"),
     "CONCRETE": (6.0, "concrete"),

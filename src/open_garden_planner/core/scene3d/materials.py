@@ -124,9 +124,6 @@ SURFACES: Final = MappingProxyType(dict((
     _surface("masonry", 0.90, 0.15,        # #801, #884, #887: ~21 cm courses (128 cm / 6)
              SurfaceDetail("STONE", DETAIL_PLANAR, 128.0, 1.8, 3000.0, 0.75),
              albedo_scale=0.82),
-    _surface("brick", 0.90, 0.15,          # #957: running-bond brick raised-bed frames
-             SurfaceDetail("BRICK", DETAIL_PLANAR, 128.0, 1.5, 3000.0, 0.75),
-             albedo_scale=0.82),
     _surface("plaster", 0.90, 0.15,        # #801, #884: §4 plaster walls 0.85-0.95
              SurfaceDetail("CONCRETE", DETAIL_PLANAR, 128.0, 1.0, 2000.0, 0.85),
              albedo_scale=0.80),

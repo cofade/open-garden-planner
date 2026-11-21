@@ -2734,3 +2734,26 @@ def test_a_capture_keeps_fitted_shadows_when_not_overridden_and_restores_true(ho
         host.capture((64, 48), fitted_shadows=False)
     assert observed == [False], "explicit fitted_shadows=False must override for that frame"
     assert host.scene_property("fittedShadows") is True, "finally must restore prior True state"
+
+
+def test_flat_roof_set_part_fill_switches_surface_without_rebuilding(host) -> None:
+    """#965: switching a flat-roof cap between CONCRETE and a custom fill (GRASS) toggles
+    ``surfaceAlbedo`` between ``flat_roof`` (0.45) and matte ``concrete`` (0.85) on the
+    live QML Model without recreating the part."""
+    from open_garden_planner.core.scene3d import engine_pose
+    from open_garden_planner.core.scene3d.materials import SURFACES
+
+    buffers = engine_buffers(prism_mesh([SQUARE], 10.0))
+    spec = PartSpec("flat-house", 0, "roof", buffers, True, name="roof", surface="flat_roof")
+    handle = host.create_part(spec, engine_pose(Transform()), (160, 160, 160, 255))
+    model = handle.model
+    assert model is not None
+    assert float(model.property("surfaceAlbedo")) == pytest.approx(SURFACES["flat_roof"].albedo_scale)
+
+    host.set_part_fill(handle, "GRASS", (120, 170, 90, 255))
+    assert float(model.property("surfaceAlbedo")) == pytest.approx(SURFACES["concrete"].albedo_scale)
+    assert float(model.property("surfaceSpecular")) == pytest.approx(SURFACES["concrete"].specular)
+
+    host.set_part_fill(handle, "CONCRETE", (160, 160, 160, 255))
+    assert float(model.property("surfaceAlbedo")) == pytest.approx(SURFACES["flat_roof"].albedo_scale)
+    assert host.part_count() == 1

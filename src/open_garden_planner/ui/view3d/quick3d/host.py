@@ -185,7 +185,7 @@ from .look import (
     scene_properties,
     sky_properties,
 )
-from .materials import PART_COMPONENTS, surface_look, tint_uniform
+from .materials import PART_COMPONENTS, fill_surface_name, surface_look, tint_uniform
 from .patterns import GrassDetailTexture, PatternTexture
 from .shots import PerspectiveShot, Shot, TopDownShot
 
@@ -326,14 +326,16 @@ class _Part:
     The HOST owns both (``Quick3DHost._parts``); a sink holds handles as names.
     """
 
-    __slots__ = ("geometry", "item_id", "kind", "model")
+    __slots__ = ("active_surface", "geometry", "item_id", "kind", "model", "surface")
 
     def __init__(self, model: QObject, geometry: BufferGeometry, kind: str,
-                 item_id: str = "") -> None:
+                 item_id: str = "", surface: str = "") -> None:
         self.model: QObject | None = model
         self.geometry: BufferGeometry | None = geometry
         self.kind = kind
         self.item_id = item_id
+        self.surface = surface
+        self.active_surface = surface
 
     def forget(self) -> None:
         self.model = None
@@ -627,7 +629,7 @@ class Quick3DHost:
             raise EngineError(
                 f"the scene created no Model for part {spec.part_index} ({spec.kind}) "
                 f"of item {spec.item_id!r}")
-        part = _Part(model, geometry, spec.kind, spec.item_id)
+        part = _Part(model, geometry, spec.kind, spec.item_id, spec.surface)
         self._parts.add(part)
         try:
             _set(model, "partName", spec.name)
@@ -724,7 +726,12 @@ class Quick3DHost:
         it; the sink releases it with the last user.
         """
         self._open("set_part_fill")
+        part = self._part(handle)
         model = self._model(handle)
+        effective = fill_surface_name(part.surface, pattern)
+        if effective != part.active_surface:
+            self._apply_surface_look(model, part.kind, effective)
+            part.active_surface = effective
         fill = pattern_from_name(pattern)
         texture = self._fill_texture(fill, tint_rgba) if fill is not None else None
         if texture is None:
@@ -782,7 +789,11 @@ class Quick3DHost:
     def _apply_surface(self, model: QObject, spec: PartSpec) -> None:
         """What the part is made of (#803), and its detail picture (#801): the numbers of
         ``materials.surface_look`` on the Model, once, at its birth."""
-        look = surface_look(spec.kind, spec.surface)
+        self._apply_surface_look(model, spec.kind, spec.surface)
+
+    def _apply_surface_look(self, model: QObject, kind: str, surface: str) -> None:
+        """Write ``materials.surface_look(kind, surface)`` properties onto ``model``."""
+        look = surface_look(kind, surface)
         if look is None:
             return
         for name, value in look.properties.items():
@@ -791,6 +802,8 @@ class Quick3DHost:
             texture = self._detail_texture(look.detail_pattern)
             if texture is not None:
                 _set(model, "detailMap", texture)
+        elif model.property("detailMap") is not None:
+            _set(model, "detailMap", None)
 
     def _detail_texture(self, pattern_name: str) -> QObject | None:
         """The shared ``Texture`` of a surface's detail picture (#801), made once per

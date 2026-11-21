@@ -137,7 +137,7 @@ class TestRaisedBedFillFrames:
     @pytest.mark.parametrize(("pattern", "expected_surface"), [
         ("CORTEN", "corten"),
         ("STONE", "masonry"),
-        ("BRICK", "brick"),
+        ("BRICK", "masonry"),
         ("FLAGSTONE", "masonry"),
         ("SLATE", "masonry"),
         ("CONCRETE", "concrete"),
@@ -206,8 +206,9 @@ class TestFlatRoofHouseAndFacade:
 
     def test_automatic_ridgeless_flat_house_and_custom_green_flat_roof_surfaces(self) -> None:
         """#965: automatic ridge-less flat houses get modern facade + specular-free concrete
-        slab (FR-3D-BUILT-02), while explicit flat roofs with custom fills (e.g. GRASS green
-        roof) keep matte concrete (specular=0, albedo_scale=0.85) instead of darkening by 55%."""
+        slab (FR-3D-BUILT-02), while explicit flat roofs resolve ``flat_roof`` vs matte
+        ``concrete`` on the material path (``fill_surface_name``) so changing a flat roof's
+        fill pattern keeps its mesh and custom green roofs stay bright."""
         auto_flat = polygon_record("HOUSE", rectangle(900.0, 500.0), 340.0)
         auto_parts = verify_builder(REGISTRY.builder_for("HOUSE"), auto_flat, height_tolerance_cm=0.5)
         auto_roof = next(p for p in auto_parts if p.name == "roof")
@@ -217,14 +218,11 @@ class TestFlatRoofHouseAndFacade:
         iron = np.asarray(palette.IRON.linear, dtype=np.float32)
         assert np.isclose(auto_facade.colors, iron, atol=1e-5).all(axis=1).any()
 
-        green_flat = polygon_record(
-            "HOUSE", rectangle(900.0, 500.0), 340.0,
-            params={"roof_style": FLAT, "surface_pattern": "GRASS"},
-        )
-        green_parts = verify_builder(REGISTRY.builder_for("HOUSE"), green_flat, height_tolerance_cm=0.5)
-        green_roof = next(p for p in green_parts if p.name == "roof")
-        assert green_roof.fill_texture is True
-        assert green_roof.surface == "concrete"
+        for pattern in (None, "", "SOLID", "CONCRETE"):
+            assert engine_materials.fill_surface_name("flat_roof", pattern) == "flat_roof"
+        for pattern in ("GRASS", "ROOF_TILES", "GRAVEL"):
+            assert engine_materials.fill_surface_name("flat_roof", pattern) == "concrete"
+        assert engine_materials.fill_surface_name("concrete", "GRASS") == "concrete"
         assert SURFACES["concrete"].specular == 0.0
         assert SURFACES["concrete"].albedo_scale >= 0.80
 

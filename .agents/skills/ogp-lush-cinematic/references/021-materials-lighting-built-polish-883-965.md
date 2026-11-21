@@ -23,7 +23,7 @@ fill) or `004` (material roughness/specular), this reference is the current auth
   linearly without touching `DEFAULT_SURFACE` (`1.0`):
   - `roof_tile` / `roof_cap`: `0.76`
   - `wood` / `plaster`: `0.80`
-  - `masonry` / `brick`: `0.82`
+  - `masonry`: `0.82`
   - `stone` / `concrete`: `0.85`
   - `wood_cladding`: `0.86`
   - `corten`: `0.88`
@@ -59,8 +59,8 @@ fill) or `004` (material roughness/specular), this reference is the current auth
 
 ## Built-world fidelity (#957, #959, #961, #965)
 
-- `#957`: `RAISED_BED` architectural 2D fills (`CORTEN` -> `corten`, `STONE`/`FLAGSTONE`/`SLATE`
-  -> `masonry`, `BRICK` -> `brick`, `CONCRETE`/`CLAY` -> `concrete`, `TERRACOTTA` -> `terracotta`)
+- `#957`: `RAISED_BED` architectural 2D fills (`CORTEN` -> `corten`, `STONE`/`BRICK`/`FLAGSTONE`/`SLATE`
+  -> `masonry`, `CONCRETE`/`CLAY` -> `concrete`, `TERRACOTTA` -> `terracotta`)
   render tinted perimeter walls in their surface while keeping `soil_surface_cm` exact;
   `SOLID`/`WOOD`/default stays oak planks.
 - `#959`: `pebbles` and `compost` textures re-authored matte (`gloss=0.0`) in
@@ -71,7 +71,8 @@ fill) or `004` (material roughness/specular), this reference is the current auth
   `BANK_OUT_CM = 7.0 cm`, reflex corners skipped) with a low multi-toned stone/earth bank and
   darker olive-green natural water (`NATURAL_POND_WATER_WEIGHT = (0.46, 0.58, 0.28, 1.0)`).
 - `#965`: flat-roofed houses use `MODERN_HOUSE_SPEC` (wide/tall single-pane dark-framed windows,
-  no cottage crossbars, modern door). Explicit `CONCRETE`/`SOLID` flat roofs use neutral matte
-  charcoal `flat_roof` (`roughness=0.95`, `specular=0.0`, `albedo_scale=0.45`), while automatic
-  ridge-less flat houses (concrete slab) and explicit flat roofs with custom 2D fills (e.g.
-  `GRASS` green roofs) use matte `concrete` (`roughness=0.95`, `specular=0.0`, `albedo_scale=0.85`).
+  no cottage crossbars, modern door). Explicit flat roofs carry neutral matte charcoal `flat_roof`
+  (`roughness=0.95`, `specular=0.0`, `albedo_scale=0.45`) for `CONCRETE`/`SOLID` fills, while
+  custom 2D fills (e.g. `GRASS` green roofs) switch to matte `concrete` (`roughness=0.95`,
+  `specular=0.0`, `albedo_scale=0.85`) on the material path (`quick3d/materials.fill_surface_name`,
+  `host.set_part_fill`) with no geometry rebuild, matching automatic ridge-less flat houses.
