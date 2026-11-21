@@ -55,6 +55,10 @@ class MeasurementGuard(ast.NodeVisitor):
                     " L",
                     " °C",
                     " °F",
+                    " kg",
+                    " lb",
+                    " g",
+                    " oz",
                 ):
                     self.hits.append((node.lineno, ast.unparse(node)))
         self.generic_visit(node)

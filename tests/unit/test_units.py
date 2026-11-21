@@ -142,6 +142,20 @@ def test_mass_display_and_input_round_trip():
     assert parse_mass("1", U.IMPERIAL) == pytest.approx(0.45359237)
 
 
+def test_new_quantities_locale_comma_decimal_round_trip():
+    """#907: temperature, precipitation and mass respect locale comma decimal marks."""
+    assert format_temperature(21.5, U.METRIC, decimals=1, decimal_mark=",") == "21,5 °C"
+    assert format_temperature(21.5, U.IMPERIAL, decimals=1, decimal_mark=",") == "70,7 °F"
+    assert format_precipitation(25.4, U.METRIC, decimal_mark=",") == "25,4 mm"
+    assert format_precipitation(25.4, U.IMPERIAL, decimal_mark=",") == "1,00 in"
+    assert format_mass(1.25, U.METRIC, decimal_mark=",") == "1,25 kg"
+    assert format_mass(1.0, U.IMPERIAL, decimal_mark=",") == "2,20 lb"
+    assert parse_temperature("-4,5 °F", U.IMPERIAL) == pytest.approx((-4.5 - 32.0) / 1.8)
+    assert parse_temperature("21,5 °C", U.IMPERIAL) == pytest.approx(21.5)
+    assert parse_precipitation("1,5 in", U.METRIC) == pytest.approx(38.1)
+    assert parse_mass("2,5 lb", U.METRIC) == pytest.approx(2.5 * 0.45359237)
+
+
 @pytest.mark.parametrize(("cm", "style", "expected"), METRIC_CASES)
 def test_metric_output_is_unchanged(cm, style, expected):
     assert format_length(cm, U.METRIC, style) == expected

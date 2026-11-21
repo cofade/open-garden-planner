@@ -135,12 +135,15 @@ class _UnitSpinBox(QDoubleSpinBox):
         return text[len(prefix) :].strip() if prefix and text.startswith(prefix) else text.strip()
 
     def valueFromText(self, text: str | None) -> float:
+        raw = text or ""
+        if self.specialValueText() and raw == self.specialValueText():
+            return self.minimum()
         if self._system == UnitSystem.METRIC:
             rendered = self.prefix() + super().textFromValue(super().value()) + self.suffix()
-            if text == rendered:
+            if raw == rendered:
                 return self._exact
-            return super().valueFromText(text)
-        number = self._number_text(text or "")
+            return super().valueFromText(raw)
+        number = self._number_text(raw)
         if number == self._imperial_text(super().value()):
             return self._exact
         try:

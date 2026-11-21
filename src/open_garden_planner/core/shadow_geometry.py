@@ -678,6 +678,31 @@ def caster_transmittance(
     return 0.0
 
 
+def slice_open_frame_for_elevation(
+    frame: OpenFrame | None,
+    base_cm: float,
+    elev_cm: float,
+) -> OpenFrame | None:
+    """Slice an open frame's members above ``elev_cm``, with ``z`` measured from the slice's base.
+
+    Shared by ``compute_weighted_shadows(..., receiver_elev_cm=...)`` and
+    ``shade_aggregation._slice_frame_for_elevation`` so every elevated open-frame
+    projection and transmittance query evaluates the exact same sliced geometry (#855).
+    """
+    if frame is None or elev_cm <= 0.0 or base_cm >= elev_cm:
+        return frame
+    sliced: list[Triangle3D] = []
+    for tri in frame.triangles:
+        clipped = _clip_triangle_above_z(tri, base_cm, elev_cm)
+        if len(clipped) < 3:
+            continue
+        shifted = [(x, y, max(0.0, z - elev_cm)) for x, y, z in clipped]
+        sliced.append((shifted[0], shifted[1], shifted[2]))
+        if len(shifted) == 4:
+            sliced.append((shifted[0], shifted[2], shifted[3]))
+    return frame.with_triangles(tuple(sliced))
+
+
 def _caster_shadow_length(
     height_cm: float,
     elevation_deg: float,
@@ -795,8 +820,7 @@ def compute_weighted_shadows(
                 "a weighted caster must provide footprints and height_cm, "
                 f"not {type(caster).__name__}"
             )
-        trans = caster_transmittance(caster, elevation_deg, azimuth_deg)
-        if trans >= 1.0 or height is None or height <= 0.0:
+        if height is None or height <= 0.0:
             owner_int_paths.append([])
             owner_transmittances.append(1.0)
             owned_shadows.append(([], 1.0))
@@ -804,9 +828,34 @@ def compute_weighted_shadows(
 
         top = base + height
         if top <= receiver_elev_cm:
+            trans = caster_transmittance(caster, elevation_deg, azimuth_deg)
             owner_int_paths.append([])
             owner_transmittances.append(trans)
             owned_shadows.append(([], trans))
+            continue
+
+        eff_base = max(base, receiver_elev_cm) - receiver_elev_cm
+        eff_height = top - max(base, receiver_elev_cm)
+        sliced_frame = (
+            slice_open_frame_for_elevation(frame, base, receiver_elev_cm)
+            if frame is not None and receiver_elev_cm > 0.0
+            else frame
+        )
+        if sliced_frame is not None and receiver_elev_cm > 0.0:
+            explicit = getattr(caster, "transmittance", None)
+            trans = (
+                float(min(1.0, max(0.0, float(explicit))))
+                if explicit is not None
+                else open_frame_transmittance(
+                    sliced_frame, eff_height, elevation_deg, azimuth_deg
+                )
+            )
+        else:
+            trans = caster_transmittance(caster, elevation_deg, azimuth_deg)
+        if trans >= 1.0:
+            owner_int_paths.append([])
+            owner_transmittances.append(1.0)
+            owned_shadows.append(([], 1.0))
             continue
 
         paths: list[list[tuple[int, int]]] = []
@@ -819,11 +868,9 @@ def compute_weighted_shadows(
                 receiver_elev_cm=receiver_elev_cm,
             )
         else:
-            eff_base = max(base, receiver_elev_cm) - receiver_elev_cm
-            eff_height = top - max(base, receiver_elev_cm)
             # #855: an open frame's prism ends at its own topmost member's shadow,
             # not at height/tan a (a swing's beam is mid-frame).
-            length = _caster_shadow_length(eff_height, elevation_deg, azimuth_deg, frame)
+            length = _caster_shadow_length(eff_height, elevation_deg, azimuth_deg, sliced_frame)
             if length is not None:
                 start = base_offset_cm(eff_base, elevation_deg)
                 for footprint in footprints:

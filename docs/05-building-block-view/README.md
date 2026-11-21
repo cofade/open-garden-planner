@@ -24,15 +24,16 @@ for sun-map contours. See the ADR-076 editing addendum and section 8.9.17.
 
 ## 5.1 High-Level Architecture
 
-### Measurement display and input (ADR-078, #673)
+### Measurement display and input (ADR-078 / ADR-081, #673 / #907)
 
 | Block | Responsibility |
 |---|---|
-| `core/units.py` | Standard-library-only conversions, parsers, length styles, area/volume formatting and native grid/step distances. The system, decimal mark and numeric-format policies are explicit inputs. |
-| `core/unit_preference.py` | Process-wide unit preference, with weak bound-method subscriptions through `Channel`; never part of a plan. |
-| `core/measurement_display.py` | Adapts the active preference and the UI locale to the pure formatters. Legacy measurement exports alias these adapters. |
-| `ui/units_notifier.py` | Qt signal adapter; destroyed widgets disconnect through Qt, without leaving dead signal emitters on the plain channel. |
-| `ui/widgets/unit_spin_box.py` | Length, volume and temperature fields keep their callers' metric value unit (cm, litres, Celsius) and preserve exact values while displaying native units. |
+| `core/units.py` | Standard-library-only conversions, parsers and formatters for length, area, volume, temperature (°C/°F), precipitation (mm/in) and mass (kg/g/lb/oz), length styles, and native grid/step distances. The system, decimal mark and numeric-format policies are explicit inputs. |
+| `core/unit_preference.py` | Process-wide per-quantity `UnitProfile` (`Quantity`: length, area, volume, temperature, precipitation, mass) and `UnitPreset` (Metric, Imperial, provisional Canada mixed, Custom), with weak bound-method subscriptions through `Channel` (`profile_changed` and length-only legacy `changed`); never part of a plan. |
+| `core/measurement_display.py` | Adapts the active per-quantity profile and UI locale to the pure formatters (`length_text`, `area_text`, `volume_text`, `temperature_text`, `precipitation_text`, `coordinate_text`). Legacy measurement exports alias these adapters. |
+| `core/harvest_units.py` | Explicit harvest unit vocabulary (`kg`, `g`, `lb`, `oz`, `pcs`, `bunch`, `L`) and `default_mass_unit()` driven by `Quantity.MASS`, keeping each record's entered unit as its aggregation key. |
+| `ui/units_notifier.py` | Qt signal adapter exposing `profile_changed` (any quantity) and legacy `changed` (length only); destroyed widgets disconnect through Qt without leaving dead emitters on the plain channel. |
+| `ui/widgets/unit_spin_box.py` | `LengthSpinBox`, `VolumeSpinBox` and `TemperatureSpinBox` keep their callers' metric value unit (cm, litres, Celsius) and preserve exact values while displaying and parsing native units. |
 
 ### Reference points (ADR-080, #666)
 

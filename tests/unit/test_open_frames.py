@@ -801,8 +801,14 @@ def test_elevated_receiver_in_swing_overhang_band_sees_trimmed_frame() -> None:
     azimuth_deg = 180.0
     grouped = compute_grouped_shadows([caster], elevation_deg, azimuth_deg)
     weighted = compute_weighted_shadows([caster], elevation_deg, azimuth_deg)
-    assert grouped is not None and weighted is not None
+    # Passing the unsliced ground caster with receiver_elev_cm must agree identically.
+    ground_caster = GroupedCaster((ring,), 220.0, 0.0, frame=frame)
+    weighted_elev = compute_weighted_shadows(
+        [ground_caster], elevation_deg, azimuth_deg, receiver_elev_cm=elev_cm
+    )
+    assert grouped is not None and weighted is not None and weighted_elev is not None
     assert grouped[1] == [polygons for polygons, _ in weighted.owned_shadows]
+    assert weighted_elev.owned_shadows == weighted.owned_shadows
 
     # Far reach of trimmed shadow is strictly shorter than untrimmed footprint + h/tan(a)
     untrimmed_far_y = 500.0 + 75.0 + float(shadow_length_cm(eff_height, elevation_deg))

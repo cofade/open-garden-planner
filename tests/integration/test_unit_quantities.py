@@ -300,5 +300,11 @@ def test_seed_packet_temp_spinboxes_fit_imperial_range_and_accept_input(qtbot) -
         qtbot.keyClicks(dialog._temp_opt, "68 °F")
         dialog._temp_opt.interpretText()
         assert dialog._temp_opt.value() == pytest.approx(20.0)
+
+        # Entering the specialValueText ("—") in Imperial mode resets to minimum (unset),
+        # matching Metric mode rather than snapping back to the previous numeric value.
+        dialog._temp_opt.lineEdit().setText("—")
+        dialog._temp_opt.interpretText()
+        assert dialog._temp_opt.value() == pytest.approx(dialog._temp_opt.minimum())
     finally:
         get_unit_preference().set_profile(UnitProfile.all(UnitSystem.METRIC))

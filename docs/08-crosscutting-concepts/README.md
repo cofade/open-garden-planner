@@ -1316,21 +1316,27 @@ Pin: `tests/integration/test_sun_map_legend.py`,
 `tests/unit/test_heatmap_render.py` and, through the real window,
 `tests/integration/test_sun_map_workflow.py`. PF-CAN-57, PF-CAN-58.
 
-### 8.9.19 Unit-aware measurement fields (ADR-078, #673)
+### 8.9.19 Unit-aware measurement fields (ADR-078 / ADR-081, #673 / #907)
 
-Use `LengthSpinBox` for physical lengths and `VolumeSpinBox` for real litres. Their
-value, ranges, setValue and valueChanged retain the caller's metric unit. A field
-whose existing value is metres supplies `value_unit_cm=100`; all others use cm.
+Use `LengthSpinBox` for physical lengths, `VolumeSpinBox` for real litres, and
+`TemperatureSpinBox` for temperatures in Celsius. Their value, ranges, `setValue`
+and `valueChanged` retain the caller's metric unit (cm, litres, Celsius). A length
+field whose existing value is metres supplies `value_unit_cm=100`; all others use cm.
 Keep the existing metric decimals, suffix and singleStep calls. Style specifies
 layout, plant size, depth or elevation. Leave angles, percentages, pixels and DXF
 scale factors as ordinary numeric fields.
 
-Read-only text uses `core/measurement_display.length_text`, `area_text` and
-`volume_text`, which supply the active preference and UI decimal mark to the pure
-`core/units.py` formatters. Never append a physical unit after formatting a number.
-Qt surfaces subscribe through `units_notifier().changed`; the scene refreshes retained
-vertex/circle labels and handle tooltips, the Constraints panel rebuilds its rows while
-keeping the selected constraint, and the view refreshes the active measurement readout.
+Read-only text uses `core/measurement_display.length_text`, `area_text`,
+`volume_text`, `temperature_text`, and `precipitation_text` (plus `core/units.format_mass`
+and `core/harvest_units.default_mass_unit` for harvest mass), which supply the active
+per-quantity `UnitProfile` and UI decimal mark to the pure `core/units.py` formatters.
+Never append a physical unit after formatting a number. Qt surfaces subscribe through
+`units_notifier().profile_changed` (reserve `.changed` for length-only legacy callers,
+because `UnitPreference.set_profile` emits `.changed` only when `Quantity.LENGTH` moves).
+The scene refreshes retained vertex/circle labels, area readouts and handle tooltips,
+the Constraints panel rebuilds its rows while keeping the selected constraint, the
+weather panel, Tasks tab, Calendar dashboard, status bar and 3D info card refresh in
+place, and the view refreshes the active measurement readout.
 The plain tools and graphics-item mixins never subscribe to an application-wide Qt
 signal themselves: the owning view/scene supplies their lifetime. Other transient
 overlays read the preference on their next redraw. A preference switch must not emit a value edit
