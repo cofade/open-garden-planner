@@ -108,7 +108,7 @@ These are illustrative layouts for learning the app: adapt plants, spacing and d
 ## Features
 
 - **Metric Accuracy**: Plan with centimeter-level precision on a calibrated canvas
-- **Metric and Imperial Units**: Choose metric or imperial lengths and areas, and litres or US quarts and gallons for container volumes. In Imperial mode, length fields accept feet, inches and fractions
+- **Metric, Imperial and Mixed Units**: Configure Metric, Imperial (US), provisional Canada (mixed), or Custom per-quantity display units for lengths, areas, container volumes, temperatures (°C/°F), precipitation (mm/in), and harvest mass defaults (kg/lb). Length fields accept feet, inches and fractions; temperature fields accept explicit °C or °F in either system
 - **The Plan's Own Time**: Set the garden's IANA time zone with its location, and the Plan & Sun clock, the shadows, a camera tour's time range and "Today" use the garden's local time instead of the computer's
 - **Image Calibration**: Import satellite imagery and calibrate to real-world scale
 - **Rich Plant Metadata**: Track species, varieties, planting dates, and growing requirements

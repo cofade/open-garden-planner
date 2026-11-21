@@ -8,7 +8,12 @@ from open_garden_planner.core.unit_preference import get_unit_preference
 from open_garden_planner.core.units import LengthStyle as S
 from open_garden_planner.core.units import UnitSystem as U
 from open_garden_planner.core.units import inches_to_cm
-from open_garden_planner.ui.widgets.unit_spin_box import LengthSpinBox, VolumeSpinBox, get_length
+from open_garden_planner.ui.widgets.unit_spin_box import (
+    LengthSpinBox,
+    TemperatureSpinBox,
+    VolumeSpinBox,
+    get_length,
+)
 
 
 def switch(system=U.IMPERIAL):
@@ -206,3 +211,41 @@ def test_prefixed_volume_accepts_a_partial_unit_token(qtbot):
         assert box.lineEdit().text() == "V: " + "2 qt"[:index]
     qtbot.keyClick(box, Qt.Key.Key_Return)
     assert box.value() == pytest.approx(1.892705892)
+
+
+def test_temperature_spin_box_imperial_negative_comma_special_and_return(qtbot):
+    """#907: direct TemperatureSpinBox coverage for negative °F, explicit °F in
+    Metric mode, comma decimal input, specialValueText, and unchanged Return."""
+    from open_garden_planner.core.unit_preference import Quantity, UnitProfile
+
+    get_unit_preference().set_profile(UnitProfile.all(U.IMPERIAL))
+    try:
+        box = make(qtbot, TemperatureSpinBox)
+        box.setRange(-30.0, 60.0)
+        box.setDecimals(1)
+        box.setSuffix(" °C")
+        box.setSpecialValueText("—")
+        box.setValue(10.0)
+        assert box.value() == pytest.approx(10.0)
+
+        # Negative Fahrenheit with comma decimal
+        enter(qtbot, box, "-4,0 °F")
+        assert box.value() == pytest.approx(-20.0)
+
+        # Unchanged Return suppresses duplicate valueChanged
+        with qtbot.assertNotEmitted(box.valueChanged):
+            qtbot.keyClick(box, Qt.Key.Key_Return)
+        assert box.value() == pytest.approx(-20.0)
+
+        # specialValueText resets to minimum in Imperial mode
+        box.lineEdit().setText("—")
+        box.interpretText()
+        assert box.value() == pytest.approx(-30.0)
+
+        # Explicit °F input while displaying Metric (°C)
+        get_unit_preference().set_quantity_system(Quantity.TEMPERATURE, U.METRIC)
+        enter(qtbot, box, "68 °F")
+        assert box.value() == pytest.approx(20.0)
+        assert box.text().endswith("°C")
+    finally:
+        get_unit_preference().set_profile(UnitProfile.all(U.METRIC))

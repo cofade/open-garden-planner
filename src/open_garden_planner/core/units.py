@@ -207,7 +207,9 @@ def format_temperature(
         unit = "°C"
     if abs(value) < 0.5 * 10 ** (-decimals):
         value = 0.0  # never show "-0" for a value that rounds to zero
-    number = _fixed(value, decimals, number_format).replace(".", decimal_mark)
+    number = _fixed(value, decimals, number_format)
+    if number_format is None:
+        number = number.replace(".", decimal_mark)
     return f"{number} {unit}" if with_unit else number
 
 
@@ -232,7 +234,9 @@ def format_precipitation(
     else:
         value = mm
         unit = "mm"
-    number = _fixed(value, decimals, number_format).replace(".", decimal_mark)
+    number = _fixed(value, decimals, number_format)
+    if number_format is None:
+        number = number.replace(".", decimal_mark)
     return f"{number} {unit}" if with_unit else number
 
 
@@ -251,7 +255,10 @@ def format_mass(
     else:
         value = kg
         unit = "kg"
-    return f"{_fixed(value, decimals, number_format)} {unit}".replace(".", decimal_mark)
+    number = _fixed(value, decimals, number_format)
+    if number_format is None:
+        number = number.replace(".", decimal_mark)
+    return f"{number} {unit}"
 
 
 def format_coordinates(

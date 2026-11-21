@@ -10,7 +10,7 @@ ALLOWLIST = {
     "ui/dialogs/amendment_plan_dialog.py": "Soil amendment dosage g/kg; separate from harvest mass (#907).",
     "ui/dialogs/soil_test_dialog.py": "Soil amendment dosage g/kg; separate from harvest mass (#907).",
 }
-UNIT = r"(?:cm²|m²|cm|mm|km|m|L|°C|°F|kg|lb)\b"
+UNIT = r"(?:cm²|m²|cm|mm|km|m|L|°C|°F|kg|lb|oz)\b"
 INLINE = re.compile(r"\{[^}]*\}[)\]]?\s?" + UNIT)
 AFTER_VALUE = re.compile(r"^[)\]]?\s?" + UNIT)
 

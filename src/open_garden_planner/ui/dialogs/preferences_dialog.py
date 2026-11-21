@@ -482,11 +482,13 @@ class PreferencesDialog(QDialog):
         self._button_row = btn_layout
 
     def _resize_to_content(self) -> None:
-        """Open at the tallest tab's natural height, capped to the available screen.
+        """Open wide enough for all tabs and tall enough for the tallest tab,
+        capped to the available screen.
 
         A scroll area alone would open at its small size hint on every monitor,
-        forcing a scroll even where the form fits. Size from the content instead,
-        leaving room for the window frame, the tab bar and the taskbar (#569).
+        forcing a scroll even where the form fits, and a fixed 600 px width clips
+        the 5-tab bar behind scroll arrows (#569, #986). Size from the tab bar
+        and content instead, leaving room for the window frame and taskbar.
         """
         pages: list[QWidget] = []
         for index in range(self._tabs.count()):
@@ -497,13 +499,19 @@ class PreferencesDialog(QDialog):
                     pages.append(content)
         for page in pages:
             page.adjustSize()
+        self._tabs.ensurePolished()
         content_height = max((page.sizeHint().height() for page in pages), default=0)
         outer = self.layout()
         margins = outer.contentsMargins() if outer is not None else None
         spacing = outer.spacing() if outer is not None else 0
         tab_bar = self._tabs.tabBar()
+        if tab_bar is not None:
+            tab_bar.ensurePolished()
         tab_height = tab_bar.sizeHint().height() if tab_bar is not None else 0
-        wanted = (
+        tab_width = tab_bar.sizeHint().width() if tab_bar is not None else 0
+        h_margins = (margins.left() + margins.right()) if margins is not None else 0
+        wanted_width = max(self.minimumWidth(), tab_width + h_margins + 24)
+        wanted_height = (
             content_height
             + tab_height
             + self._button_row.sizeHint().height()
@@ -518,9 +526,10 @@ class PreferencesDialog(QDialog):
             or QApplication.primaryScreen()
         )
         if screen is not None:
-            available = screen.availableGeometry().height()
-            wanted = min(wanted, max(self.minimumHeight(), available - 40))
-        self.resize(600, max(self.minimumHeight(), wanted))
+            avail = screen.availableGeometry()
+            wanted_width = min(wanted_width, max(self.minimumWidth(), avail.width() - 40))
+            wanted_height = min(wanted_height, max(self.minimumHeight(), avail.height() - 40))
+        self.resize(wanted_width, max(self.minimumHeight(), wanted_height))
 
     def _quantity_combos(self) -> tuple[tuple[str, QComboBox], ...]:
         return (

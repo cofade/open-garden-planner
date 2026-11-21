@@ -134,6 +134,10 @@ class _UnitSpinBox(QDoubleSpinBox):
         prefix = self.prefix()
         return text[len(prefix) :].strip() if prefix and text.startswith(prefix) else text.strip()
 
+    def _parse_metric(self, _text: str) -> float | None:
+        """Optional hook for subclasses accepting explicit foreign units in Metric mode."""
+        return None
+
     def valueFromText(self, text: str | None) -> float:
         raw = text or ""
         if self.specialValueText() and raw == self.specialValueText():
@@ -142,6 +146,9 @@ class _UnitSpinBox(QDoubleSpinBox):
             rendered = self.prefix() + super().textFromValue(super().value()) + self.suffix()
             if raw == rendered:
                 return self._exact
+            parsed = self._parse_metric(raw)
+            if parsed is not None:
+                return parsed
             return super().valueFromText(raw)
         number = self._number_text(raw)
         if number == self._imperial_text(super().value()):
@@ -244,17 +251,12 @@ class TemperatureSpinBox(_UnitSpinBox):
                 return stripped
         return number
 
-    def valueFromText(self, text: str | None) -> float:
-        if self._system == UnitSystem.METRIC:
-            rendered = self.prefix() + super().textFromValue(super().value()) + self.suffix()
-            if text == rendered:
-                return self._exact
-            number = self._metric_temperature_text(text or "")
-            try:
-                return parse_temperature(number, UnitSystem.METRIC)
-            except ValueError:
-                return super().valueFromText(text)
-        return super().valueFromText(text)
+    def _parse_metric(self, text: str) -> float | None:
+        number = self._metric_temperature_text(text)
+        try:
+            return parse_temperature(number, UnitSystem.METRIC)
+        except ValueError:
+            return None
 
     def validate(self, text: str | None, pos: int) -> tuple[QValidator.State, str, int]:
         if self._system == UnitSystem.METRIC:

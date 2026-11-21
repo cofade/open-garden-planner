@@ -97,7 +97,7 @@ All rows **production** unless noted.
 | `canvas/perpendicular_snap_enabled` | `perpendicular_snap_enabled` | **`False`** | production, default-OFF opt-in precision aid (US-B5) |
 | `canvas/tangent_snap_enabled` | `tangent_snap_enabled` | **`False`** | production, default-OFF opt-in precision aid (US-B6) |
 | `canvas/dynamic_input_enabled` | `dynamic_input_enabled` | `True` | production (US-A4 cursor overlay + typed coordinates) |
-| `canvas/touch_gestures_enabled` | `touch_gestures_enabled` | `True` | production (#321 pinch zoom + two-finger pan; Preferences → Canvas; off leaves touch to Qt's synthesised mouse path) |
+| `canvas/touch_gestures_enabled` | `touch_gestures_enabled` | `True` | production (#321 pinch zoom + two-finger pan; Preferences → General → Canvas; off leaves touch to Qt's synthesised mouse path) |
 
 All read by `ui/canvas/canvas_view.py` / the snap pipeline; toggled from the
 View menu. If a snap "doesn't work", check nearest/perpendicular/tangent first —
@@ -109,6 +109,19 @@ they default OFF.
 |---|---|---|---|
 | `tools/fillet_last_radius_cm` | `fillet_last_radius_cm` | `25.0` | `core/tools/fillet_tool.py` (prefills the dialog, US-B3) |
 | `tools/chamfer_last_distance_cm` | `chamfer_last_distance_cm` | `25.0` | same |
+
+### Measurement units (ADR-078 / ADR-081, #673 / #907)
+
+| Key | Property | Default | Note |
+|---|---|---|---|
+| `units/system` | `unit_system` | `"metric"` | Legacy single-system key kept in sync with `units/length`; fallback when `units/profile` is absent. |
+| `units/profile` | `unit_profile` | `"metric"` | Active preset (`metric`, `imperial`, `canada_mixed`, `custom`) edited in Preferences → General → Units. |
+| `units/length` | `unit_profile.length` | `"metric"` | Layout lengths, canvas rulers/coordinates, plant dimensions. |
+| `units/area` | `unit_profile.area` | `"metric"` | Bed/shape/status-bar/3D-card areas and mulch coverage. |
+| `units/volume` | `unit_profile.volume` | `"metric"` | Container real volumes and soil fill volumes. |
+| `units/temperature` | `unit_profile.temperature` | `"metric"` | Weather strip/table, frost thresholds/tasks, germination temperatures. |
+| `units/precipitation` | `unit_profile.precipitation` | `"metric"` | Weather precipitation column (`mm` or `in`, >= 2 decimals for `in`). |
+| `units/mass` | `unit_profile.mass` | `"metric"` | Default unit (`kg` or `lb`) for new harvest log entries; saved records keep their explicit unit. |
 
 ### Weather & tasks
 

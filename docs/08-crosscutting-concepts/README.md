@@ -1327,9 +1327,11 @@ layout, plant size, depth or elevation. Leave angles, percentages, pixels and DX
 scale factors as ordinary numeric fields.
 
 Read-only text uses `core/measurement_display.length_text`, `area_text`,
-`volume_text`, `temperature_text`, and `precipitation_text` (plus `core/units.format_mass`
-and `core/harvest_units.default_mass_unit` for harvest mass), which supply the active
+`volume_text`, `temperature_text`, and `precipitation_text`, which supply the active
 per-quantity `UnitProfile` and UI decimal mark to the pure `core/units.py` formatters.
+Harvest records keep their explicitly entered unit without mass conversion: new entries
+default via `core/harvest_units.default_mass_unit()`, and saved rows format quantities
+with `core/i18n.format_trimmed` plus `core/harvest_units.harvest_unit_label`.
 Never append a physical unit after formatting a number. Qt surfaces subscribe through
 `units_notifier().profile_changed` (reserve `.changed` for length-only legacy callers,
 because `UnitPreference.set_profile` emits `.changed` only when `Quantity.LENGTH` moves).
