@@ -22,9 +22,11 @@ level by 2 cm for the look of it.
 **Footprint.** The frame's OUTER face is the footprint; a round container's rim
 is the footprint's own 24-gon (``lathe``).
 
-**Colour.** A raised bed is SVG-rendered in 2D: its sprite's oak and soil are
-its colours, baked. A container, a wall planter and a garden bed are filled in
-the item's own colour in 2D, so their walls are ``tinted``; their soil is baked.
+**Colour.** A default/wood raised bed is SVG-rendered in 2D: its sprite's oak and soil are
+its colours, baked; a raised bed with an architectural fill pattern (corten, stone, brick,
+concrete, terracotta; ``RAISED_BED_FILL_FRAMES``, #957) renders its frame tinted in that
+fill's material while keeping its soil baked. A container, a wall planter and a garden bed
+are filled in the item's own colour in 2D, so their walls are ``tinted``; their soil is baked.
 ``params["container_material"]`` (terracotta / plastic / wood / metal) shapes
 the pot — a rolled rim, thin walls, planks — and never picks a colour: the 2D
 canvas does not either.
@@ -48,7 +50,13 @@ from ...object_height import soil_surface_cm
 from ..build import BuilderRegistry, uv_origin_of
 from ..materials import STEEL_SURFACE
 from ..mesh import Mesh, MeshPart
-from ..record import PARAM_CONTAINER_MATERIAL, PARAM_RADIUS_CM, SHAPE_CIRCLE, Record
+from ..record import (
+    PARAM_CONTAINER_MATERIAL,
+    PARAM_RADIUS_CM,
+    PARAM_SURFACE_PATTERN,
+    SHAPE_CIRCLE,
+    Record,
+)
 from . import palette
 from .common import BuiltBuilder, corner_count, footprint_of
 from .primitives import F64, ccw_ring, lathe, offset_ring, plan_cap, polygon_cap, signed_area, sweep
@@ -151,12 +159,38 @@ def _frame(ring: F64, height_cm: float, thickness: float, soil_cm: float, *, row
     return sweep(profile, ring, colors, closed=True, profile_closed=False)
 
 
+#: Non-timber architectural fills that override a raised bed's default oak plank frame
+#: (#957): FillPattern name -> (nominal frame thickness cm, surface name in SURFACES).
+#: Note: container material constants (TERRACOTTA) are imported from container_model
+#: rather than retyped as string literals (pinned by test_scene3d_builders_palette.py).
+RAISED_BED_FILL_FRAMES: Final[dict[str, tuple[float, str]]] = {
+    "CORTEN": (1.5, "corten"),
+    "STONE": (8.0, "masonry"),
+    "BRICK": (8.0, "brick"),
+    "FLAGSTONE": (8.0, "masonry"),
+    "SLATE": (8.0, "masonry"),
+    "CONCRETE": (6.0, "concrete"),
+    "CLAY": (6.0, "concrete"),
+    "TERRACOTTA": (4.0, TERRACOTTA),
+}
+
+
 def _raised_bed(record: Record, height_cm: float) -> tuple[MeshPart, ...]:
     ring = ccw_ring(footprint_of(record))
     if len(ring) < 3:
         return ()
-    thickness = thickness_cm(ring, PLANK_THICKNESS_CM)
     soil = soil_surface_cm(record.kind, height_cm)
+    pattern = record.params.get(PARAM_SURFACE_PATTERN)
+    override = RAISED_BED_FILL_FRAMES.get(pattern) if isinstance(pattern, str) else None
+    if override is not None:
+        nominal_thickness, surface = override
+        thickness = thickness_cm(ring, nominal_thickness)
+        frame = _frame(ring, height_cm, thickness, soil, rows=1, foot_inset_cm=0.0,
+                       face=palette.TINT, groove=palette.TINT)
+        soil_part = soil_mesh(ring, thickness, soil)
+        return (MeshPart(frame, "vc", tinted=True, name="walls", surface=surface),
+                MeshPart(soil_part, "vc", name="soil"))
+    thickness = thickness_cm(ring, PLANK_THICKNESS_CM)
     frame = _frame(ring, height_cm, thickness, soil, rows=plank_rows(height_cm), foot_inset_cm=0.0,
                    face=palette.PLANK.linear, groove=palette.PLANK_GROOVE.linear)
     bed = Mesh.merge([frame, soil_mesh(ring, thickness, soil)])

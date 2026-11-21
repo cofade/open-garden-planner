@@ -7910,6 +7910,32 @@ Tests: `tests/unit/test_scene3d_surfaces.py`, `tests/unit/test_scene3d_roof_uvs.
 compare against the same frame without the picture, and before there was none). Pitfalls PF-L3D-34, PF-L3D-35,
 PF-E3D-32.
 
+### ADR-059 addendum: built-material stability, night fill, resting live shadow fit and built-world polish (#883, #884, #887, #894, #953, #957, #958, #959, #961, #965)
+
+**Status**: Accepted (2026-11-21; pending owner manual testing). Amends the L1.4, L1.6, #734, #799/#802 and #801/#803 addenda above.
+
+**Context.** Ten focused 3D rendering and built-world issues found across the 13 example plans on Ultra, High and Low presets:
+- `#883` / `#958`: Qt Quick 3D's Ultra SSR (`reflectionEnabled: true`) reflects aggressively below roughness `0.70`, causing shimmer on `steel`/`iron`/`enamel`/`glass_pane` and turning courtyard pools into sharp house mirrors.
+- `#884`: Direct noon light plus IBL pushed bright terracotta tiles, pale plaster walls and wood decks into R-channel clipping (`255`).
+- `#887`: Shed `shingle` detail (`100 cm`, default `contrast=1.0`) read as patchwork; ridge caps inherited roof tile detail instead of reading cleanly; `masonry` at `256 cm` produced ~60 cm blocks; grazing close-up fascia/plaster showed SSAO concentric rings at `AO_FLAT_BIAS_CM = 1.0`.
+- `#894`: Live 3D views always used the texel-locked shadow sphere while saved photos used `fittedShadows=true`, leaving preview shadows softer than saved photos even when the camera rested.
+- `#953`: At night, vertical faces turned away from the fixed moon received zero bounce and crushed to sRGB `<= 3`.
+- `#957`, `#961`, `#965`, `#959`: Raised beds always rendered as oak planks regardless of 2D `FillPattern`; multi-vertex organic ponds rendered with polygonal grey rims and cobalt water; flat-roofed houses kept cottage windows and a pale concrete roof (`specular=0.15`) that took a golden-hour lilac cast; `pebbles` and `compost` textures had glossy spherical domes baked into the PNGs.
+
+**Decision.**
+1. **Ultra SSR roughness floor & decoupled water SSR (`#883`, `#958`).** Raise `steel`, `iron`, `enamel` and `glass_pane` to roughness `0.70`. In `water.frag` and `water_door.frag`, keep `uRough` (`0.02`) for direct GGX sun glints and IBL probe while writing `ROUGHNESS = uSsrRough` (`0.75`) in `MAIN()` so Ultra SSR cannot turn pools into mirrors.
+2. **Per-surface linear albedo scaling (`#884`).** Add `Surface.albedo_scale` (`surfaceAlbedo` / `surfaceAlbedoSrgb` in `quick3d/materials.py` and `Garden.qml`, `uAlbedo` across every custom material in `vcPart`/`roofPart` including `screen.frag`), keeping `DEFAULT_SURFACE` at `1.0`. Exact surface table and GPU measurements live in `ogp-lush-cinematic` reference `021`.
+3. **Cohesive roof/wall detail and SSAO floor (`#887`).** Set `shingle` to `SLATE` at `128 cm` (`normal=1.2`, `contrast=0.35`); point `ROOF_TILE_CAP` and `SHINGLE_CAP` at plain `"roof_cap"` (`detail=None`); tighten `masonry` to `128 cm`; raise `look.AO_FLAT_BIAS_CM` (and QML default `aoBias`) from `1.0` to `1.4` cm.
+4. **Live shadow fitting at rest (`#894`).** Add `EngineHost.set_fitted_shadows(bool)` and a `250 ms` debounce (`SHADOW_FIT_DELAY_MS`) in `Workspace`: camera motion unlocks (`fittedShadows = false`) immediately; after `250 ms` at rest the view locks to `fittedShadows = true`. `Quick3DHost.capture(fitted_shadows: bool | None = None)` preserves the view's current fit when `None` and always restores `fitted_before` in `finally:`.
+5. **Cool sky-tinted night minimum fill (`#953`).** Add `look.night_fill_linear(look)` (`NIGHT_FILL_SKY_SHARE = 0.75`, radiance-capped at `NIGHT.sky_top`, cloud-attenuated) folded into `twilight_fill` (keeping `TWILIGHT_FILL_DAY_SHARE = 0.4` and `TWILIGHT_FILL_TARGET = ((TWILIGHT_DEG, 1.0), (-3.0, 1.02), (NIGHT_BELOW_DEG, 1.035))`) so `5.89°` stays `(0, 0, 0)` and dusk/dawn stays monotone across all presets and weathers.
+6. **Built-world fidelity (`#957`, `#961`, `#965`, `#959`).**
+   - Forward `PARAM_SURFACE_PATTERN` for `RAISED_BED` in `ui/view3d/snapshot.py`; `builders/beds.py` maps architectural fills (`CORTEN` -> `corten`, `STONE`/`FLAGSTONE`/`SLATE` -> `masonry`, `BRICK` -> `brick`, `CONCRETE`/`CLAY` -> `concrete`, `TERRACOTTA` -> `terracotta`) to a tinted frame while preserving exact `soil_surface_cm`.
+   - `builders/surfaces.py` treats ground polygons with `>= 5` vertices per ring as natural ponds (`is_natural_pond`): convex corners are smoothed inward via clamped quadratic Bézier fillets (`NATURAL_POND_MAX_CUT_CM = 5.5 cm`, skipping reflex corners), bordered by a low multi-toned stone/earth bank (`3.5 cm`) and darker olive-green natural water. Formal pools stay unchanged.
+   - `builders/buildings.py` / `facade.py` give flat-roofed houses `MODERN_HOUSE_SPEC` (wide/tall single-pane dark-framed windows, modern door); explicit `CONCRETE`/`SOLID` flat roofs use matte charcoal `"flat_roof"` (`roughness=0.95, specular=0.0, albedo_scale=0.45`), while automatic ridge-less flat houses (concrete slab) and non-concrete explicit flat roofs (e.g. `GRASS` green roofs) use matte `"concrete"` (`roughness=0.95, specular=0.0, albedo_scale=0.85`) so `FR-3D-BUILT-02` is preserved.
+   - Re-author `generate_pebbles` and `generate_compost` matte (`gloss=0.0`) in `scripts/generate_asset_forge_textures.py` (`PROVENANCE.md` updated).
+
+**Evidence & tests.** Full RTX 4070 before/after numbers and Beauty Board gates are recorded in `ogp-lush-cinematic` reference `021`. Tests: `tests/unit/test_scene3d_materials_and_built_polish.py`, `tests/integration/test_view3d_materials_shadow_fit.py`, `tests/ui/test_quick3d_host.py`, updated `test_scene3d_surfaces.py` / `test_scene3d_look.py`, and GPU render-tier suites.
+
 ### ADR-059 addendum: ground bake — flat surfaces painted from records into ground tiles (Phase 17, L1.5)
 
 **Status**: Accepted (2026-10-12, #385 story L1.5); amended the same day by the story's first

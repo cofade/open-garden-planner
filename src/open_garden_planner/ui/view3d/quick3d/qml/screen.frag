@@ -23,7 +23,7 @@ void MAIN()
 {
     if (screenDoor(FRAGCOORD.xy) >= uOpacity)
         discard;
-    BASE_COLOR = vec4(vColor.rgb * uTint, 1.0);
+    BASE_COLOR = vec4(vColor.rgb * uTint * uAlbedo, 1.0);
     ROUGHNESS = uRough;
     METALNESS = 0.0;
     SPECULAR_AMOUNT = uSpecular;

@@ -27,7 +27,7 @@ vec3 engineLinear(vec3 c)
 
 void MAIN()
 {
-    vec3 albedo = vColor.rgb * engineLinear(uTintSrgb);
+    vec3 albedo = vColor.rgb * engineLinear(uTintSrgb) * uAlbedo;
     if (uHasFill > 0.5)
         albedo *= engineLinear(texture(uFill, UV0).rgb);
     float lying = uSnowCover * smoothstep(0.35, 0.75, NORMAL.y);

@@ -60,6 +60,7 @@ from ..mesh import Mesh, MeshPart
 from ..record import (
     PARAM_DOOR_WALL,
     PARAM_RIDGE,
+    PARAM_SURFACE_PATTERN,
     SHAPE_RECTANGLE,
     Material,
     Params,
@@ -161,13 +162,19 @@ def _ridge(record: Record) -> Ridge | None:
     return bounding_box_ridge(footprint)
 
 
+def _is_flat_roof(record: Record) -> bool:
+    """True when ``record`` resolves to a flat roof (explicit ``flat`` or a ridge-less house)."""
+    chosen = chosen_style(record)
+    has_ridge = record.kind != "HOUSE" or ridge_of(record.params.get(PARAM_RIDGE)) is not None
+    return chosen == FLAT or (chosen is None and not has_ridge)
+
+
 def _roof(record: Record, height_cm: float, base: RoofStyle) -> GableRoof | None:
     """The roof the record asks for (module docstring), or None when none can be built."""
     footprint = footprint_of(record)
     style = style_for(record, base)
     chosen = chosen_style(record)
-    has_ridge = record.kind != "HOUSE" or ridge_of(record.params.get(PARAM_RIDGE)) is not None
-    if chosen == FLAT or (chosen is None and not has_ridge):
+    if _is_flat_roof(record):
         return flat_roof(footprint, height_cm, style_for(record, FLAT_ROOF),
                          fill_uv_origin=uv_origin_of(record) if chosen == FLAT else None)
     if chosen is None:
@@ -286,12 +293,31 @@ def _building(record: Record, height_cm: float, base: RoofStyle,
     built = _roof(record, height_cm, base)
     if built is None or built.wall_top is None:
         return _block(record, height_cm)
-    front = facade(record.kind, footprint_of(record), built.wall_top, door_wall_of(record))
-    floor = _floor(record)
-    roof = (MeshPart(built.roof, "roof", name="roof"),) if built.fill_cap is None else (
-        MeshPart(built.fill_cap, "roof", name="roof", fill_texture=True, surface="concrete"),
-        MeshPart(built.roof, "roof", name="roof_trim"),
+    front = facade(
+        record.kind,
+        footprint_of(record),
+        built.wall_top,
+        door_wall_of(record),
+        roof=FLAT if _is_flat_roof(record) else None,
     )
+    floor = _floor(record)
+    roof: tuple[MeshPart, ...]
+    if built.fill_cap is None:
+        roof = (MeshPart(built.roof, "roof", name="roof"),)
+    else:
+        # #965: concrete / solid flat roofs take the neutral charcoal flat_roof surface;
+        # custom user fills (e.g. a green sedum roof) keep matte concrete (specular=0,
+        # albedo_scale=0.85) so their 2D fill colour is preserved (FR-3D-BUILT-02).
+        pattern = record.params.get(PARAM_SURFACE_PATTERN)
+        fill_surface = (
+            "flat_roof"
+            if pattern in (None, "SOLID", "CONCRETE")
+            else "concrete"
+        )
+        roof = (
+            MeshPart(built.fill_cap, "roof", name="roof", fill_texture=True, surface=fill_surface),
+            MeshPart(built.roof, "roof", name="roof_trim"),
+        )
     return (MeshPart(built.walls, "vc", tinted=True, name="walls", surface=walls_surface),
             *roof,
             MeshPart(front, "vc", name="facade"),

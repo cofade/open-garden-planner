@@ -445,12 +445,11 @@ class TestTheTwilightFill:
         assert dawn == pytest.approx(list(reversed(light)), rel=1e-12)
 
     @pytest.mark.parametrize("preset", PRESETS)
-    @pytest.mark.parametrize("elevation", [-90.0, -18.0, -8.0, -6.0, L.GOLDEN_DEG, 5.89, 15.23, 60.9])
-    def test_the_night_and_the_sunset_anchor_keep_the_rigs_own_light(self, preset: str,
-                                                                      elevation: float) -> None:
-        """No fill at and below the end of civil twilight (the night rig, unchanged) nor from
-        the golden anchor down to the board's sunset shot (5.89°), in any weather: those
-        looks are the rig's, field for field."""
+    @pytest.mark.parametrize("elevation", [L.GOLDEN_DEG, 5.89, 15.23, 60.9])
+    def test_the_sunset_anchor_and_day_keep_the_rigs_own_light(self, preset: str,
+                                                               elevation: float) -> None:
+        """No fill from the golden anchor down to the board's sunset shot (5.89°), in any
+        weather: those looks are the rig's, field for field."""
         from open_garden_planner.core.scene3d.weather import WEATHERS, living_look
 
         look = look_for(sun(elevation), preset)
@@ -459,14 +458,30 @@ class TestTheTwilightFill:
         for weather in WEATHERS:
             assert living_look(sun(elevation), preset, weather).twilight_fill_linear == (0.0, 0.0, 0.0)
 
+    @pytest.mark.parametrize("preset", PRESETS)
+    @pytest.mark.parametrize("elevation", [-90.0, -18.0, -8.0, -6.0])
+    def test_night_carries_the_minimum_cool_ambient_floor(self, preset: str,
+                                                          elevation: float) -> None:
+        """#953: at and below civil twilight (-6°), faces turned away from the fixed moon
+        receive a non-zero cool sky-tinted ambient floor instead of pure black."""
+        from open_garden_planner.core.scene3d.weather import WEATHERS, living_look
+
+        look = look_for(sun(elevation), preset)
+        assert look.twilight_fill_linear == L.night_fill_linear(look), elevation
+        assert min(look.twilight_fill_linear) > 0.0
+        for weather in WEATHERS:
+            weathered = living_look(sun(elevation), preset, weather)
+            assert weathered.twilight_fill_linear == L.night_fill_linear(weathered)
+            assert min(weathered.twilight_fill_linear) > 0.0
+
     def test_the_fill_lifts_the_ground_to_its_target_in_the_skys_colour(self) -> None:
         """In twilight the ground's light is exactly the target (``twilight_fill_share`` of
-        the night's: 1.07 at sunset, 1.05 at −3°, 1 at −6°); by day it keeps
+        the night's: 1.035 at sunset, 1.02 at −3°, 1 at −6°); by day it keeps
         ``TWILIGHT_FILL_DAY_SHARE`` of its own fall. The fill is the sky top's hue (what the
         probe gives the ground) and lights only through the scene's ambient."""
         night, sunset_light = L.anchor_lights()
-        for elevation, share in ((0.4999, 1.07), (0.0, 1.07 - 0.02 * 0.5 / 3.5),
-                                 (-3.0, 1.05), (-4.5, 1.025)):
+        for elevation, share in ((0.4999, 1.035), (0.0, 1.035 - 0.015 * 0.5 / 3.5),
+                                 (-3.0, 1.02), (-4.5, 1.01)):
             look = look_for(sun(elevation, 300.0))
             assert L.ground_light(look) == pytest.approx(share * night, rel=1e-5), elevation
             fill, top = np.asarray(look.twilight_fill_linear), srgb_to_linear(look.sky.top)
@@ -475,21 +490,21 @@ class TestTheTwilightFill:
         day = look_for(sun(2.0, 300.0))
         natural = L.ground_light(day, with_fill=False)
         assert L.ground_light(day) == pytest.approx(
-            1.07 * night + L.TWILIGHT_FILL_DAY_SHARE * (natural - sunset_light), rel=1e-9)
+            1.035 * night + L.TWILIGHT_FILL_DAY_SHARE * (natural - sunset_light), rel=1e-9)
         assert natural < L.ground_light(day) < 1.44 * night
 
     def test_the_model_and_its_shape_are_the_measured_ones(self) -> None:
         """The numbers fitted and chosen on the family garden's sweeps (``look.py`` says how);
         moving one moves every twilight frame, so a change needs a new sweep."""
         assert (L.PROBE_GROUND_GAIN, L.AMBIENT_GROUND_GAIN, L.TWILIGHT_FILL_DAY_SHARE) == (1.15, 1.2, 0.4)
-        assert L.TWILIGHT_FILL_TARGET == ((-6.0, 1.0), (-3.0, 1.05), (0.5, 1.07))
+        assert L.TWILIGHT_FILL_TARGET == ((-6.0, 1.0), (-3.0, 1.02), (0.5, 1.035))
         assert L.TWILIGHT_FILL_TOP_DEG == L.GOLDEN_DEG
         night, sunset_light = L.anchor_lights()
-        # the clear rig at sunset lies 0.58 of the night's light: the gap #802 is about
-        assert sunset_light / night == pytest.approx(0.576, abs=0.002)
+        # the clear rig at sunset lies ~0.548 of the night's light (with #953's cool night floor)
+        assert sunset_light / night == pytest.approx(0.548, abs=0.002)
         # the clear fill begins under the sunset anchor, with room to spare
         first = max(e for e in _dusk_elevations(0.01) if any(look_for(sun(e)).twilight_fill_linear))
-        assert 5.5 < first < 5.89 - 0.1, first
+        assert 5.4 < first < 5.89 - 0.05, first
 
 
 # ── presets ──────────────────────────────────────────────────────────────────

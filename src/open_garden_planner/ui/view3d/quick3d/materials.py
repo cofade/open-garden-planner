@@ -48,6 +48,8 @@ from open_garden_planner.core.scene3d.materials import (
     two_sided_kinds,
 )
 
+from .look import engine_srgb
+
 __all__ = [
     "DETAIL_MODES",
     "PART_COMPONENTS",
@@ -119,8 +121,12 @@ def surface_look(kind: str, surface: str) -> SurfaceLook | None:
     if kind not in SURFACE_KINDS:
         return None
     entry = SURFACES[surface or DEFAULT_SURFACE]
+    albedo = float(entry.albedo_scale)
+    albedo_srgb = 1.0 if albedo == 1.0 else engine_srgb((albedo, albedo, albedo))[0]
     properties: dict[str, float] = {"surfaceRough": entry.roughness,
-                                    "surfaceSpecular": entry.specular}
+                                    "surfaceSpecular": entry.specular,
+                                    "surfaceAlbedo": albedo,
+                                    "surfaceAlbedoSrgb": albedo_srgb}
     detail = detail_of(entry.name, kind)
     if detail is None:
         return SurfaceLook(MappingProxyType(properties), None)

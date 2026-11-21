@@ -220,7 +220,7 @@ def test_a_faded_or_cut_part_is_a_screen_door_not_a_blend() -> None:
     assert code.count("property real uSeason") == code.count('vertexShader: "screen.vert"')
     door = (QML_DIR / "screen.vert").read_text(encoding="utf-8")
     assert "if (uSeason < 1.0 && UV0.y >= uSeason)" in door and "vColor = COLOR;" in door
-    assert "BASE_COLOR = vec4(vColor.rgb * uTint, 1.0);" in (QML_DIR / "screen.frag").read_text(
+    assert "BASE_COLOR = vec4(vColor.rgb * uTint * uAlbedo, 1.0);" in (QML_DIR / "screen.frag").read_text(
         encoding="utf-8")
     for name, door in (("waterPart", "waterDoor"), ("foliagePart", "foliageDoor"),
                        ("grassPart", "grassDoor")):

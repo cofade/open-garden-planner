@@ -6803,18 +6803,20 @@ saturation 1.06 -> 0.6, the sky draws no sun, and the key light is the moon fadi
 the fraction: no key and no shadow just under 0.5°). Below −6°, night. The key light is never brighter than at noon; a low sun is
 warmer and more exposed, not stronger; the light never rises as the sun sinks.
 
-**The garden never brightens as night falls (#802).** The night rig is "day for night" (a 0.32
+**The garden never brightens as night falls (#802, #953).** The night rig is "day for night" (a 0.32
 moon 38° high, exposure 2.4), so a garden lit by a 0.5° sun's sky alone lay about 0.95 EV under
 the night it ends in, and twilight sank further before the moon rose to it. Neither anchor
 moves: the twilight fill (`look.twilight_fill`, `LookSpec.twilight_fill_linear`) is a flat
 ambient in the sky top's colour that `Garden.qml`'s fill light carries where a sky lights the
 view — it lights the garden, never the skybox. It lifts a model of the light on open ground
 (`look.ground_light`) to a target in units of the same weather's night: in twilight a line
-from 1.07 at sunset through 1.05 at −3° to 1 at −6°; by day the ground keeps 40 % of its own
-fall down to that sunset level. Black from 6° up (the sunset shot keeps the rig's own light)
-and at night; an overcast, rain and snow need none. The compatibility mode and the top-down
-truth view keep their flat fill without it. ADR-059 addendum "a recorded frame's own sky and
-the twilight fill".
+from 1.035 at sunset through 1.02 at −3° to 1 at −6°; by day the ground keeps 40 % of its own
+fall down to that sunset level (`TWILIGHT_FILL_DAY_SHARE = 0.4`). At night, `look.night_fill_linear`
+(`NIGHT_FILL_SKY_SHARE = 0.75`, radiance-capped at `NIGHT.sky_top` and attenuated by cloud)
+supplies a cool, dim ambient floor so faces turned away from the fixed moon retain faint blue
+detail instead of crushing to pure black (#953). Black from 6° up (the sunset shot keeps the
+rig's own light); the compatibility mode and the top-down truth view keep their flat fill
+without it. ADR-059 addenda "a recorded frame's own sky and the twilight fill" and "#883–#965".
 
 **Presets are cost, never mood.** `low` / `medium` / `high` / `ultra` (`PRESET_SPECS`) differ in
 the shadow map, cascades, filtering and bias, anti-aliasing, ambient occlusion, glow and (ultra)
@@ -6829,13 +6831,17 @@ change applies one `set_look` call without moving the camera or rebuilding sky.
 Crossing the Medium/High boundary also updates lawn-blade admission through the
 existing scene diff (#607).
 
-**Shadows at a low sun (#734).** A low sun stretches two things: every centimetre of a
+**Shadows at a low sun (#734, #894).** A low sun stretches two things: every centimetre of a
 caster's height into `1 / tan(elevation)` of shadow (3.7 at 15°, 9.7 at 6°), and a shadow
 map's texel into `texel / sin(elevation)` on the ground. A frame whose camera does not move
 — a picture, the agent's picture, a held camera's time-lapse — fits its cascades to what
 CASTS: those paths pass `Quick3DHost.capture(fitted_shadows=True)` by name (the QML
-`fittedShadows`, for that frame only), and a capture that does not ask keeps the view's fit
-and is the view to the level (the self-test checks it). Qt spans each
+`fittedShadows`, restoring the prior state on exit), while `fitted_shadows=None` (the default)
+keeps the view's current fit so a capture at the view's size matches the view pixel for pixel. In the live 3D view (#894),
+`Workspace` unlocks to the texel-locked sphere (`fittedShadows = false`) immediately on any
+camera motion so orbits and walks stay shimmer-free, and locks to `fittedShadows = true` once
+the camera has rested for `SHADOW_FIT_DELAY_MS` (`250 ms`) so the resting preview matches a
+saved photo. Qt spans each
 cascade by the casters' box in its slice, the plan's own items, about 1 cm texels on a 24 m
 plan at every preset, instead of the bounding sphere of the whole slice (8.3 cm on High at the
 board's golden hour: long edges stepped, the foot of every caster showed lit teeth, and a
@@ -6930,10 +6936,10 @@ principled look to the level; the shadow pass runs the same sway, so a crown's s
 with it. Every frequency is a whole number of cycles an hour: the clock's wrap is seamless.
 ADR-059 addendum "the wind that shows, and the leaves' stripes"; PF-L3D-32.
 
-**Ambient occlusion has a floor under its bias (#805).** Qt's SSAO normal faces the camera, so a
-flat surface seen at a slant occludes itself — on the ground (#687) and in diagonal bands across
-every micro-leaf from Medium up, which the survey took for shadow acne (the shadow bias and the
-map's fit do not change them). `look.AO_FLAT_BIAS_CM` = 1 cm is the floor of every look's AO
+**Ambient occlusion has a floor under its bias (#805, #887).** Qt's SSAO normal faces the camera, so a
+flat surface seen at a slant occludes itself — on the ground (#687), in diagonal bands across
+every micro-leaf from Medium up (#805), and in concentric close-up rings on grazing flat fascia
+and plaster (#887). `look.AO_FLAT_BIAS_CM` = 1.4 cm is the floor of every look's AO
 bias; a weather's own bias is larger. PF-L3D-33.
 
 **Wiring.** The workspace hands the look controller the sun the pipeline last sent
@@ -7463,7 +7469,7 @@ takes a raised bed and two real plants through both).
 | `GARAGE_SHED`, `TOOL_SHED` | `buildings`, `roofs` | `walls`: vc · `roof`: roof | walls tinted, roof = shingle |
 | `FENCE` | `lines` → `fences` / `walls` | `fence`: vc — or `hedge`: foliage (hedge style), `wall`: vc (stone style) | tinted (the item's stroke) |
 | `WALL` | `lines` → `walls` / `fences` | `wall`: vc — or the fence of its style | tinted |
-| `RAISED_BED` | `beds` | `bed`: vc | baked: oak planks, soil |
+| `RAISED_BED` | `beds` | `bed`: vc (default/wood) · `walls` + `soil`: vc (architectural fill, #957) | baked oak planks + soil by default; tinted frame (`corten`/`masonry`/`brick`/`concrete`/`terracotta`) + baked soil for architectural 2D fills |
 | `CONTAINER`, `WALL_PLANTER`, `CONTAINER_ROUND` | `beds` | `walls`: vc · `soil`: vc | walls tinted, soil baked (the palette's soil) |
 | a `GARDEN_BED` with a height | `beds` | `walls`: vc · `soil`: vc | walls tinted, soil = the item's own fill (`fill_texture`: its "Boden-Substrat") |
 | `HEDGE_SECTION`, `HEDGE_POLYGON` | `hedges` | `hedge`: foliage (the dark core and the leaf shell in one mesh) | baked: the hedge texture's greens |
@@ -8896,19 +8902,24 @@ local pitched-roof triangles (64 entries, keyed by the complete geometry), so 15
 identical sheds build one roof; the per-owner pyclipper union stays, because removing it
 made the global union of unmerged triangle paths slower (3.25 s against 1.48 s).
 
-**Materials (#801, #803; ADR-059 addendum "what built parts are made of").** A built
+**Materials (#801, #803, #883, #884, #887, #957, #958, #965; ADR-059 addenda).** A built
 part reflects by what it is MADE of: `core/scene3d/materials.SURFACES` names each surface's
-roughness and specular amount and, for roofs and walls, a detail picture. ONE path carries
+roughness, specular amount, optional linear `albedo_scale` (#884, curbing noon red-channel
+clipping on tiles/plaster/masonry/wood and keeping `flat_roof` charcoal neutral) and, for roofs
+and walls, a detail picture. Every built surface stays at roughness `>= 0.70` so Ultra SSR does
+not shimmer (#883). ONE path carries
 it: a palette entry names its surface (`builders/palette.py`, `SURFACE_BY_COLOUR`), a tinted
 part names its own in its builder (a house's walls `plaster`, a shed's `wood_cladding`, a
-garden wall `masonry`, a fence by its style, a container by its material, a deck `wood`),
+garden wall `masonry`, a flat roof `flat_roof`, a ridge cap `roof_cap`, a raised bed frame by
+its 2D `FillPattern` such as `corten`/`masonry`/`brick`/`concrete`/`terracotta`, a fence by its style,
+a container by its material, a deck `wood`),
 `builders.common.with_surfaces` writes a part's `surface` or — a trampoline is a rubber mat,
 a plastic pad and a steel frame — its `surface_runs` (its triangles grouped run by run; it
 stays one part for everything that reads parts), the sink creates one Model per run
 (`mesh.surface_pieces`) with the surface in its `PartSpec`, and the host writes
 `quick3d.materials.surface_look` on the Model. `Garden.qml`'s `vcPart` / `roofPart` hold no
-table: every material reads `surfaceRough` / `surfaceSpecular`, whose defaults are
-`DEFAULT_SURFACE` (0.78 / 0.35, the look every part had before). Qt switches a principled
+table: every material reads `surfaceRough` / `surfaceSpecular` / `surfaceAlbedo` / `surfaceAlbedoSrgb`,
+whose defaults are `DEFAULT_SURFACE` (0.78 / 0.35 / 1.0). Qt switches a principled
 material's specular off at 0.01 or less and barely scales a grazing highlight above it
 (PF-E3D-32): a dull dark surface is specular 0. The detail picture is the canvas's own
 texture (`core.scene3d.surface_detail`: a linear albedo multiplier of mean 1 and height
@@ -8920,7 +8931,8 @@ the item's frame; the detail normal fades with distance, the albedo by its mipma
 `Texture` has no anisotropy). The detail material takes the ground's rain tint and the rain's
 roughness / specular shift (`wetRoughShift`, `wetSpecularShift`) and the living garden's
 snow (`builtSnow`, the same rule as `built_snow.frag`). The pond's glint is GGX soft-capped in
-`water.frag` (`SPECULAR_LIGHT`, `uGlintCap`). How to add a surface: an entry in `SURFACES`
+`water.frag` (`SPECULAR_LIGHT`, `uGlintCap`), while `MAIN()` sets `ROUGHNESS = uSsrRough` (`0.75`)
+so Ultra SSR does not mirror buildings into pool water (#958). How to add a surface: an entry in `SURFACES`
 (§4 of `ogp-lush-cinematic` for its range), the palette entries or the builder that name it,
 and — with a picture — a pattern the canvas ships; the drift guard is
 `test_scene3d_surfaces.py`, the look gate `test_built_materials_render.py` (judged against the

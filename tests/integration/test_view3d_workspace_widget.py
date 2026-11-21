@@ -96,6 +96,7 @@ class FakeHost:
         #: The look (L1.4): what the look controller told the host, in order.
         self.looks: list[Any] = []
         self.skies: list[Any] = []
+        self.fitted_shadows: list[bool] = []
         self.wind: list[str] = []
         #: The analysis (L2): overlays by layer (the last mesh; None: hidden), the
         #: Cutaway switch and the faded items, as last told.
@@ -138,6 +139,9 @@ class FakeHost:
 
     def set_sky(self, sky: Any) -> None:
         self.skies.append(sky)
+
+    def set_fitted_shadows(self, fitted: bool) -> None:
+        self.fitted_shadows.append(bool(fitted))
 
     def set_wind_running(self, running: bool) -> None:
         self.wind.append("run" if running else "stop")

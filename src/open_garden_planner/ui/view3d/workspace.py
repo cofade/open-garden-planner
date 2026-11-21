@@ -151,6 +151,10 @@ _LOG: Final = logging.getLogger(__name__)
 MIN_PANE_WIDTH: Final = 220
 #: The camera is stepped at this interval while it moves.
 CAMERA_STEP_MS: Final = 16
+#: How long the live 3D camera must rest before fitting its shadow map to the casters
+#: (#894): while moving, the view keeps the stable texel-locked map so shadow edges do not
+#: crawl; once resting, it switches to the sharper fitted map so preview matches saved photo.
+SHADOW_FIT_DELAY_MS: Final = 250
 #: The health poll: fast until the first frame was presented, then slow.
 HEALTH_FAST_MS: Final = 200
 HEALTH_SLOW_MS: Final = 2000
@@ -460,6 +464,7 @@ class Workspace(QWidget):
         #: The (yaw, pitch) the open document is first framed from; None: the default side.
         self._opening_side: tuple[float, float] | None = None
         self._camera_stepped_at = 0.0
+        self._shadows_fitted = False
         self._first_frame_seen = False
         self._qml_warnings_seen = 0
         self._split_sizes: list[int] | None = None
@@ -483,6 +488,10 @@ class Workspace(QWidget):
         self._camera_timer = QTimer(self)
         self._camera_timer.setInterval(CAMERA_STEP_MS)
         self._camera_timer.timeout.connect(self._step_camera)
+        # #894: fit the live view's shadow map once the camera rests for SHADOW_FIT_DELAY_MS
+        self._shadow_fit_timer = QTimer(self)
+        self._shadow_fit_timer.setSingleShot(True)
+        self._shadow_fit_timer.timeout.connect(self._fit_resting_shadows)
         self._health_timer = QTimer(self)
         self._health_timer.timeout.connect(self._poll_health)
         # one single-shot timer for both ways a held first pass is let go: 0 ms after
@@ -969,6 +978,7 @@ class Workspace(QWidget):
         if controller is None or self._host is None:
             self._health_timer.stop()
             self._camera_timer.stop()
+            self._shadow_fit_timer.stop()
             self._drop_held_build()
             return
         if not showing:
@@ -980,6 +990,8 @@ class Workspace(QWidget):
             controller.set_active(False)
             self._health_timer.stop()
             self._camera_timer.stop()
+            self._shadow_fit_timer.stop()
+            self._set_shadows_fitted(False)
             if not self._first_frame_seen:
                 # The poll that confirms the first frame has just stopped. A start
                 # marker left on disk now would be read as a death by a second
@@ -1132,6 +1144,7 @@ class Workspace(QWidget):
         except Exception:  # noqa: BLE001 - the health poll reports a host that died
             _LOG.debug("3D workspace: the camera could not be set", exc_info=True)
         self._schedule_xray()  # L2.4: the occluders follow the camera once it rests
+        self._schedule_shadow_fit()  # #894: fit shadows once the camera rests
         self._living.camera_moved(target)  # L5: the lamps that light are the nearest
         worker = self._forge_worker
         if worker is not None:
@@ -1140,18 +1153,48 @@ class Workspace(QWidget):
             if worker.pending_count and self._pane_is_showing():
                 self._forge_timer.start(10)
 
+    def _set_shadows_fitted(self, fitted: bool) -> None:
+        """Switch the live host's shadow-map fit only when the state actually changes (#894)."""
+        host = self._host
+        if host is None:
+            self._shadows_fitted = False
+            return
+        if self._shadows_fitted == fitted:
+            return
+        try:
+            host.set_fitted_shadows(fitted)
+            self._shadows_fitted = fitted
+        except Exception:  # noqa: BLE001 - the health poll reports a host that died
+            _LOG.debug("3D workspace: shadow-map fit could not be updated", exc_info=True)
+
+    def _schedule_shadow_fit(self) -> None:
+        """Unlock the shadow map during camera motion and schedule a sharp fit at rest (#894)."""
+        self._set_shadows_fitted(False)
+        self._shadow_fit_timer.stop()
+        if (self._host is not None and self._pane_is_showing()
+                and not self._camera.moving and not self._camera_timer.isActive()):
+            self._shadow_fit_timer.start(SHADOW_FIT_DELAY_MS)
+
+    def _fit_resting_shadows(self) -> None:
+        if (self._host is not None and self._pane_is_showing()
+                and not self._camera.moving and not self._camera_timer.isActive()):
+            self._set_shadows_fitted(True)
+
     def _start_camera(self) -> None:
-        if self._camera.moving and self._pane_is_showing() and not self._camera_timer.isActive():
-            self._camera_stepped_at = time.perf_counter()
-            self._camera_timer.start()
+        if self._camera.moving and self._pane_is_showing():
+            self._set_shadows_fitted(False)
+            self._shadow_fit_timer.stop()
+            if not self._camera_timer.isActive():
+                self._camera_stepped_at = time.perf_counter()
+                self._camera_timer.start()
 
     def _step_camera(self) -> None:
         now = time.perf_counter()
         moving = self._camera.step(now - self._camera_stepped_at)
         self._camera_stepped_at = now
-        self._apply_camera()
         if not moving or not self._pane_is_showing():
             self._camera_timer.stop()  # at rest: no idle wake-ups
+        self._apply_camera()
 
     def _on_document_shown(self) -> None:
         """The first pass of a document is in the engine: frame it, at once."""
@@ -1550,6 +1593,8 @@ class Workspace(QWidget):
         self._unwire_selection()  # L1.8: walk mode ends, the canvas is let go
         self._unwire_analysis()   # L2: its timers and its sources
         self._camera_timer.stop()
+        self._shadow_fit_timer.stop()
+        self._shadows_fitted = False
         self._health_timer.stop()
         self._forge_timer.stop()
         if self._forge_worker is not None:

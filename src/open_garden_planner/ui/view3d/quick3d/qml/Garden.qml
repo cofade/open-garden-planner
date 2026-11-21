@@ -116,9 +116,9 @@ Item {
     // reach, and the bias (cm) that keeps open flat ground from occluding itself
     property real aoStrengthGain: 1.0
     property real aoDistanceGain: 1.0
-    // (#805: at least look.AO_FLAT_BIAS_CM in every look - Qt's camera-facing normal drew
-    // diagonal bands of self-occlusion across every flat micro-leaf)
-    property real aoBias: 1.0
+    // (#805, #887: at least look.AO_FLAT_BIAS_CM in every look - Qt's camera-facing normal
+    // drew diagonal bands of self-occlusion across flat leaves and close-up fascia/plaster)
+    property real aoBias: 1.4
     property real builtSnow: 0.0            // snow on built TOPS: a roof, a bed's soil (#687)
 
     // ---- key light (Quick3DHost: the sun the pipeline sent, or a night look's moon) ----
@@ -642,10 +642,12 @@ Item {
             property bool retired: false   // set by destroyPart(); never a reason to hide
             property real fade: 1.0        // X-ray (L2.4)
             property bool groundDetail: false   // L4: relief on painted ground — never picked
-            // #803: what the part is made of - its surface's roughness and specular, written
-            // by the host from core/scene3d/materials.SURFACES (defaults: DEFAULT_SURFACE)
+            // #803, #884: what the part is made of - its surface's roughness, specular and
+            // linear albedo scale, written by the host from core/scene3d/materials.SURFACES
             property real surfaceRough: 0.78
             property real surfaceSpecular: 0.35
+            property real surfaceAlbedo: 1.0
+            property real surfaceAlbedoSrgb: 1.0
             // #801: the surface's detail picture (a wall's plaster, courses or boards), or
             // null; how it is laid (1 the mesh's uvs, 2 the face's plane), how many cm one
             // picture spans, the detail normal's strength and the distance it fades by
@@ -671,7 +673,7 @@ Item {
             PrincipledMaterial {
                 id: vcLook
                 vertexColorsEnabled: true
-                baseColor: Qt.rgba(tint.r * seasonTint.x, tint.g * seasonTint.y, tint.b * seasonTint.z, 1)
+                baseColor: Qt.rgba(tint.r * seasonTint.x * surfaceAlbedoSrgb, tint.g * seasonTint.y * surfaceAlbedoSrgb, tint.b * seasonTint.z * surfaceAlbedoSrgb, 1)
                 baseColorMap: patternMap ? patternMap : null
                 roughness: surfaceRough
                 specularAmount: surfaceSpecular
@@ -685,6 +687,7 @@ Item {
                 // #940: a plant's flowers open and fade one by one with their bloom
                 // (screen.vert collapses each by its phase, its shadow too)
                 property real uSeason: seasonOpacity
+                property real uAlbedo: surfaceAlbedo
                 property real uRough: surfaceRough
                 property real uSpecular: surfaceSpecular
                 shadingMode: CustomMaterial.Shaded
@@ -703,6 +706,7 @@ Item {
                 property real uDetailFade: detailFade
                 property real uDetailContrast: detailContrast
                 property vector3d uTintSrgb: Qt.vector3d(tint.r * seasonTint.x, tint.g * seasonTint.y, tint.b * seasonTint.z)
+                property real uAlbedo: surfaceAlbedo
                 property real uRough: surfaceRough
                 property real uSpecular: surfaceSpecular
                 // the weather as the ground takes it (ground.frag): the rain's tint and shift
@@ -721,6 +725,7 @@ Item {
                 id: vcSnow
                 // #687: the principled look's albedo through the engine's polynomial (sRGB in)
                 property vector3d uTintSrgb: Qt.vector3d(tint.r * seasonTint.x, tint.g * seasonTint.y, tint.b * seasonTint.z)
+                property real uAlbedo: surfaceAlbedo
                 property TextureInput uFill: TextureInput {
                     texture: patternMap ? patternMap : null
                 }
@@ -739,6 +744,7 @@ Item {
                 id: vcSway
                 // vcSnow's look (snow on bare branches too), moved by the plant's sway
                 property vector3d uTintSrgb: Qt.vector3d(tint.r * seasonTint.x, tint.g * seasonTint.y, tint.b * seasonTint.z)
+                property real uAlbedo: surfaceAlbedo
                 property TextureInput uFill: TextureInput {
                     texture: patternMap ? patternMap : null
                 }
@@ -774,10 +780,12 @@ Item {
             property bool retired: false   // set by destroyPart(); never a reason to hide
             property real fade: 1.0        // X-ray (L2.4)
             property bool groundDetail: false   // L4: relief on painted ground — never picked
-            // #803 / #801: as vcPart - the surface's numbers and its detail picture (a
+            // #803 / #801 / #884: as vcPart - the surface's numbers and its detail picture (a
             // roof's tiles laid by the mesh's uvs); a roof's timber is a roof part too
             property real surfaceRough: 0.78
             property real surfaceSpecular: 0.35
+            property real surfaceAlbedo: 1.0
+            property real surfaceAlbedoSrgb: 1.0
             property var patternMap: null   // an explicit flat roof's plan fill
             property var detailMap: null
             property real detailMode: 0
@@ -795,7 +803,7 @@ Item {
             PrincipledMaterial {
                 id: roofLook
                 vertexColorsEnabled: true
-                baseColor: tint
+                baseColor: Qt.rgba(tint.r * surfaceAlbedoSrgb, tint.g * surfaceAlbedoSrgb, tint.b * surfaceAlbedoSrgb, 1)
                 baseColorMap: patternMap ? patternMap : null
                 roughness: surfaceRough
                 specularAmount: surfaceSpecular
@@ -805,6 +813,7 @@ Item {
                 property vector3d uTint: tintLinear
                 property real uOpacity: root.roofsHidden ? 0.0 : fade
                 property real uSeason: 1.0      // screen.vert: nothing collapses by phase
+                property real uAlbedo: surfaceAlbedo
                 property real uRough: surfaceRough
                 property real uSpecular: surfaceSpecular
                 shadingMode: CustomMaterial.Shaded
@@ -822,6 +831,7 @@ Item {
                 property real uDetailFade: detailFade
                 property real uDetailContrast: detailContrast
                 property vector3d uTintSrgb: Qt.vector3d(tint.r, tint.g, tint.b)
+                property real uAlbedo: surfaceAlbedo
                 property real uRough: surfaceRough
                 property real uSpecular: surfaceSpecular
                 property vector3d uWetTint: Qt.vector3d(root.groundTint.r, root.groundTint.g, root.groundTint.b)
@@ -837,6 +847,7 @@ Item {
             CustomMaterial {
                 id: roofSnow
                 property vector3d uTintSrgb: Qt.vector3d(tint.r, tint.g, tint.b)
+                property real uAlbedo: surfaceAlbedo
                 property TextureInput uFill: TextureInput { texture: patternMap ? patternMap : null }
                 property real uHasFill: patternMap ? 1.0 : 0.0
                 property real uRough: surfaceRough
@@ -917,6 +928,9 @@ Item {
                 // a crisp sun glint: 0.3 blew it over the pond, 0.05 still clipped ~23 %
                 // of the visible pond at morning (spike, creator round 2)
                 property real uRough: 0.02
+                // #958: roughness reported to Qt's Ultra SSR pass so pools do not act
+                // as sharp mirrors of nearby walls while sun glint and IBL keep uRough
+                property real uSsrRough: 0.75
                 // #803: the glint's peak (linear, before the look's exposure) is soft-capped
                 // here: Qt's own glint clipped a white blob over 3-6 % of a pond seen at the
                 // mirror angle of a morning sun; 0.6 peaks at luma 212-237, unclipped
@@ -936,6 +950,7 @@ Item {
                 property real uBody: 0.5
                 property real uReflect: 0.15
                 property real uRough: 0.02
+                property real uSsrRough: 0.75
                 property real uGlintCap: 0.6 / (root.exposure * root.photoExposure)
                 property real uOpacity: fade
                 property real uSeason: 1.0      // screen.vert: nothing collapses by phase
@@ -1636,6 +1651,7 @@ Item {
                     property vector3d uTint: Qt.vector3d(1, 1, 1)
                     property real uOpacity: 0.0
                     property real uSeason: 1.0
+                    property real uAlbedo: 1.0
                     property real uRough: 0.78
                     property real uSpecular: 0.35
                     shadingMode: CustomMaterial.Shaded
@@ -1651,6 +1667,7 @@ Item {
                 receivesShadows: false
                 materials: CustomMaterial {
                     property vector3d uTintSrgb: Qt.vector3d(1, 1, 1)
+                    property real uAlbedo: 1.0
                     property TextureInput uFill: TextureInput { texture: null }
                     property real uHasFill: 0.0
                     property real uRough: 0.78
@@ -1671,6 +1688,7 @@ Item {
                 receivesShadows: false
                 materials: CustomMaterial {
                     property vector3d uTintSrgb: Qt.vector3d(1, 1, 1)
+                    property real uAlbedo: 1.0
                     property TextureInput uFill: TextureInput { texture: null }
                     property real uHasFill: 0.0
                     property real uRough: 0.78
@@ -1738,6 +1756,7 @@ Item {
                     property real uBody: 0.5
                     property real uReflect: 0.15
                     property real uRough: 0.02
+                    property real uSsrRough: 0.75
                     property real uGlintCap: 0.6
                     property real uOpacity: 0.0
                     property real uSeason: 1.0

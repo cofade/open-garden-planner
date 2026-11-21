@@ -36,6 +36,7 @@ from typing import Final
 import numpy as np
 from numpy.typing import ArrayLike
 
+from ...roof_style import FLAT
 from ..mesh import Mesh
 from . import palette
 from .primitives import F64, ccw_ring, flat_mesh, quad_triangles
@@ -84,6 +85,7 @@ class FacadeSpec:
     upper_row: float = 0.0  # a second row this much higher (0: none)
     garage: bool = False    # a sectional garage door instead of a door
     max_windows: int = 99   # in all
+    modern: bool = False    # #965: large single-pane slim dark frames for flat-roofed houses
 
 
 SPECS: Final[dict[str, FacadeSpec]] = {
@@ -91,6 +93,12 @@ SPECS: Final[dict[str, FacadeSpec]] = {
     "GARAGE_SHED": FacadeSpec(250.0, 210.0, 80.0, 60.0, 130.0, 350.0, 250.0, 40.0, garage=True),
     "TOOL_SHED": FacadeSpec(90.0, 190.0, 60.0, 50.0, 110.0, 400.0, 150.0, 25.0, max_windows=1),
 }
+
+#: #965: contemporary large-pane glazing for flat-roofed houses (no cottage crossbars).
+MODERN_HOUSE_SPEC: Final = FacadeSpec(
+    door_w=105.0, door_h=215.0, window_w=190.0, window_h=170.0, sill=40.0,
+    spacing=320.0, min_wall=240.0, margin=60.0, upper_row=280.0, modern=True,
+)
 
 
 @dataclass(frozen=True, slots=True)
@@ -189,6 +197,17 @@ def _fits(wall: _Wall, wall_top: Callable[[F64], F64], s0: float, s1: float, top
 def _window(boxes: _Boxes, wall: _Wall, centre: float, sill: float, spec: FacadeSpec) -> None:
     s0, s1 = centre - spec.window_w / 2.0, centre + spec.window_w / 2.0
     z0, z1 = sill, sill + spec.window_h
+    if spec.modern:
+        # #965: contemporary large single-pane glazing with slim dark frames, no crossbars
+        frame = min(4.5, 0.05 * spec.window_w)
+        dark = palette.IRON.linear
+        boxes.add(wall, s0 + frame, s1 - frame, z0 + frame, z1 - frame, 0.0, 1.0, palette.GLASS_OCC.linear)
+        boxes.add(wall, s0, s0 + frame, z0, z1, 0.0, 2.5, dark)
+        boxes.add(wall, s1 - frame, s1, z0, z1, 0.0, 2.5, dark)
+        boxes.add(wall, s0 + frame, s1 - frame, z1 - frame, z1, 0.0, 2.5, dark)
+        boxes.add(wall, s0 + frame, s1 - frame, z0, z0 + frame, 0.0, 2.5, dark)
+        boxes.add(wall, s0 - 1.0, s1 + 1.0, z0 - 2.5, z0, 0.0, 3.0, palette.STEEL_DARK.linear)
+        return
     frame, white = min(6.0, 0.1 * spec.window_w), palette.STEEL_LIGHT.linear
     transom = z0 + 0.62 * spec.window_h
     boxes.add(wall, s0 + frame, s1 - frame, z0 + frame, z1 - frame, 0.0, 1.0, palette.GLASS_OCC.linear)
@@ -204,7 +223,7 @@ def _window(boxes: _Boxes, wall: _Wall, centre: float, sill: float, spec: Facade
 def _door(boxes: _Boxes, wall: _Wall, centre: float, width: float, height: float,
           spec: FacadeSpec) -> None:
     s0, s1 = centre - width / 2.0, centre + width / 2.0
-    frame = min(7.0, 0.08 * width)
+    frame = min(5.0 if spec.modern else 7.0, 0.08 * width)
     if spec.garage:
         panels = 4
         step = (height - frame) / panels
@@ -215,6 +234,17 @@ def _door(boxes: _Boxes, wall: _Wall, centre: float, width: float, height: float
         boxes.add(wall, s0, s0 + frame, 0.0, height, 0.0, 2.5, dark)
         boxes.add(wall, s1 - frame, s1, 0.0, height, 0.0, 2.5, dark)
         boxes.add(wall, s0, s1, height - frame, height, 0.0, 2.5, dark)
+        return
+    if spec.modern:
+        dark = palette.IRON.linear
+        knob = min(105.0, 0.5 * height)
+        boxes.add(wall, s0 + frame, s1 - frame, 0.0, height - frame, 0.0, 2.0, palette.WALNUT_DARK.linear)
+        boxes.add(wall, s0, s0 + frame, 0.0, height, 0.0, 3.0, dark)
+        boxes.add(wall, s1 - frame, s1, 0.0, height, 0.0, 3.0, dark)
+        boxes.add(wall, s0, s1, height - frame, height, 0.0, 3.0, dark)
+        boxes.add(wall, s1 - frame - 0.18 * width, s1 - frame - 0.18 * width + 2.5,
+                  knob - 25.0, knob + 25.0, 2.0, 4.5, palette.STEEL.linear)
+        boxes.add(wall, s0 - 6.0, s1 + 6.0, 0.0, 3.0, 0.0, 6.0, palette.CONCRETE.linear)
         return
     white = palette.STEEL_LIGHT.linear
     knob = min(100.0, 0.5 * height)
@@ -228,11 +258,12 @@ def _door(boxes: _Boxes, wall: _Wall, centre: float, width: float, height: float
 
 
 def facade(kind: str, footprint: ArrayLike, wall_top: Callable[[F64], F64],
-           door_wall: int | None) -> Mesh:
+           door_wall: int | None, *, roof: str | None = None) -> Mesh:
     """The windows and the door of a building of ``kind`` on the walls of
     ``footprint`` under ``wall_top`` — the door on wall ``door_wall`` (module
-    docstring), or on the front wall when that is None or no wall of this ring."""
-    spec = SPECS.get(kind)
+    docstring), or on the front wall when that is None or no wall of this ring.
+    A flat-roofed ``HOUSE`` (``roof == FLAT``) gets contemporary large-pane windows (#965)."""
+    spec = MODERN_HOUSE_SPEC if (kind == "HOUSE" and roof == FLAT) else SPECS.get(kind)
     ring = ccw_ring(footprint)
     if spec is None or len(ring) < 3:
         return Mesh.empty()
