@@ -1688,5 +1688,20 @@
     "is_pr": true,
     "state": "MERGED",
     "title": "feat(#828, #829, #945, #875, #976): plan time zone, split frames and documentation truth"
+  },
+  "994": {
+    "is_pr": true,
+    "state": "OPEN",
+    "title": "feat(3d): plant seasonal truth and forge stability (#948, #963, #969, #970, #973, #995, #996)"
+  },
+  "995": {
+    "is_pr": false,
+    "state": "OPEN",
+    "title": "3D: live year animation replaces forged trees with v0 silhouettes (or bare trunk stumps) every 500 ms and starves distant trees"
+  },
+  "996": {
+    "is_pr": false,
+    "state": "OPEN",
+    "title": "3D: year playback triggers 4-5 s QQuickView freezes (releaseResources, AutoPreset shader recompiles) and redundant 2D recomputes on every tick"
   }
 }

@@ -229,6 +229,8 @@ class AnalysisController(QObject):
 
     def _update_heatmap_mask_preference(self) -> None:
         """3D day sweep requires packed shade masks (#579); 2D and agent runs opt out."""
+        if self._shadows is not None and hasattr(self._shadows, "set_drape_wanted"):
+            self._shadows.set_drape_wanted(bool(self._active and self._drape_mode is DrapeMode.SHADOWS))
         if self._heatmap is not None and hasattr(self._heatmap, "include_sample_masks"):
             needs_masks = bool(self._active and self._drape_mode is DrapeMode.SUN_HOURS)
             if self._heatmap.include_sample_masks != needs_masks:

@@ -8739,6 +8739,37 @@ as a second season channel through the host and QML. Pinned by `tests/unit/test_
 (driver `plant_forge_far_driver.py`: 704 crop pixels in bloom, 147 at ripeness; a tulip
 3,458 -> 54 pixels from April to July).
 
+**Live regrowth without v0 silhouette flashes or playback freezes (#995, #996).**
+Before #995, a 500 ms `Scene3DController` regrowth pass called `SceneSync.apply(records)`
+with `prepared=None`, which built a v0 `build_silhouette` mesh for every growing plant
+on the GUI thread, deleted its forged `PhenologyState` in `ForgeWorker.invalidate()`
+(leaving winter trees with stale `leaf_density == 0` as bare conical `_trunk` stumps),
+and re-queued all growing plants one future per 10 ms timer tick, starving distant trees.
+`Scene3DController` now calls `ForgeWorker.prepare_for_sync(records, build_ids)` before
+`SceneSync.apply`: (1) a warm 2 % bucket hit in `ForgeCache` is stretched and handed to
+`SceneSync.apply` immediately and recorded in `_sync_forged` so `invalidate()` keeps its
+`_applied_state` and does not re-queue it; (2) a cold 2 % bucket miss for an already-forged
+plant stretches its last forged parts (`_applied_parts`) to the new height and radius for
+the immediate frame while `submit_snapshot` queues the new bucket in the background; and
+(3) a newly appearing dated plant entering an already-forged scene is forged directly.
+`Workspace` connects `SimClock.date_changed` to `ForgeWorker.scrub_date` so seasonal
+uniforms update on every 200 ms date step, and batches up to 16 plants per `_step_forge`
+turn. While `SunSimToolbar` playback runs (`animation_toggled`), `Workspace.set_playback_active`
+holds `LookController.hold_preset` and defers `_release_engine_caches()`, `LookController`
+also resets its sample window during pipeline passes and `ForgeWorker` uploads
+(`pause_auto_sample`), `CanvasScene.refresh_timeline` invalidates only plants whose canopy
+radius actually changed, `SunShadowController` skips 2D shadow polygon solves in pure
+`VIEW3D` mode unless `DrapeMode.SHADOWS` is active, and `GardenPlannerApp` defers heavy 2D
+date diagnostic sweeps until playback stops (#996; PF-L3D-38). Measured on
+`spring-garden.ogp` over a 6 s year playback in `VIEW3D`: `v0_build_plant` calls `132 -> 0`,
+`SunShadowController._recompute` calls `26 (1,143 ms) -> 0`, `releaseResources` calls during
+playback `2 (10.1 s) -> 0`, preset `high -> high` (no 4.3-5.5 s shader-recompile stalls),
+presented frames `69 -> 242 (~40.3 FPS)`, and maximum `processEvents` turn `6,060.6 ms -> 137.2 ms`.
+Pinned by `tests/unit/test_plant_forge_l31.py::TestForgeCache::test_prepare_for_sync_never_downgrades_forged_tree_on_warm_or_cold_growth`
+and `tests/integration/test_plant_forge_workspace.py`
+(`test_live_regrowth_never_downgrades_forged_tree_to_v0_silhouette`,
+`test_toolbar_playback_holds_preset_defers_cache_release_and_skips_hidden_2d_shadows`).
+
 Tests exercise actual workspace scheduling and render flags, asynchronous stale
 results, camera-only LOD, recovery invalidation, shader-only seasonal updates,
 exact calendar dates, winter wood bounds and sparse tall crowns. They live in
@@ -10257,10 +10288,13 @@ on the stroke outline costs 22–180 ms and is wrong (even-odd holes).
 - A sprite the device shows more than 1024 px of is drawn from the vector at
   every zoom step, at a cost that grows with the window (10–16 ms per
   megapixel shown): a canopy filling a 4K window is the worst case, not measured.
-- A **timeline/Animate** step is no longer uncached (#846, #928): `_on_clock_changed`
+- A **timeline/Animate** step is no longer uncached (#846, #928, #996): `_on_clock_changed`
   reuses the `(paint_revision, plan_date)` caster snapshot
   (`SunShadowController._caster_cache`) on every matching clock tick regardless of
-  interval, and rapid consecutive steps (within `_SCRUB_WINDOW_NS = 500 ms`,
+  interval and throttles caster re-walks across date steps to `_SCRUB_WINDOW_NS = 500 ms`
+  while scrubbing (catching up on `_on_scrub_settled`), and in pure `VIEW3D` mode without
+  the 2D shadow drape (`set_canvas_shown(False)`, `set_drape_wanted(False)`) skips 2D
+  polygon solving altogether until 2D is shown or the drape is requested; rapid consecutive steps (within `_SCRUB_WINDOW_NS = 500 ms`,
   covering slider drags and 200 ms `Animate` ticks) also defer `paint_feather`
   + `_paint_and_keep` pixmap allocation (`SunShadowOverlayItem.set_feather_deferred`)
   until `_scrub_settle` (`260 ms`) fires. Measured on `family-garden.ogp` at fit

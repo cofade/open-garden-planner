@@ -1,6 +1,6 @@
 # Case study: a far crown lost 11 % of its spread, and the first fix took its leaves with it (#970)
 
-**Symptom**: at LOD2 (18-45 m) some trees and climbers came out narrower than their
+**Symptom**: at LOD2 (> 45 m) some trees and climbers came out narrower than their
 canopy: a jasmine, clematis, wisteria and the climbing-plant category at 0.890 of their
 diameter on seed 50, a cucumber and pea at 0.874, a sunflower at 0.881. The truth gate is
 ±10 %, so these were failures, not a look.
@@ -31,7 +31,7 @@ plant's size relative to its canopy.
 turns the fitted foliage's four farthest leaves about the item's axis so each leaf's own
 farthest vertex lies on +x, -x, +y or -y. Every leaf keeps its size and colour; the box
 now spans 1.040 of the diameter (inside +10 %), and the coverage gate is untouched.
-Applied at LOD2 only: at 18 m+ a leaf turned about the trunk is not seen, and LOD0/1 pass
+Applied at LOD2 only: at 45 m+ a leaf turned about the trunk is not seen, and LOD0/1 pass
 on every seed.
 
 **Lesson**: an axis pin is a *post-transform* operation when the transform itself is

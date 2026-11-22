@@ -477,3 +477,50 @@ class TestForgeCacheAndWorker:
         assert len(applied_parts) > 0
         top_z = max(float(p.mesh.positions[:, 2].max()) for p in applied_parts)
         assert top_z == pytest.approx(480.0, rel=0.01)
+
+    def test_prepare_for_sync_never_downgrades_forged_tree_on_warm_or_cold_growth(self) -> None:
+        """#995: once a plant is forged, growth updates prepared for SceneSync keep a forged
+        mesh on screen — from the warm 2 % bucket in ForgeCache when inside the bucket, or by
+        stretching the last forged mesh when crossing into a cold bucket while queueing the
+        background refinement."""
+        cache = ForgeCache(max_entries=16)
+        sink = RecordingSink()
+        worker = ForgeWorker(sink, cache=cache)
+        ref = SpriteRef("species", "cherry_tree")
+
+        r0 = _tree_record(ref, height_cm=300.0, radius_cm=120.0, item_id="cherry-1", seed=17)
+        sink.begin()
+        sink.add("cherry-1", (), r0.transform, r0.material)
+        sink.commit()
+
+        worker.submit_snapshot([r0], force_lod=LOD2)
+        assert worker.drain() == ["cherry-1"]
+        initial_wood = next(p.mesh for p in sink.item("cherry-1").parts if p.name == PART_WOOD)
+        assert initial_wood.vertex_count > 100
+
+        # 1. Growth within the same 2 % bucket: warm cache hit, no background queue churn.
+        r_same_bucket = _tree_record(ref, height_cm=300.8, radius_cm=120.3, item_id="cherry-1", seed=17)
+        prepared_same = worker.prepare_for_sync({"cherry-1": r_same_bucket}, ("cherry-1",))
+        assert "cherry-1" in prepared_same
+        wood_same = next(p.mesh for p in prepared_same["cherry-1"] if p.name == PART_WOOD)
+        assert wood_same.vertex_count == initial_wood.vertex_count
+        top_same = max(float(p.mesh.positions[:, 2].max()) for p in prepared_same["cherry-1"])
+        assert top_same == pytest.approx(300.8, abs=0.5)
+        worker.invalidate(["cherry-1"])
+        worker.submit_snapshot([r_same_bucket], force_lod=LOD2)
+        assert worker.pending_count == 0, "warm bucket hit prepared in sync must not re-queue"
+
+        # 2. Growth into a cold 2 % bucket: stretches the last forged mesh immediately and
+        # queues the new bucket for background synthesis (never drops to v0 silhouette).
+        r_cold_bucket = _tree_record(ref, height_cm=360.0, radius_cm=144.0, item_id="cherry-1", seed=17)
+        prepared_cold = worker.prepare_for_sync({"cherry-1": r_cold_bucket}, ("cherry-1",))
+        assert "cherry-1" in prepared_cold
+        wood_cold = next(p.mesh for p in prepared_cold["cherry-1"] if p.name == PART_WOOD)
+        assert wood_cold.vertex_count == initial_wood.vertex_count
+        top_cold = max(float(p.mesh.positions[:, 2].max()) for p in prepared_cold["cherry-1"])
+        assert top_cold == pytest.approx(360.0, abs=0.5)
+        worker.invalidate(["cherry-1"])
+        worker.submit_snapshot([r_cold_bucket], force_lod=LOD2)
+        assert worker.pending_count == 1, "cold bucket miss still queues background refinement"
+        assert worker.drain() == ["cherry-1"]
+        assert worker.pending_count == 0

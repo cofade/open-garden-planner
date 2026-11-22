@@ -1,6 +1,6 @@
-# A plant's season at distance and through growth - crop patches, bulb dormancy, bucketed forge, a stable tip weight (#948, #963, #969, #970, #973)
+# A plant's season at distance and through growth - crop patches, bulb dormancy, bucketed forge, live year playback, a stable tip weight (#948, #963, #969, #970, #973, #995, #996)
 
-The values and measurements behind FR-3D-FORGE-01/02/05/06/07 and the ADR-064
+The values and measurements behind FR-3D-FORGE-01/02/03/05/06/07, FR-3D-LIVE-01 and the ADR-064
 addendum. Truth first: no height, spread, centring or date claim moved; the far crop
 stays inside the plant's own height and `REACH_MAX`, and every LOD keeps its triangle
 budget.
@@ -116,6 +116,27 @@ and green straps) and 54 on 15 July (the 2.5 cm neck only). The engine gate is
 would tint the real flowers at close range); individual far flowers (sub-pixel at 45 m
 inside the 800-triangle budget).
 
+## Live year playback keeps forged models on screen and never stalls the RHI (#995, #996)
+
+Manual testing of #973 on `spring-garden.ogp` showed that bucketing `ForgeCache` alone was
+not enough for live year playback: every 500 ms `Scene3DController` regrowth pass still
+called `SceneSync.apply(records)` with `prepared=None`, which built a v0 `build_silhouette`
+for every growing plant on the GUI thread and deleted `_applied_state` in
+`ForgeWorker.invalidate()` (leaving winter trees with stale `leaf_density == 0` in QML as
+bare conical `_trunk` stumps!). Meanwhile `Workspace._step_forge` accumulated `_retired`
+until `QQuickWindow.releaseResources()` and `AutoPreset` step-downs triggered 4.3-5.5 s
+synchronous RHI shader recompiles on the next frame, and `SunShadowController._recompute`
+solved 2D shadow polygons on every 200 ms tick even in pure `VIEW3D` mode.
+
+| Metric (6 s year playback on `spring-garden.ogp` in `VIEW3D`) | Before (#995/#996) | After |
+|---|---|---|
+| `v0_build_plant` calls during playback | 132 | 0 |
+| `SunShadowController._recompute` in pure `VIEW3D` | 26 (1,143.3 ms) | 0 |
+| `QQuickWindow.releaseResources()` during playback | 2 (~5,032 ms stall each) | 0 |
+| `AutoPreset` quality during drain & playback | `high -> medium -> low` (4.3 s + 5.5 s stalls) | `high -> high` |
+| Presented frames in 6 s | 69 (~11.5 FPS) | 242 (~40.3 FPS) |
+| Max `processEvents` turn | 6,060.6 ms | 137.2 ms |
+
 ## Traps for the next change
 
 - A far accent is added AFTER the fit: clamp it (`_clamp_accent_geo`) or its patches leave
@@ -125,3 +146,6 @@ inside the 800-triangle budget).
 - A bulb's scapes belong to the flowers part at every LOD; in wood they stand all year.
 - `Mesh.scaled` must inverse-transpose normals: a non-uniform stretch otherwise tilts
   every leaf normal and the flat-face winding gate fails.
+- Never pass `prepared=None` to `SceneSync.apply` for already-forged growing plants, and
+  never allow `QQuickWindow.releaseResources()` or `AutoPreset` step-downs during playback
+  or `ForgeWorker` uploads (PF-L3D-38).

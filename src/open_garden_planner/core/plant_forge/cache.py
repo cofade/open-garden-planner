@@ -16,6 +16,7 @@ Qt-free: standard library + NumPy only.
 from __future__ import annotations
 
 import math
+import threading
 from collections import OrderedDict
 from collections.abc import Callable
 from typing import Final, TypeAlias
@@ -71,6 +72,7 @@ class ForgeCache:
         self.max_bytes = int(max_bytes)
         self.current_bytes = 0
         self._store: OrderedDict[CacheKey, tuple[MeshPart, ...]] = OrderedDict()
+        self._lock = threading.RLock()
         self.hits: int = 0
         self.misses: int = 0
 
@@ -79,37 +81,46 @@ class ForgeCache:
         return self._max_entries
 
     def __len__(self) -> int:
-        return len(self._store)
+        with self._lock:
+            return len(self._store)
+
+    def contains(self, key: CacheKey) -> bool:
+        """True when ``key`` is currently in the cache without mutating hit/miss stats."""
+        with self._lock:
+            return key in self._store
 
     def clear(self) -> None:
-        self._store.clear()
-        self.current_bytes = 0
-        self.hits = 0
-        self.misses = 0
+        with self._lock:
+            self._store.clear()
+            self.current_bytes = 0
+            self.hits = 0
+            self.misses = 0
 
     def get(self, key: CacheKey) -> tuple[MeshPart, ...] | None:
-        parts = self._store.get(key)
-        if parts is not None:
-            self._store.move_to_end(key)
-            self.hits += 1
-            return parts
-        self.misses += 1
-        return None
+        with self._lock:
+            parts = self._store.get(key)
+            if parts is not None:
+                self._store.move_to_end(key)
+                self.hits += 1
+                return parts
+            self.misses += 1
+            return None
 
     def put(self, key: CacheKey, parts: tuple[MeshPart, ...]) -> tuple[MeshPart, ...]:
-        old = self._store.pop(key, None)
-        if old is not None:
-            self.current_bytes -= self._size(old)
-        size = self._size(parts)
-        if size > self.max_bytes:
+        with self._lock:
+            old = self._store.pop(key, None)
+            if old is not None:
+                self.current_bytes -= self._size(old)
+            size = self._size(parts)
+            if size > self.max_bytes:
+                return parts
+            self._store[key] = parts
+            self.current_bytes += size
+            self._store.move_to_end(key)
+            while len(self._store) > self._max_entries or self.current_bytes > self.max_bytes:
+                _, evicted = self._store.popitem(last=False)
+                self.current_bytes -= self._size(evicted)
             return parts
-        self._store[key] = parts
-        self.current_bytes += size
-        self._store.move_to_end(key)
-        while len(self._store) > self._max_entries or self.current_bytes > self.max_bytes:
-            _, evicted = self._store.popitem(last=False)
-            self.current_bytes -= self._size(evicted)
-        return parts
 
     @staticmethod
     def _size(parts: tuple[MeshPart, ...]) -> int:

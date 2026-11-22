@@ -10023,8 +10023,9 @@ reporting and injected 20 ms negative control. The statistical guarantee has
 changed explicitly; no absolute deadline or presented-FPS guarantee is claimed.
 This correction changes tests and documentation, not the released runtime.
 
-**Addendum (plant seasonal truth and forge stability, issues #948, #963, #969, #970, #973).**
-Five follow-ups to #940 settled how a plant's season survives growth, distance and a growing
+**Addendum (plant seasonal truth and forge stability, issues #948, #963, #969, #970, #973, #995, #996).**
+Seven follow-ups to #940 settled how a plant's season survives growth, distance, live year
+playback and a growing
 species catalogue. (1) **The canopy's tip weight is measured over green-leaved sprites only**
 (`GREEN_LEAF_PALETTES`, `FOLIAGE_TIP_WEIGHT["canopy"] = 0.43`). The red-leaved Japanese maple
 had moved the all-sprites median from 0.43 to 0.45 and re-tinted every green crown about one
@@ -10058,11 +10059,26 @@ not turn its shade side mauve. A canopy
 that has a far crop reserves 64 LOD2 triangles for it; a leaf-only canopy keeps the old 16
 and its full foliage. A sunflower's builder-placed head gets the same far patch at its stem
 tips; pods and root crowns have no far cue and pods ripen by phase. A crown tint was rejected: it needs a per-item LOD channel through the host
-and QML, and it would tint the real flowers at close range. **No `.ogp` format change.**
-FR-3D-FORGE-01/02/05/06/07; tests `tests/unit/test_plant_forge_bloom.py`,
+and QML, and it would tint the real flowers at close range. (6) **Live regrowth never downgrades
+an already-forged plant to a v0 silhouette (#995):** `Scene3DController` asks
+`ForgeWorker.prepare_for_sync` for prepared `PartSpec`s before `SceneSync.apply`, returning a
+stretched warm 2 % bucket hit immediately (and keeping its `_applied_state`), stretching the
+last forged mesh on a cold bucket miss while the background worker builds the new bucket, or
+forging a newly appearing dated plant directly when the scene is already forged; `Workspace`
+also evaluates seasonal uniforms on every `SimClock.date_changed` tick and harvests up to 16
+plants per `_step_forge` turn. (7) **Toolbar playback holds quality, defers RHI cache drops
+and skips hidden 2D work (#996):** while `SunSimToolbar` playback runs, `Workspace` holds
+`LookController.hold_preset` and defers `QQuickWindow.releaseResources()` (and resets the
+auto-quality sample window during pipeline passes and `ForgeWorker` uploads), `SunShadowController`
+skips 2D shadow polygon solves in pure `VIEW3D` mode without `DrapeMode.SHADOWS`,
+`CanvasScene.refresh_timeline` invalidates only plants whose canopy radius changed, and
+`GardenPlannerApp` defers heavy 2D date diagnostic sweeps until playback stops (PF-L3D-38).
+**No `.ogp` format change.**
+FR-3D-FORGE-01/02/03/05/06/07, FR-3D-LIVE-01; tests `tests/unit/test_plant_forge_bloom.py`,
 `tests/unit/test_plant_forge_l31.py`, `tests/unit/test_phenology.py`,
 `tests/unit/test_plant_art.py`, `tests/unit/test_scene3d_mesh.py`,
-`tests/unit/test_scene3d_plants.py`, `tests/unit/test_quick3d_qml.py` and the 40 golden
+`tests/unit/test_scene3d_plants.py`, `tests/unit/test_quick3d_qml.py`,
+`tests/integration/test_plant_forge_workspace.py` and the 40 golden
 tree references (their foliage colours were re-measured once, for #969).
 
 ## ADR-065: The built world complete — objects, roofs, facades, surfaces and ground detail (Phase 17 L4, #388)

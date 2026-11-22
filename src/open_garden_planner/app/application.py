@@ -2280,6 +2280,8 @@ class GardenPlannerApp(QMainWindow):
         self._sun_toolbar.datetime_changed.connect(self._on_sun_sim_datetime)
         self._sun_toolbar.date_requested.connect(self._sim_clock.set_date)
         self._sun_toolbar.location_requested.connect(self._on_set_location)
+        self._sun_toolbar.animation_toggled.connect(self._on_sun_animation_toggled)
+        self._date_diagnostics_deferred = False
         location = self._project_manager.location or {}
         self._sun_toolbar.set_location_available(plan_place(location) is not None)
         # The sim instant is deliberately NOT persisted: the clock starts at the
@@ -2346,6 +2348,7 @@ class GardenPlannerApp(QMainWindow):
         # and "Hours of Sun on the Ground" switches the shared Hours of Sun on.
         self._workspace.connect_analysis(self._sun_controller, self._sun_heatmap,
                                          self._live_sun_map)
+        self._workspace.mode_changed.connect(self._on_workspace_mode_changed)
         # the director's cut (L6): a tour plays the clock itself, and saves like everything else
         self._workspace.capture.clock_wanted.connect(self._sun_toolbar.stop_animation)
         self._workspace.default_save_path = self._default_save_path
@@ -4305,6 +4308,28 @@ class GardenPlannerApp(QMainWindow):
         """
         return self._workspace.capture
 
+    def _on_workspace_mode_changed(self, mode: Any) -> None:
+        """Skip 2D shadow polygon solves while in pure 3D mode without the 2D shadow drape (#996)."""
+        from open_garden_planner.ui.view3d.workspace import WorkspaceMode
+
+        self._sun_controller.set_canvas_shown(mode is not WorkspaceMode.VIEW3D)
+
+    def _on_sun_animation_toggled(self, active: bool) -> None:
+        """Hold 3D quality and defer heavy 2D diagnostic sweeps during toolbar playback (#996)."""
+        self.canvas_scene.is_animating_timeline = bool(active)
+        self._workspace.set_playback_active(bool(active))
+        if not active and getattr(self, "_date_diagnostics_deferred", False):
+            self._date_diagnostics_deferred = False
+            self._flush_sim_date_surfaces()
+
+    def _flush_sim_date_surfaces(self) -> None:
+        self._update_companion_highlights()
+        self._update_spacing_overlaps()
+        self.canvas_view.refresh_soil_mismatches()
+        self.calendar_view.schedule_refresh()
+        self.tasks_view.schedule_refresh()
+        self._refresh_succession_indicators()
+
     def _on_sim_date_changed(self, _day: "datetime.date") -> None:
         """A new plan DATE — never a time-of-day change (the clock's L1.0 gate).
 
@@ -4313,15 +4338,11 @@ class GardenPlannerApp(QMainWindow):
         subscription. A time-only change follows the instant channel instead.
         """
         self.canvas_scene.refresh_timeline()
-        self._update_companion_highlights()
-        self._update_spacing_overlaps()
-        self.canvas_view.refresh_soil_mismatches()
-        # #859: every date-driven surface follows the plan's shared day, not the
-        # wall clock — the calendar's "Today" line and dashboard, the Tasks tab,
-        # and the succession badges on the beds.
-        self.calendar_view.schedule_refresh()
-        self.tasks_view.schedule_refresh()
-        self._refresh_succession_indicators()
+        if self._sun_toolbar.animation_active:
+            self._date_diagnostics_deferred = True
+        else:
+            self._date_diagnostics_deferred = False
+            self._flush_sim_date_surfaces()
         # The Plant Details age label is a plan-day readout too (#859); the
         # panel is passive, so the fan-out has to tell it.
         self.plant_database_panel.refresh_plan_date()

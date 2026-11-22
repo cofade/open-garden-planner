@@ -239,6 +239,144 @@ def test_workspace_render_flags_use_the_production_worker(qtbot, monkeypatch, tm
     assert worker._closed
 
 
+def test_live_regrowth_never_downgrades_forged_tree_to_v0_silhouette(qtbot, monkeypatch, tmp_path):
+    """#995: stepping the plan date across the year on a growing forged tree updates seasonal
+    uniforms on every date step and keeps a forged branch skeleton on every regrowth pass,
+    never calling the v0 silhouette builder (which has only a branchless conical trunk)."""
+    from open_garden_planner.core.commands import CreateItemCommand
+    from open_garden_planner.core.object_types import ObjectType
+    from open_garden_planner.core.scene3d.builders import plants as v0_plants
+    from open_garden_planner.ui.canvas.items.circle_item import CircleItem
+    from open_garden_planner.ui.view3d import sync_controller
+    from open_garden_planner.ui.view3d import workspace as workspace_module
+    from open_garden_planner.ui.view3d.workspace import WorkspaceMode
+    from tests.integration.test_view3d_workspace import build_app3d, first_pass
+    from tests.integration.test_view3d_workspace_widget import wait_for_pipeline
+
+    monkeypatch.setattr(sync_controller, "DATE_REGROW_MIN_MS", 0)
+    window, engines = build_app3d(qtbot, monkeypatch, tmp_path)
+    workspace = window._workspace
+    monkeypatch.setattr(workspace_module, "quick3d_engine", workspace.engine_factory)
+
+    window._sim_clock.set_date(datetime.date(2026, 1, 15))
+    item = CircleItem(
+        500.0,
+        500.0,
+        90.0,
+        object_type=ObjectType.TREE,
+        metadata={
+            "plant_species": {
+                "common_name": "Cherry Tree",
+                "scientific_name": "Prunus avium",
+                "max_height_cm": 450.0,
+                "max_spread_cm": 360.0,
+            },
+            "plant_instance": {
+                "planting_date": "2025-10-25",
+                "current_height_cm": 220.0,
+                "current_spread_cm": 180.0,
+            },
+        },
+    )
+    item.plant_species = "Cherry Tree"
+    window.canvas_view.command_manager.execute(CreateItemCommand(window.canvas_scene, item, "tree"))
+    workspace.set_mode(WorkspaceMode.VIEW3D)
+    first_pass(workspace, qtbot)
+    worker = workspace._forge_worker
+    assert worker is not None
+    qtbot.waitUntil(lambda: worker.pending_count == 0, timeout=10000)
+
+    item_id = str(item.item_id)
+    forged_wood = next(p.mesh for p in engines.sink.item(item_id).parts if p.name == "wood")
+    assert forged_wood.vertex_count > 100
+
+    def forbid_v0_downgrade(_record):
+        raise AssertionError("An already-forged growing tree was downgraded to a v0 silhouette")
+
+    monkeypatch.setattr(v0_plants, "build_plant", forbid_v0_downgrade)
+
+    # Step 1: small growth within the same 2 % bucket in winter (leaf_density == 0).
+    window._sim_clock.set_date(datetime.date(2026, 1, 20))
+    wait_for_pipeline(workspace, qtbot)
+    assert worker.pending_count == 0
+    winter_state = worker.phenology_state(item_id)
+    assert winter_state is not None and winter_state.leaf_density == 0.0
+    wood_jan = next(p.mesh for p in engines.sink.item(item_id).parts if p.name == "wood")
+    assert wood_jan.vertex_count == forged_wood.vertex_count
+
+    # Step 2: larger growth into a new 2 % bucket in spring bloom.
+    window._sim_clock.set_date(datetime.date(2026, 4, 18))
+    wait_for_pipeline(workspace, qtbot)
+    wood_immediate = next(p.mesh for p in engines.sink.item(item_id).parts if p.name == "wood")
+    assert wood_immediate.vertex_count >= 100
+    qtbot.waitUntil(lambda: worker.pending_count == 0, timeout=10000)
+    spring_state = worker.phenology_state(item_id)
+    assert spring_state is not None and spring_state.bloom > 0.0
+    window.close()
+
+
+def test_toolbar_playback_holds_preset_defers_cache_release_and_skips_hidden_2d_shadows(
+    qtbot, monkeypatch, tmp_path
+):
+    """#996: while toolbar Animate is active, AutoPreset is held, QQuickWindow cache releases
+    are deferred, and in pure 3D mode (without the 2D shadow drape) 2D shadow polygon solves
+    and heavy date diagnostics are deferred until playback stops or 2D is shown again."""
+    from open_garden_planner.core.commands import CreateItemCommand
+    from open_garden_planner.core.object_types import ObjectType
+    from open_garden_planner.ui.canvas.items.circle_item import CircleItem
+    from open_garden_planner.ui.view3d import workspace as workspace_module
+    from open_garden_planner.ui.view3d.workspace import WorkspaceMode
+    from tests.integration.test_view3d_workspace import build_app3d, first_pass
+    from tests.integration.test_view3d_workspace_widget import wait_for_pipeline
+
+    window, engines = build_app3d(qtbot, monkeypatch, tmp_path)
+    window._project_manager.set_location({"latitude": 52.52, "longitude": 13.405})
+    window._sim_clock.set_time_of_day(datetime.time(12, 0))
+    window._sun_controller.set_enabled(True)
+    item = CircleItem(400.0, 400.0, 100.0, object_type=ObjectType.TREE, metadata={"height_cm": 300.0})
+    window.canvas_view.command_manager.execute(CreateItemCommand(window.canvas_scene, item, "tree"))
+    window._sun_controller.recompute_now()
+    workspace = window._workspace
+    workspace.set_mode(WorkspaceMode.VIEW3D)
+    first_pass(workspace, qtbot)
+    wait_for_pipeline(workspace, qtbot)
+
+    look = workspace.look
+    assert look is not None
+    monkeypatch.setattr(workspace_module, "RELEASE_AFTER_RETIRED", 1)
+    monkeypatch.setattr(workspace_module, "RELEASE_NOW_RETIRED", 2)
+
+    shadow_solves_before = window._sun_controller.recompute_count
+    window._sun_toolbar.set_animation_active(True)
+    assert look._preset_held is True
+    assert window.canvas_scene.is_animating_timeline is True
+
+    # Even with retired above both thresholds, active playback must not trigger a 5 s cache release.
+    workspace._retired = 10
+    workspace._applied_at = 0.0
+    workspace._poll_health()
+    assert engines.host.releases == 0
+
+    # Advancing the date in pure VIEW3D mode skips the 2D shadow polygon solve and defers date surfaces.
+    window._sim_clock.set_date(datetime.date(2026, 5, 10))
+    assert window._sun_controller.recompute_count == shadow_solves_before
+    assert window._date_diagnostics_deferred is True
+
+    # Stopping playback releases the preset hold, flushes deferred date diagnostics, and lets
+    # the next health poll release retired engine caches.
+    window._sun_toolbar.set_animation_active(False)
+    assert look._preset_held is False
+    assert window.canvas_scene.is_animating_timeline is False
+    assert window._date_diagnostics_deferred is False
+    workspace._poll_health()
+    assert engines.host.releases == 1
+
+    # Switching back to SPLIT immediately flushes the deferred 2D shadow solve.
+    workspace.set_mode(WorkspaceMode.SPLIT)
+    assert window._sun_controller.recompute_count > shadow_solves_before
+    window.close()
+
+
 def _run_forge_renderer(tmp_path, *, slow_refresh=False):
     from tests.integration.quick3d_render_support import (
         REPO,

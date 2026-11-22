@@ -868,7 +868,12 @@ Plant Forge: procedural species models, LODs and phenology (L3, #387, ADR-064).
   within 1.04 of the diameter), so a tree that grows a little every day
   keeps one shape through a bucket instead of being re-forged and re-randomised
   every day (#973); a bucket builds the same mesh for every size inside it.
-- **FR-3D-FORGE-03:** Initial silhouettes precede background synthesis. Camera
+- **FR-3D-FORGE-03:** Initial silhouettes precede background synthesis. Once a
+  plant is forged, a live regrowth pass never downgrades it back to a v0
+  silhouette (`ForgeWorker.prepare_for_sync` stretches a warm 2% bucket hit in
+  place, stretches the last forged mesh on a cold bucket miss while the background
+  worker builds the new bucket, and forges a dated plant that first crosses its
+  planting date into an already-forged scene directly; #995). Camera
   movement updates LOD without an edit; stale document/geometry completions are
   refused. Recovery restores progressive upgrades.
 - **FR-3D-FORGE-04:** Climbers prefer their trellis parent, then a structure
@@ -1073,7 +1078,12 @@ tier `tests/integration/test_scene3d_ground_render.py` and the frozen
   at **Slow / Normal / Fast** (day: 5 / 10 / 30 minutes per step; year: 1 / 2 / 7 days per
   step; a step every 0.2 s; "Normal" day is Phase 14's Animate). Every step is a write of
   the one simulation clock: the 2D shadows, the hours of sun, the 3D light and the 3D
-  growth follow it (3D regrowth at most twice a second). Not stored: every session starts
+  growth follow it (3D regrowth at most twice a second, with seasonal plant shader uniforms
+  evaluated on every date step; #995). While playback runs, the 3D workspace holds its
+  automatic quality preset and defers `QQuickWindow.releaseResources()` cache drops until
+  playback pauses, and pure 3D mode (without the 2D shadow drape) skips 2D shadow polygon
+  solves and defers heavy 2D date diagnostic sweeps until playback stops or 2D is shown
+  again (#996). Not stored: every session starts
   with the day at Normal.
 - **FR-3D-LIVE-02** (L5.1): The 3D view names its **mood** in the Weather button's
   tooltip — Night, Twilight, Rain, Snow, Overcast, Morning dew (a morning, from the end of

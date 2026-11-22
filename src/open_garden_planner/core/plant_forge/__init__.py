@@ -290,6 +290,72 @@ def _estimated_fallback_cm(record: Record) -> float | None:
         return None
 
 
+def record_forge_spec(
+    record: Record,
+    *,
+    lod: int = LOD0,
+    cache: ForgeCache | None = DEFAULT_FORGE_CACHE,
+    include_accents: bool = True,
+) -> tuple[SpriteRef, float, float, int, Mapping[str, Any] | None, CacheKey] | None:
+    """Return ``(sprite, height_cm, radius_cm, seed, support_map, cache_key)`` for a plant
+    record that ``forge_record`` forges as a 3D plant, or ``None`` when ``record`` falls
+    back to ``default_builder`` or ``placeholder_parts`` (#995)."""
+    validate_lod(lod)
+    if record.kind not in PLANT_KINDS:
+        return None
+    sprite = plant_sprite(record)
+    raw_radius = record.params.get(PARAM_RADIUS_CM)
+    if (
+        sprite is None
+        or isinstance(raw_radius, bool)
+        or not isinstance(raw_radius, (int, float))
+        or not math.isfinite(raw_radius)
+        or float(raw_radius) <= 0.0
+    ):
+        return None
+    radius = float(raw_radius)
+    height = record.height_cm
+    if height is None:
+        height = _estimated_fallback_cm(record)
+        if height is None or height > MAX_LENGTH_CM or radius > MAX_LENGTH_CM:
+            return None
+    h = float(height)
+    if not math.isfinite(h) or h <= 0.0:
+        return None
+    raw_seed = record.params.get(PARAM_SEED)
+    seed = item_seed(str(raw_seed) if raw_seed is not None else "", "plant")
+    support = record.params.get("climber_support")
+    if isinstance(support, Mapping):
+        support_map: Mapping[str, Any] | None = support
+    elif isinstance(support, tuple) and len(support) >= 2:
+        s1 = support[1]
+        s2 = support[2] if len(support) >= 3 else 0.0
+        support_map = {
+            "kind": str(support[0]),
+            "azimuth_deg": float(s1) if isinstance(s1, (int, float, str)) else 0.0,
+            "distance_cm": float(s2) if isinstance(s2, (int, float, str)) else 0.0,
+        }
+        if len(support) >= 10:
+            support_map = dict(
+                support_map,
+                segment_cm=support[3:7],
+                width_cm=support[7],
+                height_cm=support[8],
+                base_cm=support[9],
+            )
+    else:
+        support_map = None
+    h_bucket = h if cache is None else quantised_size_cm(h)
+    r_bucket = radius if cache is None else quantised_size_cm(radius)
+    distance_step = 0.02 * r_bucket
+    build_support = _bucketed_support(support_map, distance_step)
+    extra_sig = _support_signature(build_support, distance_step_cm=distance_step)
+    if not include_accents:
+        extra_sig = f"{extra_sig}|no_accents"
+    key = make_cache_key(sprite.group, sprite.name, seed, lod, h_bucket, r_bucket, extra_sig)
+    return sprite, h, radius, seed, support_map, key
+
+
 def forge_record(
     record: Record,
     *,
@@ -316,28 +382,13 @@ def forge_record(
         height = _estimated_fallback_cm(record)
         if height is None or height > MAX_LENGTH_CM or radius > MAX_LENGTH_CM:
             return placeholder_parts(radius)
-
-    raw_seed = record.params.get(PARAM_SEED)
-    seed = item_seed(str(raw_seed) if raw_seed is not None else "", "plant")
-    support = record.params.get("climber_support")
-    if isinstance(support, Mapping):
-        support_map: Mapping[str, Any] | None = support
-    elif isinstance(support, tuple) and len(support) >= 2:
-        s1 = support[1]
-        s2 = support[2] if len(support) >= 3 else 0.0
-        support_map = {
-            "kind": str(support[0]),
-            "azimuth_deg": float(s1) if isinstance(s1, (int, float, str)) else 0.0,
-            "distance_cm": float(s2) if isinstance(s2, (int, float, str)) else 0.0,
-        }
-        if len(support) >= 10:
-            support_map = dict(support_map, segment_cm=support[3:7],
-                               width_cm=support[7], height_cm=support[8], base_cm=support[9])
-    else:
-        support_map = None
+    spec = record_forge_spec(record, lod=lod, cache=cache)
+    if spec is None:
+        return default_builder(record)
+    sprite, h, radius, seed, support_map, _key = spec
     return forge_plant(
         sprite,
-        float(height),
+        h,
         radius,
         seed=seed,
         lod=lod,
@@ -435,6 +486,7 @@ __all__ = [
     "micro_leaves",
     "palette_leaf_colors",
     "quantised_size_cm",
+    "record_forge_spec",
     "register_forged_plants",
     "resolve_climber_support",
     "select_lod",

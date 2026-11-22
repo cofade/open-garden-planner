@@ -422,7 +422,7 @@ def test_a_sparse_far_crown_keeps_its_spread_on_every_seed(sprite: SpriteRef) ->
     REACH_MAX took it to 0.865-0.893 of its diameter on some seeds (a jasmine seed 50,
     a cucumber seed 50, a sunflower seed 23). Four leaves on the plan's axes hold it."""
     for height, radius in ((150.0, 40.0), (420.0, 180.0), (800.0, 300.0)):
-        for seed in range(32):
+        for seed in range(64):
             parts = forge_plant(sprite, height, radius, seed=seed, lod=LOD2, cache=None)
             pos = np.concatenate([p.mesh.positions for p in parts]).astype(np.float64)
             span = max(np.ptp(pos[:, 0]), np.ptp(pos[:, 1]))

@@ -281,3 +281,4 @@
 | Case study: Plant filters appeared as windows during startup (#666 review) | [Read](281-startup-trait-scroll-area.md) |
 | Case study: Edit handles refreshed after their canvas scene was destroyed (#666 review) | [Read](282-edit-handle-refresh-closed-scene.md) |
 | Case study: a far crown lost its spread, and pinning it before the fit shrank its leaves (#970) | [Read](283-case-study-far-crown-spread-pinned-after-the-fit-970.md) |
+| Case study: live year animation flashed v0 silhouettes and bare trunk stumps and froze for 4-5 s (#995, #996) | [Read](284-case-study-year-animation-v0-silhouette-flash-and-5s-freezes-995-996.md) |

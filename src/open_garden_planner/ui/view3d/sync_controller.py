@@ -439,6 +439,13 @@ class Scene3DController(QObject):
             self._context_at = -math.inf  # a preset step applies its new geometry at once
             self.mark_dirty()
 
+    def set_plant_preparer(
+        self,
+        preparer: Callable[[Mapping[str, Record], tuple[str, ...]], dict[str, tuple[MeshPart, ...]]] | None,
+    ) -> None:
+        """Register a callback that supplies forged plant meshes before ``SceneSync.apply`` (#995)."""
+        self._plant_preparer = preparer
+
     def __init__(self, scene: QGraphicsScene, clock: SimClock, location: LocationProvider,
                  sink: EngineSink, registry: BuilderRegistry | None = None, *,
                  parent: QObject | None = None, tick_ms: int = TICK_MS,
@@ -462,6 +469,9 @@ class Scene3DController(QObject):
         self._baker = ground_baker
         self._sync = SceneSync(sink, registry, ground_baker=ground_baker)
         self._ground_stage: GroundStage = plain_ground
+        self._plant_preparer: (
+            Callable[[Mapping[str, Record], tuple[str, ...]], dict[str, tuple[MeshPart, ...]]] | None
+        ) = None
         self._active = False
         self._records_dirty = True   # nothing was ever applied
         self._sun_dirty = True
@@ -1387,6 +1397,19 @@ class Scene3DController(QObject):
                 _LOG.warning("3D sync: the 3D scene was left in an unknown state by a failed "
                              "engine call; rebuilding it")
         else:
+            if self._plant_preparer is not None:
+                if stale:
+                    fresh_diff = diff(self._sync.records, records)
+                    plant_build_ids = tuple(
+                        item_id
+                        for item_id in (*fresh_diff.added, *fresh_diff.geometry)
+                        if item_id in records
+                    )
+                else:
+                    plant_build_ids = ticket.build_ids
+                forged = self._plant_preparer(records, plant_build_ids)
+                if forged:
+                    prepared = {**prepared, **forged} if prepared is not None else forged
             try:
                 changes = self._sync.apply(
                     records, sun=sun,

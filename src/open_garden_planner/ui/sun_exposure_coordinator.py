@@ -95,6 +95,9 @@ class SunExposureCoordinator(QObject):
 
     def refresh(self) -> None:
         with contextlib.suppress(RuntimeError):
+            if getattr(self.scene, "is_animating_timeline", False):
+                self.timer.start(100)
+                return
             self._refresh()
 
     def _north(self) -> float:
