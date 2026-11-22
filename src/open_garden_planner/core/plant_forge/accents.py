@@ -1178,7 +1178,7 @@ def build_accents(
     return _clamp_accent_geo(combined, height_cm, radius_cm)
 
 
-def _far_accent_colour(traits: Traits3D, family: str) -> tuple[float, float, float] | None:
+def _far_accent_colour(traits: Traits3D, family: str) -> np.ndarray | None:
     """The one colour a far accent patch shows for ``family``, or None when the plant has
     no such accent (#948). Flower colours come from the recipe's own ``flowers``,
     ``clusters``, ``puffs`` or ``umbels`` (the 2D tables), fruit from its ``fruit`` kind."""
@@ -1212,7 +1212,7 @@ def _far_accent_colour(traits: Traits3D, family: str) -> tuple[float, float, flo
     return None
 
 
-def flower_accent_colour(traits: Traits3D) -> tuple[float, float, float]:
+def flower_accent_colour(traits: Traits3D) -> np.ndarray:
     """The light petal colour of a plant's own flower (#948): a bulb's far marker and a
     stemmed flower's, where the flower is placed by its builder rather than a crown."""
     spec = str(traits.blossom_spec or "white")
@@ -1223,7 +1223,7 @@ def far_patches_geo(
     centers: np.ndarray,
     outward: np.ndarray,
     size: np.ndarray,
-    colour: tuple[float, float, float],
+    colour: np.ndarray,
     phase: np.ndarray,
     *,
     double_sided: bool = True,
@@ -1320,9 +1320,9 @@ def build_far_accents(
     max_tris: int,
     anchor_points: np.ndarray | None = None,
 ) -> RawGeo:
-    """A far crown's crop as a few large patches (#948): flowers or fruit beyond the
-    distance where LOD2 draws their real geometry. Returns empty when the family does
-    not apply or the budget cannot hold two triangles."""
+    """A far crown's crop as a cloud of colour patches (#948): flowers or fruit beyond
+    the distance where LOD2 draws their real geometry. Returns empty when the family does
+    not apply or the budget cannot hold one triangle."""
     colour = _far_accent_colour(traits, family)
     if colour is None or max_tris < 1:
         return empty_geo()
@@ -1394,7 +1394,7 @@ def attach_accents(
         if np.any(low_mask):
             basal_center = wpos[low_mask].mean(axis=0).astype(np.float64)
 
-    added: list[MeshPart] = []
+    added_near: list[MeshPart] = []
     for family in (TUBER_PART, FRUIT_PART, FLOWER_PART):
         if family in present:
             continue
@@ -1407,11 +1407,11 @@ def attach_accents(
         if accent_geo.triangle_count == 0:
             continue
         remaining -= accent_geo.triangle_count
-        added.append(MeshPart(
+        added_near.append(MeshPart(
             mesh=accent_geo.to_mesh(), material_kind="vc", casts_shadow=True,
             tinted=False, name=family,
         ))
-    return (*parts, *added)
+    return (*parts, *added_near)
 
 
 
