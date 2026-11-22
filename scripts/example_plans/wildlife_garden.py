@@ -62,7 +62,7 @@ def build():
               text("Boardwalk", "Holzsteg", "Pasarela"), style=PathFenceStyle.WOODEN_BOARDWALK, wide=100)
     plan.rect(780, 700, 170, 170, T.TERRACE_PATIO, text("Pond deck", "Teichdeck", "Tarima del estanque"),
               fill=FillPattern.DECKING)
-    plan.rect(800, 800, 130, 48, T.BENCH, text("Bench", "Sitzbank", "Banco"), turn=180)
+    plan.rect(800, 800, 130, 48, T.BENCH, text("Bench", "Sitzbank", "Banco"))
     for x, y in ((845, 610), (835, 665), (900, 935), (1000, 1005), (1300, 1005), (1420, 650)):
         plan.plant("iris germanica", x, y, planted=PERENNIAL, apart=36)
 

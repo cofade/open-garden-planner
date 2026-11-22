@@ -407,17 +407,25 @@ class SunSimToolbar(QToolBar):
         button.setCheckable(checkable)
         group.addWidget(button)
 
+    def showEvent(self, event: Any) -> None:
+        super().showEvent(event)
+        self._reflow()
+
     def resizeEvent(self, event: Any) -> None:
         super().resizeEvent(event)
         self._reflow()
 
     def flow_width(self) -> int:
         """The width the reflow fits the control groups into."""
-        return max(1, self.width() - 12)
+        width = self.width()
+        parent = self.parentWidget()
+        if not self.isVisible() and parent is not None:
+            width = max(width, parent.width())
+        return max(1, width - 12)
 
     def _reflow(self) -> None:
-        slider_width = 140 if self.width() < 1100 else 180
         available = self.flow_width()
+        slider_width = 140 if (available + 12) < 1100 else 180
         while True:
             for slider in (self._month_slider, self._slider):
                 slider.setFixedWidth(slider_width)

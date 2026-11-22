@@ -86,12 +86,18 @@ class ToolbarRows(QObject):
             0 if toolbar.isHidden() else toolbar.sizeHint().width()
             for toolbar in self._toolbars
         ]
+        changed = False
         for toolbar, starts_row in zip(
             self._toolbars, rows_for_width(widths, window.width()), strict=True
         ):
             if starts_row == window.toolBarBreak(toolbar):
                 continue
+            changed = True
             if starts_row:
                 window.insertToolBarBreak(toolbar)
             else:
                 window.removeToolBarBreak(toolbar)
+        if changed and window.isVisible():
+            layout = window.layout()
+            if layout is not None:
+                layout.activate()

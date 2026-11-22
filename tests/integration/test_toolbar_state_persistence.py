@@ -388,3 +388,27 @@ class TestEmptyNamesAliasInQt:
             "changed, not that Open Garden Planner broke."
         )
         assert not dst_bars["B"].isHidden()
+
+
+def test_sun_toolbar_does_not_reserve_wrapped_height_on_startup(qtbot: Any) -> None:
+    """Restoring a wide window must reflow SunSimToolbar before show() so the
+    first frame never shows a ~120 px blank gap under the Plan & Sun bar."""
+    first = GardenPlannerApp()
+    qtbot.addWidget(first)
+    first.resize(1920, 1080)
+    first._save_ui_state()
+    first.close()
+
+    second = GardenPlannerApp()
+    qtbot.addWidget(second)
+    assert second._geometry_restored
+    assert second._sun_toolbar.maximumHeight() < 80, (
+        f"SunSimToolbar locked to {second._sun_toolbar.maximumHeight()} px before show(); "
+        "reflow ran at the 100 px pre-layout width instead of the restored window width"
+    )
+    second.show()
+    # Immediately after show(), centralWidget must sit directly below the two toolbar rows
+    # (no ~124 px empty band waiting for a deferred LayoutRequest).
+    bottom_of_sun = second._sun_toolbar.geometry().bottom() + 1
+    assert second.centralWidget().geometry().top() <= bottom_of_sun + 4
+    second.close()
