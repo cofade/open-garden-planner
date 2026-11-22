@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import numpy as np
 
+from ..plant_art import recipe_for
 from ..plant_art.traits3d import BranchingTraits, Traits3D
 from ..scene3d.color import srgb_to_linear
 from ..scene3d.mesh import MeshPart
@@ -48,9 +49,14 @@ def build_tree_foliage_from_skeleton(
     if len(tips) == 0:
         return empty_geo()
 
-    # #948: a far crown now spends more of its 800 triangles on its crop's patches than
-    # the 16 it reserved before: 32 leaves fewer, and a blossoming orchard reads at 45 m.
-    reserve = 512 if lod == LOD0 else (128 if lod == LOD1 else 64)
+    # #948: a cropping canopy spends 64 triangles on its far crop's patches; a canopy
+    # with no crop keeps the old 16 and its full foliage. Keep this key set in step with
+    # `accents._far_accent_colour` (the unit test sweeps every canopy recipe).
+    recipe = recipe_for(traits.sprite)
+    has_far_crop = any(
+        key in recipe for key in ("fruit", "fruit2", "flowers", "clusters", "puffs", "umbels")
+    )
+    reserve = 512 if lod == LOD0 else (128 if lod == LOD1 else (64 if has_far_crop else 16))
     max_leaves = max(1, (triangle_budget_for_lod(lod) - wood_tris - reserve) // 2)
     leaf_scale = 1.0 if lod == LOD0 else (1.6 if lod == LOD1 else 3.3)
     scale_factor = max(height_cm / 320.0, 0.35) * leaf_scale
@@ -152,8 +158,8 @@ def build_forged_tree(
     parts = fit_forged_parts(wood, foliage, accent_geo, height_cm, radius_cm,
                              structural_height=traits.deciduous)
     # #970: a sparse far crown's box sits on diagonals; four leaves on the axes hold
-    # its spread. Only LOD2 is sparse enough to lose it (LOD0/1 pass on every seed),
-    # and at 18 m+ a leaf turned about the trunk is not seen.
+    # its spread. Only LOD2 (beyond 45 m) is sparse enough to lose it, and at that
+    # distance a leaf turned about the trunk is not seen.
     return pin_foliage_spread(parts) if lod == LOD2 else parts
 
 

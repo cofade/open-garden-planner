@@ -194,6 +194,10 @@ BLOOM_RAMP_DAYS: Final[float] = 10.0
 #: ``Traits3D.leaf_months`` (#963): a step on the 1st of a month would pop a whole
 #: clump of straps in or out.
 BULB_LEAF_RAMP_DAYS: Final[float] = 14.0
+#: Ripeness starts here on a harvest window's first day (the rest of the 0..1 scale is
+#: the window's progress). The 3D fruit fade uses the same floor in ``Garden.qml``; a
+#: cross-language test pins the two together.
+RIPENESS_PROGRESS_FROM: Final[float] = 0.55
 #: A month's mean length, for the whole months of a window before and after the current.
 _MEAN_MONTH_DAYS: Final[float] = 365.25 / 12.0
 
@@ -302,7 +306,7 @@ def _harvest_ripeness(day: datetime.date, weeks: tuple[float, float], frost_mmdd
         for _, start, end in windows:
             if start <= day <= end:
                 share = (day - start).days / max((end - start).days, 1)
-                return 0.55 + 0.45 * share
+                return RIPENESS_PROGRESS_FROM + (1.0 - RIPENESS_PROGRESS_FROM) * share
     return 0.0
 
 
@@ -373,7 +377,8 @@ def _evaluate_cached(
                 and s_month not in traits.fruit_months):
             ripeness = 0.0
     else:
-        ripeness = _month_window_weight(plan_date, lat_q, traits.fruit_months, ramp_from=0.55)
+        ripeness = _month_window_weight(plan_date, lat_q, traits.fruit_months,
+                                        ramp_from=RIPENESS_PROGRESS_FROM)
     # Outside the plan's frost-free season a TENDER plant does not flower: it is planted
     # out after the last frost. A hardy one flowers by its own months — crocus and
     # daffodil before the last frost, asters after the first (#940).
@@ -539,6 +544,7 @@ __all__ = [
     "BLOOM_RAMP_DAYS",
     "BULB_LEAF_RAMP_DAYS",
     "DEFAULT_LATITUDE_DEG",
+    "RIPENESS_PROGRESS_FROM",
     "plan_latitude",
     "SNOW_LINEAR_RGB",
     "PhenologyState",

@@ -22,6 +22,7 @@ from open_garden_planner.core.plant_art import (
     FLOWERS,
     SPECIES_TRAITS,
     SpriteRef,
+    recipe_for,
     traits_for,
 )
 from open_garden_planner.core.plant_art.traits3d import FLOWER_HABITS
@@ -464,14 +465,16 @@ def test_a_far_crown_keeps_its_crop_as_patches(species: str, families: set[str])
 ])
 def test_a_far_crop_takes_the_recipe_s_own_colour(species: str, colour: str) -> None:
     """#948: the far patch is the plant's own flower colour - a clusters plant's recipe
-    entry, not the generic `blossom_spec` fallback that reads lighter than its trusses."""
+    entry, not the generic `blossom_spec` fallback - lifted ×1.35 (capped 0.9) for a low
+    sun, because the cue is not a lit blossom and its shade side read mauve."""
     from open_garden_planner.core.plant_forge.accents import _hex_to_linear_rgb, build_far_accents
 
     geo = build_far_accents(
         traits_for(SpriteRef("species", species)), 150.0, 60.0,
         np.random.default_rng(3), family="flowers", max_tris=4,
     )
-    np.testing.assert_allclose(geo.col[0, :3], _hex_to_linear_rgb(colour), atol=1e-5)
+    expected = np.minimum(_hex_to_linear_rgb(colour) * 1.35, 0.90)
+    np.testing.assert_allclose(geo.col[0, :3], expected, atol=1e-5)
 
 
 @pytest.mark.parametrize("species", ["oak", "birch", "boxwood"])
@@ -493,6 +496,93 @@ def test_a_far_bulb_keeps_its_flowers_on_its_scapes(species: str) -> None:
     assert float(flowers.positions[:, 2].max()) == pytest.approx(30.0, abs=0.02)
     # out of bloom the part hides: the leaves are the visible top
     assert float(_part(parts, PART_FOLIAGE).positions[:, 2].max()) <= 0.61 * 30.0
+
+
+@pytest.mark.parametrize(("species", "foliage_triangles"), [
+    ("birch", 536),          # no crop: the full LOD2 leaf budget
+    ("willow", 536),
+    ("japanese_maple", 536),
+    ("oak", 356),            # its crown's own surface cap, unchanged
+    ("cherry_tree", 488),    # a crop: 64 triangles reserved (32 per family)
+    ("apple_tree", 488),
+    ("magnolia", 488),
+])
+def test_the_lod2_far_reserve_is_paid_only_by_a_cropping_canopy(
+        species: str, foliage_triangles: int) -> None:
+    """#948 review: a 64-triangle far-crop reserve paid by every canopy took 24 leaves off
+    birch, willow and Japanese maple, which have no crop. A leaf-only far canopy keeps the
+    old 16 (536 triangles); only a cropping one spends 64 (488)."""
+    parts = forge_plant(SpriteRef("species", species), 420.0, 180.0, seed=7,
+                        lod=LOD2, cache=None)
+    assert _part(parts, PART_FOLIAGE).triangle_count == foliage_triangles
+    cropping = any(part.name in (FLOWER_PART, "fruits") for part in parts)
+    assert cropping == (foliage_triangles == 488)
+
+
+CANOPY_SPRITES: tuple[SpriteRef, ...] = tuple(
+    [SpriteRef("species", name) for name, traits in SPECIES_TRAITS.items()
+     if traits.archetype == "canopy"]
+    + [SpriteRef("categories", name) for name, traits in CATEGORY_TRAITS.items()
+       if traits.archetype == "canopy"]
+)
+
+
+@pytest.mark.parametrize("sprite", CANOPY_SPRITES, ids=lambda s: f"{s.group}/{s.name}")
+def test_every_canopy_with_a_crop_key_gets_a_far_crop(sprite: SpriteRef) -> None:
+    """The LOD2 reserve's `has_far_crop` predicate is a hand-kept copy of the far-colour
+    rule; this sweep is the drift guard the comment promises."""
+    parts = forge_plant(sprite, 420.0, 180.0, seed=7, lod=LOD2, cache=None)
+    has_far = bool({"flowers", "fruits"} & {part.name for part in parts})
+    recipe = recipe_for(sprite)
+    expected = any(
+        key in recipe for key in ("fruit", "fruit2", "flowers", "clusters", "puffs", "umbels")
+    )
+    assert has_far == expected, (sprite.name, [part.name for part in parts])
+
+
+def test_a_far_sunflower_keeps_its_head() -> None:
+    """#948 review: a sunflower's head is a `head`-habit flower, and the LOD2 builder
+    returned before placing it, so it vanished beyond 45 m."""
+    height, radius = 200.0, 60.0
+    parts = forge_plant(SpriteRef("species", "sunflower"), height, radius, seed=7,
+                        lod=LOD2, cache=None)
+    assert FLOWER_PART in {part.name for part in parts}
+    heads = _part(parts, FLOWER_PART)
+    assert heads.triangle_count >= 2
+    assert float(heads.positions[:, 2].max()) <= height + 1e-3
+    assert float(np.hypot(heads.positions[:, 0], heads.positions[:, 1]).max()) <= radius * 1.04 + 1e-3
+
+
+def test_pods_carry_a_phase_for_their_ripening() -> None:
+    """#948 review: pods are fruit-like, but their part had no phase, so every pod
+    appeared on the harvest window's first day."""
+    parts = forge_plant(SpriteRef("species", "pea"), 60.0, 30.0, seed=7, lod=LOD0, cache=None)
+    pods = _part(parts, "fruits")
+    assert np.unique(pods.uvs[:, 1]).size > 1
+
+
+def test_the_lod2_pin_moves_no_climber_wood() -> None:
+    """#970/#948 review: a concrete-supported climber's training frame is its wood; the
+    post-fit pin turns only the decorative foliage's four leaves, so the support plane and
+    the wood's height must be untouched."""
+    from open_garden_planner.core.plant_forge.assemble import pin_foliage_spread
+
+    support = {
+        "kind": "fence", "azimuth_deg": 0.0, "distance_cm": 10.0,
+        "segment_cm": (-100.0, 90.0, 100.0, 90.0),
+        "width_cm": 10.0, "height_cm": 180.0, "base_cm": 0.0,
+    }
+    parts = forge_plant(SpriteRef("species", "jasmine"), 210.0, 45.0, seed=7,
+                        lod=LOD2, cache=None, support=support)
+    pinned = pin_foliage_spread(parts)
+    assert len(parts) == len(pinned)
+    for before, after in zip(parts, pinned, strict=True):
+        assert before.name == after.name
+        if before.name == PART_WOOD:
+            np.testing.assert_array_equal(before.mesh.positions, after.mesh.positions)
+        assert before.mesh.triangle_count == after.mesh.triangle_count
+        np.testing.assert_allclose(before.mesh.positions[:, 2].max(),
+                                   after.mesh.positions[:, 2].max(), atol=1e-4)
 
 
 @pytest.mark.parametrize("sprite", FLOWERING, ids=lambda s: f"{s.group}/{s.name}")

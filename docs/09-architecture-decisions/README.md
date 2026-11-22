@@ -10035,7 +10035,7 @@ fit scales the box to the canopy and then pulls diagonal tips onto `REACH_MAX`; 
 jasmine, cucumber, pea or climbing-plant crown came out at 0.865-0.893 of its diameter on
 some seeds. Pinning before the fit was rejected: the larger axis-aligned box made the fit
 scale every leaf down, and a tall birch fell below its foliage-coverage gate. Only LOD2 is
-pinned; at 18 m+ a leaf turned about the trunk is not seen, and LOD0/1 pass every seed.
+pinned; beyond 45 m a leaf turned about the trunk is not seen, and LOD0/1 pass every seed.
 (3) **A spring bulb has a leaf window of its own** (`Traits3D.leaf_months`: crocus and
 daffodil February-June, tulip March-June). The deciduous rule would have made it bare in
 February and leafed all summer; its 14-day ramps replace a step on the 1st, and a dormant
@@ -10051,8 +10051,11 @@ one fruit at a time instead of all of it appearing on the harvest window's first
 Beyond 45 m (**#948**) a flowering or fruiting LOD2 plant keeps a sparse crop of large,
 single-sided colour patches (`accents.build_far_accents`, at most 64 triangles per family,
 inside `REACH_MAX`) whose colour comes from the recipe's own `flowers`/`clusters`/`puffs`/
-`umbels`/`fruit` table. The LOD2 foliage reserves 64 triangles for them instead of 16 (32
-leaves fewer). A crown tint was rejected: it needs a per-item LOD channel through the host
+`umbels`/`fruit` table, with a flower's normal leaned about 30° to the sky and its colour
+lifted ×1.35 (capped at 0.9) so a low sun does not turn its shade side mauve. A canopy
+that has a far crop reserves 64 LOD2 triangles for it; a leaf-only canopy keeps the old 16
+and its full foliage. A sunflower's builder-placed head gets the same far patch at its stem
+tips; pods and root crowns have no far cue and pods ripen by phase. A crown tint was rejected: it needs a per-item LOD channel through the host
 and QML, and it would tint the real flowers at close range. **No `.ogp` format change.**
 FR-3D-FORGE-01/02/05/06/07; tests `tests/unit/test_plant_forge_bloom.py`,
 `tests/unit/test_plant_forge_l31.py`, `tests/unit/test_phenology.py`,

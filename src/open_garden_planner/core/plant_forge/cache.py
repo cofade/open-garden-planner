@@ -7,8 +7,8 @@ repeated plant builds, camera LOD switches, or undo/redo snapshots hit in O(1).
 The dimensions are quantised to 2 % geometric buckets (#973): a tree that grows a
 little every day keeps one forged shape for a whole bucket, and ``forge_plant``
 scales it to the exact height and spread, so a year time-lapse no longer reforges
-the tree with new random positions every day. The bucket ladder starts at 1 cm
-(``1.02 ** k``), which covers every legal plant size.
+the tree with new random positions every day. A bucket is ``1.02 ** k`` (1 cm at
+``k = 0``); a size below 1 cm uses a negative index.
 
 Qt-free: standard library + NumPy only.
 """

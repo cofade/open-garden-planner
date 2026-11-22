@@ -330,6 +330,26 @@ class TestForgeCacheAndWorker:
         assert cache.misses <= 70, f"{cache.misses} reforges for a season of daily growth"
         assert cache.hits >= 295
 
+    def test_a_growing_fence_climber_keeps_one_cache_entry(self) -> None:
+        """#973 review: the support signature carried `distance_cm`, derived from the exact
+        canopy radius, so a growing fence-trained climber was reforged every day. The key
+        now buckets that distance to 1 cm; the support's geometry still keys it."""
+        support = {
+            "kind": "fence", "azimuth_deg": 0.0, "distance_cm": 10.0,
+            "segment_cm": (-100.0, 90.0, 100.0, 90.0),
+            "width_cm": 10.0, "height_cm": 180.0, "base_cm": 0.0,
+        }
+        cache = ForgeCache(max_entries=8)
+        ref = SpriteRef("species", "jasmine")
+        forge_plant(ref, 180.0, 180.0, seed=7, lod=LOD2, cache=cache, support=support)
+        assert cache.misses == 1
+        forge_plant(ref, 180.0, 180.5, seed=7, lod=LOD2, cache=cache,
+                    support={**support, "distance_cm": 9.5})
+        assert cache.misses == 1, "a 0.5 cm radius change rebuilt the climber"
+        forge_plant(ref, 180.0, 180.5, seed=7, lod=LOD2, cache=cache,
+                    support={**support, "segment_cm": (-100.0, 90.0, 100.0, 95.0)})
+        assert cache.misses == 2, "a different support geometry must rebuild"
+
     def test_a_flown_path_decides_a_plants_detail_until_the_camera_takes_over_again(self) -> None:
         """A recording's frames show the detail the view would from there (L6, 3D review)."""
         sink = RecordingSink()

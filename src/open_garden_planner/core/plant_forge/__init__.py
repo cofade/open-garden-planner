@@ -114,12 +114,37 @@ from .woody import (
 )
 
 
-def _support_signature(support: Mapping[str, Any] | tuple[Any, ...] | None) -> str:
+def _support_signature(
+    support: Mapping[str, Any] | tuple[Any, ...] | None,
+    *,
+    distance_step_cm: float | None = None,
+) -> str:
+    """The cache part of a climber's support: its GEOMETRY, not the plant's own size.
+
+    ``distance_cm`` is derived from the plant's exact canopy radius
+    (``climbers.resolve_climber_support``), so a growing fence-trained climber changed the
+    key every day (#973 review). It is bucketed to the same relative step as the plant's
+    own size (2 % of its radius), so the shape and its support training stay together
+    across a season; the support contact may be off by that half step, well inside the
+    50 cm support search.
+    """
     if not support:
         return ""
+
+    def _distance(value: object) -> object:
+        if isinstance(value, (int, float)) and not isinstance(value, bool):
+            step = distance_step_cm if distance_step_cm and distance_step_cm > 0 else 1.0
+            return round(float(value) / step) * step
+        return value
+
     if isinstance(support, Mapping):
-        return json.dumps(dict(support), sort_keys=True, separators=(",", ":"))
-    return json.dumps(list(support), separators=(",", ":"))
+        data = dict(support)
+        data["distance_cm"] = _distance(data.get("distance_cm"))
+        return json.dumps(data, sort_keys=True, separators=(",", ":"))
+    values = list(support)
+    if len(values) >= 3:
+        values[2] = _distance(values[2])
+    return json.dumps(values, separators=(",", ":"))
 
 
 def forge_plant(
@@ -143,14 +168,16 @@ def forge_plant(
     if not (math.isfinite(h) and math.isfinite(r)) or h <= 0.0 or r <= 0.0:
         raise ValueError(f"height_cm and radius_cm must be finite positive floats, got ({h!r}, {r!r})")
 
-    extra_sig = _support_signature(support)
-    if not include_accents:
-        extra_sig = f"{extra_sig}|no_accents"
     # #973: with a cache, forge one shape per 2 % size bucket and stretch it to the exact
     # size, so a tree that grows a little each day keeps its form instead of being
     # re-randomised. Without a cache there is nothing to reuse: build the exact size.
     h_bucket = h if cache is None else quantised_size_cm(h)
     r_bucket = r if cache is None else quantised_size_cm(r)
+    # The climber's support distance is bucketed by the SAME relative step as the size, so
+    # a growing climber's support geometry does not change the key inside one size bucket.
+    extra_sig = _support_signature(support, distance_step_cm=0.02 * r_bucket)
+    if not include_accents:
+        extra_sig = f"{extra_sig}|no_accents"
     key = make_cache_key(sprite.group, sprite.name, seed, lod, h_bucket, r_bucket, extra_sig)
 
     def _build() -> tuple[MeshPart, ...]:

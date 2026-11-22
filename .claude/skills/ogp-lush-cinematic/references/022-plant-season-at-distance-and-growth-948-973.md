@@ -41,8 +41,8 @@ diagonals, and the pull took the diameter in:
 about the item's axis so their farthest vertices land on +x, -x, +y and -y; 1.040 is
 `REACH_MAX` and inside the gate's +10 %. **It runs after the fit.** Pinning before the fit
 made the axis-aligned box larger, so the fit scaled every leaf down and a tall LOD2 birch
-fell below its foliage-coverage gate (0.693 against 0.8). Only LOD2 is pinned: at 18 m+
-a leaf turned about the trunk is not seen, and LOD0/1 pass every seed. The sunflower pins
+fell below its foliage-coverage gate (0.693 against 0.8). Only LOD2 is pinned: beyond
+45 m a leaf turned about the trunk is not seen, and LOD0/1 pass every seed. The sunflower pins
 its four outermost stem blades (pre-fit, `_pin_spread_to_axes`) because its foliage mixes
 curved blades and micro-leaves.
 
@@ -67,7 +67,10 @@ Measured on a cherry growing 300 -> 570 cm with its radius in proportion, LOD2, 
 daily sizes: **65 builds and 300 hits**, every day's mesh top within 0.5 cm of the day's
 height and its spread inside the 10 % gate. Before #973 the key kept 0.01 cm and every
 day was a miss. The 65 is about twice the ~33 dimension steps because height and radius
-bucket independently.
+bucket independently. A fence-trained climber's support distance is derived from the
+plant's exact radius; it is bucketed by the same 2 % of the quantised radius, so the
+climber's key changes with its size bucket, not every day (the support contact may be off
+by that half step, well inside the 50 cm support search).
 
 Fruit's phase: `accents.build_fruit_accents` gives each spheroid a phase in UV.y; the
 fruit part's season opacity is `(ripeness - 0.55) / 0.45` (ripeness starts at 0.55), and
@@ -84,17 +87,27 @@ patches of the crop colour on the crown's outer shell:
 | flowers / blossoms / clusters / puffs / umbels | 0.16 x the canopy radius | 64 triangles | the recipe's `flowers` spec outer colour, or the cluster/puff/umbel light colour |
 | fruit | 0.10 x the canopy radius | 64 triangles | the fruit kind's middle colour |
 
-The LOD2 foliage reserves 64 triangles for them (32 leaves fewer than the old 16-triangle
-reserve); a cherry with both families gets 32 + 32. The patches are `with_phase`d, so they
-open or ripen one by one with the existing bloom/ripeness state; `_clamp_accent_geo` keeps
-them inside the plant's height and `REACH_MAX`. A bulb's far flower is a double-sided patch
-at its scape tip (2.5 x the flower radius, capped at 0.22 x the canopy radius).
+The LOD2 foliage reserves 64 triangles for them **only when a far family exists**; a
+leaf-only canopy keeps the old 16 and its full foliage (birch, willow and Japanese maple
+would otherwise lose 24 leaves; #948 review). A cherry with both families gets 32 + 32.
+The patches are `with_phase`d, so they open or ripen one by one with the existing
+bloom/ripeness state; `_clamp_accent_geo` keeps them inside the plant's height and
+`REACH_MAX`. A far flower leans its normal about 30 degrees to the sky and its colour is
+lifted ×1.35 (capped at 0.9 linear), because a flat vertical patch on the shade side read
+mauve at golden hour (34 % of its pixels; the tilt and lift bring it to 29 %). A bulb's far
+flower is a small double-sided patch at its scape tip, capped by its canopy radius - a bed
+cue at distance, not a single-plant read. A sunflower's head - placed by its builder, not a
+crown - gets the same far patch on each stem tip. Pods and root crowns have no far cue
+(their green or underground colour does not read at 45 m); pods now ripen by phase like
+fruit.
 
 **Measured:** a 4.2 m cherry at 45 m in a 1600 x 900 frame (40 degree vertical FOV):
-in bloom 829 crop-coloured pixels of the 1044 the far parts change; at ripeness 0.775,
-147 of 289. Without the far parts the crown is plain green. A tulip at 2 m shows 3,458
-plant pixels on 15 April (red flowers and green straps) and 54 on 15 July (the 2.5 cm
-neck only). The engine gate is
+in bloom 704 crop-coloured pixels of the 942 the far parts change; at ripeness 0.775,
+147 of 289. Without the far parts the crown is plain green. Under the golden-hour look
+(15.2 degree sun) 29 % of the far-flower pixels still sit in the mauve band (a flat
+vertical patch read 34 %); the crown reads as blossom, and the remaining shade is an
+owner taste question. A tulip at 2 m shows 3,458 plant pixels on 15 April (red flowers
+and green straps) and 54 on 15 July (the 2.5 cm neck only). The engine gate is
 `tests/integration/test_plant_forge_workspace.py::test_a_far_crop_and_a_dormant_bulb_render`
 (driver `plant_forge_far_driver.py`).
 

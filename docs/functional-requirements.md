@@ -856,8 +856,9 @@ Plant Forge: procedural species models, LODs and phenology (L3, #387, ADR-064).
   external models. Known heights remain within 3% and crown spread within 10%;
   winter structural wood retains ground contact and recorded height. A bulb
   (tulip, daffodil, crocus, iris, lily) reaches its height with its flower: out of
-  bloom it stands as its strap leaves, at about 40-60% of that height (#940).
-  Three spring bulbs - crocus and daffodil from February, tulip from March - keep
+  bloom, inside its leaf window, it stands as its strap leaves, at about 40-60% of
+  that height (#940); outside the window only its neck remains. Three spring bulbs -
+  crocus and daffodil from February, tulip from March - keep
   leaves only to early summer and are gone after it, their leaf window fading in
   and out over 14 days (#963); the other `grass`/`allium` recipes stay evergreen.
 - **FR-3D-FORGE-02:** Total triangle caps are 25,000/6,000/800 at distance LODs
@@ -877,7 +878,7 @@ Plant Forge: procedural species models, LODs and phenology (L3, #387, ADR-064).
   shows only inside its fruit months (#940). Flowers are counted by the crown's
   surface and show from every side. Each fruit carries its own phase, so a crop
   ripens one fruit at a time across the window (ripeness 0.55 to 1) rather than
-  every apple appearing on its first day (#973).
+  every apple appearing on its first day (#973); pods carry a phase as well.
 - **FR-3D-FORGE-06:** Existing Models respond to seasonal date changes through
   shader/material values. Deciduous leaves and their shadows disappear in
   winter, evergreens retain foliage; illustrative seasons shift in the southern
@@ -885,14 +886,18 @@ Plant Forge: procedural species models, LODs and phenology (L3, #387, ADR-064).
   the first ten days of its window and fades over the last ten, flower by flower;
   a hardy plant flowers before the last frost, a tender one waits for it; magnolia,
   forsythia, peach, plum and cherry carry few leaves until their bloom ends (#940).
-  Beyond 45 m a flowering or fruiting plant keeps a sparse far representation of
+  Beyond 45 m a flowering or fruit-bearing plant keeps a sparse far representation of
   its crop - large patches of the blossom or fruit colour inside its LOD2 budget
   and its own height and reach - so a blossoming orchard or a ripening berry row
-  does not lose its crop at distance (#948).
+  does not lose its crop at distance (#948). The 64-triangle LOD2 reserve is paid
+  only by a canopy that has a far crop; a leaf-only canopy keeps its full foliage.
+  Pods and root crowns have no far cue (their green or underground colour does not
+  read at 45 m) and keep their LOD2 behaviour.
 - **FR-3D-FORGE-07:** The canopy's foliage tip weight is measured over the
-  green-leaved canopy sprites only; a red- or purple-leaved canopy sprite is
-  measured on its own and never re-tints the green crowns (#969). The 40 golden
-  tree meshes pin the resulting colours.
+  green-leaved canopy sprites only. A red- or purple-leaved canopy sprite is not
+  part of that measurement and cannot move it (it uses the same canopy weight, so a
+  new colour form cannot re-tint the green crowns) (#969). The 40 golden tree meshes
+  pin the resulting colours.
 
 Acceptance: `tests/integration/test_plant_forge.py`,
 `tests/integration/test_plant_forge_workspace.py`,

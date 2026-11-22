@@ -965,14 +965,14 @@ def build_pod_accents(
         r0_list.append(pod_r)
         r1_list.append(pod_r * 0.28)
 
-    return frustum_tubes(
+    return with_phase(frustum_tubes(
         np.asarray(p0_list, dtype=np.float64),
         np.asarray(p1_list, dtype=np.float64),
         np.asarray(r0_list, dtype=np.float64),
         np.asarray(r1_list, dtype=np.float64),
         sides=5 if lod == LOD0 else 4,
         color_rgba=(float(c_mid[0]), float(c_mid[1]), float(c_mid[2]), 1.0),
-    )
+    ), rng.random(n_pods))
 
 
 def build_tuber_accents(
@@ -1310,6 +1310,13 @@ def _far_marker_anchors(
     return anchors
 
 
+#: A far flower patch is a colour cue, not a lit blossom: at a low sun its shade side
+#: turns mauve under the cool fill (34 % of its pixels at golden hour, #948 review). Lift
+#: the petal colour so the cue stays blossom, capped below clipping.
+FAR_FLOWER_GAIN: Final = 1.35
+FAR_FLOWER_MAX: Final = 0.90
+
+
 def build_far_accents(
     traits: Traits3D,
     height_cm: float,
@@ -1328,9 +1335,15 @@ def build_far_accents(
         return empty_geo()
     count = min(max_tris, 64)
     anchors = _far_marker_anchors(anchor_points, count, height_cm, radius_cm, rng)
+    # A far flower leans its normal to the sky by about 30 degrees, so a low sun still
+    # lights it (a flat vertical patch on the shade side read mauve at golden hour,
+    # #948 review); a fruit keeps a nearly horizontal normal, like a round berry.
+    tilt = 0.6 * radius_cm if family == FLOWER_PART else 0.08 * height_cm
     outward = normalize_vec(np.column_stack([
-        anchors[:, 0], anchors[:, 1], np.full(count, height_cm * 0.08),
+        anchors[:, 0], anchors[:, 1], np.full(count, tilt),
     ]))
+    if family == FLOWER_PART:
+        colour = np.minimum(colour * FAR_FLOWER_GAIN, FAR_FLOWER_MAX)
     size = ((0.16 if family == FLOWER_PART else 0.10) * radius_cm
             * rng.uniform(0.80, 1.15, size=count))
     return far_patches_geo(anchors, outward, size, colour, rng.random(count),

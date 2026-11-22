@@ -257,9 +257,12 @@ def test_fruit_ripens_one_by_one_not_all_at_once() -> None:
     """#973: fruit appeared on the harvest window's first day (ripeness 0.55) as one
     part. Its opacity is now the ripeness progress 0.55 -> 1, and screen.vert collapses
     each fruit by the phase ``accents.with_phase`` writes, so the crop appears over the
-    window, never in one frame."""
+    window, never in one frame. The floor is pinned to the Python constant."""
+    from open_garden_planner.core.phenology import RIPENESS_PROGRESS_FROM
+
     code = " ".join(_scene().split())
-    assert "(state[5] - 0.55) / 0.45" in code
+    assert RIPENESS_PROGRESS_FROM == 0.55
+    assert f"(state[5] - {RIPENESS_PROGRESS_FROM}) / 0.45" in code
     assert "state[5] > 0.0 ? 1.0 : 0.0" not in code
     door = (QML_DIR / "screen.vert").read_text(encoding="utf-8")
     assert "UV0.y >= uSeason" in door

@@ -450,7 +450,7 @@ def _forged_flowering_bulb(
     if lod == LOD2:
         # #971/#948: the scapes are the flowers' stalks, so they go with the flowers
         # out of bloom - a bulb in July was a bunch of bare stalks. Each carries a far
-        # patch of its petal colour, so a distant bulb still reads as in flower.
+        # patch of its petal colour, a bed cue at distance rather than a single-plant read.
         phase = rng.random(n_flowers) * FLOWER_PHASE_MAX
         outward = normalize_vec(np.column_stack([
             np.cos(az), np.sin(az), np.full(n_flowers, 0.8),
@@ -1083,7 +1083,7 @@ def build_forged_flower(
     accent_geo = accents if accents is not None else empty_geo()
     parts = fit_forged_parts(wood, foliage, accent_geo, height_cm, radius_cm)
     flower = traits.flower
-    if flower is None or flower.habit != "head" or lod == LOD2:
+    if flower is None or flower.habit != "head":
         return parts
     # One head on each stem's tip (#940), placed in the fitted frame so the stems and
     # leaves stand exactly as they would without it. A stem is `stem_segs` frustums in a
@@ -1095,6 +1095,14 @@ def build_forged_flower(
     facing = normalize_vec((1.0 - flower.face_up) * out + flower.face_up * np.array([0.0, 0.0, 1.0])
                            + rng.normal(0.0, 0.08, size=(n_stems, 3)))
     radii = flower.radius_cm * rng.uniform(0.85, 1.1, size=n_stems)
+    if lod == LOD2:
+        # #948: a sunflower's head vanished beyond 45 m. A far head is a tilted patch of
+        # the petal colour on each stem tip - a cue, not the real disc.
+        far = far_patches_geo(
+            tips, facing, np.maximum(2.0 * radii, 0.14 * height_cm),
+            flower_accent_colour(traits), rng.random(n_stems), double_sided=True,
+        )
+        return (*parts, flower_part(far, height_cm, radius_cm))
     heads = flowers_geo(flower, str(traits.blossom_spec or "white"), tips, facing, radii, rng, lod=lod)
     return (*parts, flower_part(heads, height_cm, radius_cm))
 

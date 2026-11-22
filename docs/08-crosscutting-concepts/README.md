@@ -8630,13 +8630,17 @@ in one stdlib-only material table; the SVG byte-conformance gate preserves them.
 `lod.py` caps total triangles at 25,000 / 6,000 / 800. Camera distances up to
 18 m use LOD0, up to 45 m use LOD1, beyond that LOD2. `ForgeCache` holds seeded
 meshes at most 256 entries and 64 MiB of array data, keyed by 2 % geometric size
-buckets (`cache.QUANT_STEP`); a hit is stretched to the exact height and spread
+buckets (`cache.QUANT_STEP`); a hit is scaled to the requested height and spread
 (`Mesh.scaled`, inverse-transpose normals), so a tree that grows a little every
 day keeps one shape for a bucket and a 90 % growing season costs about 65 builds,
-not 365 (#973). Without a cache the exact size is built. No disk cache:
+not 365 (#973). A climber's support distance is bucketed by the same 2 % of its
+quantised radius, so a fence-trained climber is not rebuilt every day. Without a cache
+the exact size is built. No disk cache:
 a local Python 3.11 run over all 123 recipes at height 420 cm, radius 180 cm,
 seed 303 (median of three builds per recipe) measured cold median 3.69 ms,
-p90 13.07 ms, maximum 23.01 ms and warm median 0.0012 ms. These describe synthesis,
+p90 13.07 ms, maximum 23.01 ms and warm median 0.0012 ms - a hit before #973. A hit
+now also scales the bucket mesh (0.107 ms for a 1,324-vertex cherry), still far below
+a cold build. These describe synthesis,
 not first-frame or presentation latency. The acceptance budget is median 150 ms.
 
 Foliage area follows crown surface area (target 1.6); lower counts receive larger
@@ -8713,16 +8717,25 @@ no individual flowers or fruit; instead `accents.build_far_accents` lays up to 6
 single-sided colour patches per family (flower 0.16, fruit 0.10 of the canopy radius)
 on the crown's outer shell, coloured from the recipe's own `flowers`/`clusters`/
 `puffs`/`umbels`/`fruit` table and clamped inside the plant's height and `REACH_MAX`.
-The LOD2 foliage reserves 64 triangles for them (32 leaves fewer); a bulb's far
-flower is a double-sided patch at its scape tip. A crown tint was rejected as a second
-season channel through the host and QML. Pinned by `tests/unit/test_plant_forge_bloom.py`
-(`test_a_far_crown_keeps_its_crop_as_patches`, `test_a_far_crop_takes_the_recipe_s_own_colour`),
+The LOD2 foliage reserves 64 triangles for them only when a far family exists; a
+leaf-only canopy keeps the old 16 and its full foliage (birch, willow and Japanese maple
+lose 24 leaves otherwise). A far flower leans its normal about 30 degrees to the sky and
+its colour is lifted ×1.35 (capped at 0.9 linear), because a flat vertical patch on the
+shade side read mauve at golden hour (34 % of its pixels; the tilt and lift bring it to
+29 %). A bulb's far flower is a small double-sided patch at its scape tip, capped by its
+canopy radius - a bed cue at distance, not a single-plant read. A sunflower's head, placed
+by its builder, gets the same far patch on each stem tip; pods and root crowns have no far
+cue (their green or underground colour does not read at 45 m), and pods ripen by phase like
+fruit. A crown tint was rejected
+as a second season channel through the host and QML. Pinned by `tests/unit/test_plant_forge_bloom.py`
+(`test_a_far_crown_keeps_its_crop_as_patches`, `test_a_far_crop_takes_the_recipe_s_own_colour`,
+`test_the_lod2_far_reserve_is_paid_only_by_a_cropping_canopy`),
 `tests/unit/test_phenology.py`
 (`test_a_spring_bulb_is_gone_after_early_summer`, `test_every_fruit_carries_its_own_phase`),
 `tests/unit/test_plant_forge_l31.py` (the year-growth bucket test),
 `tests/unit/test_quick3d_qml.py` (the fruit progress in `Garden.qml`) and on the engine
 `tests/integration/test_plant_forge_workspace.py::test_a_far_crop_and_a_dormant_bulb_render`
-(driver `plant_forge_far_driver.py`: 829 crop pixels in bloom, 147 at ripeness; a tulip
+(driver `plant_forge_far_driver.py`: 704 crop pixels in bloom, 147 at ripeness; a tulip
 3,458 -> 54 pixels from April to July).
 
 Tests exercise actual workspace scheduling and render flags, asynchronous stale
