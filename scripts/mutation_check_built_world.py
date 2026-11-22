@@ -205,7 +205,7 @@ MUTANTS: tuple[Mutant, ...] = (
            (BUILDER_TESTS,), "plain_panel or which_solid"),
     Mutant("a fence style goes missing from the mirror",
            BUILDERS + "fences.py",
-           '    {"WOODEN_FENCE", "METAL_FENCE", "CHAIN_LINK", "HEDGE_FENCE", "STONE_WALL"}\n',
+           '    {"WOODEN_FENCE", "BOARD_FENCE", "METAL_FENCE", "CHAIN_LINK", "HEDGE_FENCE", "STONE_WALL"}\n',
            '    {"WOODEN_FENCE", "METAL_FENCE", "CHAIN_LINK", "STONE_WALL"}\n',
            (PALETTE,), "fence_styles or solid_of_its_own"),
     Mutant("the plain panel is as thick as a post",

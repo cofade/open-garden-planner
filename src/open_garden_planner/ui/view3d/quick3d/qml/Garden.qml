@@ -63,6 +63,9 @@ Item {
     property bool glow: true
     property bool glowHighQuality: false
     property bool reflections: false
+    // #992: the scene's SSR is on only when the preset asks and the view can draw it;
+    // windows use 0.38 roughness then, and keep the 0.70 flicker floor otherwise.
+    property bool ssrVisible: !topDown && reflections && !depthOfFieldActive
     property bool fog: true
     // wind
     property real windStrength: 2.5
@@ -98,6 +101,9 @@ Item {
     // the ground's (meadow, bare plan, baked tiles) ONE multiplier, roughness and
     // specular: the plan meets the meadow without a step in every weather
     property color groundTint: "#ffffff"
+    // #943: the meadow's and the plan's open grass through the year, a multiplier on
+    // their own grass; the plan's painted lawn takes the same factor in its snapshot.
+    property vector3d meadowSeason: Qt.vector3d(1, 1, 1)
     property real groundRoughness: 1.0
     property real groundSpecular: 0.15
     // #801: how far the rain moves the ground's roughness and specular from the dry
@@ -410,6 +416,14 @@ Item {
         part.seasonSnow = state && foliage ? state[6] : 0.0
         part.seasonTint = state && foliage ? Qt.vector3d(state[1], state[2], state[3]) :
                           state && fruit ? Qt.vector3d(state[7], state[8], state[9]) : Qt.vector3d(1, 1, 1)
+        // #941: the two-anchor autumn ramp, for a plant's leaves only
+        if (foliage) {
+            part.seasonAutumn = state ? state[10] : 0.0
+            part.seasonSummerDark = state ? Qt.vector3d(state[11], state[12], state[13]) : Qt.vector3d(0, 0, 0)
+            part.seasonSummerLight = state ? Qt.vector3d(state[14], state[15], state[16]) : Qt.vector3d(1, 1, 1)
+            part.seasonAutumnDark = state ? Qt.vector3d(state[17], state[18], state[19]) : Qt.vector3d(0, 0, 0)
+            part.seasonAutumnLight = state ? Qt.vector3d(state[20], state[21], state[22]) : Qt.vector3d(1, 1, 1)
+        }
         part.seasonOpacity = !state ? 1.0 : part.partName === "flowers" ? state[4] :
                              part.partName === "fruits"
                              // #973: ripeness begins at 0.55 (phenology._harvest_ripeness)
@@ -662,6 +676,7 @@ Item {
             property real detailNormal: 0.0
             property real detailFade: 4000
             property real detailContrast: 1.0
+            property real surfaceGlass: 0.0
             // #800: a plant's wood and fruit sway with its leaves (foliagePart's swayFrame)
             property vector3d swayFrame: Qt.vector3d(0, 0, 0)
             receivesShadows: true
@@ -672,7 +687,8 @@ Item {
             // the principled look; #687: under snow any other top lies under the ground's snow
             // (built_snow.frag) - only while it snows, so a snowless frame is the principled
             // look; a building's floor lies under its roof (Cutaway shows it) and stays bare
-            materials: fade < 1.0 || seasonOpacity < 1.0 ? [vcScreen] : detailMap ? [vcDetail]
+            materials: fade < 1.0 || seasonOpacity < 1.0 ? [vcScreen]
+                       : surfaceGlass > 0.5 ? [vcGlass] : detailMap ? [vcDetail]
                        : swayFrame.x > 0.0 && root.windBlowing ? [vcSway]
                        : root.builtSnow > 0.0 && partName !== "floor" ? [vcSnow] : [vcLook]
             PrincipledMaterial {
@@ -699,6 +715,20 @@ Item {
                 cullMode: root.roofsHidden ? Material.NoCulling : Material.BackFaceCulling
                 vertexShader: "screen.vert"
                 fragmentShader: "screen.frag"
+            }
+            CustomMaterial {
+                id: vcGlass
+                // #992: the pane's sky IBL keeps the measured 0.70 flicker floor, while
+                // Ultra's SSR gets a 0.38 reflection of the garden and the sky.
+                property vector3d uTint: Qt.vector3d(tintLinear.x * seasonTint.x, tintLinear.y * seasonTint.y, tintLinear.z * seasonTint.z)
+                property real uSsrRough: root.ssrVisible ? 0.38 : surfaceRough
+                property real uAlbedo: surfaceAlbedo
+                property real uRough: surfaceRough
+                property real uSpecular: surfaceSpecular
+                shadingMode: CustomMaterial.Shaded
+                cullMode: root.roofsHidden ? Material.NoCulling : Material.BackFaceCulling
+                vertexShader: "built_detail.vert"
+                fragmentShader: "glass.frag"
             }
             CustomMaterial {
                 id: vcDetail
@@ -798,6 +828,7 @@ Item {
             property real detailNormal: 0.0
             property real detailFade: 4000
             property real detailContrast: 1.0
+            property real surfaceGlass: 0.0
             receivesShadows: true
             pickable: fade >= 1.0 && !root.roofsHidden && !groundDetail
             // Cutaway (L2.4): a binding, so a roof built while it is on is born cut - a
@@ -1017,6 +1048,7 @@ Item {
                 // other pair puts a luma step where a baked lawn meets the meadow at the
                 // plan's edge (the L1.4 look review measured 2-8 luma for 0.92 / 0.2)
                 property vector3d uGroundTint: Qt.vector3d(root.groundTint.r, root.groundTint.g, root.groundTint.b)
+                property vector3d uMeadowSeason: root.meadowSeason
                 property real uRough: root.groundRoughness
                 property real uSpecular: root.groundSpecular
                 property real uSnowCover: root.snowCover
@@ -1036,6 +1068,13 @@ Item {
             property real seasonOpacity: 1.0
             property vector3d seasonTint: Qt.vector3d(1, 1, 1)
             property real seasonSnow: 0.0
+            // #941: a clean autumn ramp: each leaf's summer tone between the summer
+            // anchors is mapped onto the autumn palette's own dark..light ramp.
+            property real seasonAutumn: 0.0
+            property vector3d seasonSummerDark: Qt.vector3d(0, 0, 0)
+            property vector3d seasonSummerLight: Qt.vector3d(1, 1, 1)
+            property vector3d seasonAutumnDark: Qt.vector3d(0, 0, 0)
+            property vector3d seasonAutumnLight: Qt.vector3d(1, 1, 1)
             property color tint: "#ffffff"
             property vector3d tintLinear: Qt.vector3d(1, 1, 1)
             property bool retired: false   // set by destroyPart(); never a reason to hide
@@ -1050,6 +1089,11 @@ Item {
             CustomMaterial {
                 id: foliageLook
                 property vector3d uTint: Qt.vector3d(tintLinear.x * seasonTint.x, tintLinear.y * seasonTint.y, tintLinear.z * seasonTint.z)
+                property real uAutumn: seasonAutumn
+                property vector3d uSummerDark: seasonSummerDark
+                property vector3d uSummerLight: seasonSummerLight
+                property vector3d uAutumnDark: seasonAutumnDark
+                property vector3d uAutumnLight: seasonAutumnLight
                 property real uLeafDensity: seasonDensity
                 property real uSnow: Math.max(seasonSnow, root.snowCover)
                 property real uWet: root.wetness
@@ -1064,6 +1108,11 @@ Item {
             CustomMaterial {   // the same leaves as a screen door (X-ray, L2.4)
                 id: foliageDoor
                 property vector3d uTint: Qt.vector3d(tintLinear.x * seasonTint.x, tintLinear.y * seasonTint.y, tintLinear.z * seasonTint.z)
+                property real uAutumn: seasonAutumn
+                property vector3d uSummerDark: seasonSummerDark
+                property vector3d uSummerLight: seasonSummerLight
+                property vector3d uAutumnDark: seasonAutumnDark
+                property vector3d uAutumnLight: seasonAutumnLight
                 property real uLeafDensity: seasonDensity
                 property real uSnow: Math.max(seasonSnow, root.snowCover)
                 property real uWet: root.wetness
@@ -1089,6 +1138,11 @@ Item {
             property real seasonOpacity: 1.0
             property vector3d seasonTint: Qt.vector3d(1, 1, 1)
             property real seasonSnow: 0.0
+            property real seasonAutumn: 0.0
+            property vector3d seasonSummerDark: Qt.vector3d(0, 0, 0)
+            property vector3d seasonSummerLight: Qt.vector3d(1, 1, 1)
+            property vector3d seasonAutumnDark: Qt.vector3d(0, 0, 0)
+            property vector3d seasonAutumnLight: Qt.vector3d(1, 1, 1)
             property color tint: "#ffffff"
             property vector3d tintLinear: Qt.vector3d(1, 1, 1)
             property bool retired: false   // set by destroyPart(); never a reason to hide
@@ -1100,6 +1154,11 @@ Item {
             CustomMaterial {
                 id: grassLook
                 property vector3d uTint: Qt.vector3d(tintLinear.x * seasonTint.x, tintLinear.y * seasonTint.y, tintLinear.z * seasonTint.z)
+                property real uAutumn: seasonAutumn
+                property vector3d uSummerDark: seasonSummerDark
+                property vector3d uSummerLight: seasonSummerLight
+                property vector3d uAutumnDark: seasonAutumnDark
+                property vector3d uAutumnLight: seasonAutumnLight
                 property real uLeafDensity: seasonDensity
                 property real uSnow: Math.max(seasonSnow, root.snowCover)
                 property real uWet: root.wetness
@@ -1113,6 +1172,11 @@ Item {
             CustomMaterial {   // the same blades as a screen door (X-ray, L2.4)
                 id: grassDoor
                 property vector3d uTint: Qt.vector3d(tintLinear.x * seasonTint.x, tintLinear.y * seasonTint.y, tintLinear.z * seasonTint.z)
+                property real uAutumn: seasonAutumn
+                property vector3d uSummerDark: seasonSummerDark
+                property vector3d uSummerLight: seasonSummerLight
+                property vector3d uAutumnDark: seasonAutumnDark
+                property vector3d uAutumnLight: seasonAutumnLight
                 property real uLeafDensity: seasonDensity
                 property real uSnow: Math.max(seasonSnow, root.snowCover)
                 property real uWet: root.wetness
@@ -1395,6 +1459,7 @@ Item {
                 property real uGrassShare: 1.0
                 property vector3d uMeadow: Qt.vector3d(root.meadowColor.r, root.meadowColor.g, root.meadowColor.b)
                 property vector3d uGroundTint: Qt.vector3d(root.groundTint.r, root.groundTint.g, root.groundTint.b)
+                property vector3d uMeadowSeason: root.meadowSeason
                 property real uRough: root.groundRoughness     // 1.0 dry; wet in the rain (L5)
                 property real uSpecular: root.groundSpecular   // 0.15 dry
                 property real uSnowCover: root.snowCover
@@ -1428,6 +1493,7 @@ Item {
                 property real uGrassShare: root.openGroundGrass ? 1.0 : 0.0
                 property vector3d uMeadow: Qt.vector3d(root.meadowColor.r, root.meadowColor.g, root.meadowColor.b)
                 property vector3d uGroundTint: Qt.vector3d(root.groundTint.r, root.groundTint.g, root.groundTint.b)
+                property vector3d uMeadowSeason: root.meadowSeason
                 property real uRough: root.groundRoughness     // 1.0 dry; wet in the rain (L5)
                 property real uSpecular: root.groundSpecular   // 0.15 dry
                 property real uSnowCover: root.snowCover
@@ -1718,6 +1784,11 @@ Item {
                 receivesShadows: false
                 materials: CustomMaterial {
                     property vector3d uTint: Qt.vector3d(1, 1, 1)
+                    property real uAutumn: 0.0
+                    property vector3d uSummerDark: Qt.vector3d(0, 0, 0)
+                    property vector3d uSummerLight: Qt.vector3d(1, 1, 1)
+                    property vector3d uAutumnDark: Qt.vector3d(0, 0, 0)
+                    property vector3d uAutumnLight: Qt.vector3d(1, 1, 1)
                     property real uLeafDensity: 1.0
                     property real uSnow: 0.0
                     property real uWet: 0.0
@@ -1738,6 +1809,11 @@ Item {
                 receivesShadows: false
                 materials: CustomMaterial {
                     property vector3d uTint: Qt.vector3d(1, 1, 1)
+                    property real uAutumn: 0.0
+                    property vector3d uSummerDark: Qt.vector3d(0, 0, 0)
+                    property vector3d uSummerLight: Qt.vector3d(1, 1, 1)
+                    property vector3d uAutumnDark: Qt.vector3d(0, 0, 0)
+                    property vector3d uAutumnLight: Qt.vector3d(1, 1, 1)
                     property real uLeafDensity: 1.0
                     property real uSnow: 0.0
                     property real uWet: 0.0

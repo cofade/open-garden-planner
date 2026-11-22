@@ -86,14 +86,14 @@ class Framing:
                           round(clamp_orbit_pitch(self.pitch_deg, distance), 1))
 
 
-def orbit_tour(pose: CameraPose, name: str = ORBIT, *, date_range=None, time_range=None,
-               duration_s: float | None = None) -> SavedTour:
-    """One eased turn around the plan. With a range it is a time-lapse of the day or the
-    year, at the length the dialog gives a time-lapse."""
+def orbit_tour(pose: CameraPose, name: str = ORBIT, *, turns: float = 1.0,
+               date_range=None, time_range=None, duration_s: float | None = None) -> SavedTour:
+    """One eased part or whole turn around the plan. With a range it is a time-lapse of
+    the day or the year, at the length the dialog gives a time-lapse."""
     lapse = date_range is not None or time_range is not None
     if duration_s is None:
-        duration_s = DEFAULT_DURATION_S if lapse else ORBIT_SECONDS_PER_TURN
-    return SavedTour(name=name, motion="orbit", orbit=DroneOrbit(pose, ease=True),
+        duration_s = DEFAULT_DURATION_S if lapse else ORBIT_SECONDS_PER_TURN * turns
+    return SavedTour(name=name, motion="orbit", orbit=DroneOrbit(pose, turns=turns, ease=True),
                      date_range=date_range, time_range=time_range, duration_s=duration_s)
 
 

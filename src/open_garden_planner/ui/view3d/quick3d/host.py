@@ -875,12 +875,20 @@ class Quick3DHost:
         if self._open("request_frame") is HostState.LIVE:
             self._view.update()
 
+    def set_meadow_season(self, tint: tuple[float, float, float]) -> None:
+        """The meadow's and open ground's seasonal grass multiplier (#943)."""
+        self._open("set_meadow_season")
+        _set(self._root, "meadowSeason", QVector3D(*(float(value) for value in tint)))
+        self.request_frame()
+
     def set_plant_seasons(self, states: Mapping[str, PhenologyState]) -> None:
         """Update seasonal material values in one QML hop, with no Model/geometry churn."""
         self._open("set_plant_seasons")
         values = {
-            item_id: [state.leaf_density, *state.foliage_tint_linear,
-                      state.bloom, state.ripeness, state.snow, *state.accent_tint_linear]
+            item_id: [state.leaf_density, *state.foliage_snow_tint_linear,
+                      state.bloom, state.ripeness, state.snow, *state.accent_tint_linear,
+                      state.autumn_color, *state.summer_dark_linear, *state.summer_light_linear,
+                      *state.autumn_dark_linear, *state.autumn_light_linear]
             for item_id, state in states.items()
         }
         self._call("setPlantSeasons", values)

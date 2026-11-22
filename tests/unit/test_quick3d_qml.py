@@ -209,7 +209,8 @@ def test_a_faded_or_cut_part_is_a_screen_door_not_a_blend() -> None:
     # #801: a detail picture first (its shader carries the snow); #800: a plant's wood sways
     # while the wind blows; #687: snow swaps in only where no screen door is drawn
     # (test_snow_lies_on_the_built_tops...)
-    assert ("materials: fade < 1.0 || seasonOpacity < 1.0 ? [vcScreen] : detailMap ? [vcDetail] : swayFrame.x > 0.0 "
+    assert ("materials: fade < 1.0 || seasonOpacity < 1.0 ? [vcScreen] : surfaceGlass > 0.5 ? [vcGlass] "
+            ": detailMap ? [vcDetail] : swayFrame.x > 0.0 "
             "&& root.windBlowing ? [vcSway] : root.builtSnow > 0.0 && partName !== \"floor\" "
             "? [vcSnow] : [vcLook]") in " ".join(blocks["vcPart"].split())
     # #940: a plant's flowers open and fade one by one with their bloom - screen.vert
@@ -240,9 +241,9 @@ def test_a_faded_or_cut_part_is_a_screen_door_not_a_blend() -> None:
     assert "property real uOpacity: root.roofsHidden ? 0.0 : fade" in blocks["roofPart"]
     assert "pickable: fade >= 1.0 && !root.roofsHidden" in blocks["roofPart"]
     # the roofless house reads as a room: its walls drop back-face culling (the look, the
-    # door, the detail material of #801, the snowy look of #687 and a plant's swaying wood
-    # of #800, as its look)
-    assert blocks["vcPart"].count("cullMode: root.roofsHidden ? Material.NoCulling") == 5
+    # door, the detail material of #801, the window pane of #992, the snowy look of #687
+    # and a plant's swaying wood of #800, as its look)
+    assert blocks["vcPart"].count("cullMode: root.roofsHidden ? Material.NoCulling") == 6
     for name in ("screen.frag", "foliage_door.frag", "water_door.frag"):
         source = (QML_DIR / name).read_text(encoding="utf-8")
         assert "screenDoor(FRAGCOORD.xy) >= uOpacity" in source and "discard;" in source, name
@@ -366,6 +367,7 @@ def test_shaders_named_by_the_scene_ship_beside_it_and_none_is_orphaned() -> Non
                                 "photoblur_compose.frag",
                                 # a built surface's detail picture: roof tiles, wall courses (#801)
                                 "built_detail.vert", "built_detail.frag",
+                                "glass.frag",                        # Ultra window SSR (#992)
                                 "built_snow.frag", "built_snow.vert",   # snow on built tops (#687)
                                 "plant_sway.vert"}   # a plant's wood and fruit in the wind (#800)
     # L7 (#391): the atmosphere sky came from Qt with its provenance and licence texts
@@ -415,8 +417,9 @@ def test_every_custom_shader_multiplies_with_the_tint() -> None:
             "if (uHasFill > 0.5)")
 
 
-#: Root properties of the look block that are STATE of the wind's clock, not look.
-WIND_STATE = {"windTime", "windRunning"}
+#: Root properties of the look block that are runtime state, not the look mapping:
+#: the wind's clock, the preset-derived SSR switch and the plan date's grass colour.
+WIND_STATE = {"windTime", "windRunning", "ssrVisible", "meadowSeason"}
 
 
 def _look_block() -> dict[str, tuple[str, str]]:
@@ -888,7 +891,8 @@ def test_snow_lies_on_the_built_tops_through_one_shader_only_while_it_snows() ->
     vc, roof = blocks["vcPart"], blocks["roofPart"]
     # #801: a part with a detail picture (a roof's tiles, a wall) shades by built_detail.frag,
     # which lays the SAME snow (below) - so the snowy look is the rest's
-    assert ("materials: fade < 1.0 || seasonOpacity < 1.0 ? [vcScreen] : detailMap ? [vcDetail] : swayFrame.x > 0.0 "
+    assert ("materials: fade < 1.0 || seasonOpacity < 1.0 ? [vcScreen] : surfaceGlass > 0.5 ? [vcGlass] "
+            ": detailMap ? [vcDetail] : swayFrame.x > 0.0 "
             "&& root.windBlowing ? [vcSway] : root.builtSnow > 0.0 && partName !== \"floor\" "
             "? [vcSnow] : [vcLook]") in " ".join(vc.split())
     assert ("materials: root.roofsHidden || fade < 1.0 ? [roofScreen] : detailMap ? [roofDetail] "

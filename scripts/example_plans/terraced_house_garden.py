@@ -21,6 +21,8 @@ SLUG = "terraced-house-garden"
 ORBIT_PITCH_DEG = 45.0
 #: ... and nearer: fitted to the house, the garden filled a third of the picture.
 ORBIT_CLOSER = 0.85
+#: A half turn films the garden, never the back of the house (#966).
+ORBIT_TURNS = 0.5
 #: The gallery picture: the deck, the extension and the top of the lawn, not an 18 m sliver.
 THUMBNAIL = (0, 760, 600, 760)
 NORTH_DEG = 35.0

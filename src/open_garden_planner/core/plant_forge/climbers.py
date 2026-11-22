@@ -19,6 +19,7 @@ from typing import Any, Final
 import numpy as np
 from numpy.typing import NDArray
 
+from ..pergola import layout as pergola_layout
 from ..plant_art import PLANT_KINDS, traits_for
 from ..plant_art.traits3d import Traits3D
 from ..scene3d import PARAM_RADIUS_CM, MeshPart, Params, Record
@@ -78,7 +79,22 @@ def _seed_rng(seed: int, salt: int) -> np.random.Generator:
 def _support_segments(rec: Record) -> NDArray[np.float64]:
     """Independent physical support segments in world XY (never join separate rings)."""
     local: list[tuple[NDArray[np.float64], NDArray[np.float64]]] = []
-    if rec.path:
+    if rec.kind in ("PERGOLA", "ARBOUR") and rec.footprints:
+        # #956: a climber trained to a pergola grows along its RAFTERS, not round the
+        # rectangle's edge. The rafters are the pergola's own layout (#769): nine beams
+        # across its depth, the same ones its 2D picture and 3D timber draw.
+        points = np.asarray(rec.footprints[0], dtype=float)
+        low, high = points.min(axis=0), points.max(axis=0)
+        built = pergola_layout(float(high[0] - low[0]), float(high[1] - low[1]),
+                               float(rec.height_cm or 240.0))
+        if built is not None:
+            for rafter in built.rafters:
+                x, _y = rafter.centre
+                local.append((np.asarray([x, rafter.y0], dtype=float),
+                              np.asarray([x, rafter.y1], dtype=float)))
+        else:
+            local.extend(zip(points, np.roll(points, -1, axis=0), strict=True))
+    elif rec.path:
         points = np.asarray(rec.path, dtype=float)
         local.extend(zip(points[:-1], points[1:], strict=True))
     elif rec.kind == "TRELLIS" and rec.footprints:

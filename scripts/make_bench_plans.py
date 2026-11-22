@@ -421,8 +421,8 @@ def build_built() -> PlanBuilder:
     parasol, loungers, grill). North-east: a hip-roofed studio and a flat-roofed
     garage at the end of a gravel driveway. Middle: a lawn crossed by stepping
     stones, a paved path and a boardwalk to a stone terrace (round table, picnic
-    table, hot tub) under a pergola's corner; the pond with a bird bath; a play
-    corner (sandbox, trampoline, swing, hammock). South: the kitchen garden — a
+    table, hot tub) under a pergola's corner; the pond with a bird bath and a stone
+    rock (#955); a play corner (sandbox, trampoline, swing, hammock). South: the kitchen garden — a
     greenhouse, a raised bed with a trellis, a cold frame, a compost bin, a rain
     barrel, a water tap, a wheelbarrow, a tool shed with a mono-pitch roof, a dirt
     path and a gravel path; a fire pit and a bench with planter pots by the hedge.
@@ -440,6 +440,11 @@ def build_built() -> PlanBuilder:
     b.polygon([(2150, 1240), (2420, 1240), (2420, 1290), (2450, 1290), (2450, 40), (2150, 40)],
               T.DRIVEWAY, "Driveway")
     b.circle(520, 900, 150, T.POND_POOL, "Pond")
+    # #955: a stone-filled generic polygon is the rock builder's own kind; the L4 board
+    # carries one so every surface kind it can draw is built here.
+    rock = b.filled(b.polygon([(820, 520), (910, 510), (950, 560), (920, 610), (835, 600)],
+                              T.GENERIC_POLYGON, "Rock"), FillPattern.STONE)
+    rock.metadata[METADATA_KEY] = 55.0
 
     # --- buildings: a house in each roof style ---
     b.house([(120, 1460), (1100, 1460), (1100, 1760), (120, 1760)], "House")

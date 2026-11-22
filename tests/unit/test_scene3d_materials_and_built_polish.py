@@ -66,6 +66,20 @@ class TestBuiltSurfaceParameters:
             assert surf.roughness == pytest.approx(rough), name
             assert surf.specular == pytest.approx(spec), name
 
+    def test_a_window_pane_gets_its_own_ssr_material(self) -> None:
+        """#992: Ultra SSR reflects the garden at 0.38; the IBL keeps the #883 0.70."""
+        glass = engine_materials.surface_look("vc", "glass_pane")
+        other = engine_materials.surface_look("vc", "stone")
+        assert glass is not None and other is not None
+        assert glass.properties["surfaceGlass"] == 1.0
+        assert other.properties["surfaceGlass"] == 0.0
+        shader = (QML_DIR / "glass.frag").read_text(encoding="utf-8")
+        assert "ROUGHNESS = uSsrRough;" in shader
+        assert "SPECULAR_AMOUNT = uSpecular;" in shader
+        garden = (QML_DIR / "Garden.qml").read_text(encoding="utf-8")
+        assert "property real uSsrRough: root.ssrVisible ? 0.38 : surfaceRough" in garden
+        assert "surfaceGlass > 0.5 ? [vcGlass]" in garden
+
     def test_noon_matte_surfaces_carry_linear_albedo_scale(self) -> None:
         """#884: noon-clipping matte surfaces scale down linearly; default stays 1.0."""
         assert SURFACES[DEFAULT_SURFACE].albedo_scale == 1.0

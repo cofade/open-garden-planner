@@ -204,6 +204,7 @@ class FillPattern(Enum):
     CLAY = auto()  # Clay surface
     DECKING = auto()  # Weathered timber decking boards (US-E9 asset forge)
     CORTEN = auto()  # Corten (weathering) steel (US-E9 asset forge)
+    MOSS = auto()  # Tight moss cushion for a moss lawn (#960)
 
 
 # Mapping from FillPattern to texture filename (without .png)
@@ -232,6 +233,9 @@ _TEXTURE_FILES: dict[FillPattern, str] = {
     FillPattern.CLAY: "clay",
     FillPattern.DECKING: "decking",
     FillPattern.CORTEN: "corten",
+    # #960: moss has no texture of its own; the hedge texture is a dense leaf mass at
+    # the cushion's scale, tinted by the plan's own moss colour.
+    FillPattern.MOSS: "hedge",
 }
 
 

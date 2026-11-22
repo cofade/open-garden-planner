@@ -18,6 +18,7 @@ from open_garden_planner.core.plant_art import (
     SpriteRef,
     palette_key,
     recipe_for,
+    traits_for,
 )
 from open_garden_planner.core.plant_forge import (
     CLIMBER_SUPPORT_MAX_DISTANCE_CM,
@@ -35,6 +36,7 @@ from open_garden_planner.core.plant_forge import (
     SUPPORT_PERGOLA,
     SUPPORT_TRELLIS,
     ForgeCache,
+    build_forged_climber,
     enrich_climber_records,
     forge_plant,
     forge_record,
@@ -201,6 +203,28 @@ class TestL34ClimberSupportResolution:
         climber = _climber_record(ref, radius_cm=40.0, east_cm=0.0, north_cm=0.0)
         sup = resolve_climber_support(climber, [pergola, climber])
         assert sup["kind"] == SUPPORT_PERGOLA
+
+    def test_a_climber_on_a_pergola_is_trained_along_a_rafter(self) -> None:
+        """#956: the support is the pergola's own layout, not the outline round its posts."""
+        ref = SpriteRef("species", "grape_vine")
+        pergola = Record(
+            item_id="pergola-1", kind="PERGOLA", name="Pergola", shape="rectangle",
+            footprints=(_rect_ring(300.0, 200.0),), height_cm=240.0,
+            transform=Transform(), material=Material(key="pergola"),
+        )
+        climber = _climber_record(ref, radius_cm=90.0, east_cm=100.0, north_cm=0.0,
+                                  parent_id="pergola-1")
+        sup = resolve_climber_support(climber, [pergola, climber])
+        assert sup["kind"] == SUPPORT_PERGOLA
+        segment = np.asarray(sup["segment_cm"], dtype=float).reshape(2, 2)
+        assert abs(segment[1, 1] - segment[0, 1]) > 150.0, "a rafter runs the pergola's depth"
+        assert abs(segment[1, 0] - segment[0, 0]) < 1e-6
+        parts = build_forged_climber(traits_for(ref), 220.0, 90.0, seed=41,
+                                     support=sup, lod=LOD0)
+        foliage = next(part for part in parts if part.name == PART_FOLIAGE)
+        high = foliage.mesh.positions[:, 2] >= 0.80 * 220.0
+        top = foliage.mesh.positions[high]
+        assert top.size and float(np.ptp(top[:, 1])) > 40.0, "the top spreads along the rafter"
 
     def test_forge_worker_enriches_climber_support_from_snapshot(self) -> None:
         sink = RecordingSink()

@@ -43,12 +43,12 @@ import numpy.typing as npt
 from ..build import item_seed
 from ..materials import DEFAULT_SURFACE
 from ..mesh import Mesh, MeshPart
-from ..record import PARAM_SEED, ParamValue, Record
+from ..record import PARAM_SEED, ParamValue, Record, hedge_leaf_share
 from .hedges import (
     CORE_DROP_CM,
     CORE_INSET_CM,
-    MAX_LEAVES,
     hedge_parts,
+    leaf_cap_for_run,
     line_shell,
     seed_of,
 )
@@ -60,7 +60,7 @@ from .primitives import F64, bevelled_boxes, boxes, sweep, tubes
 #: ``PATH_FENCE_STYLES`` by ``tests/unit/test_scene3d_builders_palette.py``: a
 #: fence style added there fails that test until a builder is chosen for it here.
 FENCE_STYLES: Final = frozenset(
-    {"WOODEN_FENCE", "METAL_FENCE", "CHAIN_LINK", "HEDGE_FENCE", "STONE_WALL"}
+    {"WOODEN_FENCE", "BOARD_FENCE", "METAL_FENCE", "CHAIN_LINK", "HEDGE_FENCE", "STONE_WALL"}
 )
 #: What a FENCE that carries NO style is built as (the L0 board's fence).
 DEFAULT_FENCE_STYLE: Final = "WOODEN_FENCE"
@@ -88,6 +88,10 @@ PICKET_THICK_CM: Final = 2.2
 #: probe (golden hour, 0-10 m, 1080p) was 7.6 px hashed over the old range, 4.6 px over
 #: this one and 5.4 px with every picket 2 cm under the posts — what is left is the posts.
 PICKET_DROP_CM: Final = (0.5, 1.5)
+# board fence (#960): a closed timber screen — boards touch, posts stay proud
+BOARD_PITCH_CM: Final = 14.6
+BOARD_THICK_CM: Final = 2.2
+BOARD_GAP_CM: Final = 0.25
 # metal fence
 METAL_POST_CM: Final = 4.0
 METAL_RAIL_CM: Final = 2.5
@@ -326,6 +330,26 @@ def picket_fence(run: _Run, height_cm: float, post_cm: float, seed: int = 0) -> 
     return Mesh.merge([posts, *rails, pickets])
 
 
+def board_fence(run: _Run, height_cm: float, post_cm: float) -> Mesh:
+    """A closed board screen (#960): vertical boards with only a weather gap, stout posts.
+
+    A 1.9 m garden screen is not a picket fence seen from a post: the boards close the
+    panel from the ground to just under the post tops, so it reads as a timber wall.
+    """
+    posts_at, post_angle = run.posts(POST_SPACING_CM)
+    posts = bevelled_boxes(posts_at, (post_cm, post_cm), 0.0, height_cm, POST_BEVEL_CM,
+                           post_angle, TINT)
+    at, angle, _index = run.every(BOARD_PITCH_CM)
+    board_top = height_cm - min(BOARD_GAP_CM, 0.05 * height_cm)
+    boards = boxes(at, (BOARD_PITCH_CM - BOARD_GAP_CM, BOARD_THICK_CM), 0.0, board_top,
+                   angle, TINT)
+    # one rail behind the boards ties them together where a joint is not a post
+    rail_size = np.stack([run.length, np.full(run.count, RAIL_ACROSS_CM)], axis=1)
+    rail = boxes(run.mid(), rail_size, 0.18 * height_cm,
+                 0.18 * height_cm + RAIL_TALL_CM, run.angle, TINT)
+    return Mesh.merge([posts, boards, rail])
+
+
 def metal_fence(run: _Run, height_cm: float, post_cm: float) -> Mesh:
     k = _scale(height_cm)
     post_at, post_angle = run.posts(POST_SPACING_CM)
@@ -367,7 +391,9 @@ def hedge_fence_parts(record: Record, line: F64, closed: bool,
     profile = [(-half, 0.0), (half, 0.0), (half, core_top), (-half, core_top)]
     core = sweep(profile, line, TINT, closed=closed, edges=[False, True, True, True])
     shell = line_shell(line, closed, half, height_cm)
-    return hedge_parts(core, shell, height_cm, seed_of(record), tinted=True)
+    run = float(np.linalg.norm(np.diff(line, axis=0), axis=1).sum())
+    return hedge_parts(core, shell, height_cm, seed_of(record), tinted=True,
+                       run_length_cm=run, wanted=hedge_leaf_share(record.params))
 
 
 def plain_width_cm(record: Record) -> float:
@@ -386,6 +412,7 @@ def plain_fence(line: F64, closed: bool, width_cm: float, height_cm: float) -> M
 #: fence style -> (the builder of its mesh, its nominal post size in cm)
 _POST_FENCES: Final = {
     "WOODEN_FENCE": (picket_fence, POST_CM),
+    "BOARD_FENCE": (board_fence, POST_CM),
     "METAL_FENCE": (metal_fence, METAL_POST_CM),
     "CHAIN_LINK": (chain_link_fence, CHAIN_POST_CM),
 }
@@ -416,7 +443,8 @@ def fence_parts(record: Record, line: F64, closed: bool, height_cm: float,
 
 #: What each post fence is made of (#803): its surface. A plain panel is the item's stroke
 #: with no material the plan names, so it keeps the default surface.
-FENCE_SURFACES: Final = {"WOODEN_FENCE": "wood", "METAL_FENCE": "iron", "CHAIN_LINK": "steel"}
+FENCE_SURFACES: Final = {"WOODEN_FENCE": "wood", "BOARD_FENCE": "wood",
+                         "METAL_FENCE": "iron", "CHAIN_LINK": "steel"}
 
 
 def triangle_budget(line: F64, closed: bool, segments: int, style: str) -> int:
@@ -429,11 +457,13 @@ def triangle_budget(line: F64, closed: bool, segments: int, style: str) -> int:
     joint, and two ends — 12 / segment + 8.
     """
     if style == "HEDGE_FENCE":
-        return 2 * MAX_LEAVES + 16 * max(segments, 1) + 40
+        run = float(_Run(line, closed).length.sum()) if len(line) >= 2 else 0.0
+        return 2 * leaf_cap_for_run(run) + 16 * max(segments, 1) + 40
     if style == PLAIN:
         return 12 * max(segments, 1) + 8
     metres = float(_Run(line, closed).length.sum()) / 100.0 if len(line) >= 2 else 0.0
-    per_metre, per_segment = {"WOODEN_FENCE": (105, 60), "METAL_FENCE": (100, 35),
+    per_metre, per_segment = {"WOODEN_FENCE": (105, 60), "BOARD_FENCE": (95, 45),
+                              "METAL_FENCE": (100, 35),
                               "CHAIN_LINK": (55, 110)}[style]
     return int(per_metre * metres) + per_segment * max(segments, 1) + 60
 

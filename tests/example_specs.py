@@ -44,6 +44,7 @@ class ExampleSpec:
     woody_harvests: int = 0                 # ... of which trees and shrubs
     paths: bool = True                      # has at least one path
     more_tours: tuple[str, ...] = ()        # stored tours beside the orbit, in English
+    orbit_turns: float = 1.0                # the stored orbit's part or whole turns
     north_angle_deg: float = 0.0
     #: The warnings the plan opens with, by diagnostic kind (the sun diagnostics, which
     #: only say that Hours of Sun was not run yet, are left out). Empty: it opens clean.
@@ -75,15 +76,17 @@ SPECS: dict[str, ExampleSpec] = {
     "cottage-garden": ExampleSpec(6, "2026-06-20", "day", (49.8988, 10.9028), plants=123,
                                   woody_harvests=1, paths=False),
     "terraced-house-garden": ExampleSpec(8, "2026-06-21", "afternoon", (50.9375, 6.9603), plants=23,
-                                         more_tours=("Shadows over the day",), north_angle_deg=35.0),
+                                         more_tours=("Shadows over the day",), orbit_turns=0.5,
+                                         north_angle_deg=35.0),
     "roof-terrace": ExampleSpec(11, "2026-07-12", "day", (48.2082, 16.3738), plants=34, paths=False),
     "spring-garden": ExampleSpec(7, "2026-04-18", "day", (49.3988, 8.6724), plants=191,
                                  woody_harvests=1, more_tours=("A year in the garden",)),
     "wildlife-garden": ExampleSpec(3, "2026-06-14", "morning", (53.2464, 10.4115), plants=118),
     "mediterranean-courtyard": ExampleSpec(2, "2026-06-21", "golden", (39.4699, -0.3763), plants=23,
-                                           paths=False),
+                                           paths=False, orbit_turns=0.5),
     "modern-garden": ExampleSpec(5, "2026-08-15", "golden", (48.1351, 11.582), plants=22,
-                                 harvests=(0, 0), more_tours=("Evening into night",)),
+                                 harvests=(0, 0), more_tours=("Evening into night",),
+                                 orbit_turns=0.5),
     "japanese-garden": ExampleSpec(4, "2026-10-20", "afternoon", (51.2277, 6.7735), plants=30,
                                    harvests=(0, 0)),
 }

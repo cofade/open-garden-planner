@@ -87,6 +87,7 @@ from tests.unit.scene3d_builder_cases import (
     HAIRPIN_PATH,
     L_RIDGE,
     L_SHAPE,
+    LONG_PATH,
     LOOP,
     NEARLY_CLOSED_PATH,
     SLIVER_RIDGE,
@@ -208,14 +209,14 @@ class TestRegistration:
             "WALL_PLANTER", "CONTAINER_ROUND", "GARDEN_BED", "HEDGE_SECTION", "HEDGE_POLYGON",
         }) == BUILT_WORLD_KINDS
         assert frozenset({"TREE", "SHRUB", "PERENNIAL"}) == PLANT_KINDS
-        assert len(OBJECT_KINDS) == 26 and len(SURFACE_KINDS) == 5   # L4's 24, L5.4's 2 lights
+        assert len(OBJECT_KINDS) == 26 and len(SURFACE_KINDS) == 6   # L4's 24, L5.4's 2 lights
         families = (BUILT_WORLD_KINDS, OBJECT_KINDS, SURFACE_KINDS, PLANT_KINDS)
         for index, family in enumerate(families):                      # no kind belongs to two
             for other in families[index + 1:]:
                 assert not family & other
         everything = BUILT_WORLD_KINDS | OBJECT_KINDS | SURFACE_KINDS | PLANT_KINDS
         assert REGISTRY.kinds() == everything                           # … and nothing else is registered
-        assert len(REGISTRY.kinds()) == sum(len(family) for family in families) == 46
+        assert len(REGISTRY.kinds()) == sum(len(family) for family in families) == 47
 
     def test_every_plant_kind_resolves_to_the_plant_builder(self) -> None:
         for kind in sorted(PLANT_KINDS):
@@ -257,7 +258,7 @@ class TestRegistration:
 
         others = ({member.name for member in ObjectType} - BUILT_WORLD_KINDS - PLANT_KINDS
                   - OBJECT_KINDS - SURFACE_KINDS)
-        assert others == {"ROOF_RIDGE", "GENERIC_RECTANGLE", "GENERIC_POLYGON", "GENERIC_CIRCLE",
+        assert others == {"ROOF_RIDGE", "GENERIC_RECTANGLE", "GENERIC_CIRCLE",
                           "GENERIC_ELLIPSE", "GENERIC_TEXT", "GENERIC_CALLOUT", "GARDEN_JOURNAL_PIN"}
         for kind in sorted(others) + ["NO_SUCH_KIND"]:
             assert REGISTRY.builder_for(kind) is default_builder, kind
@@ -726,7 +727,8 @@ def _core_vertices(parts: tuple[MeshPart, ...]) -> int:
 # ── polylines: built from the centre line, never from the stroke polygon ─────
 
 
-FENCE_STYLES = ["WOODEN_FENCE", "METAL_FENCE", "CHAIN_LINK", "HEDGE_FENCE", "STONE_WALL"]
+FENCE_STYLES = ["WOODEN_FENCE", "BOARD_FENCE", "METAL_FENCE", "CHAIN_LINK", "HEDGE_FENCE",
+                "STONE_WALL"]
 
 
 class TestPolylinesAreBuiltFromTheCentreLine:
@@ -911,7 +913,7 @@ class TestPolylinesAreBuiltFromTheCentreLine:
             signatures[style] = (tuple(p.name for p in parts), triangle_count(parts))
             assert all(part.tinted for part in parts)  # a fence is seen in its own stroke colour
         assert signatures[None] == signatures["WOODEN_FENCE"]  # a FENCE without a style: the default
-        assert len({signatures[s] for s in FENCE_STYLES}) == len(FENCE_STYLES)  # five different fences
+        assert len({signatures[s] for s in FENCE_STYLES}) == len(FENCE_STYLES)  # six different fences
         assert signatures["HEDGE_FENCE"][0] == ("hedge",)
         assert signatures["STONE_WALL"][0] == ("wall",)
 
@@ -1143,6 +1145,25 @@ class TestPolylinesAreBuiltFromTheCentreLine:
                 nearest = travelled + t * length
             travelled += length
         return nearest
+
+    def test_a_board_fence_is_a_closed_timber_screen(self) -> None:
+        """#960: boards nearly touch, so a 1.9 m fence reads as a screen, not pickets."""
+        board = built(line_record("FENCE", LONG_PATH, 190.0, style="BOARD_FENCE"))
+        picket = built(line_record("FENCE", LONG_PATH, 190.0, style="WOODEN_FENCE"))
+        assert board[0].surface == "wood" and board[0].mesh.triangle_count > 0
+        assert board[0].mesh.triangle_count <= lines.triangle_budget(
+            line_record("FENCE", LONG_PATH, 190.0, style="BOARD_FENCE"))
+        # Boards close the elevation: their vertical faces cover far more area than a
+        # picket fence's separated pickets at the same nominal line and height.
+        def vertical_area(parts: tuple[MeshPart, ...]) -> float:
+            mesh = parts[0].mesh
+            triangles = mesh.positions[mesh.indices].astype(np.float64)
+            cross = np.cross(triangles[:, 1] - triangles[:, 0],
+                             triangles[:, 2] - triangles[:, 0])
+            upright = np.abs(cross[:, 2]) < 0.1 * np.linalg.norm(cross, axis=1)
+            return float(np.linalg.norm(cross[upright], axis=1).sum() / 2.0)
+
+        assert vertical_area(board) > 1.2 * vertical_area(picket)
 
     @pytest.mark.parametrize("kind", ["FENCE", "WALL"])
     @pytest.mark.parametrize("style", ["WOODEN_FENCE", "METAL_FENCE", "CHAIN_LINK"])
@@ -1440,9 +1461,43 @@ class TestHedges:
         _part, _core, small = hedge_anatomy(polygon_record("HEDGE_SECTION", rectangle(100.0, 40.0), 60.0))
         _part, _core, large = hedge_anatomy(polygon_record("HEDGE_SECTION", rectangle(300.0, 60.0), 150.0))
         ring = hedges.core_ring(rectangle(100.0, 40.0))
-        expected = hedges.leaf_count(hedges.shell_area_cm2(hedges.ring_shell(ring, 60.0)))
+        expected = hedges.leaf_count(
+            hedges.shell_area_cm2(hedges.ring_shell(ring, 60.0)),
+            run_length_cm=2.0 * (100.0 + 40.0))
         assert int(small.sum()) == 4 * expected  # four vertices a leaf
         assert int(large.sum()) > int(small.sum())
+
+    def test_a_long_hedge_keeps_its_leaf_density_per_metre(self) -> None:
+        """#954: a 45 m run is not squeezed into a 10 m run's 6,000 leaves."""
+        _part, _core, short = hedge_anatomy(
+            polygon_record("HEDGE_SECTION", rectangle(50.0, 1000.0), 150.0))
+        _part, _core, long = hedge_anatomy(
+            polygon_record("HEDGE_SECTION", rectangle(50.0, 4500.0), 150.0))
+        assert int(long.sum()) > 3 * int(short.sum())
+        run_cm = 2.0 * (50.0 + 4500.0)
+        assert int(long.sum()) // 4 <= hedges.leaf_cap_for_run(run_cm)
+
+    def test_the_plan_wide_hedge_budget_is_shared_out(self) -> None:
+        from open_garden_planner.core.scene3d.context import (
+            MAX_PLAN_HEDGE_LEAVES,
+            with_context,
+        )
+        from open_garden_planner.core.scene3d.record import PARAM_SEED
+
+        records = {
+            f"h{index}": polygon_record("HEDGE_SECTION", rectangle(50.0, 5000.0), 150.0,
+                                        item_id=f"h{index}", params={PARAM_SEED: f"h{index}"})
+            for index in range(4)
+        }
+        with_context(records)
+        shares = [records[f"h{index}"].params["hedge_leaves"] for index in range(4)]
+        assert all(isinstance(share, int) for share in shares)
+        assert 0 < sum(shares) <= MAX_PLAN_HEDGE_LEAVES
+        built_leaves = [
+            int((part.mesh.uvs != 0.0).any(axis=1).sum())
+            for part, in (REGISTRY.build(records[f"h{index}"]) for index in range(4))
+        ]
+        assert sum(built_leaves) // 4 <= MAX_PLAN_HEDGE_LEAVES
 
     def test_wind_weights(self) -> None:
         part, core, leaves = hedge_anatomy(polygon_record("HEDGE_SECTION", rectangle(200.0, 50.0), 150.0))

@@ -99,6 +99,43 @@ def seasonal_month(plan_date: datetime.date, latitude_deg: float = DEFAULT_LATIT
     return m
 
 
+#: #943: a lawn's and the meadow's colour through the year, as an sRGB multiplier on
+#: the plan's own grass. The seasonal day is 0 on 1 January (northern hemisphere).
+#: A dormant winter is browner and paler, spring fresh and bright, late summer dry;
+#: summer proper is exactly the plan's colour (the value every existing board measured).
+LAWN_SEASON_TINTS: Final = (
+    (0.0, (0.72, 0.63, 0.47)),      # dormant January
+    (74.0, (0.80, 0.82, 0.60)),     # March: first growth
+    (104.0, (0.91, 1.00, 0.76)),    # mid April: fresh
+    (134.0, (1.00, 1.00, 1.00)),    # May: summer
+    (242.0, (1.00, 1.00, 1.00)),    # late August
+    (272.0, (1.03, 0.94, 0.63)),    # late September: dry
+    (303.0, (0.93, 0.79, 0.51)),    # late October: autumn
+    (334.0, (0.79, 0.69, 0.51)),    # December: back to dormancy
+)
+
+
+def seasonal_ground_tint(plan_date: datetime.date,
+                         latitude_deg: float = DEFAULT_LATITUDE_DEG) -> tuple[float, float, float]:
+    """The lawn and meadow colour multiplier on ``plan_date`` (#943).
+
+    Linear in the seasonal day between the keyframes above, wrapping across New Year;
+    the Southern Hemisphere uses the same broadleaf seasons six months later.
+    """
+    day = seasonal_day_of_year(plan_date, latitude_deg)
+    points = LAWN_SEASON_TINTS
+    for index, (start, first) in enumerate(points):
+        end, second = points[(index + 1) % len(points)]
+        span = (end - start) if index + 1 < len(points) else (365.0 - start + end)
+        reached = (day - start) if index + 1 < len(points) else (
+            day - start if day >= start else 365.0 - start + day)
+        if 0.0 <= reached <= span:
+            share = reached / span if span > 0.0 else 0.0
+            return tuple(round(a + (b - a) * share, 5)  # type: ignore[return-value]
+                         for a, b in zip(first, second, strict=True))
+    return (1.0, 1.0, 1.0)
+
+
 @lru_cache(maxsize=64)
 def _palette_autumn_multiplier(summer_pal_name: str, autumn_pal_name: str) -> tuple[float, float, float]:
     """Compute linear-light RGB multiplier that shifts `summer_pal_name` toward `autumn_pal_name`."""
@@ -123,6 +160,27 @@ def _palette_autumn_multiplier(summer_pal_name: str, autumn_pal_name: str) -> tu
     return (float(mr), float(mg), float(mb))
 
 
+@lru_cache(maxsize=64)
+def _palette_anchors(summer_pal_name: str, autumn_pal_name: str) -> tuple[
+        tuple[float, float, float], ...]:
+    """The summer and autumn palettes' dark and light linear anchors (#941).
+
+    ``t0`` is a palette's dark leaf and ``b1`` its light one (the same pair the
+    multiplier above averages). The shader maps a leaf's position between the summer
+    anchors onto the autumn anchors, so every leaf keeps its own tone inside the
+    palette's ramp instead of taking one clamped channel multiplier.
+    """
+    def pair(name: str) -> tuple[tuple[float, float, float], tuple[float, float, float]]:
+        palette = PALETTES.get(name, PALETTES["fresh"])
+        dark = tuple(float(channel) for channel in srgb_to_linear(palette["t0"])[:3])
+        light = tuple(float(channel) for channel in srgb_to_linear(palette["b1"])[:3])
+        return dark, light  # type: ignore[return-value]
+
+    summer_dark, summer_light = pair(summer_pal_name)
+    autumn_dark, autumn_light = pair(autumn_pal_name)
+    return summer_dark, summer_light, autumn_dark, autumn_light
+
+
 @dataclass(frozen=True, slots=True)
 class PhenologyState:
     """Evaluated seasonal shader and material parameters for one plant on a date."""
@@ -138,6 +196,18 @@ class PhenologyState:
     accent_opacity: float
     accent_tint_linear: tuple[float, float, float]
     accent_tint_rgba: tuple[int, int, int, int]
+    #: #941: the two ANCHORS of a crown's seasonal ramp, linear. The shader maps each
+    #: leaf's summer tone from the summer pair onto the autumn pair, instead of applying
+    #: one multiplier that leaves dark leaves olive and light ones salmon.
+    summer_dark_linear: tuple[float, float, float] = (0.0, 0.0, 0.0)
+    summer_light_linear: tuple[float, float, float] = (1.0, 1.0, 1.0)
+    autumn_dark_linear: tuple[float, float, float] = (0.0, 0.0, 0.0)
+    autumn_light_linear: tuple[float, float, float] = (1.0, 1.0, 1.0)
+    #: #941: the multiplier the foliage SHADER still applies. It holds the snow dust only:
+    #: the autumn hue comes from the two anchors, so the old autumn multiplier must not be
+    #: applied a second time. ``foliage_tint_linear`` keeps it for falling leaves, which
+    #: are not shaded by that fragment shader.
+    foliage_snow_tint_linear: tuple[float, float, float] = (1.0, 1.0, 1.0)
 
     @property
     def autumn_mix(self) -> float:
@@ -359,6 +429,8 @@ def _evaluate_cached(
             autumn_color = 0.0
 
     autumn_mult = _palette_autumn_multiplier(traits.palette, traits.autumn_palette)
+    summer_dark, summer_light, autumn_dark, autumn_light = _palette_anchors(
+        traits.palette, traits.autumn_palette)
 
     # 2. Bloom (0..1)
     bloom = _bloom_weight(plan_date, lat_q, traits.bloom_months)
@@ -419,15 +491,26 @@ def _evaluate_cached(
     ft_r = 1.0 + autumn_color * (autumn_mult[0] - 1.0)
     ft_g = 1.0 + autumn_color * (autumn_mult[1] - 1.0)
     ft_b = 1.0 + autumn_color * (autumn_mult[2] - 1.0)
+    # The shader maps the autumn hue from the anchors; it must NOT receive the autumn
+    # multiplier as well (#941). It still takes the snow dust, exactly as summer does.
+    st_r, st_g, st_b = 1.0, 1.0, 1.0
     if snow > 0.0:
         ft_r = ft_r * (1.0 - 0.45 * snow) + SNOW_LINEAR_RGB[0] * (0.45 * snow)
         ft_g = ft_g * (1.0 - 0.45 * snow) + SNOW_LINEAR_RGB[1] * (0.45 * snow)
         ft_b = ft_b * (1.0 - 0.45 * snow) + SNOW_LINEAR_RGB[2] * (0.45 * snow)
+        st_r = st_r * (1.0 - 0.45 * snow) + SNOW_LINEAR_RGB[0] * (0.45 * snow)
+        st_g = st_g * (1.0 - 0.45 * snow) + SNOW_LINEAR_RGB[1] * (0.45 * snow)
+        st_b = st_b * (1.0 - 0.45 * snow) + SNOW_LINEAR_RGB[2] * (0.45 * snow)
 
     foliage_tint_linear = (
         round(min(max(ft_r, 0.05), 2.1), 5),
         round(min(max(ft_g, 0.05), 2.1), 5),
         round(min(max(ft_b, 0.05), 2.1), 5),
+    )
+    foliage_snow_tint_linear = (
+        round(min(max(st_r, 0.05), 2.1), 5),
+        round(min(max(st_g, 0.05), 2.1), 5),
+        round(min(max(st_b, 0.05), 2.1), 5),
     )
     foliage_tint_rgba = _linear_to_srgb8((*foliage_tint_linear, 1.0))
 
@@ -477,6 +560,11 @@ def _evaluate_cached(
         accent_opacity=round(float(accent_opacity), 5),
         accent_tint_linear=accent_tint_linear,
         accent_tint_rgba=accent_tint_rgba,
+        summer_dark_linear=summer_dark,
+        summer_light_linear=summer_light,
+        autumn_dark_linear=autumn_dark,
+        autumn_light_linear=autumn_light,
+        foliage_snow_tint_linear=foliage_snow_tint_linear,
     )
 
 
@@ -544,8 +632,10 @@ __all__ = [
     "BLOOM_RAMP_DAYS",
     "BULB_LEAF_RAMP_DAYS",
     "DEFAULT_LATITUDE_DEG",
+    "LAWN_SEASON_TINTS",
     "RIPENESS_PROGRESS_FROM",
     "plan_latitude",
+    "seasonal_ground_tint",
     "SNOW_LINEAR_RGB",
     "PhenologyState",
     "evaluate_phenology",

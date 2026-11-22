@@ -94,6 +94,9 @@ class WorkspaceLivingCoordinator(QObject):
     #: Today's Weather needs a forecast: the app fetches one through the Planting
     #: Calendar's weather widget (its one fetch path) and hands it to ``set_forecast``.
     forecast_wanted = pyqtSignal()
+    #: The user chose a weather (#944). The window may store a concrete choice in the
+    #: plan; opening a plan feeds the stored one back without dirtying it.
+    weather_chosen = pyqtSignal(str)
 
     def __init__(self, get_host: Callable[[], EngineHost | None],
                  get_look: Callable[[], LookController | None],
@@ -252,6 +255,7 @@ class WorkspaceLivingCoordinator(QObject):
         if weather == TODAY:
             self.forecast_wanted.emit()
         self._refresh_button()
+        self.weather_chosen.emit(weather)
 
     def document_changed(self) -> None:
         """A new, opened or recovered document: the forecast was the old one's place —

@@ -112,6 +112,7 @@ def _register_calls() -> None:
         "set_fitted_shadows": lambda host, _part: host.set_fitted_shadows(True),   # #734
         "set_faded_items": lambda host, _part: host.set_faded_items(frozenset()),
         "set_plant_seasons": lambda host, _part: host.set_plant_seasons({}),
+        "set_meadow_season": lambda host, _part: host.set_meadow_season((1.0, 1.0, 1.0)),
         # the living garden (L5, #389): the garden's life, its switch and the lamps
         "set_ambient": lambda host, _part: host.set_ambient(None),
         "set_life_enabled": lambda host, _part: host.set_life_enabled(True),

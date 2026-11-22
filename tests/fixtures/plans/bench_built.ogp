@@ -164,7 +164,7 @@
     },
     {
       "type": "polyline",
-      "item_id": "6b46c86e-dbe7-4ab7-b1b7-d0c8537f2cf5",
+      "item_id": "9605c043-dfd1-4e1e-a493-ef446b52641b",
       "points": [
         {
           "x": 600.0,
@@ -188,11 +188,11 @@
       "stroke_color": "#ffa0a09b",
       "stroke_width": 80.0,
       "path_fence_style": "STEPPING_STONES",
-      "stack_order": 17408
+      "stack_order": 18432
     },
     {
       "type": "polyline",
-      "item_id": "9605c043-dfd1-4e1e-a493-ef446b52641b",
+      "item_id": "2ff0b417-2765-41b6-bee4-cf79b05156d4",
       "points": [
         {
           "x": 1100.0,
@@ -212,11 +212,11 @@
       "stroke_color": "#ff8c8c8c",
       "stroke_width": 80.0,
       "path_fence_style": "PAVED_PATH",
-      "stack_order": 18432
+      "stack_order": 19456
     },
     {
       "type": "polyline",
-      "item_id": "2ff0b417-2765-41b6-bee4-cf79b05156d4",
+      "item_id": "f770b651-61a7-4ab6-ab3f-49009b57e198",
       "points": [
         {
           "x": 1700.0,
@@ -232,11 +232,11 @@
       "stroke_color": "#ffa07846",
       "stroke_width": 80.0,
       "path_fence_style": "WOODEN_BOARDWALK",
-      "stack_order": 19456
+      "stack_order": 20480
     },
     {
       "type": "polyline",
-      "item_id": "f770b651-61a7-4ab6-ab3f-49009b57e198",
+      "item_id": "67e90ba3-7c48-44d0-8e65-066312673bd4",
       "points": [
         {
           "x": 200.0,
@@ -260,11 +260,11 @@
       "stroke_color": "#ffb4aa96",
       "stroke_width": 80.0,
       "path_fence_style": "GRAVEL_PATH",
-      "stack_order": 20480
+      "stack_order": 21504
     },
     {
       "type": "polyline",
-      "item_id": "67e90ba3-7c48-44d0-8e65-066312673bd4",
+      "item_id": "238813c3-b4e4-4a2c-8e1b-008c0c75d0ce",
       "points": [
         {
           "x": 760.0,
@@ -284,11 +284,48 @@
       "stroke_color": "#ff7d5c3e",
       "stroke_width": 80.0,
       "path_fence_style": "DIRT_PATH",
-      "stack_order": 21504
+      "stack_order": 22528
     },
     {
       "type": "polygon",
       "item_id": "3579e6dd-3179-4333-be6f-18c6169a88f3",
+      "points": [
+        {
+          "x": 820.0,
+          "y": 520.0
+        },
+        {
+          "x": 910.0,
+          "y": 510.0
+        },
+        {
+          "x": 950.0,
+          "y": 560.0
+        },
+        {
+          "x": 920.0,
+          "y": 610.0
+        },
+        {
+          "x": 835.0,
+          "y": 600.0
+        }
+      ],
+      "object_type": "GENERIC_POLYGON",
+      "name": "Rock",
+      "metadata": {
+        "object_height_cm": 55.0
+      },
+      "fill_color": "#ffadd8e6",
+      "stroke_color": "#ff4682b4",
+      "stroke_width": 2.0,
+      "fill_pattern": "STONE",
+      "stroke_style": "SOLID",
+      "stack_order": 6144
+    },
+    {
+      "type": "polygon",
+      "item_id": "1c9b8e7c-9df4-4f53-89ff-5383b8e2af9b",
       "points": [
         {
           "x": 120.0,
@@ -310,18 +347,18 @@
       "object_type": "HOUSE",
       "name": "House",
       "metadata": {
-        "ridge_item_id": "1c9b8e7c-9df4-4f53-89ff-5383b8e2af9b"
+        "ridge_item_id": "77a6a88a-2c03-423f-bec4-cebcf13873c5"
       },
       "fill_color": "#ffb25a3e",
       "stroke_color": "#ff8b5a2b",
       "stroke_width": 2.5,
       "fill_pattern": "ROOF_TILES",
       "stroke_style": "SOLID",
-      "stack_order": 6144
+      "stack_order": 7168
     },
     {
       "type": "polyline",
-      "item_id": "1c9b8e7c-9df4-4f53-89ff-5383b8e2af9b",
+      "item_id": "77a6a88a-2c03-423f-bec4-cebcf13873c5",
       "points": [
         {
           "x": 120.0,
@@ -334,15 +371,15 @@
       ],
       "object_type": "ROOF_RIDGE",
       "metadata": {
-        "owner_polygon_id": "3579e6dd-3179-4333-be6f-18c6169a88f3"
+        "owner_polygon_id": "1c9b8e7c-9df4-4f53-89ff-5383b8e2af9b"
       },
       "stroke_color": "#ff644826",
       "stroke_width": 2.0,
-      "stack_order": 7168
+      "stack_order": 8192
     },
     {
       "type": "rectangle",
-      "item_id": "77a6a88a-2c03-423f-bec4-cebcf13873c5",
+      "item_id": "c272f480-4388-4075-a49b-b549fc34f51f",
       "x": 1260.0,
       "y": 1360.0,
       "width": 520.0,
@@ -358,11 +395,11 @@
       "stroke_width": 2.5,
       "fill_pattern": "ROOF_TILES",
       "stroke_style": "SOLID",
-      "stack_order": 8192
+      "stack_order": 9216
     },
     {
       "type": "rectangle",
-      "item_id": "c272f480-4388-4075-a49b-b549fc34f51f",
+      "item_id": "93735584-6673-43b1-b3f0-a3e814712978",
       "x": 1900.0,
       "y": 1300.0,
       "width": 520.0,
@@ -377,11 +414,11 @@
       "stroke_width": 2.0,
       "fill_pattern": "CONCRETE",
       "stroke_style": "SOLID",
-      "stack_order": 9216
+      "stack_order": 10240
     },
     {
       "type": "rectangle",
-      "item_id": "93735584-6673-43b1-b3f0-a3e814712978",
+      "item_id": "363f608d-8c90-457c-a72f-4d58a61a6ed8",
       "x": 80.0,
       "y": 80.0,
       "width": 240.0,
@@ -396,11 +433,11 @@
       "stroke_width": 1.0,
       "fill_pattern": "SOLID",
       "stroke_style": "SOLID",
-      "stack_order": 10240
+      "stack_order": 11264
     },
     {
       "type": "rectangle",
-      "item_id": "363f608d-8c90-457c-a72f-4d58a61a6ed8",
+      "item_id": "ddf7e307-09bd-4dde-8f67-b6614733246e",
       "x": 380.0,
       "y": 80.0,
       "width": 300.0,
@@ -408,18 +445,18 @@
       "object_type": "GREENHOUSE",
       "name": "Greenhouse",
       "metadata": {
-        "ridge_item_id": "31444ab7-2db3-53db-bd50-5341746e1347"
+        "ridge_item_id": "e4a776ae-311c-58d1-9584-8f79848bda6a"
       },
       "fill_color": "#ffd2e6f5",
       "stroke_color": "#ffa0a5aa",
       "stroke_width": 2.5,
       "fill_pattern": "GLASS",
       "stroke_style": "SOLID",
-      "stack_order": 11264
+      "stack_order": 12288
     },
     {
       "type": "polyline",
-      "item_id": "31444ab7-2db3-53db-bd50-5341746e1347",
+      "item_id": "e4a776ae-311c-58d1-9584-8f79848bda6a",
       "points": [
         {
           "x": 380.0,
@@ -432,16 +469,16 @@
       ],
       "object_type": "ROOF_RIDGE",
       "metadata": {
-        "owner_polygon_id": "363f608d-8c90-457c-a72f-4d58a61a6ed8",
+        "owner_polygon_id": "ddf7e307-09bd-4dde-8f67-b6614733246e",
         "ridge_finish": "aluminium"
       },
       "stroke_color": "#ffb0b5b9",
       "stroke_width": 2.0,
-      "stack_order": 12288
+      "stack_order": 13312
     },
     {
       "type": "rectangle",
-      "item_id": "ddf7e307-09bd-4dde-8f67-b6614733246e",
+      "item_id": "1994cfd4-19ac-40ac-a410-753562cd2a72",
       "x": 1180.0,
       "y": 700.0,
       "width": 300.0,
@@ -453,11 +490,11 @@
       "stroke_width": 1.0,
       "fill_pattern": "SOLID",
       "stroke_style": "SOLID",
-      "stack_order": 13312
+      "stack_order": 14336
     },
     {
       "type": "polyline",
-      "item_id": "1994cfd4-19ac-40ac-a410-753562cd2a72",
+      "item_id": "4893432c-381a-4473-891d-6e936f99ffc7",
       "points": [
         {
           "x": 10.0,
@@ -473,11 +510,11 @@
       "stroke_color": "#ff8b5a2b",
       "stroke_width": 3.0,
       "path_fence_style": "WOODEN_FENCE",
-      "stack_order": 14336
+      "stack_order": 15360
     },
     {
       "type": "polyline",
-      "item_id": "4893432c-381a-4473-891d-6e936f99ffc7",
+      "item_id": "98e90c49-70f9-487e-9dba-9a1846155a59",
       "points": [
         {
           "x": 2590.0,
@@ -493,11 +530,11 @@
       "stroke_color": "#ff3c3c3c",
       "stroke_width": 2.5,
       "path_fence_style": "METAL_FENCE",
-      "stack_order": 15360
+      "stack_order": 16384
     },
     {
       "type": "polygon",
-      "item_id": "98e90c49-70f9-487e-9dba-9a1846155a59",
+      "item_id": "6b46c86e-dbe7-4ab7-b1b7-d0c8537f2cf5",
       "points": [
         {
           "x": 10.0,
@@ -523,11 +560,11 @@
       "stroke_width": 1.5,
       "fill_pattern": "HEDGE",
       "stroke_style": "SOLID",
-      "stack_order": 16384
+      "stack_order": 17408
     },
     {
       "type": "rectangle",
-      "item_id": "238813c3-b4e4-4a2c-8e1b-008c0c75d0ce",
+      "item_id": "8d2f792c-2bdd-4b0f-a1e8-88ad0f9197ca",
       "x": 260.0,
       "y": 1320.0,
       "width": 160.0,
@@ -539,29 +576,12 @@
       "stroke_width": 1.0,
       "fill_pattern": "SOLID",
       "stroke_style": "SOLID",
-      "stack_order": 22528
-    },
-    {
-      "type": "rectangle",
-      "item_id": "8d2f792c-2bdd-4b0f-a1e8-88ad0f9197ca",
-      "x": 268.0,
-      "y": 1278.0,
-      "width": 45.0,
-      "height": 45.0,
-      "object_type": "CHAIR",
-      "name": "Chair",
-      "fill_color": "#ff8c6946",
-      "stroke_color": "#ff000000",
-      "stroke_width": 1.0,
-      "fill_pattern": "SOLID",
-      "stroke_style": "SOLID",
-      "rotation_angle": 180.0,
       "stack_order": 23552
     },
     {
       "type": "rectangle",
       "item_id": "fd3e4d27-ba8f-4465-acd1-a290543fb1e3",
-      "x": 368.0,
+      "x": 268.0,
       "y": 1278.0,
       "width": 45.0,
       "height": 45.0,
@@ -578,8 +598,8 @@
     {
       "type": "rectangle",
       "item_id": "a254f086-b223-4bf8-8fdb-469ded1d9738",
-      "x": 268.0,
-      "y": 1408.0,
+      "x": 368.0,
+      "y": 1278.0,
       "width": 45.0,
       "height": 45.0,
       "object_type": "CHAIR",
@@ -589,12 +609,13 @@
       "stroke_width": 1.0,
       "fill_pattern": "SOLID",
       "stroke_style": "SOLID",
+      "rotation_angle": 180.0,
       "stack_order": 25600
     },
     {
       "type": "rectangle",
       "item_id": "714a639b-3b0d-446a-af3c-561eb9c3b1fe",
-      "x": 368.0,
+      "x": 268.0,
       "y": 1408.0,
       "width": 45.0,
       "height": 45.0,
@@ -608,8 +629,24 @@
       "stack_order": 26624
     },
     {
-      "type": "circle",
+      "type": "rectangle",
       "item_id": "f58a2bef-0874-4712-af36-4d0ed948c63f",
+      "x": 368.0,
+      "y": 1408.0,
+      "width": 45.0,
+      "height": 45.0,
+      "object_type": "CHAIR",
+      "name": "Chair",
+      "fill_color": "#ff8c6946",
+      "stroke_color": "#ff000000",
+      "stroke_width": 1.0,
+      "fill_pattern": "SOLID",
+      "stroke_style": "SOLID",
+      "stack_order": 27648
+    },
+    {
+      "type": "circle",
+      "item_id": "3499fa73-8334-4dd2-89e6-addca7790405",
       "center_x": 560.0,
       "center_y": 1370.0,
       "radius": 110,
@@ -620,28 +657,12 @@
       "stroke_width": 1.0,
       "fill_pattern": "SOLID",
       "stroke_style": "SOLID",
-      "stack_order": 27648
-    },
-    {
-      "type": "rectangle",
-      "item_id": "3499fa73-8334-4dd2-89e6-addca7790405",
-      "x": 720.0,
-      "y": 1262.0,
-      "width": 70.0,
-      "height": 190.0,
-      "object_type": "LOUNGER",
-      "name": "Lounger",
-      "fill_color": "#ffb4b4b4",
-      "stroke_color": "#ff000000",
-      "stroke_width": 1.0,
-      "fill_pattern": "SOLID",
-      "stroke_style": "SOLID",
       "stack_order": 28672
     },
     {
       "type": "rectangle",
       "item_id": "bd85578c-2c75-434f-a35b-d04bb5f92836",
-      "x": 820.0,
+      "x": 720.0,
       "y": 1262.0,
       "width": 70.0,
       "height": 190.0,
@@ -655,8 +676,24 @@
       "stack_order": 29696
     },
     {
-      "type": "circle",
+      "type": "rectangle",
       "item_id": "3f4c7416-a4f5-4273-988a-a9165963a0ca",
+      "x": 820.0,
+      "y": 1262.0,
+      "width": 70.0,
+      "height": 190.0,
+      "object_type": "LOUNGER",
+      "name": "Lounger",
+      "fill_color": "#ffb4b4b4",
+      "stroke_color": "#ff000000",
+      "stroke_width": 1.0,
+      "fill_pattern": "SOLID",
+      "stroke_style": "SOLID",
+      "stack_order": 30720
+    },
+    {
+      "type": "circle",
+      "item_id": "7354a0b3-1aa4-4cec-a40a-accae6ef20cb",
       "center_x": 1000.0,
       "center_y": 1380.0,
       "radius": 40,
@@ -667,11 +704,11 @@
       "stroke_width": 1.0,
       "fill_pattern": "SOLID",
       "stroke_style": "SOLID",
-      "stack_order": 30720
+      "stack_order": 31744
     },
     {
       "type": "circle",
-      "item_id": "7354a0b3-1aa4-4cec-a40a-accae6ef20cb",
+      "item_id": "589bbea3-e32f-4bc6-b3c4-eb9885cdcea0",
       "center_x": 1560.0,
       "center_y": 760.0,
       "radius": 55,
@@ -682,11 +719,11 @@
       "stroke_width": 1.0,
       "fill_pattern": "SOLID",
       "stroke_style": "SOLID",
-      "stack_order": 31744
+      "stack_order": 32768
     },
     {
       "type": "rectangle",
-      "item_id": "589bbea3-e32f-4bc6-b3c4-eb9885cdcea0",
+      "item_id": "2bfcb310-8431-45e6-9b0f-6cfffe646f94",
       "x": 1500.0,
       "y": 860.0,
       "width": 180.0,
@@ -698,11 +735,11 @@
       "stroke_width": 1.0,
       "fill_pattern": "SOLID",
       "stroke_style": "SOLID",
-      "stack_order": 32768
+      "stack_order": 33792
     },
     {
       "type": "rectangle",
-      "item_id": "2bfcb310-8431-45e6-9b0f-6cfffe646f94",
+      "item_id": "8c8466a0-37f1-4225-abac-422cc2cbf960",
       "x": 1210.0,
       "y": 730.0,
       "width": 220.0,
@@ -714,11 +751,11 @@
       "stroke_width": 1.0,
       "fill_pattern": "SOLID",
       "stroke_style": "SOLID",
-      "stack_order": 33792
+      "stack_order": 34816
     },
     {
       "type": "circle",
-      "item_id": "8c8466a0-37f1-4225-abac-422cc2cbf960",
+      "item_id": "b1e13b09-3532-4650-8461-3988c581c6f4",
       "center_x": 760.0,
       "center_y": 820.0,
       "radius": 25,
@@ -729,11 +766,11 @@
       "stroke_width": 1.0,
       "fill_pattern": "SOLID",
       "stroke_style": "SOLID",
-      "stack_order": 34816
+      "stack_order": 35840
     },
     {
       "type": "rectangle",
-      "item_id": "b1e13b09-3532-4650-8461-3988c581c6f4",
+      "item_id": "a6ddcec5-5895-4e1f-a6dc-5b662482b122",
       "x": 1800.0,
       "y": 120.0,
       "width": 150.0,
@@ -745,11 +782,11 @@
       "stroke_width": 1.0,
       "fill_pattern": "SOLID",
       "stroke_style": "SOLID",
-      "stack_order": 35840
+      "stack_order": 36864
     },
     {
       "type": "circle",
-      "item_id": "a6ddcec5-5895-4e1f-a6dc-5b662482b122",
+      "item_id": "fc2e9c86-21f6-43f9-bc22-2ab23dc647d4",
       "center_x": 1850.0,
       "center_y": 520.0,
       "radius": 150,
@@ -760,11 +797,11 @@
       "stroke_width": 1.0,
       "fill_pattern": "SOLID",
       "stroke_style": "SOLID",
-      "stack_order": 36864
+      "stack_order": 37888
     },
     {
       "type": "rectangle",
-      "item_id": "fc2e9c86-21f6-43f9-bc22-2ab23dc647d4",
+      "item_id": "025d7a2e-7f7d-44d7-8184-a4994db2c8df",
       "x": 1500.0,
       "y": 100.0,
       "width": 220.0,
@@ -776,11 +813,11 @@
       "stroke_width": 1.0,
       "fill_pattern": "SOLID",
       "stroke_style": "SOLID",
-      "stack_order": 37888
+      "stack_order": 38912
     },
     {
       "type": "rectangle",
-      "item_id": "025d7a2e-7f7d-44d7-8184-a4994db2c8df",
+      "item_id": "c724cd4b-0e61-4761-a746-265119758316",
       "x": 1380.0,
       "y": 480.0,
       "width": 300.0,
@@ -792,11 +829,11 @@
       "stroke_width": 1.0,
       "fill_pattern": "SOLID",
       "stroke_style": "SOLID",
-      "stack_order": 38912
+      "stack_order": 39936
     },
     {
       "type": "rectangle",
-      "item_id": "c724cd4b-0e61-4761-a746-265119758316",
+      "item_id": "b9c2c0d0-84d2-4188-a859-35b4f562ec6a",
       "x": 780.0,
       "y": 90.0,
       "width": 360.0,
@@ -809,18 +846,18 @@
       "fill_pattern": "SOLID",
       "stroke_style": "SOLID",
       "child_item_ids": [
-        "b9c2c0d0-84d2-4188-a859-35b4f562ec6a",
         "2b7226e6-a393-4e14-87ee-38cc23a48b97",
         "61a58ac1-1344-4bc0-9765-daa7ea848038",
         "9d0668f2-fb7e-4fa0-88e5-b18821e57be3",
         "7bdffb9e-0bc3-4ec4-a7ad-7e28c18a39bd",
-        "de0f3217-aa3d-40b9-8732-50d39c5c3a48"
+        "de0f3217-aa3d-40b9-8732-50d39c5c3a48",
+        "2511284b-f6ec-4d37-a9b6-29609ff5e724"
       ],
-      "stack_order": 39936
+      "stack_order": 40960
     },
     {
       "type": "circle",
-      "item_id": "b9c2c0d0-84d2-4188-a859-35b4f562ec6a",
+      "item_id": "2b7226e6-a393-4e14-87ee-38cc23a48b97",
       "center_x": 810.0,
       "center_y": 150.0,
       "radius": 45.0,
@@ -882,12 +919,12 @@
       "fill_pattern": "SOLID",
       "stroke_style": "SOLID",
       "plant_species": "tomato",
-      "parent_bed_id": "c724cd4b-0e61-4761-a746-265119758316",
-      "stack_order": 40960
+      "parent_bed_id": "b9c2c0d0-84d2-4188-a859-35b4f562ec6a",
+      "stack_order": 41984
     },
     {
       "type": "circle",
-      "item_id": "2b7226e6-a393-4e14-87ee-38cc23a48b97",
+      "item_id": "61a58ac1-1344-4bc0-9765-daa7ea848038",
       "center_x": 870.0,
       "center_y": 150.0,
       "radius": 20.0,
@@ -951,12 +988,12 @@
       "fill_pattern": "SOLID",
       "stroke_style": "SOLID",
       "plant_species": "basil",
-      "parent_bed_id": "c724cd4b-0e61-4761-a746-265119758316",
-      "stack_order": 41984
+      "parent_bed_id": "b9c2c0d0-84d2-4188-a859-35b4f562ec6a",
+      "stack_order": 43008
     },
     {
       "type": "circle",
-      "item_id": "61a58ac1-1344-4bc0-9765-daa7ea848038",
+      "item_id": "9d0668f2-fb7e-4fa0-88e5-b18821e57be3",
       "center_x": 930.0,
       "center_y": 150.0,
       "radius": 15.0,
@@ -1020,12 +1057,12 @@
       "fill_pattern": "SOLID",
       "stroke_style": "SOLID",
       "plant_species": "lettuce",
-      "parent_bed_id": "c724cd4b-0e61-4761-a746-265119758316",
-      "stack_order": 43008
+      "parent_bed_id": "b9c2c0d0-84d2-4188-a859-35b4f562ec6a",
+      "stack_order": 44032
     },
     {
       "type": "circle",
-      "item_id": "9d0668f2-fb7e-4fa0-88e5-b18821e57be3",
+      "item_id": "7bdffb9e-0bc3-4ec4-a7ad-7e28c18a39bd",
       "center_x": 990.0,
       "center_y": 150.0,
       "radius": 30.0,
@@ -1087,12 +1124,12 @@
       "fill_pattern": "SOLID",
       "stroke_style": "SOLID",
       "plant_species": "kale",
-      "parent_bed_id": "c724cd4b-0e61-4761-a746-265119758316",
-      "stack_order": 44032
+      "parent_bed_id": "b9c2c0d0-84d2-4188-a859-35b4f562ec6a",
+      "stack_order": 45056
     },
     {
       "type": "circle",
-      "item_id": "7bdffb9e-0bc3-4ec4-a7ad-7e28c18a39bd",
+      "item_id": "de0f3217-aa3d-40b9-8732-50d39c5c3a48",
       "center_x": 1050.0,
       "center_y": 150.0,
       "radius": 5.0,
@@ -1150,12 +1187,12 @@
       "fill_pattern": "SOLID",
       "stroke_style": "SOLID",
       "plant_species": "carrot",
-      "parent_bed_id": "c724cd4b-0e61-4761-a746-265119758316",
-      "stack_order": 45056
+      "parent_bed_id": "b9c2c0d0-84d2-4188-a859-35b4f562ec6a",
+      "stack_order": 46080
     },
     {
       "type": "circle",
-      "item_id": "de0f3217-aa3d-40b9-8732-50d39c5c3a48",
+      "item_id": "2511284b-f6ec-4d37-a9b6-29609ff5e724",
       "center_x": 1110.0,
       "center_y": 150.0,
       "radius": 7.5,
@@ -1220,12 +1257,12 @@
       "fill_pattern": "SOLID",
       "stroke_style": "SOLID",
       "plant_species": "onion",
-      "parent_bed_id": "c724cd4b-0e61-4761-a746-265119758316",
-      "stack_order": 46080
+      "parent_bed_id": "b9c2c0d0-84d2-4188-a859-35b4f562ec6a",
+      "stack_order": 47104
     },
     {
       "type": "rectangle",
-      "item_id": "2511284b-f6ec-4d37-a9b6-29609ff5e724",
+      "item_id": "4362733c-90c9-44eb-92c2-e5bf1a0a04bf",
       "x": 1180.0,
       "y": 80.0,
       "width": 200.0,
@@ -1238,13 +1275,13 @@
       "fill_pattern": "SOLID",
       "stroke_style": "SOLID",
       "child_item_ids": [
-        "4362733c-90c9-44eb-92c2-e5bf1a0a04bf"
+        "c7a18ac4-49cd-4540-b3b7-f6779d497b62"
       ],
-      "stack_order": 47104
+      "stack_order": 48128
     },
     {
       "type": "circle",
-      "item_id": "4362733c-90c9-44eb-92c2-e5bf1a0a04bf",
+      "item_id": "c7a18ac4-49cd-4540-b3b7-f6779d497b62",
       "center_x": 1280.0,
       "center_y": 130.0,
       "radius": 30.0,
@@ -1310,12 +1347,12 @@
       "fill_pattern": "SOLID",
       "stroke_style": "SOLID",
       "plant_species": "runner bean",
-      "parent_bed_id": "2511284b-f6ec-4d37-a9b6-29609ff5e724",
-      "stack_order": 48128
+      "parent_bed_id": "4362733c-90c9-44eb-92c2-e5bf1a0a04bf",
+      "stack_order": 49152
     },
     {
       "type": "rectangle",
-      "item_id": "c7a18ac4-49cd-4540-b3b7-f6779d497b62",
+      "item_id": "8f1b360a-a64a-4948-bb5c-b546f35f36f7",
       "x": 380.0,
       "y": 330.0,
       "width": 120.0,
@@ -1327,11 +1364,11 @@
       "stroke_width": 1.0,
       "fill_pattern": "SOLID",
       "stroke_style": "SOLID",
-      "stack_order": 49152
+      "stack_order": 50176
     },
     {
       "type": "rectangle",
-      "item_id": "8f1b360a-a64a-4948-bb5c-b546f35f36f7",
+      "item_id": "c5f9a4ab-47a2-4e99-aa53-87b3917a60ac",
       "x": 80.0,
       "y": 330.0,
       "width": 100.0,
@@ -1343,11 +1380,11 @@
       "stroke_width": 1.0,
       "fill_pattern": "SOLID",
       "stroke_style": "SOLID",
-      "stack_order": 50176
+      "stack_order": 51200
     },
     {
       "type": "circle",
-      "item_id": "c5f9a4ab-47a2-4e99-aa53-87b3917a60ac",
+      "item_id": "7119dad8-3b9f-4e80-beb8-a46e92ae0c1d",
       "center_x": 350.0,
       "center_y": 105.0,
       "radius": 28,
@@ -1358,11 +1395,11 @@
       "stroke_width": 1.0,
       "fill_pattern": "SOLID",
       "stroke_style": "SOLID",
-      "stack_order": 51200
+      "stack_order": 52224
     },
     {
       "type": "circle",
-      "item_id": "7119dad8-3b9f-4e80-beb8-a46e92ae0c1d",
+      "item_id": "6f18f16c-b436-444a-8a3e-9ee8667ee737",
       "center_x": 730.0,
       "center_y": 110.0,
       "radius": 10,
@@ -1373,11 +1410,11 @@
       "stroke_width": 1.0,
       "fill_pattern": "SOLID",
       "stroke_style": "SOLID",
-      "stack_order": 52224
+      "stack_order": 53248
     },
     {
       "type": "rectangle",
-      "item_id": "6f18f16c-b436-444a-8a3e-9ee8667ee737",
+      "item_id": "614ffa39-a2fc-4e34-ae68-a6a3ae797c41",
       "x": 1000.0,
       "y": 260.0,
       "width": 60.0,
@@ -1389,11 +1426,11 @@
       "stroke_width": 1.0,
       "fill_pattern": "SOLID",
       "stroke_style": "SOLID",
-      "stack_order": 53248
+      "stack_order": 54272
     },
     {
       "type": "circle",
-      "item_id": "614ffa39-a2fc-4e34-ae68-a6a3ae797c41",
+      "item_id": "cea95e2e-13ea-4f19-83d0-81d9e0bb5107",
       "center_x": 260.0,
       "center_y": 760.0,
       "radius": 50,
@@ -1404,11 +1441,11 @@
       "stroke_width": 1.0,
       "fill_pattern": "SOLID",
       "stroke_style": "SOLID",
-      "stack_order": 54272
+      "stack_order": 55296
     },
     {
       "type": "rectangle",
-      "item_id": "cea95e2e-13ea-4f19-83d0-81d9e0bb5107",
+      "item_id": "b76421e5-c22b-4886-a4c4-3f99be78b3f7",
       "x": 90.0,
       "y": 640.0,
       "width": 180.0,
@@ -1420,11 +1457,11 @@
       "stroke_width": 1.0,
       "fill_pattern": "SOLID",
       "stroke_style": "SOLID",
-      "stack_order": 55296
+      "stack_order": 56320
     },
     {
       "type": "circle",
-      "item_id": "b76421e5-c22b-4886-a4c4-3f99be78b3f7",
+      "item_id": "80e6de68-99b3-4c87-bbea-a4b8ad93087e",
       "center_x": 120.0,
       "center_y": 900.0,
       "radius": 25,
@@ -1435,11 +1472,11 @@
       "stroke_width": 1.0,
       "fill_pattern": "SOLID",
       "stroke_style": "SOLID",
-      "stack_order": 56320
+      "stack_order": 57344
     },
     {
       "type": "circle",
-      "item_id": "80e6de68-99b3-4c87-bbea-a4b8ad93087e",
+      "item_id": "c8ee7cc1-12d4-493d-bbee-c6d82a4331a2",
       "center_x": 120.0,
       "center_y": 970.0,
       "radius": 25,
@@ -1450,11 +1487,11 @@
       "stroke_width": 1.0,
       "fill_pattern": "SOLID",
       "stroke_style": "SOLID",
-      "stack_order": 57344
+      "stack_order": 58368
     },
     {
       "type": "circle",
-      "item_id": "c8ee7cc1-12d4-493d-bbee-c6d82a4331a2",
+      "item_id": "eaa37b4a-ed32-4a5e-a577-75d4361fcb86",
       "center_x": 2300.0,
       "center_y": 700.0,
       "radius": 170.0,
@@ -1505,11 +1542,11 @@
       "fill_pattern": "SOLID",
       "stroke_style": "SOLID",
       "plant_species": "apple tree",
-      "stack_order": 58368
+      "stack_order": 59392
     },
     {
       "type": "circle",
-      "item_id": "eaa37b4a-ed32-4a5e-a577-75d4361fcb86",
+      "item_id": "3be90932-9fc7-4deb-8be6-de49cc19f55d",
       "center_x": 980.0,
       "center_y": 1180.0,
       "radius": 150.0,
@@ -1560,11 +1597,11 @@
       "fill_pattern": "SOLID",
       "stroke_style": "SOLID",
       "plant_species": "cherry tree",
-      "stack_order": 59392
+      "stack_order": 60416
     },
     {
       "type": "circle",
-      "item_id": "3be90932-9fc7-4deb-8be6-de49cc19f55d",
+      "item_id": "5504eee4-8634-4e8d-881a-7b01543b5c4e",
       "center_x": 2520.0,
       "center_y": 300.0,
       "radius": 55.0,
@@ -1613,11 +1650,11 @@
       "fill_pattern": "SOLID",
       "stroke_style": "SOLID",
       "plant_species": "hydrangea",
-      "stack_order": 60416
+      "stack_order": 61440
     },
     {
       "type": "circle",
-      "item_id": "5504eee4-8634-4e8d-881a-7b01543b5c4e",
+      "item_id": "e99e3e24-233c-4bc1-bc68-37072e5c927e",
       "center_x": 2520.0,
       "center_y": 520.0,
       "radius": 55.0,
@@ -1668,11 +1705,11 @@
       "fill_pattern": "SOLID",
       "stroke_style": "SOLID",
       "plant_species": "rose",
-      "stack_order": 61440
+      "stack_order": 62464
     },
     {
       "type": "circle",
-      "item_id": "e99e3e24-233c-4bc1-bc68-37072e5c927e",
+      "item_id": "6b8f5722-707a-4462-b7a6-6cf6ed29716e",
       "center_x": 2520.0,
       "center_y": 740.0,
       "radius": 55.0,
@@ -1721,11 +1758,11 @@
       "fill_pattern": "SOLID",
       "stroke_style": "SOLID",
       "plant_species": "lilac",
-      "stack_order": 62464
+      "stack_order": 63488
     },
     {
       "type": "circle",
-      "item_id": "6b8f5722-707a-4462-b7a6-6cf6ed29716e",
+      "item_id": "3f36871f-695d-41b6-b1f5-8607089fb2a0",
       "center_x": 1080.0,
       "center_y": 1240.0,
       "radius": 20,
@@ -1736,11 +1773,11 @@
       "stroke_width": 1.0,
       "fill_pattern": "SOLID",
       "stroke_style": "SOLID",
-      "stack_order": 63488
+      "stack_order": 64512
     },
     {
       "type": "polyline",
-      "item_id": "3f36871f-695d-41b6-b1f5-8607089fb2a0",
+      "item_id": "0fd1e71e-32c3-4742-8cde-89907d4805a1",
       "points": [
         {
           "x": 240.0,
@@ -1759,7 +1796,7 @@
       "name": "String lights",
       "stroke_color": "#ff303336",
       "stroke_width": 12.0,
-      "stack_order": 64512
+      "stack_order": 65536
     }
   ],
   "location": {

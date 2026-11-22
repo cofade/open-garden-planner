@@ -449,6 +449,12 @@ def test_sink_receives_exactly_the_minimal_calls(
     do(rig.stage)
     result, calls, built = rig.tick()
     expected = expect(rig.stage.id)
+    if name == "a later date" and shape != "plant":
+        from open_garden_planner.core.object_types import ObjectType
+
+        # #943: a lawn's own colour follows the date; a raised-bed bystander does not.
+        if rig.stage.bystander.object_type is ObjectType.LAWN:
+            expected = SceneDiff(material=(str(rig.stage.bystander.item_id),))
     assert result == expected, name
     assert calls == minimal_calls(expected)
     assert built == list(expected.geometry)  # a move, a turn, a recolour build nothing

@@ -110,6 +110,7 @@ class FakeHost:
         self.lamps: list[list[tuple[float, float, float, float]]] = []
         self.life: list[bool] = []
         self.seasons: list[Any] = []
+        self.meadow_seasons: list[Any] = []
 
     def set_ambient(self, buffers: Any) -> None:
         self.ambient.append(buffers)
@@ -122,6 +123,9 @@ class FakeHost:
 
     def set_plant_seasons(self, states: Any) -> None:
         self.seasons.append(states)
+
+    def set_meadow_season(self, tint: Any) -> None:
+        self.meadow_seasons.append(tint)
 
     def set_overlay(self, layer: str, mesh: Any) -> None:
         self.overlays[layer] = mesh

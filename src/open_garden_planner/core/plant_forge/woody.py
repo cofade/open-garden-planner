@@ -109,7 +109,13 @@ def build_forged_conifer(
 
     for ti, frac in enumerate(tier_t):
         z_tier = height_cm * (trunk_share + (0.95 - trunk_share) * frac)
-        if traits.crown.shape == "columnar":
+        if traits.crown.shape == "umbrella":
+            # #960: broad through the crown's lower two thirds, a flattened head - the
+            # Scots pine's silhouette, never a spruce's tapering cone.
+            shoulder = min(frac / 0.65, 1.0)
+            env = (0.68 + 0.32 * math.sin(shoulder * math.pi / 2.0)) * (
+                1.0 - 0.58 * max(frac - 0.65, 0.0) / 0.35)
+        elif traits.crown.shape == "columnar":
             env = (0.55 + 0.45 * math.sin(frac * math.pi * 0.88)) * (1.0 - 0.35 * frac)
         elif traits.crown.shape in ("spreading", "flat"):
             env = 0.65 + 0.35 * (1.0 - 0.45 * frac)
@@ -251,10 +257,18 @@ def build_forged_palm(
         leaflets_per_side = 3
         sides = 4
 
+    # #949: a low, wide palm is a dwarf/clumping form: no tall bare trunk, the fronds
+    # rise almost from the ground. The tall form keeps the measured 0.64 trunk share.
+    dwarf = height_cm <= 160.0 or radius_cm * 2.0 >= height_cm * 1.5
+    trunk_share = 0.08 if dwarf else max(traits.crown.trunk_share, 0.64)
+    if dwarf:
+        trunk_rings = max(2, trunk_rings // 2)
+        n_fronds += 3
     # Seed-specific curved trunk up to the crown shaft
     lean_az = float(rng.uniform(0.0, 2.0 * math.pi))
-    lean_mag = float(rng.uniform(0.14, 0.34)) * radius_cm
-    shaft_z = height_cm * max(traits.crown.trunk_share, 0.64)
+    lean_mag = float(rng.uniform(0.14 if not dwarf else 0.05,
+                                 0.34 if not dwarf else 0.16)) * radius_cm
+    shaft_z = height_cm * trunk_share
 
     t_steps = np.linspace(0.0, 1.0, trunk_rings + 1)
     curve = (t_steps**1.45) * lean_mag

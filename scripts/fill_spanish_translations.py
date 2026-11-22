@@ -37,6 +37,7 @@ from scripts.translations_l4 import ES as T_L4
 from scripts.translations_l5 import ES as T_L5
 from scripts.translations_l6 import ES as T_L6
 from scripts.translations_l7 import ES as T_L7
+from scripts.translations_showcase import ES as T_SHOWCASE
 from scripts.translations_sun_map import ES as T_SUN_MAP
 from scripts.translations_units_prefs import ES as T_UNITS_PREFS
 
@@ -58,7 +59,7 @@ def get_spanish_translations() -> dict[str, dict[str, str]]:
     assembled: dict[str, dict[str, str]] = {}
     for module_trans in (T_CS, T_OG, T_CT, T_PANELS, T_DIALOGS, T_APP, T_VIEW3D, T_REFERENCE,
                          T_F4, T_L2, T_L4, T_L5, T_L6, T_L7, T_EXPORTS, T_EXAMPLES,
-                         T_SUN_MAP, T_UNITS_PREFS):
+                         T_SUN_MAP, T_UNITS_PREFS, T_SHOWCASE):
         for ctx, mapping in module_trans.items():
             assembled.setdefault(ctx, {}).update(mapping)
     return assembled

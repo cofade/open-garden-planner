@@ -95,7 +95,8 @@ def test_an_example_ships_its_stored_tours_and_every_one_of_them_loads(slug, lan
     assert not skipped
     assert [tour["name"] for tour in english["camera_tours"]] == list(SPECS[slug].tours)
     orbit = tours[0]
-    assert orbit.motion == "orbit" and orbit.orbit.ease and orbit.orbit.turns == 1
+    assert orbit.motion == "orbit" and orbit.orbit.ease
+    assert orbit.orbit.turns == SPECS[slug].orbit_turns
     assert orbit.date_range is None and orbit.time_range is None, "the orbit plays at the showcase moment"
     assert orbit.orbit.pose.target == pytest.approx(
         (plan["canvas"]["width"] / 2, plan["canvas"]["height"] / 2))

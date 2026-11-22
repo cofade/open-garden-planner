@@ -8393,6 +8393,73 @@ keeps the global union small. `owned_shadows` has no production reader, but remo
 unions is a pessimisation, not an optimisation. Recorded so the next attempt starts from
 the measurement.
 
+### ADR-059 addendum: the 3D showcase follow-ups (#941, #943, #955, #960, #992)
+
+**Status**: Accepted (draft PR; the owner's visual pass is still owed).
+
+**Context**: the independent 3D review of the bundled examples (#940) found looks that
+were fixed values rather than the plan's own: one multiplier per channel turned green
+crowns olive and salmon in autumn; a lawn and the meadow kept one green all year; a
+stone-filled polygon was a flat concrete block; moss was a bright lawn; a sand court had
+no rake; a tall timber fence was a picket fence; a Scots pine was a spruce cone; and at
+Ultra a window pane was flat blue while the water reflected. The fixes must not move the
+sun, a shadow, a footprint or a saved file's version.
+
+**Decision**:
+1. **Two-anchor autumn.** `PhenologyState` carries the summer and autumn palettes' dark
+   and light linear anchors; `foliage.frag`/`foliage_door.frag` map each leaf's summer
+   luma from the summer pair onto the autumn pair. The old one-multiplier value stays in
+   `foliage_tint_linear` for the falling leaves (`core/scene3d/particles.py`), which the
+   foliage shader does not draw; the shader receives `foliage_snow_tint_linear` (snow
+   dust only), so the multiplier is never applied twice.
+2. **The grass through the year.** `phenology.seasonal_ground_tint(date, latitude)` is the
+   one lawn/meadow multiplier (keyframed, hemisphere-aware). A lawn's fill is scaled in the
+   snapshot (`snapshot._seasonal_fill`), so its ground picture and blades agree; the open
+   ground reads the same value as `meadowSeason` in `ground.frag`; covered surfaces are
+   untouched. `snapshot_records(..., latitude_deg=)` is additive and `Scene3DController`
+   supplies `plan_latitude`.
+3. **A rock is a stone polygon's 3D form** (`surfaces.rock_parts`): upright base walls and
+   a three-ring domed top with one exact peak, for a convex ring of at most 512 vertices
+   with a height; a concave/hostile outline keeps the prism. `GENERIC_POLYGON` joins the
+   surfaces family so the builder is registered once.
+4. **Materials with a look of their own.** `PathFenceStyle.BOARD_FENCE` is a closed board
+   screen in 2D and 3D; a MOSS-filled lawn is a 2.2 cm cushion and its 2D fill the hedge
+   texture in the moss colour; a SAND-filled ground surface gains raked ridges. The
+   Japanese maple's leaf scale drops to 0.45 (the recipe and its regenerated sprite); the
+   canopy tip weight stays #994's green-sprite constant 0.43. The Scots pine's crown is
+   the `umbrella` shape, and a low/wide palm is trunkless (`plant_forge/woody.py`); a
+   pergola climber follows `core/pergola.py`'s own rafters.
+5. **A window pane at Ultra** gets `glass.frag`: `uSsrRough` is 0.38 only while the view
+   draws SSR, and 0.70 (the #883 flicker floor) otherwise. Metalness stays 0; the sky
+   reflection keeps its roughness.
+6. **Hedges keep their density** (#954): a hedge's leaves are capped at 600 a metre of
+   run, with a 30,000-leaf plan-wide budget shared by demand. The two bench plans grow
+   30,606 and 71,614 triangles; their build medians remain under 40/60 ms, and the plan
+   triangle tripwires are raised to 35,000/80,000 with those measurements.
+
+**Alternatives rejected**: keeping the one-multiplier autumn (no single multiplier gives
+a clean palette; reference 018); storing the season in the plan (the plan date already
+drives every dated surface); a texture on the hedge core instead of more leaves (no
+material path for a foliage-textured solid, and the issue's measured target is the leaf
+coverage); raising the hedge leaf budget without a plan cap (unbounded triangles); a
+second autumn field for the shader (the anchors already carry the palette).
+
+**Consequences**: no `FILE_VERSION` change; one additive plan key (`weather`, ADR-070
+addendum) and one additive tour field value range (`turns`, ADR-072 addendum). One new
+shader (`glass.frag`) ships in the bundle. The plan-wide hedge budget is a new
+performance bound; its evidence is `tests/perf/test_scene3d_built_world_budget.py`.
+A CustomMaterial's uniforms are declared per material, not per shader: the frozen
+`--selftest` caught the two **shader warmers** using `foliage_door.frag` without the five
+autumn properties, and Qt compiled their copy without the uniforms even though the real
+`foliageDoor`/`grassDoor` blocks had them. Every material that names a shader — the
+warmers included — must declare the new uniform properties; the static QML tests cannot
+see this, the frozen selftest can.
+Pinned by `tests/unit/test_phenology.py`, `tests/ui/test_quick3d_host.py`,
+`tests/integration/test_scene3d_snapshot.py`, `tests/unit/test_scene3d_rock.py`,
+`tests/unit/test_scene3d_l4_surfaces.py`, `tests/unit/test_scene3d_builders.py`,
+`tests/unit/test_scene3d_materials_and_built_polish.py`, `tests/unit/test_quick3d_qml.py`,
+`tests/unit/test_quick3d_packaging.py`, and the Japanese garden's example gate.
+
 ## ADR-060: The 3D workspace — Plan / 3D / Split in the main window, one kept engine host (Phase 17, L1.3)
 
 **Status**: Accepted (2026-10-12, #385 story L1.3, epic #383). Behind the internal switch
@@ -10080,6 +10147,46 @@ FR-3D-FORGE-01/02/03/05/06/07, FR-3D-LIVE-01; tests `tests/unit/test_plant_forge
 `tests/unit/test_scene3d_plants.py`, `tests/unit/test_quick3d_qml.py`,
 `tests/integration/test_plant_forge_workspace.py` and the 40 golden
 tree references (their foliage colours were re-measured once, for #969).
+
+### ADR-064 addendum 2: species forms from the plant's own size (#949, #956, #960)
+
+**Status**: Accepted (draft PR; the owner's visual pass is still owed).
+
+**Context**: the Forge had one palm and one conifer silhouette. A dwarf fan palm
+therefore got the windmill palm's bare 0.64-height trunk, a Scots pine got a spruce
+cone, and a grape vine on a pergola stayed a column at the post because the support
+resolver only knew a rectangle's edge.
+
+**Decision**:
+1. **The palm's trunk is a function of the plant.** A palm at or below 160 cm, or one
+   whose canopy diameter is at least 1.5 times its height, is the dwarf/clumping form:
+   `trunk_share = 0.08`, half the trunk rings, three more fronds and a fifth of the
+   lean. A taller palm keeps `max(crown.trunk_share, 0.64)`. One builder
+   (`plant_forge/woody.build_forged_palm`), chosen from the recorded size.
+2. **The Scots pine is an `umbrella`.** `traits3d` gains the named crown shape;
+   `build_forged_conifer` gives it a broad lower crown and a flattened head, and the
+   skeleton builder spreads its branches at the top. Other conifers are unchanged.
+3. **A pergola climber follows the rafters.** `climbers._support_segments` asks
+   `core/pergola.layout` for the pergola's own rafters and uses their centre lines as
+   the support, so the vine's top spreads along the pergola's depth. A pergola too
+   small for that layout keeps its outline; trellis and path supports are unchanged.
+4. **The Japanese maple's leaves are small** (`recipes.py` leaf scale 0.45, from 0.65),
+   so its crown is not a mass of large diamonds. The green canopy's tip weight stays
+   #994's 0.43, measured over green-leaved sprites only.
+
+**Alternatives rejected**: a second palm builder (two silhouettes to keep in step);
+scaling a tall palm down (the trunk stays, the fronds would sink); a pine palette-only
+change (the cone is geometry); a pergola's bounding rectangle (the very shape that made
+the vine a column); a saved support segment (the support is transient and must follow
+the pergola when it moves).
+
+**Consequences**: no `FILE_VERSION` change; no new dependency. The forms are runtime
+only. Pinned by `tests/unit/test_plant_forge_l32.py`
+(`test_a_scots_pine_is_an_umbrella_not_a_spruce_cone`,
+`test_a_dwarf_palm_is_trunkless_and_a_tall_palm_is_not`),
+`tests/unit/test_plant_forge_l34.py::TestL34ClimberSupportResolution::test_a_climber_on_a_pergola_is_trained_along_a_rafter`,
+`tests/unit/test_plant_art.py` (the crown-shape set), and
+`tests/unit/test_scene3d_plants.py` (the measured tip weight).
 
 ## ADR-065: The built world complete — objects, roofs, facades, surfaces and ground detail (Phase 17 L4, #388)
 
@@ -12251,6 +12358,45 @@ the transmittance against the trimmed prism, and the turned frame) and
 `tests/integration/test_open_frame_shade.py` (the real overlay and map). FR-SUN-13,
 §8.29.6 and the shadow table carry the new numbers.
 
+### ADR-070 addendum: the weather is the plan's, not the session's (#944)
+
+**Status**: Accepted (draft PR; the owner's visual pass is still owed).
+
+**Context**: L5 made the weather session state: `WorkspaceLivingCoordinator` started
+clear and the note said "not stored". A bundled example or a stored camera tour could
+therefore not open in snow or rain, so a winter showcase could not be shipped. The
+issue's direction was "an optional weather on the showcase moment of an example, or on
+a stored tour". The tour is the wrong home: a tour is a camera and a clock (ADR-072
+addendum), and the weather is a property of the whole plan's look, not of one flight.
+
+**Decision**:
+1. **One additive top-level plan key, `weather`.** `ProjectData.weather` defaults to
+   `"clear"`, is written only when it is not clear, and is read through
+   `weather.normalise_weather` — an unknown value, a missing key or `today` opens clear.
+   No `FILE_VERSION` change; an older app ignores the key.
+2. **The choice is the user's and dirties the plan.** `ProjectManager.set_plan_weather`
+   emits `plan_weather_changed` and marks the plan dirty; the window's
+   `_store_plan_weather` stores every concrete weather the toolbar emits and refuses
+   `today` (a forecast, not a plan fact). Opening a plan calls `_apply_plan_weather`,
+   which applies the stored weather — **clear included** — with an
+   `_applying_plan_weather` guard so the feed-back does not dirty the document.
+3. **A portable template keeps it.** `weather` joins `KEEP_PROJECT_FIELDS`: it is part
+   of the plan's look, not personal site data.
+4. **A tour keeps no weather.** A tour rendered from a plan uses that plan's weather
+   (FR-3D-TOUR-04); the weather still belongs to the view/plan at render time.
+
+**Alternatives rejected**: a tour-only field (one flight would own the whole plan's
+sky, and a still picture or the live view would not see it); a session setting (the
+issue's whole point); writing clear explicitly (the plan key is additive and absent
+means clear, so a file stays small and old plans stay byte-compatible); treating an
+unknown weather as an error (a file from a future build must still open).
+
+**Consequences**: one additive plan key and one new signal; no new UI string (the
+Weather menu exists). Pinned by `tests/unit/test_plan_weather.py` (the key, the range,
+unknown values), `tests/integration/test_plan_weather.py` (the real window: the menu
+stores, save/reopen applies, Today is not stored), and
+`tests/integration/test_autosave_recovery.py` (recovery keeps it).
+
 ## ADR-071: Per-object fill transform as additive appearance metadata (issue #665)
 
 **Status**: Accepted (2026-11-02, package #674/#665/#690).
@@ -12958,6 +13104,38 @@ unbounded GUI-thread join on a gigabyte copy (freezes close).
 **Pinned by:** `tests/unit/test_mp4_stream.py`, `tests/unit/test_camera_tours.py`,
 `tests/integration/test_tour_video_reliability.py`, and the real encoder/decoder workflows
 in `tests/integration/test_video_writer.py`.
+
+### ADR-072 addendum: a drone orbit's part turn (#966)
+
+**Status**: Accepted (draft PR; the owner's visual pass is still owed).
+
+**Context**: `DroneOrbit(turns=0.5)` already existed in `core/camera_path.py`, but the
+tour dialog offered a `QSpinBox` of whole turns (1–4) and `SavedTour` refused any
+non-integer. A garden with a house on one side could only fly a full turn, so three
+bundled examples showed the back of the house for half the video.
+
+**Decision**:
+1. **Turns are a part or a whole turn.** `ORBIT_TURNS = (0.25, 4.0)`; the dialog's
+   **Turns** is a `QDoubleSpinBox` with two decimals and a 0.25 step (the tooltip
+   explains the garden-side use). `default_duration_s` multiplies
+   `ORBIT_SECONDS_PER_TURN` by the fractional turns, so a half turn lasts 15 s.
+2. **The file carries the fraction.** `_orbit_dict` writes an integer when the value is
+   whole and a float otherwise; `_orbit_from` clamps any written value to the dialog's
+   range and rounds to two decimals. `SavedTour` validates the range, not integrality.
+3. **The bundled examples use it.** Terraced-house, Mediterranean and modern gardens
+   store a half-turn orbit; their first frame is still the stored view.
+
+**Alternatives rejected**: a separate "half turn" checkbox (two truths for one number);
+only whole turns in the file (a plan could not say what the dialog offers); a fixed
+half-turn preset (a quarter turn is useful on a small courtyard).
+
+**Consequences**: no `FILE_VERSION` change; `turns` stays the same additive orbit
+field with a wider value range. An older app rounds a fractional value to a whole turn
+(a stored 0.5 becomes 1) and flies a full turn; it does not fail to open the plan. No new
+UI string except the tooltip, translated in all five locales. Pinned by
+`tests/unit/test_camera_tours.py` (round trip, clamp, default duration),
+`tests/integration/test_directors_cut.py::test_a_part_turn_starts_the_orbit_at_the_view_and_stops_half_way_round`,
+and `tests/unit/test_example_specs.py` (the three stored half turns).
 
 ## ADR-073: The Microsoft Store as a second distribution channel (MSIX), and the #375 decision record (issue #375, #358, #356)
 

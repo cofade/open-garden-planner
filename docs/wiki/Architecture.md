@@ -20,12 +20,14 @@ shadows. Its Analyze menu shows the 2D side's own shadow polygons and hours-of-s
 on the 3D ground; it never computes a second analysis. Buildings, paths and all 24
 placeable object kinds are procedurally built, with real roofs, path surfaces and
 grass-blade lawns. Day and year playback write through the shared simulation clock;
-weather is only a look that never moves the sun. Flat terrain (no elevation or slope)
-remains a current limitation. The 2D analytic shadow and sun-hours calculations are
-separate from the 3D renderer's lighting. Unknown plant heights can use labelled
+weather is only a look that never moves the sun; a plan stores the concrete weather it
+opens in (#944), while Today's Weather stays a live forecast. Flat terrain (no elevation
+or slope) remains a current limitation. The 2D analytic shadow and sun-hours calculations
+are separate from the 3D renderer's lighting. Unknown plant heights can use labelled
 illustrative category heights in 3D; analytical heights remain unknown.
 
-Camera tours are stored with the plan. Video delivery validates MP4 sample tables before
+Camera tours are stored with the plan; a drone orbit may be a part turn or a whole turn
+(0.25–4, #966). Video delivery validates MP4 sample tables before
 replacing the destination; an invalid render stays under its part name and the failure
 message identifies it. The delivery decisions are recorded in
 [ADR-072](https://github.com/cofade/open-garden-planner/blob/master/docs/09-architecture-decisions/README.md#adr-072-addendum-tour-and-video-reliability-889-890-891-896).

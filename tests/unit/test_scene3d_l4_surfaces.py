@@ -74,6 +74,22 @@ def test_tiny_raised_ponds_are_valid_prisms(size_cm, height_cm) -> None:
     assert max(float(part.mesh.positions[:, 2].max()) for part in parts) == pytest.approx(height_cm)
 
 
+def test_moss_is_a_low_dense_cushion_and_sand_is_raked() -> None:
+    """#960: the Japanese garden's moss and raked-sand court have looks of their own."""
+    lawn = polygon_record("LAWN", rectangle(400.0, 300.0), None,
+                          params={"surface_pattern": "MOSS", "lawn_blades": 3000})
+    blades = REGISTRY.build(lawn)
+    assert len(blades) == 1 and blades[0].name == surfaces.LAWN_BLADES
+    assert float(blades[0].mesh.positions[:, 2].max()) <= surfaces.MOSS_BLADE_CM * 1.3 + 0.31
+    zen = polygon_record("TERRACE_PATIO", rectangle(600.0, 420.0), None,
+                         params={"surface_pattern": "SAND"})
+    parts = REGISTRY.build(zen)
+    ridges = [part for part in parts if part.name == "raked_sand"]
+    assert ridges and ridges[0].ground_detail and ridges[0].casts_shadow is False
+    assert float(ridges[0].mesh.positions[:, 2].max()) <= surfaces.RAKED_SAND_HEIGHT_CM + 1e-4
+    assert len(ridges[0].mesh.positions) > 200
+
+
 def test_batched_lawn_mask_matches_even_odd_at_edges_holes_and_self_crossings() -> None:
     rng = np.random.default_rng(607)
     points = np.concatenate([rng.uniform(-200, 200, (2000, 2)),
@@ -113,7 +129,8 @@ PATH_STYLES = ["STEPPING_STONES", "WOODEN_BOARDWALK", "PAVED_PATH", "GRAVEL_PATH
 
 
 def test_the_surface_kinds() -> None:
-    assert {"PATH", "TERRACE_PATIO", "DRIVEWAY", "POND_POOL", "LAWN"} == SURFACE_KINDS
+    assert {"PATH", "TERRACE_PATIO", "DRIVEWAY", "POND_POOL", "LAWN",
+            "GENERIC_POLYGON"} == SURFACE_KINDS
 
 
 # ── paths ────────────────────────────────────────────────────────────────────
@@ -891,8 +908,8 @@ def test_too_many_cutouts_keep_the_largest() -> None:
 
 
 def test_the_context_params_are_build_only() -> None:
-    assert {"door_wall", "lawn_cutouts", "lawn_blades", "roof_style", "roof_pitch_deg",
-            "roof_overhang_cm", "surface_pattern"} == BUILD_ONLY_PARAMS
+    assert {"door_wall", "hedge_leaves", "lawn_cutouts", "lawn_blades", "roof_style",
+            "roof_pitch_deg", "roof_overhang_cm", "surface_pattern"} == BUILD_ONLY_PARAMS
     lawn_record = polygon_record("LAWN", rectangle(800.0, 600.0), None)
     cut = dataclasses.replace(lawn_record, params=lawn_record.params.merged({"lawn_cutouts": ()}))
     assert not lawn_record.same_geometry(cut) and lawn_record.same_ground_geometry(cut)

@@ -24,6 +24,7 @@ class PathFenceStyle(Enum):
 
     # Fence styles
     WOODEN_FENCE = auto()
+    BOARD_FENCE = auto()
     METAL_FENCE = auto()
     CHAIN_LINK = auto()
     HEDGE_FENCE = auto()
@@ -89,6 +90,12 @@ PATH_FENCE_STYLES: dict[PathFenceStyle, PathFenceStyleInfo] = {
         category="fence",
         stroke_color=QColor(139, 90, 43),
         stroke_width=3.0,
+    ),
+    PathFenceStyle.BOARD_FENCE: PathFenceStyleInfo(
+        display_name=QT_TR_NOOP("Board Fence"),
+        category="fence",
+        stroke_color=QColor(119, 82, 47),
+        stroke_width=6.0,
     ),
     PathFenceStyle.METAL_FENCE: PathFenceStyleInfo(
         display_name=QT_TR_NOOP("Metal/Wrought Iron"),

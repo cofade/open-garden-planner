@@ -157,6 +157,10 @@ void MAIN()
         vec2 grassSlope;
         vec3 grass = meadowGrass(VAR_WORLD_POSITION.xz, max(reach.x, reach.y), grassSlope);
         albedo += open * groundLinear(uMeadow) * (grass - 1.0);
+        // #943: the meadow and the plan's OPEN ground take the season's grass colour.
+        // Covered tiles keep their own material - a path does not turn brown in winter;
+        // a LAWN's painted tile and its blades take the same factor in the snapshot.
+        albedo *= mix(vec3(1.0), uMeadowSeason, open);
         slope += open * grassSlope;
     }
     albedo *= groundLinear(uGroundTint);

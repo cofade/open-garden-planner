@@ -2076,11 +2076,11 @@
         "yaw_deg": 63.3,
         "pitch_deg": 30.0,
         "fov_deg": 40.0,
-        "turns": 1,
+        "turns": 0.5,
         "clockwise": true,
         "ease": true
       },
-      "duration_s": 30.0,
+      "duration_s": 15.0,
       "fps": 30,
       "size": [
         1920,
@@ -2099,7 +2099,7 @@
         "yaw_deg": 63.3,
         "pitch_deg": 30.0,
         "fov_deg": 40.0,
-        "turns": 1,
+        "turns": 0.5,
         "clockwise": true,
         "ease": true
       },

@@ -246,6 +246,44 @@ def test_every_item_of_an_example_builds_in_3d(qtbot, slug):
     scene.clear()
 
 
+def test_the_japanese_garden_builds_its_rocks_moss_and_raked_sand(qtbot):
+    """#955/#960: the bundled plan's stone polygons become rocks, its moss islands a
+    cushion and its sand court raked ridges -- not a prism, a bright lawn and flat sand."""
+    from open_garden_planner.core import ProjectManager
+    from open_garden_planner.core.scene3d import RecordingSink, SceneSync
+    from open_garden_planner.core.scene3d.builders import production_registry
+    from open_garden_planner.core.scene3d.builders.surfaces import MOSS_PATTERN
+    from open_garden_planner.ui.canvas.canvas_scene import CanvasScene
+    from open_garden_planner.ui.view3d.snapshot import snapshot_records
+
+    scene = CanvasScene()
+    ProjectManager().load(scene, BUNDLED_EXAMPLES / "japanese-garden.ogp", as_template=True)
+    records = snapshot_records(scene, SPECS["japanese-garden"].day)
+    sink = RecordingSink()
+    sync = SceneSync(sink, production_registry(), validate=True)
+    sync.apply(records)
+    assert sync.failures == {}
+
+    rocks = [record for record in records.values()
+             if record.kind == "GENERIC_POLYGON"
+             and record.params.get("surface_pattern") == "STONE"]
+    assert len(rocks) == 3, "the example's three stone polygons"
+    for record in rocks:
+        assert "rock" in [part.name for part in sink.item(record.item_id).parts]
+
+    moss = [record for record in records.values()
+            if record.kind == "LAWN" and record.params.get("surface_pattern") == MOSS_PATTERN]
+    assert len(moss) == 3, "the moss lawn and its two islands"
+    assert all(sink.item(record.item_id).parts for record in moss)
+
+    raked = [record for record in records.values()
+             if record.kind == "TERRACE_PATIO"
+             and record.params.get("surface_pattern") == "SAND"]
+    assert raked and all("raked_sand" in [part.name for part in sink.item(record.item_id).parts]
+                         for record in raked)
+    scene.clear()
+
+
 def test_the_spring_garden_flowers_on_its_day_although_its_last_frost_is_still_to_come(qtbot):
     """18 April lies before the plan's last frost (25 April): bulbs, magnolia, forsythia
     and fruit trees are hardy and flower by their own months; the plan's one promise."""

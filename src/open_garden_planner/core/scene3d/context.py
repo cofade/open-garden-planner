@@ -41,7 +41,7 @@ import numpy as np
 from numpy.typing import NDArray
 
 from ..shadow_geometry import grown_polygon, polyline_round_outline
-from .builders import OBJECT_KINDS
+from .builders import OBJECT_KINDS, hedges
 from .builders.common import centre_line
 from .builders.facade import door_wall_index
 from .builders.surfaces import BLADES_PER_M2, COPING_OUT_CM, pond_regions
@@ -50,6 +50,7 @@ from .frame import cos_sin, pose_ring
 from .polygon import group_rings, ring_area
 from .record import (
     PARAM_DOOR_WALL,
+    PARAM_HEDGE_LEAVES,
     PARAM_LAWN_BLADES,
     PARAM_LAWN_CUTOUTS,
     PARAM_PATH_STYLE,
@@ -81,7 +82,9 @@ ENCLOSED_KINDS: Final = frozenset({"HOUSE", "GARAGE_SHED", "TOOL_SHED", "GREENHO
 #: them at every step (a lawn's cut-outs are the other items' outlines in its frame);
 #: the 3D controller applies a change of these alone at most once per
 #: ``sync_controller.CONTEXT_REBUILD_MIN_MS``.
-CONTEXT_PARAMS: Final = frozenset({PARAM_DOOR_WALL, PARAM_LAWN_CUTOUTS, PARAM_LAWN_BLADES})
+CONTEXT_PARAMS: Final = frozenset({
+    PARAM_DOOR_WALL, PARAM_LAWN_CUTOUTS, PARAM_LAWN_BLADES, PARAM_HEDGE_LEAVES,
+})
 #: Path styles the canvas paints with round caps and joins (``path_style_paint``): their
 #: cut-out is that rounded stroke, half a width past each end — blades grew through the
 #: painted round ends of the square-ended outline (3D review of #388).
@@ -94,6 +97,10 @@ MAX_CUTOUT_VERTICES: Final = 6000
 #: The most lawn blades a whole plan grows (3 triangles a blade); a lawn's own
 #: density and cap are ``builders.surfaces``' ``BLADES_PER_M2`` and ``MAX_BLADES``.
 MAX_PLAN_BLADES: Final = 60_000
+#: The most hedge leaves a whole plan grows (#954), shared by the hedges and hedge
+#: fences by their own demand; a plan's long runs stay at their per-metre density
+#: until this bound is reached.
+MAX_PLAN_HEDGE_LEAVES: Final = hedges.MAX_PLAN_HEDGE_LEAVES
 
 _F64 = NDArray[np.float64]
 
@@ -104,6 +111,8 @@ def context_params_for(record: Record) -> frozenset[str]:
         return frozenset({PARAM_DOOR_WALL})
     if record.kind == "LAWN" and record.height_cm is None:
         return frozenset({PARAM_LAWN_BLADES, PARAM_LAWN_CUTOUTS})
+    if hedges.is_hedge_record(record):
+        return frozenset({PARAM_HEDGE_LEAVES})
     return frozenset()
 
 
@@ -281,11 +290,51 @@ def _lawn_cutouts(records: MutableMapping[str, Record]) -> None:
         records[item_id] = replace(lawn, params=lawn.params.merged(merged))  # type: ignore[arg-type]
 
 
+def _hedge_leaves(records: MutableMapping[str, Record]) -> None:
+    """Share ``MAX_PLAN_HEDGE_LEAVES`` among the hedges by their own demand (#954)."""
+    demand: dict[str, tuple[int, float]] = {}
+    for item_id, record in records.items():
+        measured = hedges.hedge_area_and_run(record)
+        if measured is None:
+            continue
+        area, run = measured
+        wanted = hedges.leaf_count(area, run_length_cm=run)
+        demand[item_id] = (wanted, run)
+    if not demand:
+        return
+    total = sum(wanted for wanted, _run in demand.values())
+    if total <= MAX_PLAN_HEDGE_LEAVES:
+        shares = {item_id: wanted for item_id, (wanted, _run) in demand.items()}
+    else:
+        shares = {}
+        budget = float(MAX_PLAN_HEDGE_LEAVES)
+        remaining = float(total)
+        # each hedge's share is proportional to its own demand; the sorted order only
+        # fixes how the integer remainders fall, so the same plan always shares alike
+        for item_id in sorted(demand, key=lambda key: (demand[key][0], key)):
+            wanted = demand[item_id][0]
+            fair = budget * wanted / remaining if remaining > 0.0 else 0.0
+            share = min(wanted, int(fair))
+            shares[item_id] = share
+            budget -= share
+            remaining -= wanted
+    for item_id, share in shares.items():
+        record = records[item_id]
+        records[item_id] = replace(
+            record, params=record.params.merged({PARAM_HEDGE_LEAVES: int(share)}))
+
+
 def with_context(records: MutableMapping[str, Record]) -> None:
-    """Write every record's context params (module docstring), in place: values
-    are replaced, no key is added or removed."""
+    """Write every record's context params (module docstring), in place.
+
+    Existing values are replaced. Since #954 a hedge gains ``hedge_leaves`` in the same
+    step — its share of the plan's hedge budget — so this may add that one key; it
+    never removes a key or changes any other param.
+    """
     _door_points(records)
     _lawn_cutouts(records)
+    _hedge_leaves(records)
 
 
-__all__ = ["CONTEXT_PARAMS", "DOOR_TARGETS", "GROUND_COVERING_KINDS", "MAX_CUTOUTS", "MAX_CUTOUT_VERTICES", "MAX_PLAN_BLADES", "with_context"]
+__all__ = ["CONTEXT_PARAMS", "DOOR_TARGETS", "GROUND_COVERING_KINDS", "MAX_CUTOUTS",
+           "MAX_CUTOUT_VERTICES", "MAX_PLAN_BLADES", "MAX_PLAN_HEDGE_LEAVES", "with_context"]
