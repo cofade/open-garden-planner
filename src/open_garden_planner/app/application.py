@@ -249,7 +249,7 @@ class GardenPlannerApp(QMainWindow):
         # geometry from _restore_ui_state() above is honoured instead.
         if not self._geometry_restored:
             self.showMaximized()
-            self._sun_toolbar._reflow()
+            self._sun_toolbar.reflow()
             if (layout := self.layout()) is not None:
                 layout.activate()
         QTimer.singleShot(100, self.canvas_view.fit_in_view)
@@ -4126,7 +4126,7 @@ class GardenPlannerApp(QMainWindow):
         self._enforce_toolbar_visibility()
         if self._geometry_restored:
             self._toolbar_rows.fit()
-            self._sun_toolbar._reflow()
+            self._sun_toolbar.reflow()
 
     def _enforce_toolbar_visibility(self) -> None:
         """Toolbar visibility is owned by the app, never by the restored state.
