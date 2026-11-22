@@ -12,6 +12,7 @@ from __future__ import annotations
 import json
 import math
 from collections.abc import Mapping
+from dataclasses import replace
 from typing import Any
 
 from ..plant_art import (
@@ -52,7 +53,15 @@ from .accents import (
     build_umbel_accents,
 )
 from .assemble import PART_ACCENTS, PART_FOLIAGE, PART_WOOD, fit_forged_parts, silhouette_iou
-from .cache import DEFAULT_FORGE_CACHE, CacheKey, ForgeCache, make_cache_key
+from .cache import (
+    DEFAULT_FORGE_CACHE,
+    QUANT_STEP,
+    CacheKey,
+    ForgeCache,
+    make_cache_key,
+    quantised_size_cm,
+    size_bucket,
+)
 from .climbers import (
     CLIMBER_SUPPORT_MAX_DISTANCE_CM,
     PARAM_CLIMBER_SUPPORT,
@@ -134,46 +143,55 @@ def forge_plant(
     extra_sig = _support_signature(support)
     if not include_accents:
         extra_sig = f"{extra_sig}|no_accents"
-    key = make_cache_key(sprite.group, sprite.name, seed, lod, h, r, extra_sig)
+    # #973: with a cache, forge one shape per 2 % size bucket and stretch it to the exact
+    # size, so a tree that grows a little each day keeps its form instead of being
+    # re-randomised. Without a cache there is nothing to reuse: build the exact size.
+    h_bucket = h if cache is None else quantised_size_cm(h)
+    r_bucket = r if cache is None else quantised_size_cm(r)
+    key = make_cache_key(sprite.group, sprite.name, seed, lod, h_bucket, r_bucket, extra_sig)
 
     def _build() -> tuple[MeshPart, ...]:
         traits = traits_for(sprite)
         if traits.archetype == "canopy":
-            parts = build_forged_tree(traits, h, r, seed, lod=lod)
+            parts = build_forged_tree(traits, h_bucket, r_bucket, seed, lod=lod)
         elif traits.archetype == "conifer":
-            parts = build_forged_conifer(traits, h, r, seed, lod=lod)
+            parts = build_forged_conifer(traits, h_bucket, r_bucket, seed, lod=lod)
         elif traits.archetype == "palm":
-            parts = build_forged_palm(traits, h, r, seed, lod=lod)
+            parts = build_forged_palm(traits, h_bucket, r_bucket, seed, lod=lod)
         elif traits.archetype == "mound":
-            parts = build_forged_shrub(traits, h, r, seed, lod=lod)
+            parts = build_forged_shrub(traits, h_bucket, r_bucket, seed, lod=lod)
         elif traits.archetype == "hedge":
-            parts = build_forged_hedge(traits, h, r, seed, lod=lod)
+            parts = build_forged_hedge(traits, h_bucket, r_bucket, seed, lod=lod)
         elif traits.archetype == "rosette":
-            parts = build_forged_rosette(traits, h, r, seed, lod=lod)
+            parts = build_forged_rosette(traits, h_bucket, r_bucket, seed, lod=lod)
         elif traits.archetype == "grass":
-            parts = build_forged_grass(traits, h, r, seed, lod=lod)
+            parts = build_forged_grass(traits, h_bucket, r_bucket, seed, lod=lod)
         elif traits.archetype == "feathery":
-            parts = build_forged_feathery(traits, h, r, seed, lod=lod)
+            parts = build_forged_feathery(traits, h_bucket, r_bucket, seed, lod=lod)
         elif traits.archetype == "allium":
-            parts = build_forged_allium(traits, h, r, seed, lod=lod)
+            parts = build_forged_allium(traits, h_bucket, r_bucket, seed, lod=lod)
         elif traits.archetype == "head":
-            parts = build_forged_head(traits, h, r, seed, lod=lod)
+            parts = build_forged_head(traits, h_bucket, r_bucket, seed, lod=lod)
         elif traits.archetype == "ground":
-            parts = build_forged_ground(traits, h, r, seed, lod=lod)
+            parts = build_forged_ground(traits, h_bucket, r_bucket, seed, lod=lod)
         elif traits.archetype == "flower":
-            parts = build_forged_flower(traits, h, r, seed, lod=lod)
+            parts = build_forged_flower(traits, h_bucket, r_bucket, seed, lod=lod)
         elif traits.archetype == "climber":
-            parts = build_forged_climber(traits, h, r, seed, lod=lod, support=support)
+            parts = build_forged_climber(traits, h_bucket, r_bucket, seed, lod=lod, support=support)
         else:
-            return build_silhouette(recipe_for(sprite), int(seed), h, r)
+            return build_silhouette(recipe_for(sprite), int(seed), h_bucket, r_bucket)
         if include_accents:
-            return attach_accents(parts, traits, h, r, seed, lod=lod)
+            return attach_accents(parts, traits, h_bucket, r_bucket, seed, lod=lod)
         # a bulb's or a stemmed flower's builder placed its own flowers (#940)
         return tuple(p for p in parts if p.name not in SEASONAL_PARTS)
 
-    if cache is None:
-        return _build()
-    return cache.get_or_build(key, _build)
+    built = _build() if cache is None else cache.get_or_build(key, _build)
+    if h_bucket == h and r_bucket == r:
+        return built
+    return tuple(
+        replace(part, mesh=part.mesh.scaled(r / r_bucket, r / r_bucket, h / h_bucket))
+        for part in built
+    )
 
 
 def forge_species_plant(
@@ -320,6 +338,7 @@ __all__ = [
     "PART_ACCENTS",
     "PART_FOLIAGE",
     "PART_WOOD",
+    "QUANT_STEP",
     "RawGeo",
     "SUPPORT_BEAN_POLES",
     "SUPPORT_FENCE",
@@ -366,10 +385,12 @@ __all__ = [
     "make_cache_key",
     "micro_leaves",
     "palette_leaf_colors",
+    "quantised_size_cm",
     "register_forged_plants",
     "resolve_climber_support",
     "select_lod",
     "silhouette_iou",
+    "size_bucket",
     "triangle_budget_for_lod",
     "validate_lod",
 ]

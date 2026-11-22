@@ -251,7 +251,10 @@ def build_fruit_accents(
     aspect_z = 1.32 if kind in ("pear", "fig", "lemon", "olive", "eggplant", "butternut") else (0.78 if kind == "pumpkin" else 1.02)
     r_z = r_xy * aspect_z
     sides = 6 if lod == LOD0 else 5
-    return _spheroids_geo(centers, r_xy, r_z, c_top, c_mid, c_bot, sides=sides)
+    # #973: each fruit has its own phase, so the part fades in fruit by fruit as its
+    # ripeness rises instead of every apple appearing on the harvest window's first day.
+    phase = rng.random(n_fruits)
+    return with_phase(_spheroids_geo(centers, r_xy, r_z, c_top, c_mid, c_bot, sides=sides), phase)
 
 
 #: How far a petal's tip rises along its flower's facing, per unit of ``cup`` and of the
@@ -322,10 +325,11 @@ FLOWER_PHASE_MAX: Final[float] = 0.999
 
 
 def with_phase(geo: RawGeo, phase: np.ndarray) -> RawGeo:
-    """``geo`` - ``len(phase)`` equal blocks of vertices, one a flower - with each block's
-    UV.y set to its flower's phase (#940, review 2). While a plant's bloom is below 1 the
-    engine collapses every flower whose phase is not below it, in every pass, its shadow
-    too: flowers open and fade one by one instead of a whole crown popping or dithering."""
+    """``geo`` - ``len(phase)`` equal blocks of vertices, one a flower or fruit - with each
+    block's UV.y set to its own phase (#940, review 2; fruit #973). While a plant's bloom
+    (or a fruit's ripeness progress) is below 1 the engine collapses every item whose
+    phase is not below it, in every pass, its shadow too: flowers open and fruit ripens
+    one by one instead of a whole crown popping or dithering."""
     if geo.vertex_count == 0 or len(phase) == 0 or geo.vertex_count % len(phase):
         return geo
     geo.uv = geo.uv.copy()
@@ -1174,6 +1178,164 @@ def build_accents(
     return _clamp_accent_geo(combined, height_cm, radius_cm)
 
 
+def _far_accent_colour(traits: Traits3D, family: str) -> tuple[float, float, float] | None:
+    """The one colour a far accent patch shows for ``family``, or None when the plant has
+    no such accent (#948). Flower colours come from the recipe's own ``flowers``,
+    ``clusters``, ``puffs`` or ``umbels`` (the 2D tables), fruit from its ``fruit`` kind."""
+    recipe = recipe_for(traits.sprite)
+    if family == FLOWER_PART:
+        flower = traits.flower
+        if flower is not None and flower.habit != "crown":
+            return None                       # a bulb's or a stem's own builder places its flowers
+        spec = traits.blossom_spec
+        if not spec:
+            flowers = recipe.get("flowers")
+            if isinstance(flowers, Mapping):
+                spec = str(flowers.get("spec", "white"))
+        if spec:
+            return _hex_to_linear_rgb(str(FLOWERS.get(spec, FLOWERS["white"])[0]))
+        for key, fallback in (("clusters", "#d0c0f0"), ("puffs", "#a98fe0")):
+            spec_map = recipe.get(key)
+            if isinstance(spec_map, Mapping):
+                return _hex_to_linear_rgb(str(spec_map.get("light", fallback)))
+        umbels = recipe.get("umbels")
+        if isinstance(umbels, Mapping):
+            return _hex_to_linear_rgb(str(umbels.get("light", "#fae89a")))
+        return None
+    if family == FRUIT_PART:
+        for key in ("fruit", "fruit2"):
+            spec_map = recipe.get(key)
+            if isinstance(spec_map, Mapping):
+                kind = str(spec_map.get("kind", "apple"))
+                return _hex_to_linear_rgb(str(FRUITS.get(kind, FRUITS["apple"])[1]))
+    return None
+
+
+def flower_accent_colour(traits: Traits3D) -> tuple[float, float, float]:
+    """The light petal colour of a plant's own flower (#948): a bulb's far marker and a
+    stemmed flower's, where the flower is placed by its builder rather than a crown."""
+    spec = str(traits.blossom_spec or "white")
+    return _hex_to_linear_rgb(str(FLOWERS.get(spec, FLOWERS["white"])[0]))
+
+
+def far_patches_geo(
+    centers: np.ndarray,
+    outward: np.ndarray,
+    size: np.ndarray,
+    colour: tuple[float, float, float],
+    phase: np.ndarray,
+    *,
+    double_sided: bool = True,
+) -> RawGeo:
+    """One triangular patch at each centre, facing ``outward`` (#948).
+
+    A far crown cannot afford individual flowers or fruit: a few triangles a blossom or
+    a fruit carry the colour of the crop to a crown 45 m away. A double-sided patch
+    shows from any side (a bulb's flower on a scape); a single-sided one keeps the LOD2
+    budget for twice as many patches, half of them facing the camera. ``with_phase``
+    gives each patch its own open/fade phase."""
+    n = len(centers)
+    if n == 0:
+        return empty_geo()
+    normals = normalize_vec(np.asarray(outward, dtype=np.float64))
+    up = np.broadcast_to(np.array([0.0, 0.0, 1.0]), normals.shape)
+    tangent = np.cross(normals, up)
+    bad = np.linalg.norm(tangent, axis=1) < 1e-6
+    if np.any(bad):
+        tangent[bad] = np.cross(normals[bad], np.array([1.0, 0.0, 0.0]))
+    tangent = normalize_vec(tangent)
+    bitangent = normalize_vec(np.cross(normals, tangent))
+    radius = np.asarray(size, dtype=np.float64).reshape(-1, 1)
+    root3 = math.sqrt(3.0) * 0.5
+    p0 = centers + tangent * radius
+    p1 = centers - 0.5 * tangent * radius + root3 * bitangent * radius
+    p2 = centers - 0.5 * tangent * radius - root3 * bitangent * radius
+    winding = np.cross(p1 - p0, p2 - p0)
+    flip = (winding * normals).sum(axis=1) < 0.0
+    if np.any(flip):
+        p1[flip], p2[flip] = p2[flip].copy(), p1[flip].copy()
+    front = np.stack([p0, p1, p2], axis=1).reshape(-1, 3)
+    if double_sided:
+        back = np.stack([p2, p1, p0], axis=1).reshape(-1, 3)
+        pos = np.concatenate([front, back], axis=0).astype(np.float32)
+        nrm = np.repeat(np.concatenate([normals, -normals], axis=0).astype(np.float32), 3, axis=0)
+        per_patch = 6
+    else:
+        pos = front.astype(np.float32)
+        nrm = np.repeat(normals.astype(np.float32), 3, axis=0)
+        per_patch = 3
+    rgba = np.array([*colour, 1.0], dtype=np.float32)
+    col = np.tile(rgba, (len(pos), 1))
+    indices = (np.arange(n, dtype=np.uint32)[:, None] * per_patch
+               + np.arange(per_patch, dtype=np.uint32)[None, :]).reshape(-1, 3)
+    geo = RawGeo(pos=pos, nrm=nrm, col=col,
+                 uv=np.zeros((len(pos), 2), dtype=np.float32), tri=indices)
+    return with_phase(geo, np.asarray(phase, dtype=np.float64))
+
+
+def _far_marker_anchors(
+    points: np.ndarray | None, count: int, height_cm: float, radius_cm: float,
+    rng: np.random.Generator,
+) -> np.ndarray:
+    """``count`` evenly spread points on a crown's outer shell (#948): the farthest
+    foliage point in each azimuth sector, pushed a little outward; a synthetic ring
+    where the crown has no foliage to sample."""
+    z_lo, z_hi = height_cm * 0.30, height_cm * 0.92
+    chosen: list[np.ndarray] = []
+    pts = np.asarray(points, dtype=np.float64) if points is not None else None
+    if pts is not None and len(pts) >= count:
+        keep = (pts[:, 2] >= z_lo) & (pts[:, 2] <= z_hi)
+        pts = pts[keep] if int(keep.sum()) >= count else pts
+        az = np.arctan2(pts[:, 1], pts[:, 0])
+        bins = (np.floor((az + math.pi) / (2.0 * math.pi) * count).astype(np.int64)) % count
+        for b in range(count):
+            index = np.flatnonzero(bins == b)
+            if len(index) == 0:
+                continue
+            far = index[np.argmax(np.hypot(pts[index, 0], pts[index, 1]))]
+            chosen.append(pts[far].copy())
+    while len(chosen) < count:
+        angle = 2.0 * math.pi * (len(chosen) / count) + rng.uniform(-0.2, 0.2)
+        chosen.append(np.array([
+            math.cos(angle) * radius_cm * 0.92,
+            math.sin(angle) * radius_cm * 0.92,
+            rng.uniform(z_lo, z_hi),
+        ]))
+    anchors = np.asarray(chosen[:count], dtype=np.float64)
+    radial = np.hypot(anchors[:, 0], anchors[:, 1])
+    growth = np.minimum(radius_cm * 1.0 / np.maximum(radial, 1e-6), 1.12)
+    anchors[:, 0] *= growth
+    anchors[:, 1] *= growth
+    return anchors
+
+
+def build_far_accents(
+    traits: Traits3D,
+    height_cm: float,
+    radius_cm: float,
+    rng: np.random.Generator,
+    *,
+    family: str,
+    max_tris: int,
+    anchor_points: np.ndarray | None = None,
+) -> RawGeo:
+    """A far crown's crop as a few large patches (#948): flowers or fruit beyond the
+    distance where LOD2 draws their real geometry. Returns empty when the family does
+    not apply or the budget cannot hold two triangles."""
+    colour = _far_accent_colour(traits, family)
+    if colour is None or max_tris < 1:
+        return empty_geo()
+    count = min(max_tris, 64)
+    anchors = _far_marker_anchors(anchor_points, count, height_cm, radius_cm, rng)
+    outward = normalize_vec(np.column_stack([
+        anchors[:, 0], anchors[:, 1], np.full(count, height_cm * 0.08),
+    ]))
+    size = ((0.16 if family == FLOWER_PART else 0.10) * radius_cm
+            * rng.uniform(0.80, 1.15, size=count))
+    return far_patches_geo(anchors, outward, size, colour, rng.random(count),
+                           double_sided=False)
+
+
 def attach_accents(
     parts: tuple[MeshPart, ...],
     traits: Traits3D,
@@ -1184,13 +1346,39 @@ def attach_accents(
     lod: int = LOD0,
 ) -> tuple[MeshPart, ...]:
     """Attach `PART_ACCENTS` to an already-fitted `(wood, foliage)` part tuple without altering them."""
+    used_tris = sum(p.mesh.triangle_count for p in parts)
+    remaining = triangle_budget_for_lod(lod) - used_tris
     if lod == LOD2:
-        return parts
+        # #948: no individual flowers or fruit this far; a few large patches carry the
+        # crop's colour against the crown rather than losing it altogether.
+        if remaining < 1:
+            return parts
+        present = {p.name for p in parts} & SEASONAL_PARTS
+        foliage_part = next((p for p in parts if p.name == PART_FOLIAGE), None)
+        anchors = foliage_part.mesh.positions if foliage_part is not None else None
+        families = [family for family in (FRUIT_PART, FLOWER_PART)
+                    if family not in present and _far_accent_colour(traits, family) is not None]
+        if not families:
+            return parts
+        rng = np.random.default_rng((int(seed) * 2654435761 + 0x5F3759DF) & 0xFFFFFFFFFFFFFFFF)
+        each = remaining // len(families)
+        added: list[MeshPart] = []
+        for family in families:
+            geo = build_far_accents(
+                traits, height_cm, radius_cm, rng, family=family,
+                max_tris=each, anchor_points=anchors,
+            )
+            if geo.triangle_count == 0:
+                continue
+            geo = _clamp_accent_geo(geo, height_cm, radius_cm)
+            added.append(MeshPart(
+                mesh=geo.to_mesh(), material_kind="vc", casts_shadow=True,
+                tinted=False, name=family,
+            ))
+        return (*parts, *added)
     # A bulb's and a stemmed flower's builder places its own flowers (#940)
     present = {p.name for p in parts} & SEASONAL_PARTS
 
-    used_tris = sum(p.mesh.triangle_count for p in parts)
-    remaining = triangle_budget_for_lod(lod) - used_tris
     if remaining < 24:
         return parts
 
@@ -1238,11 +1426,14 @@ __all__ = [
     "blossom_count",
     "build_accents",
     "build_blossom_accents",
+    "build_far_accents",
     "build_fruit_accents",
     "build_pod_accents",
     "build_tuber_accents",
     "build_umbel_accents",
     "crown_flower_anchors",
+    "far_patches_geo",
+    "flower_accent_colour",
     "flower_part",
     "wood_flower_anchors",
     "with_phase",

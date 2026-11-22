@@ -23,9 +23,15 @@ from ..plant_art import PLANT_KINDS, traits_for
 from ..plant_art.traits3d import Traits3D
 from ..scene3d import PARAM_RADIUS_CM, MeshPart, Params, Record
 from ..scene3d.builders.plants import plant_sprite
-from .assemble import fit_forged_parts
-from .foliage import RawGeo, empty_geo, micro_leaves, normalize_vec, palette_leaf_colors
-from .lod import LOD0, LOD1, validate_lod
+from .assemble import fit_forged_parts, pin_foliage_spread
+from .foliage import (
+    RawGeo,
+    empty_geo,
+    micro_leaves,
+    normalize_vec,
+    palette_leaf_colors,
+)
+from .lod import LOD0, LOD1, LOD2, validate_lod
 from .trees import bark_linear_rgba
 from .tube import frustum_tubes
 
@@ -461,6 +467,11 @@ def build_forged_climber(
             low, high = float(foliage.pos[:, axis].min()), float(foliage.pos[:, axis].max())
             if low < 0 < high:
                 foliage.pos[:, axis] *= np.where(foliage.pos[:, axis] < 0, radius_cm / -low, radius_cm / high)
+    if lod == LOD2:   # #970: a sparse far crown's box sits on diagonals
+        parts = fit_forged_parts(wood, foliage, accent_geo, height_cm, radius_cm,
+                                 structural_height=traits.deciduous or concrete,
+                                 preserve_horizontal_frame=concrete)
+        return pin_foliage_spread(parts)
     return fit_forged_parts(wood, foliage, accent_geo, height_cm, radius_cm,
                             structural_height=traits.deciduous or concrete,
                             preserve_horizontal_frame=concrete)

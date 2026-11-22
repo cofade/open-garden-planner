@@ -489,3 +489,13 @@ Symptom (first build of #801's roof): the canvas's own recolour rule (`fill_patt
 - **Legacy:** none (new entry)
 
 Symptom (#940's first meadow): 7-38 single pixels a frame of (0, 0, 0), (0, 0, 252), (96, 0, 0), (0, 132, 0) along the far edge of a flower meadow at High and Ultra, none on the base commit's frames of the same plan. Each head was a domed fan whose centre vertex had the flower's centre colour and an upright normal and whose rim had the petal colour and tilted normals. Fix: one normal a head, the petals one colour, the centre a separate eye triangle in its own colour - 0 such pixels in all eight frames of the same board (noon, golden hour, December noon, walk at High and Ultra). A lawn blade was never affected: its colour varies only along its length, not across the width a far blade is thin in.
+
+### PF-L3D-37
+
+- **Rule:** An axis pin that widens a sparse crown's bounding box belongs AFTER the plant's fit, never before it: the fit derives its horizontal scale from that box, so a pre-fit pin scales every leaf down and the crown loses foliage coverage even as its spread passes.
+- **Pinned by:** `tests/unit/test_plant_forge_bloom.py::test_a_sparse_far_crown_keeps_its_spread_on_every_seed`; `tests/unit/test_plant_forge_review.py::test_tall_crowns_retain_foliage_coverage_at_every_lod`
+- **Source:** #970; ADR-064 addendum (#948, #963, #969, #970, #973)
+- **Status:** standing
+- **Legacy:** none (new entry)
+
+Symptom (#970): at LOD2 a jasmine, clematis, wisteria and the climbing-plant category came out at 0.890 of their canopy diameter on seed 50, a cucumber and pea at 0.874, a sunflower at 0.881 (gate ±10 %). Root cause: `fit_forged_parts` scales the box to the canopy diameter and then pulls every vertex past `REACH_MAX` onto the circle; with a sparse crown the far leaves sit on diagonals and the pull takes the box in. First fix - `pin_leaf_spread` on the raw foliage before the fit - made the box larger, so the fit scaled every leaf down and `test_tall_crowns_retain_foliage_coverage_at_every_lod` read 0.693 on a tall LOD2 birch (gate 0.8). Fix: `assemble.pin_foliage_spread` turns the FITTED foliage's four farthest leaves onto ±x/±y, so the box reaches 1.040 of the diameter with every leaf's size unchanged; LOD2 only, because a leaf turned about the trunk is not seen at 18 m+. The sunflower's mixed blade/micro-leaf foliage keeps its own pre-fit `_pin_spread_to_axes` on the stem blades.

@@ -22,6 +22,8 @@ from .accents import (
     FLOWER_PART,
     FLOWER_PHASE_MAX,
     PETAL_RISE_PER_CUP,
+    far_patches_geo,
+    flower_accent_colour,
     flower_part,
     flowers_geo,
     with_phase,
@@ -445,7 +447,22 @@ def _forged_flowering_bulb(
                                  segs, cols, rng, center=center, cup=0.10)
 
     if lod == LOD2:
-        return fit_forged_parts(concat_geo([neck, scapes]), foliage, empty_geo(), height_cm, radius_cm)
+        # #971/#948: the scapes are the flowers' stalks, so they go with the flowers
+        # out of bloom - a bulb in July was a bunch of bare stalks. Each carries a far
+        # patch of its petal colour, so a distant bulb still reads as in flower.
+        phase = rng.random(n_flowers) * FLOWER_PHASE_MAX
+        outward = normalize_vec(np.column_stack([
+            np.cos(az), np.sin(az), np.full(n_flowers, 0.8),
+        ]))
+        far = far_patches_geo(
+            tips, outward,
+            np.minimum(np.maximum(2.5 * r_f, 0.12 * height_cm), 0.22 * radius_cm),
+            flower_accent_colour(traits), phase,
+        )
+        return fit_forged_parts(
+            neck, foliage, concat_geo([with_phase(scapes, phase), far]),
+            height_cm, radius_cm, accents_name=FLOWER_PART,
+        )
     out = np.column_stack([np.cos(az), np.sin(az), np.zeros(n_flowers)])
     facing = normalize_vec((1.0 - flower.face_up) * out + flower.face_up * np.array([0.0, 0.0, 1.0])
                            + rng.normal(0.0, 0.10, size=(n_flowers, 3)))
@@ -1019,6 +1036,8 @@ def build_forged_flower(
     frac = idx / max(n_stem_leaves - 1, 1)
     b_az = float(rng.uniform(0.0, 2.0 * math.pi)) + idx * GOLDEN_ANGLE + rng.uniform(-0.20, 0.20, size=n_stem_leaves)
     b_reach = radius_cm * (0.42 + 0.58 * (1.0 - 0.45 * frac)) * (1.0 + 0.25 * np.cos(b_az - dom_az))
+    if lod == LOD2:   # #970: the sunflower held 0.881 of its spread at LOD2
+        _pin_spread_to_axes(b_az, b_reach, rng)
     node_arr = np.asarray(node_pts, dtype=np.float64)
     chosen_nodes = node_arr[rng.integers(0, len(node_arr), size=n_stem_leaves)]
     b_origins = chosen_nodes.copy()

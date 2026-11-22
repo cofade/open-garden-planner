@@ -141,17 +141,28 @@ PLACEHOLDER_MAX_HEIGHT_CM: Final = 25.0
 PLACEHOLDER_SHADE: Final = 0.5
 _PLACEHOLDER_SIDES: Final = 48
 
+#: Palettes that read as a green canopy. A tree whose leaves are red, purple or
+#: autumn-toned for the WHOLE year is not a sample of the green crown's tip; its
+#: own hue is measured on its own (``FOLIAGE_TIP_WEIGHT`` keeps the green median).
+GREEN_LEAF_PALETTES: Final[frozenset[str]] = frozenset(
+    {"crisp", "dark", "fresh", "olive", "silver", "teal", "yellow"}
+)
+
 #: How much of its palette's TIP tone an archetype's foliage shows, on average
 #: (0 = the base anchors b0/b1, 1 = the tip anchors t0/t1). Measured from the 2D
 #: sprites: the tip weight whose mix has the hue of the sprite's rendered
-#: foliage, median per archetype over all 126 sprites. It is what keeps the 3D
+#: foliage, median per archetype over its sprites (the canopy's over its
+#: green-leaved ones, #969). It is what keeps the 3D
 #: foliage within 10° of the sprite's hue (a palette spans up to 41°). The
 #: derivation runs as a test and holds these numbers to its result:
 #: ``tests/unit/test_scene3d_plants.py::test_the_tip_weights_are_measured_from_the_sprites``
 #: (a ground cover's sprite sits at its palette's base anchors: 0).
+#: The canopy's sample is its GREEN sprites only (#969): the red-leaved Japanese
+#: maple moved the median from 0.43 to 0.45 and re-tinted every green tree about
+#: one sRGB level. A new colour form must not re-tint the green crowns.
 FOLIAGE_TIP_WEIGHT: Final[Mapping[str, float]] = MappingProxyType({
     "allium": 0.68,
-    "canopy": 0.45,   # 0.43 over 19 canopy sprites; the Japanese maple (#940) made it 20
+    "canopy": 0.43,   # 19 green-leaved canopy sprites; the red-leaved one is excluded
     "climber": 0.365,
     "conifer": 0.11,
     "feathery": 0.36,

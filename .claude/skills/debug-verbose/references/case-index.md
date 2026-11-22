@@ -280,3 +280,4 @@
 | Case study: A late viewport event reached the touch filter without its flag (#666 review) | [Read](280-touch-filter-cleared-instance-state.md) |
 | Case study: Plant filters appeared as windows during startup (#666 review) | [Read](281-startup-trait-scroll-area.md) |
 | Case study: Edit handles refreshed after their canvas scene was destroyed (#666 review) | [Read](282-edit-handle-refresh-closed-scene.md) |
+| Case study: a far crown lost its spread, and pinning it before the fit shrank its leaves (#970) | [Read](283-case-study-far-crown-spread-pinned-after-the-fit-970.md) |

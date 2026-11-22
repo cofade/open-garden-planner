@@ -8628,19 +8628,30 @@ climber. It uses no external model assets. Object sprite colours likewise live
 in one stdlib-only material table; the SVG byte-conformance gate preserves them.
 
 `lod.py` caps total triangles at 25,000 / 6,000 / 800. Camera distances up to
-18 m use LOD0, up to 45 m use LOD1, beyond that LOD2. `ForgeCache` holds fully
-sized/seeded meshes at most 256 entries and 64 MiB of array data. No disk cache:
+18 m use LOD0, up to 45 m use LOD1, beyond that LOD2. `ForgeCache` holds seeded
+meshes at most 256 entries and 64 MiB of array data, keyed by 2 % geometric size
+buckets (`cache.QUANT_STEP`); a hit is stretched to the exact height and spread
+(`Mesh.scaled`, inverse-transpose normals), so a tree that grows a little every
+day keeps one shape for a bucket and a 90 % growing season costs about 65 builds,
+not 365 (#973). Without a cache the exact size is built. No disk cache:
 a local Python 3.11 run over all 123 recipes at height 420 cm, radius 180 cm,
 seed 303 (median of three builds per recipe) measured cold median 3.69 ms,
 p90 13.07 ms, maximum 23.01 ms and warm median 0.0012 ms. These describe synthesis,
 not first-frame or presentation latency. The acceptance budget is median 150 ms.
 
 Foliage area follows crown surface area (target 1.6); lower counts receive larger
-leaves within the same triangle cap. Structural wood independently keeps its
-base at zero and top at the resolved height when seasonal leaves disappear.
-Normal fitting uses the same axis scale as positions. Climber support prefers
-an explicit trellis parent, then a nearby fence/wall/pergola/trellis within
-50 cm of the canopy edge, then a bamboo tripod.
+leaves within the same triangle cap. The foliage tip weight that keeps the 3D hue
+within 10° of the sprite is measured per archetype; the canopy's is measured over
+its GREEN-leaved sprites only (`GREEN_LEAF_PALETTES`), so a red- or purple-leaved
+canopy sprite cannot re-tint every green crown (#969). Structural wood independently
+keeps its base at zero and top at the resolved height when seasonal leaves disappear.
+Normal fitting uses the same axis scale as positions. A sparse LOD2 crown's four
+outermost leaves are turned onto the plan's axes AFTER the fit
+(`assemble.pin_foliage_spread`): the fit scales the box to the canopy and pulls
+diagonal tips onto `REACH_MAX`, which took some climbers to 0.87-0.89 of their
+diameter. Before the fit the larger box would scale every leaf down and cost foliage
+coverage. Climber support prefers an explicit trellis parent, then a nearby
+fence/wall/pergola/trellis within 50 cm of the canopy edge, then a bamboo tripod.
 
 Flower, fruit/pod and tuber parts have independent seasonal controls. Recorded
 harvest windows use `core/calendar_windows.py` and the plan's local frost dates,
@@ -8689,6 +8700,26 @@ flowered; its leaves unfold over the last quarter of the bloom window
 (`phenology.BLOOM_LEAF_UNFOLD_FROM`), and after it nothing changes. A perennial's recorded
 harvest window ripens only inside its curated fruit months. Pinned by
 `tests/unit/test_plant_forge_bloom.py`.
+
+**Dormancy, ripening and distance (#948, #963, #973).** A spring bulb - crocus and
+daffodil from February, tulip from March, to early summer - carries its own leaf
+window (`Traits3D.leaf_months`, faded over `phenology.BULB_LEAF_RAMP_DAYS` = 14) and
+is gone after it: a dormant bulb is not `evergreen`, and at LOD2 its scapes live in
+the flowers part, so July shows neither leaves nor bare stalks. Each fruit has its
+own phase (`accents.with_phase`, UV.y) and the fruit part's season opacity is the
+ripeness progress `(ripeness - 0.55) / 0.45`, so a crop appears fruit by fruit across
+its harvest window rather than all at once on its first day. Beyond 45 m LOD2 builds
+no individual flowers or fruit; instead `accents.build_far_accents` lays up to 64
+single-sided colour patches per family (flower 0.16, fruit 0.10 of the canopy radius)
+on the crown's outer shell, coloured from the recipe's own `flowers`/`clusters`/
+`puffs`/`umbels`/`fruit` table and clamped inside the plant's height and `REACH_MAX`.
+The LOD2 foliage reserves 64 triangles for them (32 leaves fewer); a bulb's far
+flower is a double-sided patch at its scape tip. A crown tint was rejected as a second
+season channel through the host and QML. Pinned by `tests/unit/test_plant_forge_bloom.py`
+(`test_a_far_crown_keeps_its_crop_as_patches`), `tests/unit/test_phenology.py`
+(`test_a_spring_bulb_is_gone_after_early_summer`, `test_every_fruit_carries_its_own_phase`),
+`tests/unit/test_plant_forge_l31.py` (the year-growth bucket test) and
+`tests/unit/test_quick3d_qml.py` (the fruit progress in `Garden.qml`).
 
 Tests exercise actual workspace scheduling and render flags, asynchronous stale
 results, camera-only LOD, recovery invalidation, shader-only seasonal updates,

@@ -206,11 +206,17 @@ class Traits3D:
     #: ``core/phenology.py`` holds its leaves at this share until the last quarter of the
     #: bloom window, when they unfold. 1.0: flowering does not change its leaves.
     bloom_leaf_density: float = 1.0
+    #: Northern-Hemisphere months in which the plant has leaves, for a plant whose
+    #: foliage follows a season of its own rather than ``deciduous`` (#963): a spring
+    #: bulb is up from late winter to early summer and gone after. Empty: the
+    #: deciduous/evergreen rule decides.
+    leaf_months: tuple[int, ...] = ()
 
     @property
     def evergreen(self) -> bool:
-        """True when the plant retains its foliage through winter."""
-        return not self.deciduous
+        """True when the plant retains its foliage through winter. A spring bulb that
+        dies back in summer (#963) is dormant, not evergreen."""
+        return not self.deciduous and not self.leaf_months
 
 
 def fruit_months_from_harvest_window(
@@ -308,6 +314,16 @@ _PERENNIAL_FRUIT_MONTHS: Final[dict[str, tuple[int, ...]]] = {
     "currant": (6, 7, 8),
     "grape_vine": (9, 10),
     "fruit_tree": (8, 9, 10),
+}
+
+#: Spring bulbs that die back (#963): their leaves follow a window of their own, not
+#: the deciduous rule (they would be bare in December-February and leafed all summer).
+#: Crocus and daffodil are up from late winter; a tulip follows in March; all are gone
+#: by July. Illustrative like the bloom months, and read on the same seasonal month.
+_BULB_LEAF_MONTHS: Final[dict[str, tuple[int, ...]]] = {
+    "crocus": (2, 3, 4, 5, 6),
+    "daffodil": (2, 3, 4, 5, 6),
+    "tulip": (3, 4, 5, 6),
 }
 
 #: Curated Northern-Hemisphere illustrative bloom months ``(1..12)`` per recipe stem.
@@ -919,6 +935,7 @@ def _build_traits(group: str, stem: str, recipe: Recipe) -> Traits3D:
         return Traits3D(
             ref, archetype, pal, crown, branching, leaf, False,
             bloom_months, blossom_spec, fruit_months, harvest_weeks, pal,
+            leaf_months=_BULB_LEAF_MONTHS.get(stem, ()),
         )
 
     if archetype == "feathery":

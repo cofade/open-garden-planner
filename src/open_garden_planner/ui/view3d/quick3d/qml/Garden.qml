@@ -411,7 +411,12 @@ Item {
         part.seasonTint = state && foliage ? Qt.vector3d(state[1], state[2], state[3]) :
                           state && fruit ? Qt.vector3d(state[7], state[8], state[9]) : Qt.vector3d(1, 1, 1)
         part.seasonOpacity = !state ? 1.0 : part.partName === "flowers" ? state[4] :
-                             part.partName === "fruits" ? (state[5] > 0.0 ? 1.0 : 0.0) : 1.0
+                             part.partName === "fruits"
+                             // #973: ripeness begins at 0.55 (phenology._harvest_ripeness)
+                             // and reaches 1 at the window's end; fruit appears one by one
+                             // over that ramp, each by its own phase (accents.with_phase),
+                             // never all at once on the harvest window's first day.
+                             ? Math.max(0.0, Math.min(1.0, (state[5] - 0.55) / 0.45)) : 1.0
         // Seasonal absence removes its shadow too. X-ray's independent fade keeps it.
         // A lawn's blades show only at the presets that draw them (lawnBlades).
         part.visible = !part.retired && part.seasonOpacity > 0.0

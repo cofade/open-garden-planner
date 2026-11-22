@@ -306,9 +306,15 @@ Full how-to (step-by-step, `.ts` format, recompile command): see `docs/08-crossc
     classified against the wall day on every surface; an agent task read stays
     bounded by the window it reports.
   - 3D look (#687-#807, #883-#965): read the ADR-059 and ADR-072 addenda and the
-    `ogp-lush-cinematic` references 013-021 before touching `ground.frag`, a built
+    `ogp-lush-cinematic` references 013-022 before touching `ground.frag`, a built
     part's surface (`core/scene3d/materials.SURFACES`), the twilight fill, wind or
     the tour video. One shader draws all ground; a still or resting view fits its own shadow map.
+  - Plant season truth (#948-#973): read the ADR-064 addendum and the
+    `ogp-lush-cinematic` reference 022 before touching the forge cache,
+    `Traits3D.leaf_months`, `accents.build_far_accents` or the foliage fit. A
+    sparse LOD2 crown's axis pin runs AFTER the fit (a pre-fit pin shrinks every
+    leaf); a far accent is clamped after the fit; a bulb's scapes belong to the
+    flowers part at every LOD.
   - Bundled examples and README pictures (#940/#564): read the ADR-066 addendum and
     §8.33 before touching `scripts/example_plans/`. The shipped files are generated
     (`scripts/generate_examples.py`, `--check` in the suite); a plan's row in

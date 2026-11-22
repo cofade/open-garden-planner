@@ -13,7 +13,7 @@ import numpy as np
 from ..plant_art.traits3d import BranchingTraits, Traits3D
 from ..scene3d.color import srgb_to_linear
 from ..scene3d.mesh import MeshPart
-from .assemble import fit_forged_parts
+from .assemble import fit_forged_parts, pin_foliage_spread
 from .foliage import (
     RawGeo,
     crown_leaf_budget,
@@ -22,7 +22,7 @@ from .foliage import (
     normalize_vec,
     palette_leaf_colors,
 )
-from .lod import LOD0, LOD1, lod_skeleton_budget, triangle_budget_for_lod, validate_lod
+from .lod import LOD0, LOD1, LOD2, lod_skeleton_budget, triangle_budget_for_lod, validate_lod
 from .skeleton import Skeleton, _sample_crown_attractors, grow_skeleton
 from .tube import limb_tubes
 
@@ -48,7 +48,9 @@ def build_tree_foliage_from_skeleton(
     if len(tips) == 0:
         return empty_geo()
 
-    reserve = 512 if lod == LOD0 else (128 if lod == LOD1 else 16)
+    # #948: a far crown now spends more of its 800 triangles on its crop's patches than
+    # the 16 it reserved before: 32 leaves fewer, and a blossoming orchard reads at 45 m.
+    reserve = 512 if lod == LOD0 else (128 if lod == LOD1 else 64)
     max_leaves = max(1, (triangle_budget_for_lod(lod) - wood_tris - reserve) // 2)
     leaf_scale = 1.0 if lod == LOD0 else (1.6 if lod == LOD1 else 3.3)
     scale_factor = max(height_cm / 320.0, 0.35) * leaf_scale
@@ -109,7 +111,6 @@ def build_tree_foliage_from_skeleton(
         cup=0.08 if traits.leaf.frilly else 0.03,
     )
 
-
 def build_forged_tree(
     traits: Traits3D,
     height_cm: float,
@@ -148,8 +149,12 @@ def build_forged_tree(
         lod,
         wood.triangle_count + accent_geo.triangle_count,
     )
-    return fit_forged_parts(wood, foliage, accent_geo, height_cm, radius_cm,
-                            structural_height=traits.deciduous)
+    parts = fit_forged_parts(wood, foliage, accent_geo, height_cm, radius_cm,
+                             structural_height=traits.deciduous)
+    # #970: a sparse far crown's box sits on diagonals; four leaves on the axes hold
+    # its spread. Only LOD2 is sparse enough to lose it (LOD0/1 pass on every seed),
+    # and at 18 m+ a leaf turned about the trunk is not seen.
+    return pin_foliage_spread(parts) if lod == LOD2 else parts
 
 
 __all__ = [

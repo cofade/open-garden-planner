@@ -1938,13 +1938,24 @@ def test_the_tip_weights_are_measured_from_the_sprites(qtbot) -> None:
     generator = _load_generator()
     weights = np.linspace(0.0, 1.0, 201)
     found: dict[str, list[float]] = {archetype: [] for archetype in sorted(ARCHETYPES)}
+    red_leaved_canopy = 0
     for sprite in ALL_SPRITES:
         recipe = recipe_of(sprite)
         reference = hue_deg(sprite_foliage_rgb(generator, sprite))
-        anchors = plants._palette(palette_key(recipe))             # t0, t1, b0, b1 in sRGB
+        palette = palette_key(recipe)
+        anchors = plants._palette(palette)             # t0, t1, b0, b1 in sRGB
         tip, base = anchors[:2].mean(axis=0), anchors[2:].mean(axis=0)
         off = [hue_difference(hue_deg(base * (1.0 - w) + tip * w), reference) for w in weights]
-        found[recipe["a"]].append(float(weights[int(np.argmin(off))]))
+        weight = float(weights[int(np.argmin(off))])
+        # #969: a red, purple or autumn canopy's leaves are not a sample of the
+        # GREEN crown's tip. The Japanese maple moved the green median from 0.43 to
+        # 0.45 and re-tinted every green tree one sRGB level; it is measured on its
+        # own (the sprite-level hue gate below still holds it to its sprite).
+        if recipe["a"] == "canopy" and palette not in plants.GREEN_LEAF_PALETTES:
+            red_leaved_canopy += 1
+            continue
+        found[recipe["a"]].append(weight)
+    assert red_leaved_canopy, "the green canopy sample must exclude a coloured canopy sprite"
     medians = {archetype: float(np.median(values)) for archetype, values in found.items()}
     print("\ntip weight medians:", {a: round(m, 3) for a, m in medians.items()})
     print("constants:        ", dict(FOLIAGE_TIP_WEIGHT))

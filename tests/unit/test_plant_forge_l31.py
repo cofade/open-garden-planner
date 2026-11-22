@@ -288,21 +288,47 @@ class TestForgeCacheAndWorker:
     """Verify ForgeCache LRU behaviour and ForgeWorker visible-first + latest-wins ordering."""
 
     def test_forge_cache_lru_eviction(self) -> None:
+        from open_garden_planner.core.plant_forge import make_cache_key
+
         cache = ForgeCache(max_entries=2)
         ref = SpriteRef("species", "oak")
-        p1 = forge_plant(ref, 400.0, 180.0, seed=1, lod=LOD2, cache=cache)
-        p2 = forge_plant(ref, 400.0, 180.0, seed=2, lod=LOD2, cache=cache)
+        forge_plant(ref, 400.0, 180.0, seed=1, lod=LOD2, cache=cache)
+        forge_plant(ref, 400.0, 180.0, seed=2, lod=LOD2, cache=cache)
         assert len(cache) == 2
         assert cache.misses == 2
         # Hit seed=1 so seed=2 becomes LRU
-        assert forge_plant(ref, 400.0, 180.0, seed=1, lod=LOD2, cache=cache) == p1
+        forge_plant(ref, 400.0, 180.0, seed=1, lod=LOD2, cache=cache)
         assert cache.hits == 1
         # Adding seed=3 evicts seed=2
         forge_plant(ref, 400.0, 180.0, seed=3, lod=LOD2, cache=cache)
         assert len(cache) == 2
-        assert cache.get(("species", "oak", 2, LOD2, 40000, 18000, "")) is None
-        assert cache.get(("species", "oak", 1, LOD2, 40000, 18000, "")) == p1
-        _ = p2
+        assert cache.get(make_cache_key("species", "oak", 2, LOD2, 400.0, 180.0)) is None
+        assert cache.get(make_cache_key("species", "oak", 1, LOD2, 400.0, 180.0)) is not None
+
+    def test_a_growing_tree_is_forged_per_size_bucket_not_per_day(self) -> None:
+        """#973: a year time-lapse moves a tree's height by centimetres a day. The cache
+        keeps one forged shape for a 2 % size bucket and stretches it to the day's exact
+        height, so 365 days need a few dozen builds, and every day still shows its own
+        size (height and spread exact after scaling)."""
+        cache = ForgeCache(max_entries=128)
+        ref = SpriteRef("species", "cherry_tree")
+        truth_missed = 0
+        for day in range(365):
+            t = day / 364.0
+            height = 300.0 * (1.0 + 0.9 * t)
+            radius = height * 0.4
+            parts = forge_plant(ref, height, radius, seed=7, lod=LOD2, cache=cache)
+            top = max(float(p.mesh.positions[:, 2].max()) for p in parts if p.mesh.vertex_count)
+            if abs(top - height) > 0.5:
+                truth_missed += 1
+            xy = np.concatenate([p.mesh.positions[:, :2] for p in parts if p.mesh.vertex_count])
+            span = max(np.ptp(xy[:, 0]), np.ptp(xy[:, 1]))
+            assert abs(span - 2.0 * radius) <= 0.10 * 2.0 * radius, day
+        assert truth_missed == 0
+        # h and r bucket independently, so the pair changes about twice per dimension
+        # step: ~65 shapes for a 90 % season, against 365 reforges before #973.
+        assert cache.misses <= 70, f"{cache.misses} reforges for a season of daily growth"
+        assert cache.hits >= 295
 
     def test_a_flown_path_decides_a_plants_detail_until_the_camera_takes_over_again(self) -> None:
         """A recording's frames show the detail the view would from there (L6, 3D review)."""

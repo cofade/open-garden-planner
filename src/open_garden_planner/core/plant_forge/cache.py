@@ -1,21 +1,41 @@
 """Memory-bounded LRU cache for forged plant meshes (Phase 17 L3.1, #387).
 
 Caches ``tuple[MeshPart, ...]`` keyed by ``(sprite_group, sprite_name, seed, lod,
-height_q, radius_q, extra_sig)`` with a bounded LRU eviction policy so repeated
-plant builds, camera LOD switches, or undo/redo snapshots hit in O(1).
+height_bucket, radius_bucket, extra_sig)`` with a bounded LRU eviction policy so
+repeated plant builds, camera LOD switches, or undo/redo snapshots hit in O(1).
+
+The dimensions are quantised to 2 % geometric buckets (#973): a tree that grows a
+little every day keeps one forged shape for a whole bucket, and ``forge_plant``
+scales it to the exact height and spread, so a year time-lapse no longer reforges
+the tree with new random positions every day. The bucket ladder starts at 1 cm
+(``1.02 ** k``), which covers every legal plant size.
 
 Qt-free: standard library + NumPy only.
 """
 
 from __future__ import annotations
 
+import math
 from collections import OrderedDict
 from collections.abc import Callable
-from typing import TypeAlias
+from typing import Final, TypeAlias
 
 from ..scene3d.mesh import MeshPart
 
 CacheKey: TypeAlias = tuple[str, str, int, int, int, int, str]
+
+#: Two sizes this relative step apart share one forged mesh (#973).
+QUANT_STEP: Final[float] = 1.02
+
+
+def size_bucket(value_cm: float) -> int:
+    """The 2 % geometric bucket that holds ``value_cm`` (#973)."""
+    return int(round(math.log(max(float(value_cm), 1e-6)) / math.log(QUANT_STEP)))
+
+
+def quantised_size_cm(value_cm: float) -> float:
+    """The size a bucket is forged at: ``1 cm * 1.02 ** bucket`` (#973)."""
+    return float(QUANT_STEP ** size_bucket(value_cm))
 
 
 def make_cache_key(
@@ -27,14 +47,14 @@ def make_cache_key(
     radius_cm: float,
     extra_sig: str = "",
 ) -> CacheKey:
-    """Build a canonical hashable cache key with 0.01 cm dimension quantisation."""
+    """Build a canonical hashable cache key with 2 % geometric dimension buckets."""
     return (
         str(sprite_group),
         str(sprite_name),
         int(seed),
         int(lod),
-        int(round(float(height_cm) * 100.0)),
-        int(round(float(radius_cm) * 100.0)),
+        size_bucket(height_cm),
+        size_bucket(radius_cm),
         str(extra_sig),
     )
 
@@ -116,6 +136,9 @@ __all__ = [
     "CacheKey",
     "DEFAULT_FORGE_CACHE",
     "ForgeCache",
+    "QUANT_STEP",
     "make_cache_key",
+    "quantised_size_cm",
+    "size_bucket",
 ]
 

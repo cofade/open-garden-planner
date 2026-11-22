@@ -10023,6 +10023,43 @@ reporting and injected 20 ms negative control. The statistical guarantee has
 changed explicitly; no absolute deadline or presented-FPS guarantee is claimed.
 This correction changes tests and documentation, not the released runtime.
 
+**Addendum (plant seasonal truth and forge stability, issues #948, #963, #969, #970, #973).**
+Five follow-ups to #940 settled how a plant's season survives growth, distance and a growing
+species catalogue. (1) **The canopy's tip weight is measured over green-leaved sprites only**
+(`GREEN_LEAF_PALETTES`, `FOLIAGE_TIP_WEIGHT["canopy"] = 0.43`). The red-leaved Japanese maple
+had moved the all-sprites median from 0.43 to 0.45 and re-tinted every green crown about one
+sRGB level; a coloured canopy is now measured on its own sprite-level hue gate and cannot
+move the green constant. (2) **A sparse LOD2 crown keeps its spread by turning its four
+outermost leaves onto the plan's axes after the fit** (`assemble.pin_foliage_spread`). The
+fit scales the box to the canopy and then pulls diagonal tips onto `REACH_MAX`; at LOD2 a
+jasmine, cucumber, pea or climbing-plant crown came out at 0.865-0.893 of its diameter on
+some seeds. Pinning before the fit was rejected: the larger axis-aligned box made the fit
+scale every leaf down, and a tall birch fell below its foliage-coverage gate. Only LOD2 is
+pinned; at 18 m+ a leaf turned about the trunk is not seen, and LOD0/1 pass every seed.
+(3) **A spring bulb has a leaf window of its own** (`Traits3D.leaf_months`: crocus and
+daffodil February-June, tulip March-June). The deciduous rule would have made it bare in
+February and leafed all summer; its 14-day ramps replace a step on the 1st, and a dormant
+bulb is not `evergreen`. At LOD2 its scapes now live in the flowers part, so July shows
+neither leaves nor bare stalks. (4) **The forge cache keys on 2 % geometric size buckets**
+(`cache.QUANT_STEP`, `quantised_size_cm`) and stretches a hit to the day's exact height and
+spread (`Mesh.scaled`, inverse-transpose normals), so a growing tree keeps one shape for a
+bucket instead of being re-forged and re-randomised every day: a 90 % growing season costs
+about 65 builds, not 365, and every day's height and spread stay exact. Without a cache the
+exact size is built unchanged. (5) **Each fruit carries its own phase** (`accents.with_phase`)
+and the fruit part's season opacity is the ripeness progress `0.55 -> 1`, so a crop ripens
+one fruit at a time instead of all of it appearing on the harvest window's first day.
+Beyond 45 m (**#948**) a flowering or fruiting LOD2 plant keeps a sparse crop of large,
+single-sided colour patches (`accents.build_far_accents`, at most 64 triangles per family,
+inside `REACH_MAX`) whose colour comes from the recipe's own `flowers`/`clusters`/`puffs`/
+`umbels`/`fruit` table. The LOD2 foliage reserves 64 triangles for them instead of 16 (32
+leaves fewer). A crown tint was rejected: it needs a per-item LOD channel through the host
+and QML, and it would tint the real flowers at close range. **No `.ogp` format change.**
+FR-3D-FORGE-01/02/05/06/07; tests `tests/unit/test_plant_forge_bloom.py`,
+`tests/unit/test_plant_forge_l31.py`, `tests/unit/test_phenology.py`,
+`tests/unit/test_plant_art.py`, `tests/unit/test_scene3d_mesh.py`,
+`tests/unit/test_scene3d_plants.py`, `tests/unit/test_quick3d_qml.py` and the 40 golden
+tree references (their foliage colours were re-measured once, for #969).
+
 ## ADR-065: The built world complete — objects, roofs, facades, surfaces and ground detail (Phase 17 L4, #388)
 
 **Status:** Accepted; shipped in [v1.34.0](https://github.com/cofade/open-garden-planner/releases/tag/v1.34.0) via [PR #613](https://github.com/cofade/open-garden-planner/pull/613), after the owner's third manual pass ("all perfect") confirmed every decision below, including the "Owner's second manual pass" addendum (every object without a 2D default height gets a real, settable one; detail-normal strength 3.0) and the two re-review fixes (the AO fade switched SSAO on at Low, PF-L3D-15; a plain-block house had a sandstone top instead of roof tiles).
