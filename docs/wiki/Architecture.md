@@ -89,7 +89,11 @@ FR-SUN-14 and the ADR-037 addendum.
 
 Plant Forge adds shared sprite traits, procedural species meshes, camera LOD and
 background upgrades. Its seasonal material state uses the same recorded frost-relative
-harvest calendar as tasks; flower and fruit parts are independent. See the
+harvest calendar as tasks; flower and fruit parts are independent. A spring bulb's leaves
+follow their own late-winter-to-early-summer window and its scapes go with its flowers; a
+crop ripens fruit by fruit; a far crown keeps a sparse patch of its crop beyond 45 m; and
+the cache forges one shape per 2% size bucket and stretches it to the day's exact height
+and spread. See the
 [Plant Forge decision](https://github.com/cofade/open-garden-planner/blob/master/docs/09-architecture-decisions/README.md#adr-064-plant-forge--procedural-3d-species-models-from-the-2d-sprite-recipes-lods-and-phenology-387).
 
 ## CI coverage scheduling
