@@ -856,10 +856,24 @@ Plant Forge: procedural species models, LODs and phenology (L3, #387, ADR-064).
   external models. Known heights remain within 3% and crown spread within 10%;
   winter structural wood retains ground contact and recorded height. A bulb
   (tulip, daffodil, crocus, iris, lily) reaches its height with its flower: out of
-  bloom it stands as its strap leaves, at about 40-60% of that height (#940).
+  bloom, inside its leaf window, it stands as its strap leaves, at about 40-60% of
+  that height (#940); outside the window only its neck remains. Three spring bulbs -
+  crocus and daffodil from February, tulip from March - keep
+  leaves only to early summer and are gone after it, their leaf window fading in
+  and out over 14 days (#963); the other `grass`/`allium` recipes stay evergreen.
 - **FR-3D-FORGE-02:** Total triangle caps are 25,000/6,000/800 at distance LODs
-  up to 18 m / up to 45 m / beyond 45 m. A256-entry, 64 MiB LRU bounds mesh storage.
-- **FR-3D-FORGE-03:** Initial silhouettes precede background synthesis. Camera
+  up to 18 m / up to 45 m / beyond 45 m. A 256-entry, 64 MiB LRU bounds mesh
+  storage. The cache keys its meshes by 2% geometric size buckets and stretches a
+  hit to the exact height and the exact scale (the post-fit pin keeps the spread
+  within 1.04 of the diameter), so a tree that grows a little every day
+  keeps one shape through a bucket instead of being re-forged and re-randomised
+  every day (#973); a bucket builds the same mesh for every size inside it.
+- **FR-3D-FORGE-03:** Initial silhouettes precede background synthesis. Once a
+  plant is forged, a live regrowth pass never downgrades it back to a v0
+  silhouette (`ForgeWorker.prepare_for_sync` stretches a warm 2% bucket hit in
+  place, stretches the last forged mesh on a cold bucket miss while the background
+  worker builds the new bucket, and forges a dated plant that first crosses its
+  planting date into an already-forged scene directly; #995). Camera
   movement updates LOD without an edit; stale document/geometry completions are
   refused. Recovery restores progressive upgrades.
 - **FR-3D-FORGE-04:** Climbers prefer their trellis parent, then a structure
@@ -868,7 +882,9 @@ Plant Forge: procedural species models, LODs and phenology (L3, #387, ADR-064).
   independent bloom and ripeness. Recorded harvest windows follow the shared
   day-level task calendar and the plan's local frost dates; a perennial's fruit
   shows only inside its fruit months (#940). Flowers are counted by the crown's
-  surface and show from every side.
+  surface and show from every side. Each fruit carries its own phase, so a crop
+  ripens one fruit at a time across the window (ripeness 0.55 to 1) rather than
+  every apple appearing on its first day (#973); pods carry a phase as well.
 - **FR-3D-FORGE-06:** Existing Models respond to seasonal date changes through
   shader/material values. Deciduous leaves and their shadows disappear in
   winter, evergreens retain foliage; illustrative seasons shift in the southern
@@ -876,6 +892,19 @@ Plant Forge: procedural species models, LODs and phenology (L3, #387, ADR-064).
   the first ten days of its window and fades over the last ten, flower by flower;
   a hardy plant flowers before the last frost, a tender one waits for it; magnolia,
   forsythia, peach, plum and cherry carry few leaves until their bloom ends (#940).
+  Beyond 45 m a flowering or fruit-bearing plant (a flower or fruit other than a pod)
+  keeps a sparse far representation of
+  its crop - large patches of the blossom or fruit colour inside its LOD2 budget
+  and its own height and reach - so a blossoming orchard or a ripening berry row
+  does not lose its crop at distance (#948). The 64-triangle LOD2 reserve is paid
+  only by a canopy that has a far crop; a leaf-only canopy keeps its full foliage.
+  Pods and root crowns have no far cue (their green or underground colour does not
+  read at 45 m) and keep their LOD2 behaviour.
+- **FR-3D-FORGE-07:** The canopy's foliage tip weight is measured over the
+  green-leaved canopy sprites only. A red- or purple-leaved canopy sprite is not
+  part of that measurement and cannot move it (it uses the same canopy weight, so a
+  new colour form cannot re-tint the green crowns) (#969). The 40 golden tree meshes
+  pin the resulting colours.
 
 Acceptance: `tests/integration/test_plant_forge.py`,
 `tests/integration/test_plant_forge_workspace.py`,
@@ -1049,7 +1078,12 @@ tier `tests/integration/test_scene3d_ground_render.py` and the frozen
   at **Slow / Normal / Fast** (day: 5 / 10 / 30 minutes per step; year: 1 / 2 / 7 days per
   step; a step every 0.2 s; "Normal" day is Phase 14's Animate). Every step is a write of
   the one simulation clock: the 2D shadows, the hours of sun, the 3D light and the 3D
-  growth follow it (3D regrowth at most twice a second). Not stored: every session starts
+  growth follow it (3D regrowth at most twice a second, with seasonal plant shader uniforms
+  evaluated on every date step; #995). While playback runs, the 3D workspace holds its
+  automatic quality preset and defers `QQuickWindow.releaseResources()` cache drops until
+  playback pauses, and pure 3D mode (without the 2D shadow drape) skips 2D shadow polygon
+  solves and defers heavy 2D date diagnostic sweeps until playback stops or 2D is shown
+  again (#996). Not stored: every session starts
   with the day at Normal.
 - **FR-3D-LIVE-02** (L5.1): The 3D view names its **mood** in the Weather button's
   tooltip — Night, Twilight, Rain, Snow, Overcast, Morning dew (a morning, from the end of

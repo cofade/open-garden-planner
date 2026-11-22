@@ -1456,12 +1456,12 @@
   },
   "883": {
     "is_pr": false,
-    "state": "OPEN",
+    "state": "CLOSED",
     "title": "3D Ultra: screen-space reflections flicker on the glossier built surfaces (windows, railing, grill)"
   },
   "884": {
     "is_pr": false,
-    "state": "OPEN",
+    "state": "CLOSED",
     "title": "3D: the tiled roof and matte walls clip red at noon"
   },
   "885": {
@@ -1476,7 +1476,7 @@
   },
   "887": {
     "is_pr": false,
-    "state": "OPEN",
+    "state": "CLOSED",
     "title": "3D: shed slate roof reads as a patchwork, and the ridge cap no longer stands out"
   },
   "889": {
@@ -1501,7 +1501,7 @@
   },
   "894": {
     "is_pr": false,
-    "state": "OPEN",
+    "state": "CLOSED",
     "title": "3D: fit the live view's shadow map while the camera rests"
   },
   "896": {
@@ -1531,7 +1531,7 @@
   },
   "907": {
     "is_pr": false,
-    "state": "OPEN",
+    "state": "CLOSED",
     "title": "Unit-system follow-up: temperature, precipitation, harvest mass and Canadian mixed preset"
   },
   "909": {
@@ -1609,6 +1609,11 @@
     "state": "CLOSED",
     "title": "The plan's time zone is never read: the clock and a tour's time range use the computer's time zone"
   },
+  "948": {
+    "is_pr": false,
+    "state": "OPEN",
+    "title": "3D: flowers and fruit vanish beyond 45 m from the camera"
+  },
   "950": {
     "is_pr": false,
     "state": "CLOSED",
@@ -1621,33 +1626,53 @@
   },
   "953": {
     "is_pr": false,
-    "state": "OPEN",
+    "state": "CLOSED",
     "title": "3D: at night, faces turned away from the moon are pure black"
   },
   "957": {
     "is_pr": false,
-    "state": "OPEN",
+    "state": "CLOSED",
     "title": "3D: a raised bed's frame is always timber, whatever its fill"
   },
   "958": {
     "is_pr": false,
-    "state": "OPEN",
+    "state": "CLOSED",
     "title": "3D Ultra: pool water mirrors the house like a perfect mirror"
   },
   "959": {
     "is_pr": false,
-    "state": "OPEN",
+    "state": "CLOSED",
     "title": "3D: pebble and compost surfaces read as bubble wrap from close by"
   },
   "961": {
     "is_pr": false,
-    "state": "OPEN",
+    "state": "CLOSED",
     "title": "3D: a pond reads as a plastic pool (grey rim, cobalt water)"
+  },
+  "963": {
+    "is_pr": false,
+    "state": "OPEN",
+    "title": "3D: bulb leaves are up in January and still standing in July"
   },
   "965": {
     "is_pr": false,
-    "state": "OPEN",
+    "state": "CLOSED",
     "title": "3D: a flat-roofed house gets cottage windows and a lilac roof"
+  },
+  "969": {
+    "is_pr": false,
+    "state": "OPEN",
+    "title": "3D: the canopy tip weight is a median over all canopy sprites, so one new sprite re-tints every tree"
+  },
+  "970": {
+    "is_pr": false,
+    "state": "OPEN",
+    "title": "3D: some far-distance (LOD2) trees and climbers come out at 0.87-0.89 of their spread"
+  },
+  "973": {
+    "is_pr": false,
+    "state": "OPEN",
+    "title": "3D: a growing tree is forged anew every day, so a year time-lapse flickers; fruit appears all at once"
   },
   "976": {
     "is_pr": false,
@@ -1664,9 +1689,19 @@
     "state": "MERGED",
     "title": "feat(#828, #829, #945, #875, #976): plan time zone, split frames and documentation truth"
   },
-  "986": {
+  "994": {
+    "is_pr": true,
+    "state": "OPEN",
+    "title": "feat(3d): plant seasonal truth and forge stability (#948, #963, #969, #970, #973, #995, #996)"
+  },
+  "995": {
     "is_pr": false,
     "state": "OPEN",
-    "title": "Refinement of preferences menu"
+    "title": "3D: live year animation replaces forged trees with v0 silhouettes (or bare trunk stumps) every 500 ms and starves distant trees"
+  },
+  "996": {
+    "is_pr": false,
+    "state": "OPEN",
+    "title": "3D: year playback triggers 4-5 s QQuickView freezes (releaseResources, AutoPreset shader recompiles) and redundant 2D recomputes on every tick"
   }
 }

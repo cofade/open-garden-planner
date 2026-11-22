@@ -810,6 +810,14 @@ class TestTraits3D:
         assert CATEGORY_TRAITS["palm"].evergreen is True
         assert CATEGORY_TRAITS["hedge_section"].evergreen is True
 
+        # #963: a spring bulb dies back; it is dormant, not evergreen.
+        for dormant_stem, months in (("crocus", (2, 3, 4, 5, 6)),
+                                      ("daffodil", (2, 3, 4, 5, 6)),
+                                      ("tulip", (3, 4, 5, 6))):
+            t = SPECIES_TRAITS[dormant_stem]
+            assert t.deciduous is False and t.evergreen is False, dormant_stem
+            assert t.leaf_months == months, dormant_stem
+
         for t in [*SPECIES_TRAITS.values(), *CATEGORY_TRAITS.values()]:
             assert t.autumn_palette in recipes.PALETTES, t.sprite
 

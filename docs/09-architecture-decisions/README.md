@@ -10023,6 +10023,64 @@ reporting and injected 20 ms negative control. The statistical guarantee has
 changed explicitly; no absolute deadline or presented-FPS guarantee is claimed.
 This correction changes tests and documentation, not the released runtime.
 
+**Addendum (plant seasonal truth and forge stability, issues #948, #963, #969, #970, #973, #995, #996).**
+Seven follow-ups to #940 settled how a plant's season survives growth, distance, live year
+playback and a growing
+species catalogue. (1) **The canopy's tip weight is measured over green-leaved sprites only**
+(`GREEN_LEAF_PALETTES`, `FOLIAGE_TIP_WEIGHT["canopy"] = 0.43`). The red-leaved Japanese maple
+had moved the all-sprites median from 0.43 to 0.45 and re-tinted every green crown about one
+sRGB level; a coloured canopy is now measured on its own sprite-level hue gate and cannot
+move the green constant. (2) **A sparse LOD2 crown keeps its spread by turning its four
+outermost leaves onto the plan's axes after the fit** (`assemble.pin_foliage_spread`). The
+fit scales the box to the canopy and then pulls diagonal tips onto `REACH_MAX`; at LOD2 a
+jasmine, cucumber, pea or climbing-plant crown came out at 0.865-0.893 of its diameter on
+some seeds. Pinning before the fit was rejected: the larger axis-aligned box made the fit
+scale every leaf down, and a tall birch fell below its foliage-coverage gate. Only LOD2 is
+pinned; beyond 45 m a leaf turned about the trunk is not seen, and LOD0/1 pass every seed.
+(3) **A spring bulb has a leaf window of its own** (`Traits3D.leaf_months`: crocus and
+daffodil February-June, tulip March-June). The deciduous rule would have made it bare in
+February and leafed all summer; its 14-day ramps replace a step on the 1st, and a dormant
+bulb is not `evergreen`. At LOD2 its scapes now live in the flowers part, so July shows
+neither leaves nor bare stalks. (4) **The forge cache keys on 2 % geometric size buckets**
+(`cache.QUANT_STEP`, `quantised_size_cm`) and stretches a hit to the day's exact height and
+spread (`Mesh.scaled`, inverse-transpose normals), so a growing tree keeps one shape for a
+bucket instead of being re-forged and re-randomised every day: a 90 % growing season costs
+about 65 builds, not 365, and every day's height and spread stay exact. Without a cache the
+exact size is built unchanged. (5) **Each fruit carries its own phase** (`accents.with_phase`)
+and the fruit part's season opacity is the ripeness progress `0.55 -> 1`, so a crop ripens
+one fruit at a time instead of all of it appearing on the harvest window's first day.
+Beyond 45 m (**#948**) a flowering or fruit-bearing LOD2 plant (other than a pod) keeps a
+sparse crop of large,
+single-sided colour patches (`accents.build_far_accents`, at most 64 triangles per family,
+inside `REACH_MAX`) whose colour comes from the recipe's own `flowers`/`clusters`/`puffs`/
+`umbels`/`fruit` table, with a flower's normal leaned about 30° to the sky and its colour
+lifted by up to ×1.35 with a hue-preserving peak clamp at 0.9 linear, so a low sun does
+not turn its shade side mauve. A canopy
+that has a far crop reserves 64 LOD2 triangles for it; a leaf-only canopy keeps the old 16
+and its full foliage. A sunflower's builder-placed head gets the same far patch at its stem
+tips; pods and root crowns have no far cue and pods ripen by phase. A crown tint was rejected: it needs a per-item LOD channel through the host
+and QML, and it would tint the real flowers at close range. (6) **Live regrowth never downgrades
+an already-forged plant to a v0 silhouette (#995):** `Scene3DController` asks
+`ForgeWorker.prepare_for_sync` for prepared `PartSpec`s before `SceneSync.apply`, returning a
+stretched warm 2 % bucket hit immediately (and keeping its `_applied_state`), stretching the
+last forged mesh on a cold bucket miss while the background worker builds the new bucket, or
+forging a newly appearing dated plant directly when the scene is already forged; `Workspace`
+also evaluates seasonal uniforms on every `SimClock.date_changed` tick and harvests up to 16
+plants per `_step_forge` turn. (7) **Toolbar playback holds quality, defers RHI cache drops
+and skips hidden 2D work (#996):** while `SunSimToolbar` playback runs, `Workspace` holds
+`LookController.hold_preset` and defers `QQuickWindow.releaseResources()` (and resets the
+auto-quality sample window during pipeline passes and `ForgeWorker` uploads), `SunShadowController`
+skips 2D shadow polygon solves in pure `VIEW3D` mode without `DrapeMode.SHADOWS`,
+`CanvasScene.refresh_timeline` invalidates only plants whose canopy radius changed, and
+`GardenPlannerApp` defers heavy 2D date diagnostic sweeps until playback stops (PF-L3D-38).
+**No `.ogp` format change.**
+FR-3D-FORGE-01/02/03/05/06/07, FR-3D-LIVE-01; tests `tests/unit/test_plant_forge_bloom.py`,
+`tests/unit/test_plant_forge_l31.py`, `tests/unit/test_phenology.py`,
+`tests/unit/test_plant_art.py`, `tests/unit/test_scene3d_mesh.py`,
+`tests/unit/test_scene3d_plants.py`, `tests/unit/test_quick3d_qml.py`,
+`tests/integration/test_plant_forge_workspace.py` and the 40 golden
+tree references (their foliage colours were re-measured once, for #969).
+
 ## ADR-065: The built world complete — objects, roofs, facades, surfaces and ground detail (Phase 17 L4, #388)
 
 **Status:** Accepted; shipped in [v1.34.0](https://github.com/cofade/open-garden-planner/releases/tag/v1.34.0) via [PR #613](https://github.com/cofade/open-garden-planner/pull/613), after the owner's third manual pass ("all perfect") confirmed every decision below, including the "Owner's second manual pass" addendum (every object without a 2D default height gets a real, settable one; detail-normal strength 3.0) and the two re-review fixes (the AO fade switched SSAO on at Low, PF-L3D-15; a plain-block house had a sandstone top instead of roof tiles).

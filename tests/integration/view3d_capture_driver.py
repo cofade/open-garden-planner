@@ -74,10 +74,12 @@ BLUR_FLAT = 1.0
 #: multiple of the view's own size, so that the save shrinks to the preview by area means).
 SLIDER_PICTURE = (1280, 720)
 SAVE_HEIGHT = 2160
-#: Where the slider's focus is clicked in the view (logical px): the crown of the tree left of
-#: the house, about 21 m out, a body that fills its tile. A click on the poplar's trunk in the
-#: middle kept 0.67 of its tile at blur 1, rightly: the tile is mostly lawn metres behind it.
-FOCUS_CLICK = (180.0, 150.0)
+#: Where the slider's focus is clicked in the view (logical px): a lit house window, a flat
+#: wall plane with a high-contrast frame and pane that fills its tile. A plant crown was the
+#: first choice, but the forge's size buckets (#973) change a distant crown's leaf layout, so
+#: a fixed click can land on a gap with lawn behind it; a built facade is a stable body at
+#: one depth.
+FOCUS_CLICK = (290.0, 170.0)
 
 
 def pump(ms: float) -> None:

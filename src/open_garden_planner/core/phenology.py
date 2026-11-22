@@ -190,6 +190,14 @@ def _month_window_weight(
 #: many at its end (#940, review 2): the window's months are whole, a plant's flowering is
 #: not - a step on the 1st of the month popped a whole tree in or out of flower.
 BLOOM_RAMP_DAYS: Final[float] = 10.0
+#: A spring bulb's leaves come up and die back over this many days at each end of its
+#: ``Traits3D.leaf_months`` (#963): a step on the 1st of a month would pop a whole
+#: clump of straps in or out.
+BULB_LEAF_RAMP_DAYS: Final[float] = 14.0
+#: Ripeness starts here on a harvest window's first day (the rest of the 0..1 scale is
+#: the window's progress). The 3D fruit fade uses the same floor in ``Garden.qml``; a
+#: cross-language test pins the two together.
+RIPENESS_PROGRESS_FROM: Final[float] = 0.55
 #: A month's mean length, for the whole months of a window before and after the current.
 _MEAN_MONTH_DAYS: Final[float] = 365.25 / 12.0
 
@@ -298,7 +306,7 @@ def _harvest_ripeness(day: datetime.date, weeks: tuple[float, float], frost_mmdd
         for _, start, end in windows:
             if start <= day <= end:
                 share = (day - start).days / max((end - start).days, 1)
-                return 0.55 + 0.45 * share
+                return RIPENESS_PROGRESS_FROM + (1.0 - RIPENESS_PROGRESS_FROM) * share
     return 0.0
 
 
@@ -317,8 +325,18 @@ def _evaluate_cached(
     doy = seasonal_day_of_year(plan_date, lat_q)
     s_month = seasonal_month(plan_date, lat_q)
 
-    # 1. Leaf density & autumn colour (Evergreens never bare; deciduous bare in winter)
-    if not traits.deciduous:
+    # 1. Leaf density & autumn colour (Evergreens never bare; deciduous bare in winter;
+    #    a spring bulb follows its own leaf window and is gone by July, #963)
+    if traits.leaf_months:
+        run = _month_run_days(plan_date, lat_q, traits.leaf_months)
+        if run is None:
+            leaf_density = 0.0
+        else:
+            since, until = run
+            leaf_density = (_smoothstep(0.0, BULB_LEAF_RAMP_DAYS, since + 0.5)
+                            * _smoothstep(0.0, BULB_LEAF_RAMP_DAYS, until + 0.5))
+        autumn_color = 0.0
+    elif not traits.deciduous:
         leaf_density = 1.0
         autumn_color = 0.0
     else:
@@ -359,7 +377,8 @@ def _evaluate_cached(
                 and s_month not in traits.fruit_months):
             ripeness = 0.0
     else:
-        ripeness = _month_window_weight(plan_date, lat_q, traits.fruit_months, ramp_from=0.55)
+        ripeness = _month_window_weight(plan_date, lat_q, traits.fruit_months,
+                                        ramp_from=RIPENESS_PROGRESS_FROM)
     # Outside the plan's frost-free season a TENDER plant does not flower: it is planted
     # out after the last frost. A hardy one flowers by its own months — crocus and
     # daffodil before the last frost, asters after the first (#940).
@@ -523,7 +542,9 @@ def evaluate_phenology_for_records(
 __all__ = [
     "BLOOM_LEAF_UNFOLD_FROM",
     "BLOOM_RAMP_DAYS",
+    "BULB_LEAF_RAMP_DAYS",
     "DEFAULT_LATITUDE_DEG",
+    "RIPENESS_PROGRESS_FROM",
     "plan_latitude",
     "SNOW_LINEAR_RGB",
     "PhenologyState",

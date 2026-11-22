@@ -12,12 +12,14 @@ Qt-free: standard library + NumPy only.
 
 from __future__ import annotations
 
+import math
 from collections.abc import Sequence
+from dataclasses import replace
 from typing import Final
 
 import numpy as np
 
-from ..scene3d.mesh import MeshPart
+from ..scene3d.mesh import Mesh, MeshPart
 from .foliage import RawGeo, normalize_vec
 
 PART_WOOD: Final[str] = "wood"
@@ -49,6 +51,60 @@ def _fix_vc_flat_normals(pos: np.ndarray, nrm: np.ndarray, tri: np.ndarray) -> n
             out[t[f_idx, 1]] = wn
             out[t[f_idx, 2]] = wn
     return out
+
+
+def pin_foliage_spread(parts: tuple[MeshPart, ...], *, leaves: int = 4) -> tuple[MeshPart, ...]:
+    """Rotate the FITTED foliage's outermost micro-leaves onto the plan's four axes (#970).
+
+    The fit scales a plant's box to the canopy diameter and then pulls every vertex
+    beyond ``REACH_MAX`` back onto the circle. A sparse far crown (LOD2) whose farthest
+    leaves sit on diagonals loses spread to that pull: a jasmine at LOD2 came out at
+    0.890 of its diameter, a cucumber at 0.874. Four leaves carry the crown's farthest
+    vertices; turning each about the item's axis puts them on +x, -x, +y and -y, so
+    the fitted box holds its diameter on every seed.
+
+    Applied AFTER the fit: before it, the larger axis-aligned box would make the fit
+    scale every leaf down, and a tall LOD2 birch fell below its foliage-coverage gate.
+    Rotation keeps every leaf's size, its colour, its sway weight and the triangle
+    count; the whole four-vertex leaf turns about the item's axis, so its base slides
+    along the crown (at LOD2 the leaf is decorative, not tied to a drawn twig, and the
+    four turned leaves are not seen as detached). A concrete-supported climber's wood and
+    support plane are untouched: the pin acts on the foliage part only.
+    """
+    index = next((i for i, part in enumerate(parts) if part.name == PART_FOLIAGE), None)
+    if index is None:
+        return parts
+    mesh = parts[index].mesh
+    if mesh.vertex_count == 0 or mesh.vertex_count % 4 != 0:
+        return parts
+    pos = mesh.positions.astype(np.float64).reshape(-1, 4, 3)
+    nrm = mesh.normals.astype(np.float64).reshape(-1, 4, 3)
+    radius = np.hypot(pos[..., 0], pos[..., 1]).max(axis=1)
+    order = np.argsort(radius)[::-1]
+    chosen = [int(i) for i in order[:leaves] if radius[i] > 1e-6]
+    if len(chosen) < leaves:
+        return parts
+    points, normals = pos.copy(), nrm.copy()
+    for leaf, axis in zip(chosen, (0.0, math.pi, 0.5 * math.pi, -0.5 * math.pi),
+                          strict=True):
+        verts = points[leaf]
+        farthest = int(np.argmax(np.hypot(verts[:, 0], verts[:, 1])))
+        angle = math.atan2(float(verts[farthest, 1]), float(verts[farthest, 0]))
+        delta = axis - angle
+        if abs(delta) < 1e-12:
+            continue
+        c, s = math.cos(delta), math.sin(delta)
+        x, y = verts[:, 0].copy(), verts[:, 1].copy()
+        verts[:, 0] = x * c - y * s
+        verts[:, 1] = x * s + y * c
+        nx, ny = normals[leaf][:, 0].copy(), normals[leaf][:, 1].copy()
+        normals[leaf][:, 0] = nx * c - ny * s
+        normals[leaf][:, 1] = nx * s + ny * c
+    turned = Mesh.from_arrays(
+        points.reshape(-1, 3), normalize_vec(normals.reshape(-1, 3)),
+        mesh.colors, mesh.uvs, mesh.indices,
+    )
+    return (*parts[:index], replace(parts[index], mesh=turned), *parts[index + 1:])
 
 
 def fit_forged_parts(
@@ -235,5 +291,6 @@ __all__ = [
     "PART_WOOD",
     "REACH_MAX",
     "fit_forged_parts",
+    "pin_foliage_spread",
     "silhouette_iou",
 ]

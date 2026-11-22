@@ -8628,19 +8628,34 @@ climber. It uses no external model assets. Object sprite colours likewise live
 in one stdlib-only material table; the SVG byte-conformance gate preserves them.
 
 `lod.py` caps total triangles at 25,000 / 6,000 / 800. Camera distances up to
-18 m use LOD0, up to 45 m use LOD1, beyond that LOD2. `ForgeCache` holds fully
-sized/seeded meshes at most 256 entries and 64 MiB of array data. No disk cache:
+18 m use LOD0, up to 45 m use LOD1, beyond that LOD2. `ForgeCache` holds seeded
+meshes at most 256 entries and 64 MiB of array data, keyed by 2 % geometric size
+buckets (`cache.QUANT_STEP`); a hit is scaled to the requested height and spread
+(`Mesh.scaled`, inverse-transpose normals), so a tree that grows a little every
+day keeps one shape for a bucket and a 90 % growing season costs about 65 builds,
+not 365 (#973). A climber's support distance is bucketed by the same 2 % of its
+quantised radius, so a fence-trained climber is not rebuilt every day. Without a cache
+the exact size is built. No disk cache:
 a local Python 3.11 run over all 123 recipes at height 420 cm, radius 180 cm,
 seed 303 (median of three builds per recipe) measured cold median 3.69 ms,
-p90 13.07 ms, maximum 23.01 ms and warm median 0.0012 ms. These describe synthesis,
+p90 13.07 ms, maximum 23.01 ms and warm median 0.0012 ms - a hit before #973. A hit
+now also scales the bucket mesh (0.107 ms for a 1,324-vertex cherry), still far below
+a cold build. These describe synthesis,
 not first-frame or presentation latency. The acceptance budget is median 150 ms.
 
 Foliage area follows crown surface area (target 1.6); lower counts receive larger
-leaves within the same triangle cap. Structural wood independently keeps its
-base at zero and top at the resolved height when seasonal leaves disappear.
-Normal fitting uses the same axis scale as positions. Climber support prefers
-an explicit trellis parent, then a nearby fence/wall/pergola/trellis within
-50 cm of the canopy edge, then a bamboo tripod.
+leaves within the same triangle cap. The foliage tip weight that keeps the 3D hue
+within 10° of the sprite is measured per archetype; the canopy's is measured over
+its GREEN-leaved sprites only (`GREEN_LEAF_PALETTES`), so a red- or purple-leaved
+canopy sprite cannot re-tint every green crown (#969). Structural wood independently
+keeps its base at zero and top at the resolved height when seasonal leaves disappear.
+Normal fitting uses the same axis scale as positions. A sparse LOD2 crown's four
+outermost leaves are turned onto the plan's axes AFTER the fit
+(`assemble.pin_foliage_spread`): the fit scales the box to the canopy and pulls
+diagonal tips onto `REACH_MAX`, which took some climbers to 0.87-0.89 of their
+diameter. Before the fit the larger box would scale every leaf down and cost foliage
+coverage. Climber support prefers an explicit trellis parent, then a nearby
+fence/wall/pergola/trellis within 50 cm of the canopy edge, then a bamboo tripod.
 
 Flower, fruit/pod and tuber parts have independent seasonal controls. Recorded
 harvest windows use `core/calendar_windows.py` and the plan's local frost dates,
@@ -8689,6 +8704,71 @@ flowered; its leaves unfold over the last quarter of the bloom window
 (`phenology.BLOOM_LEAF_UNFOLD_FROM`), and after it nothing changes. A perennial's recorded
 harvest window ripens only inside its curated fruit months. Pinned by
 `tests/unit/test_plant_forge_bloom.py`.
+
+**Dormancy, ripening and distance (#948, #963, #973).** A spring bulb - crocus and
+daffodil from February, tulip from March, to early summer - carries its own leaf
+window (`Traits3D.leaf_months`, faded over `phenology.BULB_LEAF_RAMP_DAYS` = 14) and
+is gone after it: a dormant bulb is not `evergreen`, and at LOD2 its scapes live in
+the flowers part, so July shows neither leaves nor bare stalks. Each fruit has its
+own phase (`accents.with_phase`, UV.y) and the fruit part's season opacity is the
+ripeness progress `(ripeness - 0.55) / 0.45`, so a crop appears fruit by fruit across
+its harvest window rather than all at once on its first day. Beyond 45 m LOD2 builds
+no individual flowers or fruit; instead `accents.build_far_accents` lays up to 64
+single-sided colour patches per family (flower 0.16, fruit 0.10 of the canopy radius)
+on the crown's outer shell, coloured from the recipe's own `flowers`/`clusters`/
+`puffs`/`umbels`/`fruit` table and clamped inside the plant's height and `REACH_MAX`.
+The LOD2 foliage reserves 64 triangles for them only when a far family exists; a
+leaf-only canopy keeps the old 16 and its full foliage (birch, willow and Japanese maple
+lose 24 leaves otherwise). A far flower leans its normal about 30 degrees to the sky and
+its colour is lifted by up to ×1.35 with a hue-preserving peak clamp at 0.9 linear, because
+a flat vertical patch on the shade side read mauve at golden hour (34 % of its pixels; the
+tilt and lift bring it to 27 %). A bulb's far flower is a small double-sided patch at its
+scape tip, capped by its
+canopy radius - a bed cue at distance, not a single-plant read. A sunflower's head, placed
+by its builder, gets the same far patch on each stem tip; pods and root crowns have no far
+cue (their green or underground colour does not read at 45 m), and pods ripen by phase like
+fruit. A crown tint was rejected
+as a second season channel through the host and QML. Pinned by `tests/unit/test_plant_forge_bloom.py`
+(`test_a_far_crown_keeps_its_crop_as_patches`, `test_a_far_crop_takes_the_recipe_s_own_colour`,
+`test_the_lod2_far_reserve_is_paid_only_by_a_cropping_canopy`),
+`tests/unit/test_phenology.py`
+(`test_a_spring_bulb_is_gone_after_early_summer`, `test_every_fruit_carries_its_own_phase`),
+`tests/unit/test_plant_forge_l31.py` (the year-growth bucket test),
+`tests/unit/test_quick3d_qml.py` (the fruit progress in `Garden.qml`) and on the engine
+`tests/integration/test_plant_forge_workspace.py::test_a_far_crop_and_a_dormant_bulb_render`
+(driver `plant_forge_far_driver.py`: 704 crop pixels in bloom, 147 at ripeness; a tulip
+3,458 -> 54 pixels from April to July).
+
+**Live regrowth without v0 silhouette flashes or playback freezes (#995, #996).**
+Before #995, a 500 ms `Scene3DController` regrowth pass called `SceneSync.apply(records)`
+with `prepared=None`, which built a v0 `build_silhouette` mesh for every growing plant
+on the GUI thread, deleted its forged `PhenologyState` in `ForgeWorker.invalidate()`
+(leaving winter trees with stale `leaf_density == 0` as bare conical `_trunk` stumps),
+and re-queued all growing plants one future per 10 ms timer tick, starving distant trees.
+`Scene3DController` now calls `ForgeWorker.prepare_for_sync(records, build_ids)` before
+`SceneSync.apply`: (1) a warm 2 % bucket hit in `ForgeCache` is stretched and handed to
+`SceneSync.apply` immediately and recorded in `_sync_forged` so `invalidate()` keeps its
+`_applied_state` and does not re-queue it; (2) a cold 2 % bucket miss for an already-forged
+plant stretches its last forged parts (`_applied_parts`) to the new height and radius for
+the immediate frame while `submit_snapshot` queues the new bucket in the background; and
+(3) a newly appearing dated plant entering an already-forged scene is forged directly.
+`Workspace` connects `SimClock.date_changed` to `ForgeWorker.scrub_date` so seasonal
+uniforms update on every 200 ms date step, and batches up to 16 plants per `_step_forge`
+turn. While `SunSimToolbar` playback runs (`animation_toggled`), `Workspace.set_playback_active`
+holds `LookController.hold_preset` and defers `_release_engine_caches()`, `LookController`
+also resets its sample window during pipeline passes and `ForgeWorker` uploads
+(`pause_auto_sample`), `CanvasScene.refresh_timeline` invalidates only plants whose canopy
+radius actually changed, `SunShadowController` skips 2D shadow polygon solves in pure
+`VIEW3D` mode unless `DrapeMode.SHADOWS` is active, and `GardenPlannerApp` defers heavy 2D
+date diagnostic sweeps until playback stops (#996; PF-L3D-38). Measured on
+`spring-garden.ogp` over a 6 s year playback in `VIEW3D`: `v0_build_plant` calls `132 -> 0`,
+`SunShadowController._recompute` calls `26 (1,143 ms) -> 0`, `releaseResources` calls during
+playback `2 (10.1 s) -> 0`, preset `high -> high` (no 4.3-5.5 s shader-recompile stalls),
+presented frames `69 -> 242 (~40.3 FPS)`, and maximum `processEvents` turn `6,060.6 ms -> 137.2 ms`.
+Pinned by `tests/unit/test_plant_forge_l31.py::TestForgeCache::test_prepare_for_sync_never_downgrades_forged_tree_on_warm_or_cold_growth`
+and `tests/integration/test_plant_forge_workspace.py`
+(`test_live_regrowth_never_downgrades_forged_tree_to_v0_silhouette`,
+`test_toolbar_playback_holds_preset_defers_cache_release_and_skips_hidden_2d_shadows`).
 
 Tests exercise actual workspace scheduling and render flags, asynchronous stale
 results, camera-only LOD, recovery invalidation, shader-only seasonal updates,
@@ -10208,10 +10288,13 @@ on the stroke outline costs 22–180 ms and is wrong (even-odd holes).
 - A sprite the device shows more than 1024 px of is drawn from the vector at
   every zoom step, at a cost that grows with the window (10–16 ms per
   megapixel shown): a canopy filling a 4K window is the worst case, not measured.
-- A **timeline/Animate** step is no longer uncached (#846, #928): `_on_clock_changed`
+- A **timeline/Animate** step is no longer uncached (#846, #928, #996): `_on_clock_changed`
   reuses the `(paint_revision, plan_date)` caster snapshot
   (`SunShadowController._caster_cache`) on every matching clock tick regardless of
-  interval, and rapid consecutive steps (within `_SCRUB_WINDOW_NS = 500 ms`,
+  interval and throttles caster re-walks across date steps to `_SCRUB_WINDOW_NS = 500 ms`
+  while scrubbing (catching up on `_on_scrub_settled`), and in pure `VIEW3D` mode without
+  the 2D shadow drape (`set_canvas_shown(False)`, `set_drape_wanted(False)`) skips 2D
+  polygon solving altogether until 2D is shown or the drape is requested; rapid consecutive steps (within `_SCRUB_WINDOW_NS = 500 ms`,
   covering slider drags and 200 ms `Animate` ticks) also defer `paint_feather`
   + `_paint_and_keep` pixmap allocation (`SunShadowOverlayItem.set_feather_deferred`)
   until `_scrub_settle` (`260 ms`) fires. Measured on `family-garden.ogp` at fit

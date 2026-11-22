@@ -180,6 +180,18 @@ class TestMesh:
         np.testing.assert_array_equal(moved.normals, triangle().normals)
         moved.validate()
 
+    def test_scaled_stretches_positions_and_keeps_unit_normals(self) -> None:
+        """#973: a bucketed forge is stretched to its exact size; normals take the
+        inverse transpose and stay unit length, and the shared arrays stay shared."""
+        source = triangle()
+        scaled = source.scaled(2.0, 3.0, 4.0)
+        np.testing.assert_allclose(scaled.positions, source.positions * [2.0, 3.0, 4.0])
+        np.testing.assert_allclose(np.linalg.norm(scaled.normals, axis=1), 1.0, atol=1e-6)
+        np.testing.assert_array_equal(scaled.indices, source.indices)
+        assert scaled.colors is source.colors and scaled.uvs is source.uvs
+        scaled.validate()
+        assert source.scaled(1.0, 1.0, 1.0) is source
+
 
 # one failing case per defect class the brief names ----------------------------
 

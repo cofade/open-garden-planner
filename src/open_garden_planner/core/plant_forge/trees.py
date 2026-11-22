@@ -8,12 +8,15 @@ Qt-free: standard library + NumPy only.
 
 from __future__ import annotations
 
+from typing import Final
+
 import numpy as np
 
+from ..plant_art import recipe_for
 from ..plant_art.traits3d import BranchingTraits, Traits3D
 from ..scene3d.color import srgb_to_linear
 from ..scene3d.mesh import MeshPart
-from .assemble import fit_forged_parts
+from .assemble import fit_forged_parts, pin_foliage_spread
 from .foliage import (
     RawGeo,
     crown_leaf_budget,
@@ -22,7 +25,7 @@ from .foliage import (
     normalize_vec,
     palette_leaf_colors,
 )
-from .lod import LOD0, LOD1, lod_skeleton_budget, triangle_budget_for_lod, validate_lod
+from .lod import LOD0, LOD1, LOD2, lod_skeleton_budget, triangle_budget_for_lod, validate_lod
 from .skeleton import Skeleton, _sample_crown_attractors, grow_skeleton
 from .tube import limb_tubes
 
@@ -32,6 +35,20 @@ def bark_linear_rgba(branching: BranchingTraits) -> tuple[float, float, float, f
     r, g, b = srgb_to_linear(branching.bark_color)[:3]
     shade = float(branching.bark_shade)
     return (float(r) * shade, float(g) * shade, float(b) * shade, 1.0)
+
+
+#: The recipe keys that give a canopy a far crop (#948). Keep in step with
+#: ``accents._far_accent_colour``; the canopy sweep test calls this predicate and compares
+#: its answer to the forged parts, so a one-sided change fails.
+FAR_CROP_KEYS: Final[tuple[str, ...]] = (
+    "fruit", "fruit2", "flowers", "clusters", "puffs", "umbels",
+)
+
+
+def has_far_crop(traits: Traits3D) -> bool:
+    """Whether the plant has a crop ``build_far_accents`` will draw at LOD2 (#948)."""
+    recipe = recipe_for(traits.sprite)
+    return any(key in recipe for key in FAR_CROP_KEYS)
 
 
 def build_tree_foliage_from_skeleton(
@@ -48,7 +65,9 @@ def build_tree_foliage_from_skeleton(
     if len(tips) == 0:
         return empty_geo()
 
-    reserve = 512 if lod == LOD0 else (128 if lod == LOD1 else 16)
+    # #948 a cropping canopy spends 64 triangles on its far crop's patches; a canopy with
+    # no crop keeps the old 16 and its full foliage.
+    reserve = 512 if lod == LOD0 else (128 if lod == LOD1 else (64 if has_far_crop(traits) else 16))
     max_leaves = max(1, (triangle_budget_for_lod(lod) - wood_tris - reserve) // 2)
     leaf_scale = 1.0 if lod == LOD0 else (1.6 if lod == LOD1 else 3.3)
     scale_factor = max(height_cm / 320.0, 0.35) * leaf_scale
@@ -109,7 +128,6 @@ def build_tree_foliage_from_skeleton(
         cup=0.08 if traits.leaf.frilly else 0.03,
     )
 
-
 def build_forged_tree(
     traits: Traits3D,
     height_cm: float,
@@ -148,12 +166,18 @@ def build_forged_tree(
         lod,
         wood.triangle_count + accent_geo.triangle_count,
     )
-    return fit_forged_parts(wood, foliage, accent_geo, height_cm, radius_cm,
-                            structural_height=traits.deciduous)
+    parts = fit_forged_parts(wood, foliage, accent_geo, height_cm, radius_cm,
+                             structural_height=traits.deciduous)
+    # #970: a sparse far crown's box sits on diagonals; four leaves on the axes hold
+    # its spread. Only LOD2 (beyond 45 m) is sparse enough to lose it, and at that
+    # distance a leaf turned about the trunk is not seen.
+    return pin_foliage_spread(parts) if lod == LOD2 else parts
 
 
 __all__ = [
+    "FAR_CROP_KEYS",
     "bark_linear_rgba",
     "build_forged_tree",
     "build_tree_foliage_from_skeleton",
+    "has_far_crop",
 ]

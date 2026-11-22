@@ -208,6 +208,8 @@ class SunSimToolbar(QToolBar):
     """
 
     datetime_changed = pyqtSignal(object)
+    #: Emitted when the Animate toggle starts (True) or stops (False) (#996).
+    animation_toggled = pyqtSignal(bool)
     #: Heatmap button checked — the app should compute & show the heatmap.
     heatmap_requested = pyqtSignal()
     #: Heatmap button unchecked — the app should hide the heatmap.
@@ -637,6 +639,7 @@ class SunSimToolbar(QToolBar):
             self._animate_timer.start()
         else:
             self._animate_timer.stop()
+        self.animation_toggled.emit(bool(checked))
 
     def _on_heatmap_toggled(self, checked: bool) -> None:
         if checked:

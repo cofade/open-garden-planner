@@ -109,6 +109,7 @@ from open_garden_planner.core.measurement_display import length_text
 from open_garden_planner.core.phenology import plan_latitude
 from open_garden_planner.core.plain_text import clip_text, log_text
 from open_garden_planner.core.scene3d.camera import FOV_DEG, OrbitCamera
+from open_garden_planner.ui.sim_clock_subscription import connect_qobject
 from open_garden_planner.ui.units_notifier import units_notifier
 
 from .analysis_modes import DrapeMode
@@ -472,6 +473,7 @@ class Workspace(QWidget):
         self._build_pending = False   # a first pass waits for its notice to be painted
         self._retired = 0             # items that lost their Models since the last release
         self._applied_at = 0.0        # when the pipeline last worked (``_now``)
+        self._playback_active = False  # toolbar time/date animation running (#996)
         #: What the status line has to say, by kind (``_NOTICE_ORDER``); the first kind
         #: that has a text is shown. A notice stays until what it says is over.
         self._notices: dict[str, str] = {}
@@ -543,6 +545,7 @@ class Workspace(QWidget):
         self._north = north or (lambda: 0.0)
         self._ui_state = ui_state
         self._living.connect_clock(clock)  # L5: a new plan date may change today's weather
+        connect_qobject(clock.date_changed, self._on_clock_date_changed)
         replaced = getattr(scene, "document_replaced", None)  # a CanvasScene has it
         if replaced is not None:
             replaced.connect(self.document_changed)
@@ -924,18 +927,20 @@ class Workspace(QWidget):
         self._host, self._controller, self._input = host, controller, orbit
         self._look = look
         look.set_southern(self._southern())  # L5: where the place's noon stands
+        if self._playback_active:
+            look.hold_preset(True)
         self._living.wire(look)  # L5: the session's weather, the life switch
         if self.engine_factory is quick3d_engine:
             from ...core.plant_forge import ForgeCache
             from .forge_worker import ForgeWorker
 
-            # Render gates use the production path too. The private cache belongs
-            # exclusively to this worker's synthesis thread.
+            # Render gates use the production path too.
             self._forge_worker = ForgeWorker(
                 sink, cache=ForgeCache(max_entries=256), background=True,
                 # the plants' seasons, and from them the garden's life (L5)
                 season_sink=self._living.season_sink(host),
             )
+            controller.set_plant_preparer(self._forge_worker.prepare_for_sync)
         else:
             self._forge_worker = None
         orbit.moved.connect(self._start_camera)
@@ -1272,6 +1277,30 @@ class Workspace(QWidget):
             self._analysis.north_changed()
             self._update_legend()
 
+    def set_playback_active(self, active: bool) -> None:
+        """Hold automatic quality changes and defer RHI cache drops during toolbar playback (#996)."""
+        flag = bool(active)
+        if flag == self._playback_active:
+            return
+        self._playback_active = flag
+        if self._look is not None:
+            self._look.hold_preset(flag)
+        if not flag and self._retired >= RELEASE_NOW_RETIRED and self._pane_is_showing():
+            self._release_engine_caches()
+
+    def _on_clock_date_changed(self, day: Any) -> None:
+        """Evaluate seasonal plant shader uniforms on every date step (#995)."""
+        worker = self._forge_worker
+        if worker is None or not self._pane_is_showing():
+            return
+        loc = self._location()
+        frost = loc.get("frost_dates") if isinstance(loc, Mapping) else None
+        worker.scrub_date(
+            day,
+            latitude_deg=plan_latitude(loc),
+            frost_dates=frost if isinstance(frost, Mapping) else None,
+        )
+
     def _on_applied(self, report: TickReport) -> None:
         # A pass went through: the build is over, and so is a failed update. What the
         # ENGINE reported is not: that notice stays until the engine is gone (it used
@@ -1288,10 +1317,11 @@ class Workspace(QWidget):
             return
         # the look follows the sun the PIPELINE sent — the same pass, the same sun
         if self._look is not None and self._controller is not None:
+            self._look.pause_auto_sample()
             self._look.set_sun(self._controller.sync.sun)
         self._applied_at = _now()
         self._retired += report.retired
-        if self._retired >= RELEASE_NOW_RETIRED:
+        if self._retired >= RELEASE_NOW_RETIRED and not self._playback_active:
             self._release_engine_caches()  # a flood: not worth waiting for quiet
         if report.snapshot and self._forge_worker is not None:
             worker = self._forge_worker
@@ -1335,16 +1365,18 @@ class Workspace(QWidget):
         if worker is None or not self._pane_is_showing() or self._controller is None:
             return
         try:
-            upgraded = worker.step(max_items=1)
+            upgraded = worker.step(max_items=16)
         except Exception as error:  # recover through SceneSync's one reset path
             _log_failure("Plant Forge could not update the 3D view", error)
             worker.clear()
             self._controller.reset()
             return
         if upgraded:
+            if self._look is not None:
+                self._look.pause_auto_sample()
             self._applied_at = _now()
             self._retired += len(upgraded)
-            if self._retired >= RELEASE_NOW_RETIRED:
+            if self._retired >= RELEASE_NOW_RETIRED and not self._playback_active:
                 self._release_engine_caches()
         if worker.pending_count > 0 and self._pane_is_showing():
             self._forge_timer.start(10)
@@ -1483,6 +1515,8 @@ class Workspace(QWidget):
             self._say(_NOTICE_ENGINE, self.tr(
                 "The 3D view reported a problem. Details are in the log file."))
         if (self._retired >= RELEASE_AFTER_RETIRED and self._pane_is_showing()
+                and not self._playback_active
+                and (self._forge_worker is None or self._forge_worker.pending_count == 0)
                 and _now() - self._applied_at >= RELEASE_IDLE_S):
             self._release_engine_caches()
 

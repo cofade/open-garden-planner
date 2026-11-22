@@ -488,11 +488,17 @@ class LookController(QObject):
         self.set_system_reduced_motion(system_reduced_motion())
 
     def hold_preset(self, held: bool) -> None:
-        """A camera tour is recording (L6.2): the view presents few frames while the host
-        renders, which must not read as a slow machine. The automatic preset stops
-        measuring until it is over."""
+        """A camera tour is recording (L6.2) or timeline playback is running (#996): the
+        view presents few frames while the host renders or updates, which must not read as
+        a slow machine. The automatic preset stops measuring until it is over."""
         self._preset_held = bool(held)
         self._update_wind()
+
+    def pause_auto_sample(self) -> None:
+        """Drop the current automatic-quality sample window while the 3D pipeline or
+        Plant Forge is actively uploading models so build work is not misread as a slow
+        GPU (#996)."""
+        self._auto.pause()
 
     def settle_sky(self) -> None:
         """Build the sky the sun asks for NOW, not when the sun rests: a tour's frame shows

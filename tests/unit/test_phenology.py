@@ -9,9 +9,11 @@ import math
 import time
 from pathlib import Path
 
+import numpy as np
 import pytest
 
 from open_garden_planner.core.phenology import (
+    BULB_LEAF_RAMP_DAYS,
     DEFAULT_LATITUDE_DEG,
     PhenologyState,
     evaluate_phenology,
@@ -72,7 +74,12 @@ DECIDUOUS_SPRITES: tuple[SpriteRef, ...] = tuple(
 )
 
 EVERGREEN_SPRITES: tuple[SpriteRef, ...] = tuple(
-    s for s in ALL_SPRITES if not traits_for(s).deciduous
+    s for s in ALL_SPRITES if not traits_for(s).deciduous and not traits_for(s).leaf_months
+)
+
+#: Spring bulbs (#963): up from late winter, gone by July, and not evergreens.
+DORMANT_SPRITES: tuple[SpriteRef, ...] = tuple(
+    s for s in ALL_SPRITES if traits_for(s).leaf_months
 )
 
 
@@ -134,6 +141,22 @@ class TestL35SeasonalAccents:
 
     def test_accent_families_constant(self) -> None:
         assert frozenset({"fruits", "blossoms", "umbels", "pods", "tubers"}) == ACCENT_FAMILIES
+
+    def test_every_fruit_carries_its_own_phase(self) -> None:
+        """#973: fruit is one part shown or hidden as a whole; each spheroid now carries a
+        phase in UV.y, so ``screen.vert`` collapses them one by one as ripeness rises."""
+        from open_garden_planner.core.plant_forge import FRUIT_PART
+
+        parts = forge_plant(SpriteRef("species", "apple_tree"), 420.0, 180.0,
+                            seed=7, lod=LOD0, cache=None)
+        fruit = next(p for p in parts if p.name == FRUIT_PART)
+        per_fruit = 2 * 6 + 2          # _spheroids_geo at LOD0: 6 sides
+        assert fruit.mesh.vertex_count % per_fruit == 0
+        blocks = fruit.mesh.uvs[:, 1].reshape(-1, per_fruit)
+        np.testing.assert_allclose(blocks, np.repeat(blocks[:, :1], per_fruit, axis=1))
+        phases = blocks[:, 0]
+        assert len(np.unique(phases)) > 1
+        assert float(phases.min()) >= 0.0 and float(phases.max()) <= 1.0
 
     @pytest.mark.parametrize(
         ("species_name", "expected_family"),
@@ -262,6 +285,31 @@ class TestL35PhenologyAndHemispheres:
             assert st_sh.leaf_density == 1.0, f"{sprite} bare in month {month} at 35 S"
             assert st_nh.autumn_color == 0.0
             assert st_sh.autumn_color == 0.0
+
+    @pytest.mark.parametrize("sprite", DORMANT_SPRITES, ids=lambda s: f"{s.group}/{s.name}")
+    def test_a_spring_bulb_is_gone_after_early_summer(self, sprite: SpriteRef) -> None:
+        """#963: a crocus, daffodil or tulip kept its leaves all year. Its leaf window is
+        late winter to early summer, on the same seasonal month as the rest of phenology."""
+        assert sprite.name in ("crocus", "daffodil", "tulip")
+        for month in (1, 7, 8, 9, 10, 11, 12):
+            day = datetime.date(2026, month, 15)
+            assert evaluate_phenology(sprite, day).leaf_density == 0.0, month
+        for month in (3, 4, 5):
+            day = datetime.date(2026, month, 15)
+            assert evaluate_phenology(sprite, day).leaf_density == 1.0, month
+        # The seasonal month shifts in the Southern Hemisphere: November there is May.
+        assert evaluate_phenology(
+            sprite, datetime.date(2026, 11, 15), latitude_deg=-35.0).leaf_density == 1.0
+        assert evaluate_phenology(
+            sprite, datetime.date(2026, 5, 15), latitude_deg=-35.0).leaf_density == 0.0
+        # It fades over days, never on the 1st of a month.
+        previous = None
+        for offset in range(365):
+            day = datetime.date(2026, 1, 1) + datetime.timedelta(days=offset)
+            value = evaluate_phenology(sprite, day).leaf_density
+            if previous is not None:
+                assert abs(value - previous) <= 1.5 / BULB_LEAF_RAMP_DAYS + 1e-6, day
+            previous = value
 
     def test_seasonal_transitions_spring_autumn_bloom_ripeness_snow(self) -> None:
         apple = SpriteRef("species", "apple_tree")
