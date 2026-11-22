@@ -252,7 +252,7 @@ Full how-to (step-by-step, `.ts` format, recompile command): see `docs/08-crossc
 
 - The issue tracker is the only work list. Read the issue and the roadmap's
   "Current work" section, then `git status` and `git log --oneline -20`.
-- Current release: **v1.41.1** (2026-11-22). No roadmap phase is active.
+- Current release: **v1.41.2** (2026-11-22). No roadmap phase is active.
   See the roadmap's Current work table and the open issues for the next change.
 - Live decisions that constrain the next change:
   - Bloom hardiness & CAN pitfall index (ADR-014 addendum, ADR-061 addendum, PF-CAN-68):
@@ -309,13 +309,10 @@ Full how-to (step-by-step, `.ts` format, recompile command): see `docs/08-crossc
     `ogp-lush-cinematic` references 013-022 before touching `ground.frag`, a built
     part's surface (`core/scene3d/materials.SURFACES`), the twilight fill, wind or
     the tour video. One shader draws all ground; a still or resting view fits its own shadow map.
-  - Plant season truth (#948-#973, #995-#996): read the ADR-064 addendum, PF-L3D-37/38 and the
-    `ogp-lush-cinematic` reference 022 before touching the forge cache,
-    `ForgeWorker.prepare_for_sync`, `Traits3D.leaf_months`, `accents.build_far_accents`
-    or the foliage fit. A sparse LOD2 crown's axis pin runs AFTER the fit (a pre-fit pin
-    shrinks every leaf); a far accent is clamped after the fit; a bulb's scapes belong to
-    the flowers part at every LOD; live regrowth prepares forged meshes before
-    `SceneSync.apply` and toolbar playback holds `AutoPreset` and defers RHI cache releases.
+  - Plant season truth (#948-#973, #995-#996): read the ADR-064 addendum, PF-L3D-37/38,
+    §8.29.11 and `ogp-lush-cinematic` reference 022 before touching the forge cache,
+    `ForgeWorker.prepare_for_sync`, `Traits3D.leaf_months`, `accents.build_far_accents`,
+    the foliage fit, or playback quality/RHI/2D guards.
   - Bundled examples and README pictures (#940/#564): read the ADR-066 addendum and
     §8.33 before touching `scripts/example_plans/`. The shipped files are generated
     (`scripts/generate_examples.py`, `--check` in the suite); a plan's row in
