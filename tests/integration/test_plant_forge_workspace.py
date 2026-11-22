@@ -281,6 +281,43 @@ def test_real_engine_scrubs_the_same_forged_models(tmp_path):
     assert result["uploads_unchanged"] and result["models_unchanged"]
 
 
+def _run_far_renderer(tmp_path):
+    from tests.integration.quick3d_render_support import (
+        REPO,
+        driver_messages,
+        render_env,
+        render_tier_skip_reason,
+    )
+
+    reason = render_tier_skip_reason()
+    if reason:
+        pytest.skip(reason)
+    driver = Path(__file__).with_name("plant_forge_far_driver.py")
+    proc = subprocess.run([sys.executable, str(driver), str(tmp_path)],
+                          cwd=REPO, env=render_env(tmp_path), capture_output=True,
+                          text=True, timeout=180)
+    assert proc.returncode == 0, proc.stdout[-1500:] + proc.stderr[-3000:]
+    result = json.loads((tmp_path / "result.json").read_text(encoding="utf-8"))
+    result["qt"] = driver_messages(proc.stderr)
+    assert result["qt"]["counts"]["error"] == result["qt"]["counts"]["warning"] == 0, result["qt"]
+    return result
+
+
+def test_a_far_crop_and_a_dormant_bulb_render(tmp_path):
+    """#948/#963 on the engine: a 4.2 m cherry at 45 m keeps a pink crop in bloom and a
+    red one at ripeness (pixels the without-crop frame does not have); a tulip's April
+    plant is gone by July, when only its 2.5 cm neck remains."""
+    result = _run_far_renderer(tmp_path)
+    assert result["cherry_bloom_crop_pixels"] >= 30, result
+    assert result["cherry_fruit_crop_pixels"] >= 20, result
+    assert result["cherry_bloom_crop_pixels"] <= result["cherry_bloom_changed_pixels"]
+    assert result["cherry_fruit_crop_pixels"] <= result["cherry_fruit_changed_pixels"]
+    assert result["tulip_april_leaf_density"] == 1.0 and result["tulip_april_bloom"] == 1.0
+    assert result["tulip_july_leaf_density"] == 0.0 and result["tulip_july_bloom"] == 0.0
+    assert result["tulip_april_pixels"] > 200, result
+    assert result["tulip_july_pixels"] <= 0.05 * result["tulip_april_pixels"], result
+
+
 #: The 16 ms production frame budget on a hardware GPU. CI's render tier runs
 #: on software rasterisers (WARP on Windows, llvmpipe on Linux), where the same
 #: 300-model scrub measured 16.1-21.8 ms across runners; gate a frame-scale
