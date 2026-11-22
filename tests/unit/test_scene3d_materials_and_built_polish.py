@@ -10,8 +10,8 @@ Pins the invariants introduced for:
 - #953: cool sky-tinted minimum night ambient fill on moon-away faces.
 - #957: raised-bed frame material follows architectural fill patterns (corten, stone,
   concrete, terracotta) while keeping ``soil_surface_cm`` exact.
-- #958: water shaders expose ``uSsrRough`` >= 0.70 for Ultra SSR while keeping ``uRough``
-  for sun glints and IBL probe reflections.
+- #958: water shaders expose ``uSsrRough`` (0.40) for soft Ultra SSR reflections while keeping
+  ``uRough`` (0.02) for crisp sun glints and IBL probe reflections.
 - #961: organic multi-vertex ground ponds get smoothed outlines, low sloped natural banks
   and darker greener water while formal pools keep stone coping.
 - #965: flat-roofed houses get contemporary large-pane dark-framed windows and a neutral
@@ -101,9 +101,9 @@ class TestBuiltSurfaceParameters:
         assert f"property real aoBias: {AO_FLAT_BIAS_CM}" in qml
 
     def test_water_shaders_decouple_ssr_roughness_from_glint_roughness(self) -> None:
-        """#958: water uses high roughness for Ultra SSR while keeping crisp uRough for sun/IBL."""
+        """#958: water uses moderate SSR roughness (0.40) for soft reflections while keeping crisp uRough for sun/IBL."""
         qml = (QML_DIR / "Garden.qml").read_text(encoding="utf-8")
-        assert qml.count("property real uSsrRough: 0.75") >= 3
+        assert qml.count("property real uSsrRough: 0.40") >= 3
         for shader in ("water.frag", "water_door.frag"):
             src = (QML_DIR / shader).read_text(encoding="utf-8")
             assert "ROUGHNESS = uSsrRough;" in src, shader
@@ -140,8 +140,8 @@ class TestRaisedBedFillFrames:
         ("BRICK", "masonry"),
         ("FLAGSTONE", "masonry"),
         ("SLATE", "masonry"),
-        ("CONCRETE", "concrete"),
-        ("CLAY", "concrete"),
+        ("CONCRETE", "concrete_wall"),
+        ("CLAY", "concrete_wall"),
         ("TERRACOTTA", "terracotta"),
     ])
     def test_raised_bed_frame_takes_architectural_fill_material(
@@ -245,9 +245,10 @@ class TestNaturalPond:
         # Natural pond water is darker and greener than a formal pool's 0.9
         wcol = water.mesh.colors[0]
         assert wcol[1] > wcol[2] and wcol[1] > wcol[0] and wcol[2] < 0.5
-        # Low sloped natural bank instead of 7 cm grey stone coping
+        # Flush low earth shore stays strictly below DECK_TOP_CM so overhanging decks clear it
         assert float(bank.mesh.positions[:, 2].max()) == pytest.approx(surfaces.BANK_UP_CM)
-        assert surfaces.BANK_UP_CM < surfaces.COPING_UP_CM
+        assert surfaces.WATER_CM < surfaces.BANK_UP_CM < surfaces.DECK_TOP_CM < surfaces.COPING_UP_CM
+        assert surfaces.GRAVEL_RIM_CM < surfaces.DECK_TOP_CM
         # Outline is smoothed (more vertices than the raw 10-gon)
         assert water.mesh.triangle_count > len(ring) - 2
 

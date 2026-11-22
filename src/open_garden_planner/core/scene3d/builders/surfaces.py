@@ -90,9 +90,13 @@ DECK_PATTERNS: Final[frozenset[str]] = frozenset({"DECKING", "WOOD"})
 #: A path narrower than this (cm) gets no relief: a line that thin is a 2D pattern, not
 #: a path one walks on (plans from before L4 drew paths 5 to 10 cm wide).
 MIN_RELIEF_WIDTH_CM: Final = 20.0
-#: Relief heights (cm): a stone, a kerb, a board's top, the water's surface.
+#: Relief heights (cm): a stone, a kerb, a gravel rim, a board's top, the water's surface.
 STONE_CM: Final = 4.0
 KERB_CM: Final = 3.0
+#: A gravel path's 3D rim sits below ``DECK_TOP_CM`` (2.5 cm) so a round end cap that
+#: meets a wooden terrace stays cleanly underneath the deck boards instead of cutting
+#: through them.
+GRAVEL_RIM_CM: Final = 1.8
 BOARD_TOP_CM: Final = 6.0
 #: A terrace's deck boards: low, because the furniture on a deck stands on the plan's
 #: ground (z 0) — at 6 cm a chair's legs sank into the boards (3D review of #388).
@@ -102,11 +106,12 @@ WATER_CM: Final = 1.0
 COPING_IN_CM: Final = 13.0
 COPING_OUT_CM: Final = 7.0
 COPING_UP_CM: Final = 7.0
-#: #961: a natural pond's low sloped bank (organic multi-vertex polygons): wider, lower
-#: earth-and-stone shore than a formal pool's stone kerb, staying inside the 10 cm margin.
+#: #961: a natural pond's low flush earth shore (organic multi-vertex polygons):
+#: stays strictly below ``DECK_TOP_CM`` (2.5 cm) so overhanging pond decks and boardwalks
+#: clear the shore cleanly with no raised grey-brown curb cutting through the timber.
 BANK_IN_CM: Final = 14.0
 BANK_OUT_CM: Final = 7.0
-BANK_UP_CM: Final = 3.5
+BANK_UP_CM: Final = 1.35
 #: #961: linear tint multiplier on a natural pond's water (earthy olive-green, darker than a formal pool's 0.9).
 NATURAL_POND_WATER_WEIGHT: Final[tuple[float, float, float, float]] = (0.46, 0.58, 0.28, 1.0)
 #: Subdivisions per convex corner when filleting a natural pond's outline (#961).
@@ -443,9 +448,10 @@ def _path(record: Record) -> tuple[MeshPart, ...]:
         return _relief(_rails(walked, False, (-width / 2.0 + kerb / 2.0, width / 2.0 - kerb / 2.0), kerb,
                               min(KERB_CM, 0.05 * width), _shade(0.74)), "kerb")
     if style == "GRAVEL_PATH":
-        # the 2D rim's width and place (``path_style_paint.GRAVEL_EDGE_*``)
+        # the 2D rim's width and place (``path_style_paint.GRAVEL_EDGE_*``); height stays
+        # below DECK_TOP_CM so a round cap abutting a wooden deck never pokes through it
         edge = min(GRAVEL_EDGE_CM, GRAVEL_EDGE_SHARE * width)
-        return _relief(_gravel_rim(walked, width, edge, min(KERB_CM, 0.05 * width)), "gravel")
+        return _relief(_gravel_rim(walked, width, edge, min(GRAVEL_RIM_CM, 0.05 * width)), "gravel")
     return ()
 
 
@@ -759,24 +765,17 @@ def _pond(record: Record) -> tuple[MeshPart, ...]:
             if len(pts) < 3:
                 continue
             if natural:
-                # #961: low sloped natural earth-and-stone bank instead of a grey kerb
+                # #961: flush, low organic earth shore strictly below DECK_TOP_CM (2.5 cm)
+                # so overhanging pond decks clear it and there is no raised stone curb.
                 up = BANK_UP_CM
                 profile = [
                     (BANK_IN_CM, 0.2),
-                    (0.55 * BANK_IN_CM, WATER_CM + 0.4),
-                    (0.15 * BANK_IN_CM, 0.85 * up),
-                    (-0.25 * BANK_OUT_CM, up),
-                    (-0.7 * BANK_OUT_CM, 0.45 * up),
+                    (0.5 * BANK_IN_CM, WATER_CM + 0.12),
+                    (0.0, up),
+                    (-0.45 * BANK_OUT_CM, 0.55 * up),
                     (-BANK_OUT_CM, 0.0),
                 ]
-                colors = [
-                    palette.SOIL.linear,
-                    palette.STONE_DARK.linear,
-                    palette.STONE_DARK.linear,
-                    palette.SOIL.linear,
-                    palette.SOIL.linear,
-                ]
-                coping.append(sweep(profile, pts, colors, closed=True, profile_closed=False))
+                coping.append(sweep(profile, pts, palette.SOIL.linear, closed=True, profile_closed=False))
             else:
                 up = COPING_UP_CM
                 profile = [(COPING_IN_CM, 0.0), (COPING_IN_CM, 0.55 * up), (0.75 * COPING_IN_CM, 0.9 * up),

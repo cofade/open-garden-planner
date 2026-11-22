@@ -4121,6 +4121,7 @@ class GardenPlannerApp(QMainWindow):
             self, restore_window_state=False)
         self._ui_state.restore_splitter("main", self._main_splitter)
         self._enforce_toolbar_visibility()
+        self._toolbar_rows.fit()
 
     def _enforce_toolbar_visibility(self) -> None:
         """Toolbar visibility is owned by the app, never by the restored state.

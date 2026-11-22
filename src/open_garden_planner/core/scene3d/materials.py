@@ -129,6 +129,9 @@ SURFACES: Final = MappingProxyType(dict((
              albedo_scale=0.80),
     _surface("concrete", 0.95, 0.0,        # #965: matte, no grazing sky Fresnel
              albedo_scale=0.85),
+    _surface("concrete_wall", 0.92, 0.08,  # #957: textured architectural concrete raised beds
+             SurfaceDetail("CONCRETE", DETAIL_PLANAR, 128.0, 1.0, 2000.0, 0.85),
+             albedo_scale=0.85),
     _surface("flat_roof", 0.95, 0.0,       # #965: dark matte EPDM/gravel roof, no golden-hour lilac
              albedo_scale=0.45),
     _surface("soil", 0.95, 0.10),          # §4 bark, soil, mulch 0.85-0.95

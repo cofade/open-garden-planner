@@ -969,7 +969,7 @@ The built world complete (L4, #388, ADR-065).
   starts in the 2D sprites' light soil colour. A terrace or driveway shows kerbs, or deck boards for a wood pattern;
   a formal pool (rectangular, circular or raised) shows water inside a stone coping,
   while an organic multi-vertex ground pond (5+ vertices per ring) shows a smoothed
-  low sloped earth-and-stone bank and darker natural water (#961). All of this lies on the plan's painted
+  flush low earth shore (strictly below deck height) and darker natural water (#961). All of this lies on the plan's painted
   ground, casts no shadow and cannot be clicked: a click on it is a click on the
   ground, as on the flat surface before L4. A surface given a height is a raised solid with that top.
 - **FR-3D-BUILT-05** (L4.2): A path's width is its width on the ground in cm. New

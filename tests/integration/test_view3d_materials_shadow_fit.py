@@ -106,7 +106,7 @@ class TestCanvasTo3DPipelinePolish:
     @pytest.mark.parametrize(("pattern", "expected_surface"), [
         (FillPattern.CORTEN, "corten"),
         (FillPattern.STONE, "masonry"),
-        (FillPattern.CONCRETE, "concrete"),
+        (FillPattern.CONCRETE, "concrete_wall"),
         (FillPattern.TERRACOTTA, "terracotta"),
     ])
     def test_raised_bed_fill_pattern_flows_from_canvas_to_3d_frame(
@@ -180,3 +180,83 @@ class TestCanvasTo3DPipelinePolish:
         assert float(pool_coping.mesh.positions[:, 2].max()) == pytest.approx(surfaces.COPING_UP_CM)
         assert pond_water.mesh.colors[0, 1] > pond_water.mesh.colors[0, 2]
         assert np.allclose(pool_water.mesh.colors[0, :3], 0.9, atol=1e-5)
+
+    def test_ground_bake_suppresses_2d_cad_outlines_on_surfaces_by_default(self, qtbot) -> None:
+        """Default 3D ground bake omits 2D CAD outline strokes on GARDEN_BED/LAWN/TERRACE_PATIO
+        so bright green/orange blueprint lines do not bleed onto the 3D ground, while preserving
+        user-drawn GENERIC_RECTANGLE borders and surface_outlines=True 2D parity."""
+        from open_garden_planner.ui.view3d.ground_bake import GroundBaker
+
+        scene = CanvasScene(width_cm=400, height_cm=400)
+        bed = RectangleItem(100, 100, 120, 120, object_type=ObjectType.GARDEN_BED)
+        bed.fill_pattern = FillPattern.SOLID
+        bed.fill_color = QColor(140, 90, 45)
+        bed.setBrush(fill_brush(bed, bed.fill_color))
+        bed.stroke_color = QColor(0, 255, 0)
+        bed.stroke_width = 8.0
+        pen = bed.pen()
+        pen.setColor(QColor(0, 255, 0))
+        pen.setWidthF(8.0)
+        bed.setPen(pen)
+        scene.addItem(bed)
+
+        box = RectangleItem(250, 100, 100, 100, object_type=ObjectType.GENERIC_RECTANGLE)
+        box.fill_pattern = FillPattern.SOLID
+        box.fill_color = QColor(140, 90, 45)
+        box.setBrush(fill_brush(box, box.fill_color))
+        box.stroke_color = QColor(0, 0, 255)
+        box.stroke_width = 8.0
+        bpen = box.pen()
+        bpen.setColor(QColor(0, 0, 255))
+        bpen.setWidthF(8.0)
+        box.setPen(bpen)
+        scene.addItem(box)
+
+        records = snapshot_records(scene, DAY)
+        baked_3d = GroundBaker(bare_rgb=(0, 0, 0), budget_s=None)
+        tiles_3d = baked_3d.bake(records, None, (), 400.0, 400.0)
+        arr_3d = np.frombuffer(tiles_3d[0].pixels, dtype=np.uint8).reshape(
+            tiles_3d[0].height_px, tiles_3d[0].width_px, 4
+        )
+        green_3d = int(((arr_3d[..., 1] > 220) & (arr_3d[..., 0] < 40)).sum())
+        blue_3d = int(((arr_3d[..., 2] > 220) & (arr_3d[..., 0] < 40)).sum())
+        assert green_3d == 0, "3D ground bake must not paint 2D CAD outline pen on GARDEN_BED"
+        assert blue_3d > 100, "3D ground bake must preserve user-drawn GENERIC_RECTANGLE border"
+
+        baked_2d = GroundBaker(bare_rgb=(0, 0, 0), budget_s=None, surface_outlines=True)
+        tiles_2d = baked_2d.bake(records, None, (), 400.0, 400.0)
+        arr_2d = np.frombuffer(tiles_2d[0].pixels, dtype=np.uint8).reshape(
+            tiles_2d[0].height_px, tiles_2d[0].width_px, 4
+        )
+        green_2d = int(((arr_2d[..., 1] > 220) & (arr_2d[..., 0] < 40)).sum())
+        assert green_2d > 100, "surface_outlines=True must keep 2D parity stroke"
+
+    def test_toolbar_rows_waits_for_show_instead_of_stacking_at_default_width(self, qtbot) -> None:
+        """ToolbarRows does not insert premature line breaks at the hidden 640 px default width
+        before restore_geometry / Show, avoiding a stacked-toolbar flash on startup."""
+        from PyQt6.QtWidgets import QMainWindow, QToolBar
+
+        from open_garden_planner.ui.widgets.toolbar_rows import ToolbarRows
+
+        win = QMainWindow()
+        qtbot.addWidget(win)
+        bars = [QToolBar(f"t{i}", win) for i in range(3)]
+        for bar in bars:
+            for idx in range(12):
+                bar.addAction(f"Action {idx}")
+            win.addToolBar(bar)
+        rows = ToolbarRows(win, bars)
+        # Hidden at default 640 px width: no premature breaks inserted
+        assert not any(win.toolBarBreak(bar) for bar in bars)
+        # Once sized wide and shown, all stay on one row
+        total_w = sum(bar.sizeHint().width() for bar in bars)
+        win.resize(total_w + 200, 900)
+        win.show()
+        qtbot.wait(0)
+        rows.fit()
+        assert not any(win.toolBarBreak(bar) for bar in bars)
+        # When narrowed below the combined toolbar width, breaks are inserted cleanly
+        win.resize(max(400, total_w // 2), 900)
+        qtbot.wait(0)
+        rows.fit()
+        assert any(win.toolBarBreak(bar) for bar in bars)

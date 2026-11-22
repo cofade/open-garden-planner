@@ -614,8 +614,16 @@ def _rect_points(rect: QRectF) -> list[QPointF]:
     return [rect.topLeft(), rect.topRight(), rect.bottomRight(), rect.bottomLeft()]
 
 
+#: Natural and built ground surface kinds whose 2D CAD outline pen (bright green bed/lawn
+#: borders, orange terrace outlines, dark blue pond outlines) is suppressed when baking 3D
+#: ground tiles so 2D blueprint wireframes do not bleed onto 3D grass, soil, decks or ponds.
+SURFACE_OUTLINE_KINDS: Final[frozenset[str]] = frozenset({
+    "LAWN", "GARDEN_BED", "TERRACE_PATIO", "DRIVEWAY", "POND_POOL",
+})
+
+
 def _paint_filled(painter: QPainter, record: Record, paint: Paint, ox: float, oy: float,
-                  budget: WalkBudget) -> None:
+                  budget: WalkBudget, *, surface_outlines: bool = False) -> None:
     """A rectangle, an ellipse, a circle or a polygon: its sprite, or pen and brush
     and the one call the item's own ``paint()`` makes."""
     material = record.material
@@ -638,7 +646,9 @@ def _paint_filled(painter: QPainter, record: Record, paint: Paint, ox: float, oy
                 rect = QRectF(box[0] + ox, box[1] + oy, box[2] - box[0], box[3] - box[1])
     if rect is not None and shape != SHAPE_ELLIPSE and _paint_sprite(painter, object_type, rect):
         return
-    pen = _pen(material, paint, paint.stroke_width_cm)
+    pen = (QPen(Qt.PenStyle.NoPen)
+           if not surface_outlines and record.kind in SURFACE_OUTLINE_KINDS
+           else _pen(material, paint, paint.stroke_width_cm))
     furniture = object_type is not None and paints_picture(object_type)
     # a picture item without its picture has no brush on the canvas either
     brush = QBrush(Qt.BrushStyle.NoBrush) if furniture else _brush(material)
@@ -767,7 +777,8 @@ def _paint_polyline(painter: QPainter, record: Record, paint: Paint, ox: float, 
     _stroke_dashed(painter, points, pen, width_cm, budget)
 
 
-def paint_record(painter: QPainter, record: Record, *, budget: WalkBudget | None = None) -> None:
+def paint_record(painter: QPainter, record: Record, *, budget: WalkBudget | None = None,
+                 surface_outlines: bool = False) -> None:
     """Paint one record's surface as the 2D canvas paints the item.
 
     ``painter``'s transform must map SCENE centimetres to the device (east to +x;
@@ -808,7 +819,8 @@ def paint_record(painter: QPainter, record: Record, *, budget: WalkBudget | None
         if record.shape == SHAPE_POLYLINE:
             _paint_polyline(painter, record, paint, ox, oy, budget)
         elif record.shape in (SHAPE_CIRCLE, SHAPE_ELLIPSE, SHAPE_RECTANGLE, SHAPE_POLYGON):
-            _paint_filled(painter, record, paint, ox, oy, budget)
+            _paint_filled(painter, record, paint, ox, oy, budget,
+                          surface_outlines=surface_outlines)
     finally:
         painter.restore()
         # … and ABSOLUTELY: a painter that raised between a ``save()`` and its
@@ -1046,7 +1058,8 @@ class GroundBaker:
 
     def __init__(self, *, bare_rgb: tuple[int, int, int] = MEADOW_RGB, tile_px: int = TILE_PX,
                  max_pixels: int = MAX_GROUND_PIXELS, budget_s: float | None = BAKE_BUDGET_S,
-                 clock: Callable[[], float] = time.perf_counter) -> None:
+                 clock: Callable[[], float] = time.perf_counter,
+                 surface_outlines: bool = False) -> None:
         if len(bare_rgb) != 3 or not all(type(c) is int and 0 <= c <= 255 for c in bare_rgb):
             raise ValueError(f"bare_rgb is three ints in 0..255, got {bare_rgb!r}")
         check_grid_settings(tile_px, max_pixels)  # before anything is allocated with them
@@ -1057,6 +1070,7 @@ class GroundBaker:
         self._max_pixels = max_pixels
         self._budget_s = budget_s
         self._clock = clock
+        self._surface_outlines = surface_outlines
         self._grid: GroundGrid | None = None
         self._painted: dict[str, _Painted] = {}
         self._order: dict[TileKey, tuple[str, ...]] = {}
@@ -1225,7 +1239,8 @@ class GroundBaker:
         """An empty baker with this one's grid settings and colour — and NO time
         budget: its first ``bake`` is the whole ground (a from-scratch reference)."""
         return GroundBaker(bare_rgb=self._bare_rgb, tile_px=self._tile_px,
-                           max_pixels=self._max_pixels, budget_s=None)
+                           max_pixels=self._max_pixels, budget_s=None,
+                           surface_outlines=self._surface_outlines)
 
     def bake(self, records: Mapping[str, Record], changes: SceneDiff | None,
              solid: Collection[str], width_cm: float, depth_cm: float
@@ -1522,7 +1537,8 @@ class GroundBaker:
                 painter.setWorldTransform(pose)
                 painter.setOpacity(1.0)
                 try:
-                    paint_record(painter, record, budget=budget)
+                    paint_record(painter, record, budget=budget,
+                                 surface_outlines=self._surface_outlines)
                 except Exception as error:  # one item must not blank a tile
                     failed[record.item_id] = self._report(record, error)
                     # … and whatever else that painter left behind — saved levels, a

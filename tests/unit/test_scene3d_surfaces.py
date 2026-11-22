@@ -109,7 +109,7 @@ def test_a_dull_dark_surface_takes_no_specular_at_all() -> None:
 
 def test_only_roofs_and_walls_carry_a_picture_and_a_roof_s_tiles_are_the_plan_s_size() -> None:
     pictured = {name for name, surface in SURFACES.items() if surface.detail is not None}
-    assert pictured == {"roof_tile", "shingle", "plaster", "masonry", "wood_cladding", "corten"}
+    assert pictured == {"roof_tile", "shingle", "plaster", "masonry", "wood_cladding", "corten", "concrete_wall"}
     tiles = SURFACES["roof_tile"].detail
     assert isinstance(tiles, SurfaceDetail)
     # the canvas lays every pattern at 256 cm (core.scene3d.PATTERN_TILE_CM): one size in 2D and 3D

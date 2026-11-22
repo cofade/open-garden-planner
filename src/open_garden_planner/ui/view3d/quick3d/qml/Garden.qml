@@ -928,9 +928,10 @@ Item {
                 // a crisp sun glint: 0.3 blew it over the pond, 0.05 still clipped ~23 %
                 // of the visible pond at morning (spike, creator round 2)
                 property real uRough: 0.02
-                // #958: roughness reported to Qt's Ultra SSR pass so pools do not act
-                // as sharp mirrors of nearby walls while sun glint and IBL keep uRough
-                property real uSsrRough: 0.75
+                // #958: roughness reported to Qt's Ultra SSR pass so pools show soft,
+                // realistic water reflections instead of a harsh chrome mirror (0.02)
+                // or dead flat blue (0.75), while sun glint and IBL keep uRough
+                property real uSsrRough: 0.40
                 // #803: the glint's peak (linear, before the look's exposure) is soft-capped
                 // here: Qt's own glint clipped a white blob over 3-6 % of a pond seen at the
                 // mirror angle of a morning sun; 0.6 peaks at luma 212-237, unclipped
@@ -950,7 +951,7 @@ Item {
                 property real uBody: 0.5
                 property real uReflect: 0.15
                 property real uRough: 0.02
-                property real uSsrRough: 0.75
+                property real uSsrRough: 0.40
                 property real uGlintCap: 0.6 / (root.exposure * root.photoExposure)
                 property real uOpacity: fade
                 property real uSeason: 1.0      // screen.vert: nothing collapses by phase
@@ -1756,7 +1757,7 @@ Item {
                     property real uBody: 0.5
                     property real uReflect: 0.15
                     property real uRough: 0.02
-                    property real uSsrRough: 0.75
+                    property real uSsrRough: 0.40
                     property real uGlintCap: 0.6
                     property real uOpacity: 0.0
                     property real uSeason: 1.0

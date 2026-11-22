@@ -169,8 +169,8 @@ RAISED_BED_FILL_FRAMES: Final[dict[str, tuple[float, str]]] = {
     "BRICK": (8.0, "masonry"),
     "FLAGSTONE": (8.0, "masonry"),
     "SLATE": (8.0, "masonry"),
-    "CONCRETE": (6.0, "concrete"),
-    "CLAY": (6.0, "concrete"),
+    "CONCRETE": (6.0, "concrete_wall"),
+    "CLAY": (6.0, "concrete_wall"),
     "TERRACOTTA": (4.0, TERRACOTTA),
 }
 

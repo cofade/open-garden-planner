@@ -58,13 +58,19 @@ class ToolbarRows(QObject):
         """Add the next toolbar of the row (in the order the window holds them)."""
         self._toolbars.append(toolbar)
         toolbar.installEventFilter(self)
-        self.fit()
+        if self._window.isVisible():
+            self.fit()
 
     def eventFilter(self, obj: QObject | None, event: QEvent | None) -> bool:
-        if event is None or self._pending:
+        if event is None:
             return False
         kind = event.type()
-        resized = obj is self._window and kind in (QEvent.Type.Resize, QEvent.Type.Show)
+        if obj is self._window and kind == QEvent.Type.Show:
+            self.fit()
+            return False
+        if self._pending:
+            return False
+        resized = obj is self._window and kind == QEvent.Type.Resize
         toggled = obj in self._toolbars and kind in (
             QEvent.Type.ShowToParent, QEvent.Type.HideToParent)
         if resized or toggled:
