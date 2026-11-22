@@ -8,6 +8,8 @@ Qt-free: standard library + NumPy only.
 
 from __future__ import annotations
 
+from typing import Final
+
 import numpy as np
 
 from ..plant_art import recipe_for
@@ -35,6 +37,20 @@ def bark_linear_rgba(branching: BranchingTraits) -> tuple[float, float, float, f
     return (float(r) * shade, float(g) * shade, float(b) * shade, 1.0)
 
 
+#: The recipe keys that give a canopy a far crop (#948). Keep in step with
+#: ``accents._far_accent_colour``; the canopy sweep test calls this predicate and compares
+#: its answer to the forged parts, so a one-sided change fails.
+FAR_CROP_KEYS: Final[tuple[str, ...]] = (
+    "fruit", "fruit2", "flowers", "clusters", "puffs", "umbels",
+)
+
+
+def has_far_crop(traits: Traits3D) -> bool:
+    """Whether the plant has a crop ``build_far_accents`` will draw at LOD2 (#948)."""
+    recipe = recipe_for(traits.sprite)
+    return any(key in recipe for key in FAR_CROP_KEYS)
+
+
 def build_tree_foliage_from_skeleton(
     skeleton: Skeleton,
     traits: Traits3D,
@@ -49,14 +65,9 @@ def build_tree_foliage_from_skeleton(
     if len(tips) == 0:
         return empty_geo()
 
-    # #948: a cropping canopy spends 64 triangles on its far crop's patches; a canopy
-    # with no crop keeps the old 16 and its full foliage. Keep this key set in step with
-    # `accents._far_accent_colour` (the unit test sweeps every canopy recipe).
-    recipe = recipe_for(traits.sprite)
-    has_far_crop = any(
-        key in recipe for key in ("fruit", "fruit2", "flowers", "clusters", "puffs", "umbels")
-    )
-    reserve = 512 if lod == LOD0 else (128 if lod == LOD1 else (64 if has_far_crop else 16))
+    # #948 a cropping canopy spends 64 triangles on its far crop's patches; a canopy with
+    # no crop keeps the old 16 and its full foliage.
+    reserve = 512 if lod == LOD0 else (128 if lod == LOD1 else (64 if has_far_crop(traits) else 16))
     max_leaves = max(1, (triangle_budget_for_lod(lod) - wood_tris - reserve) // 2)
     leaf_scale = 1.0 if lod == LOD0 else (1.6 if lod == LOD1 else 3.3)
     scale_factor = max(height_cm / 320.0, 0.35) * leaf_scale
@@ -164,7 +175,9 @@ def build_forged_tree(
 
 
 __all__ = [
+    "FAR_CROP_KEYS",
     "bark_linear_rgba",
     "build_forged_tree",
     "build_tree_foliage_from_skeleton",
+    "has_far_crop",
 ]

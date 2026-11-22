@@ -8720,9 +8720,10 @@ on the crown's outer shell, coloured from the recipe's own `flowers`/`clusters`/
 The LOD2 foliage reserves 64 triangles for them only when a far family exists; a
 leaf-only canopy keeps the old 16 and its full foliage (birch, willow and Japanese maple
 lose 24 leaves otherwise). A far flower leans its normal about 30 degrees to the sky and
-its colour is lifted ×1.35 (capped at 0.9 linear), because a flat vertical patch on the
-shade side read mauve at golden hour (34 % of its pixels; the tilt and lift bring it to
-29 %). A bulb's far flower is a small double-sided patch at its scape tip, capped by its
+its colour is lifted by up to ×1.35 with a hue-preserving peak clamp at 0.9 linear, because
+a flat vertical patch on the shade side read mauve at golden hour (34 % of its pixels; the
+tilt and lift bring it to 27 %). A bulb's far flower is a small double-sided patch at its
+scape tip, capped by its
 canopy radius - a bed cue at distance, not a single-plant read. A sunflower's head, placed
 by its builder, gets the same far patch on each stem tip; pods and root crowns have no far
 cue (their green or underground colour does not read at 45 m), and pods ripen by phase like

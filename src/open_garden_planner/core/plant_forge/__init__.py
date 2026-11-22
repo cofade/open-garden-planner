@@ -114,6 +114,21 @@ from .woody import (
 )
 
 
+def _bucketed_support(
+    support: Mapping[str, Any] | None, step_cm: float,
+) -> Mapping[str, Any] | None:
+    """A climber's support with its distance at the bucket centre (#973), so every shape
+    inside one cache bucket is built at the same distance and the contact error is at most
+    half a step."""
+    if not support or step_cm <= 0.0:
+        return support
+    data = dict(support)
+    distance = data.get("distance_cm")
+    if isinstance(distance, (int, float)) and not isinstance(distance, bool):
+        data["distance_cm"] = round(float(distance) / step_cm) * step_cm
+    return data
+
+
 def _support_signature(
     support: Mapping[str, Any] | tuple[Any, ...] | None,
     *,
@@ -173,9 +188,12 @@ def forge_plant(
     # re-randomised. Without a cache there is nothing to reuse: build the exact size.
     h_bucket = h if cache is None else quantised_size_cm(h)
     r_bucket = r if cache is None else quantised_size_cm(r)
-    # The climber's support distance is bucketed by the SAME relative step as the size, so
-    # a growing climber's support geometry does not change the key inside one size bucket.
-    extra_sig = _support_signature(support, distance_step_cm=0.02 * r_bucket)
+    # The climber's support distance is bucketed by the SAME relative step as the size, and
+    # the builder uses the bucket centre, so a growing climber's key and its support
+    # contact are stable inside one size bucket (error at most half a step).
+    distance_step = 0.02 * r_bucket
+    build_support = _bucketed_support(support, distance_step)
+    extra_sig = _support_signature(build_support, distance_step_cm=distance_step)
     if not include_accents:
         extra_sig = f"{extra_sig}|no_accents"
     key = make_cache_key(sprite.group, sprite.name, seed, lod, h_bucket, r_bucket, extra_sig)
@@ -207,7 +225,8 @@ def forge_plant(
         elif traits.archetype == "flower":
             parts = build_forged_flower(traits, h_bucket, r_bucket, seed, lod=lod)
         elif traits.archetype == "climber":
-            parts = build_forged_climber(traits, h_bucket, r_bucket, seed, lod=lod, support=support)
+            parts = build_forged_climber(traits, h_bucket, r_bucket, seed, lod=lod,
+                                         support=build_support)
         else:
             return build_silhouette(recipe_for(sprite), int(seed), h_bucket, r_bucket)
         if include_accents:

@@ -22,6 +22,7 @@ from .accents import (
     FLOWER_PART,
     FLOWER_PHASE_MAX,
     PETAL_RISE_PER_CUP,
+    far_flower_tint,
     far_patches_geo,
     flower_accent_colour,
     flower_part,
@@ -458,7 +459,7 @@ def _forged_flowering_bulb(
         far = far_patches_geo(
             tips, outward,
             np.minimum(np.maximum(2.5 * r_f, 0.12 * height_cm), 0.22 * radius_cm),
-            flower_accent_colour(traits), phase,
+            far_flower_tint(flower_accent_colour(traits)), phase,
         )
         return fit_forged_parts(
             neck, foliage, concat_geo([with_phase(scapes, phase), far]),
@@ -1100,7 +1101,8 @@ def build_forged_flower(
         # the petal colour on each stem tip - a cue, not the real disc.
         far = far_patches_geo(
             tips, facing, np.maximum(2.0 * radii, 0.14 * height_cm),
-            flower_accent_colour(traits), rng.random(n_stems), double_sided=True,
+            far_flower_tint(flower_accent_colour(traits)), rng.random(n_stems),
+            double_sided=True,
         )
         return (*parts, flower_part(far, height_cm, radius_cm))
     heads = flowers_geo(flower, str(traits.blossom_spec or "white"), tips, facing, radii, rng, lod=lod)

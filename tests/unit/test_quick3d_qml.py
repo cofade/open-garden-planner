@@ -261,8 +261,9 @@ def test_fruit_ripens_one_by_one_not_all_at_once() -> None:
     from open_garden_planner.core.phenology import RIPENESS_PROGRESS_FROM
 
     code = " ".join(_scene().split())
-    assert RIPENESS_PROGRESS_FROM == 0.55
-    assert f"(state[5] - {RIPENESS_PROGRESS_FROM}) / 0.45" in code
+    denominator = round(1.0 - RIPENESS_PROGRESS_FROM, 2)
+    assert RIPENESS_PROGRESS_FROM == 0.55 and denominator == 0.45
+    assert f"(state[5] - {RIPENESS_PROGRESS_FROM}) / {denominator}" in code
     assert "state[5] > 0.0 ? 1.0 : 0.0" not in code
     door = (QML_DIR / "screen.vert").read_text(encoding="utf-8")
     assert "UV0.y >= uSeason" in door

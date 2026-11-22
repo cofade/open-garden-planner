@@ -864,7 +864,8 @@ Plant Forge: procedural species models, LODs and phenology (L3, #387, ADR-064).
 - **FR-3D-FORGE-02:** Total triangle caps are 25,000/6,000/800 at distance LODs
   up to 18 m / up to 45 m / beyond 45 m. A 256-entry, 64 MiB LRU bounds mesh
   storage. The cache keys its meshes by 2% geometric size buckets and stretches a
-  hit to the exact height and spread, so a tree that grows a little every day
+  hit to the exact height and the exact scale (the post-fit pin keeps the spread
+  within 1.04 of the diameter), so a tree that grows a little every day
   keeps one shape through a bucket instead of being re-forged and re-randomised
   every day (#973); a bucket builds the same mesh for every size inside it.
 - **FR-3D-FORGE-03:** Initial silhouettes precede background synthesis. Camera
@@ -886,7 +887,8 @@ Plant Forge: procedural species models, LODs and phenology (L3, #387, ADR-064).
   the first ten days of its window and fades over the last ten, flower by flower;
   a hardy plant flowers before the last frost, a tender one waits for it; magnolia,
   forsythia, peach, plum and cherry carry few leaves until their bloom ends (#940).
-  Beyond 45 m a flowering or fruit-bearing plant keeps a sparse far representation of
+  Beyond 45 m a flowering or fruit-bearing plant (a flower or fruit other than a pod)
+  keeps a sparse far representation of
   its crop - large patches of the blossom or fruit colour inside its LOD2 budget
   and its own height and reach - so a blossoming orchard or a ripening berry row
   does not lose its crop at distance (#948). The 64-triangle LOD2 reserve is paid

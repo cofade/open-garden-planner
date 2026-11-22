@@ -66,7 +66,10 @@ def pin_foliage_spread(parts: tuple[MeshPart, ...], *, leaves: int = 4) -> tuple
     Applied AFTER the fit: before it, the larger axis-aligned box would make the fit
     scale every leaf down, and a tall LOD2 birch fell below its foliage-coverage gate.
     Rotation keeps every leaf's size, its colour, its sway weight and the triangle
-    count; only the azimuth of four distant leaves changes.
+    count; the whole four-vertex leaf turns about the item's axis, so its base slides
+    along the crown (at LOD2 the leaf is decorative, not tied to a drawn twig, and the
+    four turned leaves are not seen as detached). A concrete-supported climber's wood and
+    support plane are untouched: the pin acts on the foliage part only.
     """
     index = next((i for i, part in enumerate(parts) if part.name == PART_FOLIAGE), None)
     if index is None:

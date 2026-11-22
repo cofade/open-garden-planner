@@ -22,7 +22,6 @@ from open_garden_planner.core.plant_art import (
     FLOWERS,
     SPECIES_TRAITS,
     SpriteRef,
-    recipe_for,
     traits_for,
 )
 from open_garden_planner.core.plant_art.traits3d import FLOWER_HABITS
@@ -473,7 +472,8 @@ def test_a_far_crop_takes_the_recipe_s_own_colour(species: str, colour: str) -> 
         traits_for(SpriteRef("species", species)), 150.0, 60.0,
         np.random.default_rng(3), family="flowers", max_tris=4,
     )
-    expected = np.minimum(_hex_to_linear_rgb(colour) * 1.35, 0.90)
+    raw = _hex_to_linear_rgb(colour)
+    expected = raw * min(1.35, 0.90 / max(float(raw.max()), 1e-6))
     np.testing.assert_allclose(geo.col[0, :3], expected, atol=1e-5)
 
 
@@ -529,15 +529,14 @@ CANOPY_SPRITES: tuple[SpriteRef, ...] = tuple(
 
 @pytest.mark.parametrize("sprite", CANOPY_SPRITES, ids=lambda s: f"{s.group}/{s.name}")
 def test_every_canopy_with_a_crop_key_gets_a_far_crop(sprite: SpriteRef) -> None:
-    """The LOD2 reserve's `has_far_crop` predicate is a hand-kept copy of the far-colour
-    rule; this sweep is the drift guard the comment promises."""
+    """The LOD2 reserve's `has_far_crop` predicate and the far-colour rule are two
+    hand-kept pieces; this sweep calls the predicate and compares it to the forged parts."""
+    from open_garden_planner.core.plant_forge.trees import has_far_crop
+
     parts = forge_plant(sprite, 420.0, 180.0, seed=7, lod=LOD2, cache=None)
-    has_far = bool({"flowers", "fruits"} & {part.name for part in parts})
-    recipe = recipe_for(sprite)
-    expected = any(
-        key in recipe for key in ("fruit", "fruit2", "flowers", "clusters", "puffs", "umbels")
-    )
-    assert has_far == expected, (sprite.name, [part.name for part in parts])
+    has_parts = bool({"flowers", "fruits"} & {part.name for part in parts})
+    assert has_far_crop(traits_for(sprite)) == has_parts, (
+        sprite.name, [part.name for part in parts])
 
 
 def test_a_far_sunflower_keeps_its_head() -> None:
@@ -555,10 +554,14 @@ def test_a_far_sunflower_keeps_its_head() -> None:
 
 def test_pods_carry_a_phase_for_their_ripening() -> None:
     """#948 review: pods are fruit-like, but their part had no phase, so every pod
-    appeared on the harvest window's first day."""
+    appeared on the harvest window's first day. Each pod's two tube segments must share
+    ONE phase - a split would make the pod appear in halves."""
     parts = forge_plant(SpriteRef("species", "pea"), 60.0, 30.0, seed=7, lod=LOD0, cache=None)
     pods = _part(parts, "fruits")
-    assert np.unique(pods.uvs[:, 1]).size > 1
+    phases, counts = np.unique(pods.uvs[:, 1], return_counts=True)
+    assert phases.size > 1
+    assert np.all(counts == counts[0]), counts          # every phase the same block size
+    assert counts[0] > 5, counts                        # two tubes, not one
 
 
 def test_the_lod2_pin_moves_no_climber_wood() -> None:

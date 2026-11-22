@@ -1317,6 +1317,17 @@ FAR_FLOWER_GAIN: Final = 1.35
 FAR_FLOWER_MAX: Final = 0.90
 
 
+def far_flower_tint(colour: np.ndarray) -> np.ndarray:
+    """The far flower cue's colour (#948): the petal colour lifted by up to ×1.35, with a
+    HUE-PRESERVING scale so the peak channel reaches at most 0.9 linear. A per-channel
+    clamp would push red toward magenta (the exact defect the lift is for) and wash the
+    noon bloom toward white; one scale keeps the petal's hue."""
+    tint = np.asarray(colour, dtype=np.float64)
+    peak = float(tint.max())
+    scale = min(FAR_FLOWER_GAIN, FAR_FLOWER_MAX / max(peak, 1e-6))
+    return np.clip(tint * scale, 0.0, FAR_FLOWER_MAX)
+
+
 def build_far_accents(
     traits: Traits3D,
     height_cm: float,
@@ -1343,7 +1354,7 @@ def build_far_accents(
         anchors[:, 0], anchors[:, 1], np.full(count, tilt),
     ]))
     if family == FLOWER_PART:
-        colour = np.minimum(colour * FAR_FLOWER_GAIN, FAR_FLOWER_MAX)
+        colour = far_flower_tint(colour)
     size = ((0.16 if family == FLOWER_PART else 0.10) * radius_cm
             * rng.uniform(0.80, 1.15, size=count))
     return far_patches_geo(anchors, outward, size, colour, rng.random(count),
@@ -1447,6 +1458,7 @@ __all__ = [
     "build_umbel_accents",
     "crown_flower_anchors",
     "far_patches_geo",
+    "far_flower_tint",
     "flower_accent_colour",
     "flower_part",
     "wood_flower_anchors",

@@ -93,8 +93,9 @@ would otherwise lose 24 leaves; #948 review). A cherry with both families gets 3
 The patches are `with_phase`d, so they open or ripen one by one with the existing
 bloom/ripeness state; `_clamp_accent_geo` keeps them inside the plant's height and
 `REACH_MAX`. A far flower leans its normal about 30 degrees to the sky and its colour is
-lifted ×1.35 (capped at 0.9 linear), because a flat vertical patch on the shade side read
-mauve at golden hour (34 % of its pixels; the tilt and lift bring it to 29 %). A bulb's far
+lifted by up to ×1.35 with a hue-preserving peak clamp at 0.9 linear, because a flat
+vertical patch on the shade side read mauve at golden hour (34 % of its pixels; the tilt
+and lift bring it to 27 %). A bulb's far
 flower is a small double-sided patch at its scape tip, capped by its canopy radius - a bed
 cue at distance, not a single-plant read. A sunflower's head - placed by its builder, not a
 crown - gets the same far patch on each stem tip. Pods and root crowns have no far cue
@@ -104,7 +105,7 @@ fruit.
 **Measured:** a 4.2 m cherry at 45 m in a 1600 x 900 frame (40 degree vertical FOV):
 in bloom 704 crop-coloured pixels of the 942 the far parts change; at ripeness 0.775,
 147 of 289. Without the far parts the crown is plain green. Under the golden-hour look
-(15.2 degree sun) 29 % of the far-flower pixels still sit in the mauve band (a flat
+(15.2 degree sun) 27 % of the far-flower pixels still sit in the mauve band (a flat
 vertical patch read 34 %); the crown reads as blossom, and the remaining shade is an
 owner taste question. A tulip at 2 m shows 3,458 plant pixels on 15 April (red flowers
 and green straps) and 54 on 15 July (the 2.5 cm neck only). The engine gate is

@@ -309,7 +309,7 @@ class TestForgeCacheAndWorker:
         """#973: a year time-lapse moves a tree's height by centimetres a day. The cache
         keeps one forged shape for a 2 % size bucket and stretches it to the day's exact
         height, so 365 days need a few dozen builds, and every day still shows its own
-        size (height and spread exact after scaling)."""
+        size (height and scale exact; spread within the pin's 1.04 of the diameter)."""
         cache = ForgeCache(max_entries=128)
         ref = SpriteRef("species", "cherry_tree")
         truth_missed = 0
@@ -333,7 +333,8 @@ class TestForgeCacheAndWorker:
     def test_a_growing_fence_climber_keeps_one_cache_entry(self) -> None:
         """#973 review: the support signature carried `distance_cm`, derived from the exact
         canopy radius, so a growing fence-trained climber was reforged every day. The key
-        now buckets that distance to 1 cm; the support's geometry still keys it."""
+        and the built support now use the same 2 %-of-radius bucket; the support's geometry
+        still keys it, and the contact error is at most half a bucket step."""
         support = {
             "kind": "fence", "azimuth_deg": 0.0, "distance_cm": 10.0,
             "segment_cm": (-100.0, 90.0, 100.0, 90.0),
@@ -343,9 +344,10 @@ class TestForgeCacheAndWorker:
         ref = SpriteRef("species", "jasmine")
         forge_plant(ref, 180.0, 180.0, seed=7, lod=LOD2, cache=cache, support=support)
         assert cache.misses == 1
+        # 12.5 cm is near the far edge of the same 2 % bucket (step 3.58 cm at r=180.5).
         forge_plant(ref, 180.0, 180.5, seed=7, lod=LOD2, cache=cache,
-                    support={**support, "distance_cm": 9.5})
-        assert cache.misses == 1, "a 0.5 cm radius change rebuilt the climber"
+                    support={**support, "distance_cm": 12.5})
+        assert cache.misses == 1, "a 2.5 cm support-distance change rebuilt the climber"
         forge_plant(ref, 180.0, 180.5, seed=7, lod=LOD2, cache=cache,
                     support={**support, "segment_cm": (-100.0, 90.0, 100.0, 95.0)})
         assert cache.misses == 2, "a different support geometry must rebuild"

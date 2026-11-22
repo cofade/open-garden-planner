@@ -10048,11 +10048,13 @@ about 65 builds, not 365, and every day's height and spread stay exact. Without 
 exact size is built unchanged. (5) **Each fruit carries its own phase** (`accents.with_phase`)
 and the fruit part's season opacity is the ripeness progress `0.55 -> 1`, so a crop ripens
 one fruit at a time instead of all of it appearing on the harvest window's first day.
-Beyond 45 m (**#948**) a flowering or fruiting LOD2 plant keeps a sparse crop of large,
+Beyond 45 m (**#948**) a flowering or fruit-bearing LOD2 plant (other than a pod) keeps a
+sparse crop of large,
 single-sided colour patches (`accents.build_far_accents`, at most 64 triangles per family,
 inside `REACH_MAX`) whose colour comes from the recipe's own `flowers`/`clusters`/`puffs`/
 `umbels`/`fruit` table, with a flower's normal leaned about 30° to the sky and its colour
-lifted ×1.35 (capped at 0.9) so a low sun does not turn its shade side mauve. A canopy
+lifted by up to ×1.35 with a hue-preserving peak clamp at 0.9 linear, so a low sun does
+not turn its shade side mauve. A canopy
 that has a far crop reserves 64 LOD2 triangles for it; a leaf-only canopy keeps the old 16
 and its full foliage. A sunflower's builder-placed head gets the same far patch at its stem
 tips; pods and root crowns have no far cue and pods ripen by phase. A crown tint was rejected: it needs a per-item LOD channel through the host
