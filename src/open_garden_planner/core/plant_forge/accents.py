@@ -1187,13 +1187,9 @@ def _far_accent_colour(traits: Traits3D, family: str) -> tuple[float, float, flo
         flower = traits.flower
         if flower is not None and flower.habit != "crown":
             return None                       # a bulb's or a stem's own builder places its flowers
-        spec = traits.blossom_spec
-        if not spec:
-            flowers = recipe.get("flowers")
-            if isinstance(flowers, Mapping):
-                spec = str(flowers.get("spec", "white"))
-        if spec:
-            return _hex_to_linear_rgb(str(FLOWERS.get(spec, FLOWERS["white"])[0]))
+        # A clusters/puffs/umbels plant carries its own colour in the recipe; its
+        # blossom_spec is only a generic fallback (a rhododendron's "pink" is lighter
+        # than its deep-pink trusses).
         for key, fallback in (("clusters", "#d0c0f0"), ("puffs", "#a98fe0")):
             spec_map = recipe.get(key)
             if isinstance(spec_map, Mapping):
@@ -1201,6 +1197,11 @@ def _far_accent_colour(traits: Traits3D, family: str) -> tuple[float, float, flo
         umbels = recipe.get("umbels")
         if isinstance(umbels, Mapping):
             return _hex_to_linear_rgb(str(umbels.get("light", "#fae89a")))
+        flowers = recipe.get("flowers")
+        spec = (str(flowers.get("spec", "white")) if isinstance(flowers, Mapping)
+                else traits.blossom_spec)
+        if spec:
+            return _hex_to_linear_rgb(str(FLOWERS.get(spec, FLOWERS["white"])[0]))
         return None
     if family == FRUIT_PART:
         for key in ("fruit", "fruit2"):

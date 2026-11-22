@@ -457,6 +457,23 @@ def test_a_far_crown_keeps_its_crop_as_patches(species: str, families: set[str])
         assert mesh.triangle_count <= 64
 
 
+@pytest.mark.parametrize(("species", "colour"), [
+    ("rhododendron", "#eeb3d3"),   # its clusters' own light pink, not FLOWERS["pink"]
+    ("lilac", "#d0c0f0"),
+    ("cherry_tree", "#e88aa8"),    # its flowers recipe's outer pink
+])
+def test_a_far_crop_takes_the_recipe_s_own_colour(species: str, colour: str) -> None:
+    """#948: the far patch is the plant's own flower colour - a clusters plant's recipe
+    entry, not the generic `blossom_spec` fallback that reads lighter than its trusses."""
+    from open_garden_planner.core.plant_forge.accents import _hex_to_linear_rgb, build_far_accents
+
+    geo = build_far_accents(
+        traits_for(SpriteRef("species", species)), 150.0, 60.0,
+        np.random.default_rng(3), family="flowers", max_tris=4,
+    )
+    np.testing.assert_allclose(geo.col[0, :3], _hex_to_linear_rgb(colour), atol=1e-5)
+
+
 @pytest.mark.parametrize("species", ["oak", "birch", "boxwood"])
 def test_a_leaf_only_far_crown_gets_no_crop(species: str) -> None:
     parts = forge_plant(SpriteRef("species", species), 420.0, 180.0, seed=7,
