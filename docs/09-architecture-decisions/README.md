@@ -7912,7 +7912,7 @@ PF-E3D-32.
 
 ### ADR-059 addendum: built-material stability, night fill, resting live shadow fit and built-world polish (#883, #884, #887, #894, #953, #957, #958, #959, #961, #965)
 
-**Status**: Accepted (2026-11-21; pending owner manual testing). Amends the L1.4, L1.6, #734, #799/#802 and #801/#803 addenda above.
+**Status**: Shipped in v1.41.1 after owner acceptance (2026-11-22; [PR #990](https://github.com/cofade/open-garden-planner/pull/990)). Amends the L1.4, L1.6, #734, #799/#802 and #801/#803 addenda above.
 
 **Context.** Ten focused 3D rendering and built-world issues found across the 13 example plans on Ultra, High and Low presets:
 - `#883` / `#958`: Qt Quick 3D's Ultra SSR (`reflectionEnabled: true`) reflects aggressively below roughness `0.70`, causing shimmer on `steel`/`iron`/`enamel`/`glass_pane` and turning courtyard pools into sharp house mirrors.
