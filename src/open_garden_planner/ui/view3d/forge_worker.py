@@ -630,26 +630,26 @@ class ForgeWorker:
             for item_id in self.pending_order():
                 if len(ready) >= max_items:
                     break
-                job = self._pending.get(item_id)
-                if job is None:
+                pending_job = self._pending.get(item_id)
+                if pending_job is None:
                     continue
                 latest = self._latest_records.get(item_id)
-                if latest is None or latest.geometry_sig != job.geometry_sig:
+                if latest is None or latest.geometry_sig != pending_job.geometry_sig:
                     self._pending.pop(item_id, None)
                     continue
                 enriched = self._enrich_if_climber(latest, self._scene_records, self._support_inputs)
-                spec = record_forge_spec(enriched, lod=job.lod, cache=self._cache)
+                spec = record_forge_spec(enriched, lod=pending_job.lod, cache=self._cache)
                 if spec is None or not self._cache.contains(spec[5]):
                     continue
                 self._pending.pop(item_id, None)
                 if self._sink is not None and not self._sink_holds(item_id):
                     continue
                 try:
-                    parts = forge_record(enriched, lod=job.lod, cache=self._cache)
+                    parts = forge_record(enriched, lod=pending_job.lod, cache=self._cache)
                 except Exception:
                     _log.exception("Plant Forge failed for item %s", item_id)
                     continue
-                ready.append((item_id, job.geometry_sig, job.lod, parts, latest))
+                ready.append((item_id, pending_job.geometry_sig, pending_job.lod, parts, latest))
 
         if ready:
             if self._sink is not None:

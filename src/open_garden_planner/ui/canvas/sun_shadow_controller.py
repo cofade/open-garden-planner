@@ -1222,8 +1222,9 @@ class SunShadowController(QObject):
             from_clock
             and paint_rev is not None
             and cached is not None
+            and cached[0] == paint_rev
             and (
-                (cached[0] == paint_rev and cached[1] == plan_date)
+                cached[1] == plan_date
                 or (scrubbing and (now_ns - self._last_caster_walk_ns) < _SCRUB_WINDOW_NS)
             )
         ):

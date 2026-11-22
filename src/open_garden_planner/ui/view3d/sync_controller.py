@@ -439,13 +439,6 @@ class Scene3DController(QObject):
             self._context_at = -math.inf  # a preset step applies its new geometry at once
             self.mark_dirty()
 
-    def set_plant_preparer(
-        self,
-        preparer: Callable[[Mapping[str, Record], tuple[str, ...]], dict[str, tuple[MeshPart, ...]]] | None,
-    ) -> None:
-        """Register a callback that supplies forged plant meshes before ``SceneSync.apply`` (#995)."""
-        self._plant_preparer = preparer
-
     def __init__(self, scene: QGraphicsScene, clock: SimClock, location: LocationProvider,
                  sink: EngineSink, registry: BuilderRegistry | None = None, *,
                  parent: QObject | None = None, tick_ms: int = TICK_MS,
@@ -757,6 +750,13 @@ class Scene3DController(QObject):
         None restores the bare rectangle. The next pass re-sends the ground."""
         self._ground_stage = stage if stage is not None else plain_ground
         self.mark_dirty()
+
+    def set_plant_preparer(
+        self,
+        preparer: Callable[[Mapping[str, Record], tuple[str, ...]], dict[str, tuple[MeshPart, ...]]] | None,
+    ) -> None:
+        """Register a callback that supplies forged plant meshes before ``SceneSync.apply`` (#995)."""
+        self._plant_preparer = preparer
 
     def reset(self) -> None:
         """The ENGINE's scene was rebuilt (a fresh host): forget what was sent; the

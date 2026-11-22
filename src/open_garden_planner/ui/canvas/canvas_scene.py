@@ -2119,7 +2119,7 @@ class CanvasScene(QGraphicsScene):
         if day != prev_day:
             plants = [item for item in self.items()
                       if is_plant_type(getattr(item, "object_type", None))]
-            if prev_day is None:
+            if prev_day is None or not self.is_animating_timeline:
                 changed_plants = plants
                 unchanged_plants: list[Any] = []
             else:

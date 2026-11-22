@@ -503,7 +503,7 @@ Symptom (#970): at LOD2 a jasmine, clematis, wisteria and the climbing-plant cat
 ### PF-L3D-38
 
 - **Rule:** Never let a live regrowth pass call `SceneSync.apply` with `prepared=None` for already-forged plants, and never allow `QQuickWindow.releaseResources()` or `AutoPreset` step-downs to fire during timeline playback or background `ForgeWorker` uploads: `prepared=None` replaces every growing tree with a v0 `build_silhouette` (or a bare conical `_trunk` stump when `leaf_density == 0` stays in QML after `invalidate()` deletes `_applied_state`), and `releaseResources()` or a preset step-down forces a 4.3-5.5 s synchronous RHI shader recompile on the next rendered frame.
-- **Pinned by:** `tests/unit/test_plant_forge_l31.py::TestForgeCache::test_prepare_for_sync_never_downgrades_forged_tree_on_warm_or_cold_growth`; `tests/integration/test_plant_forge_workspace.py::test_live_regrowth_never_downgrades_forged_tree_to_v0_silhouette`; `tests/integration/test_plant_forge_workspace.py::test_toolbar_playback_holds_preset_defers_cache_release_and_skips_hidden_2d_shadows`
+- **Pinned by:** `tests/unit/test_plant_forge_l31.py::test_prepare_for_sync_never_downgrades_forged_tree_on_warm_or_cold_growth`; `tests/integration/test_plant_forge_workspace.py::test_live_regrowth_never_downgrades_forged_tree_to_v0_silhouette`; `tests/integration/test_plant_forge_workspace.py::test_toolbar_playback_holds_preset_defers_cache_release_and_skips_hidden_2d_shadows`
 - **Source:** #995, #996; ADR-064 addendum (#948, #963, #969, #970, #973, #995, #996)
 - **Status:** standing
 - **Legacy:** none (new entry)
