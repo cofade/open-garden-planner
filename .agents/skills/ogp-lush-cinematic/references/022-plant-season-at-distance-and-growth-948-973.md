@@ -90,10 +90,13 @@ open or ripen one by one with the existing bloom/ripeness state; `_clamp_accent_
 them inside the plant's height and `REACH_MAX`. A bulb's far flower is a double-sided patch
 at its scape tip (2.5 x the flower radius, capped at 0.22 x the canopy radius).
 
-**Measured:** a 4.2 m cherry at 45 m in a 1600 x 900 frame (40 degree vertical FOV) reads
-as a green crown with a pink speckle in bloom and red specks at ripeness 0.775; without the
-far parts it is plain green. A tulip at 2 m shows red flowers and green straps on 15 April,
-and on 15 July the frame holds only the 2.5 cm neck.
+**Measured:** a 4.2 m cherry at 45 m in a 1600 x 900 frame (40 degree vertical FOV):
+in bloom 829 crop-coloured pixels of the 1044 the far parts change; at ripeness 0.775,
+147 of 289. Without the far parts the crown is plain green. A tulip at 2 m shows 3,458
+plant pixels on 15 April (red flowers and green straps) and 54 on 15 July (the 2.5 cm
+neck only). The engine gate is
+`tests/integration/test_plant_forge_workspace.py::test_a_far_crop_and_a_dormant_bulb_render`
+(driver `plant_forge_far_driver.py`).
 
 **Rejected:** a crown tint (needs a per-item LOD channel through the host and QML, and
 would tint the real flowers at close range); individual far flowers (sub-pixel at 45 m

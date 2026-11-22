@@ -8716,10 +8716,14 @@ on the crown's outer shell, coloured from the recipe's own `flowers`/`clusters`/
 The LOD2 foliage reserves 64 triangles for them (32 leaves fewer); a bulb's far
 flower is a double-sided patch at its scape tip. A crown tint was rejected as a second
 season channel through the host and QML. Pinned by `tests/unit/test_plant_forge_bloom.py`
-(`test_a_far_crown_keeps_its_crop_as_patches`), `tests/unit/test_phenology.py`
+(`test_a_far_crown_keeps_its_crop_as_patches`, `test_a_far_crop_takes_the_recipe_s_own_colour`),
+`tests/unit/test_phenology.py`
 (`test_a_spring_bulb_is_gone_after_early_summer`, `test_every_fruit_carries_its_own_phase`),
-`tests/unit/test_plant_forge_l31.py` (the year-growth bucket test) and
-`tests/unit/test_quick3d_qml.py` (the fruit progress in `Garden.qml`).
+`tests/unit/test_plant_forge_l31.py` (the year-growth bucket test),
+`tests/unit/test_quick3d_qml.py` (the fruit progress in `Garden.qml`) and on the engine
+`tests/integration/test_plant_forge_workspace.py::test_a_far_crop_and_a_dormant_bulb_render`
+(driver `plant_forge_far_driver.py`: 829 crop pixels in bloom, 147 at ripeness; a tulip
+3,458 -> 54 pixels from April to July).
 
 Tests exercise actual workspace scheduling and render flags, asynchronous stale
 results, camera-only LOD, recovery invalidation, shader-only seasonal updates,
