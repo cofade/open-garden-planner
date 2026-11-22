@@ -130,13 +130,13 @@ def test_a_porous_fence_casts_less_in_3d_than_the_2d_model_says(name: str) -> No
 
 @pytest.mark.parametrize("name", OPEN_FRAMES)
 def test_an_open_frame_s_weighted_2d_shadow_is_the_3d_one_within_ten_percent(name: str) -> None:
-    """#698's gate, on #440's precedent: against the SOLID prism an open frame shades
-    under two fifths of the ground (the unweighted IoU), and the 2D model's weighted
+    """#698's gate, on #440's precedent: against the trimmed prism an open frame shades
+    under 45 % of the ground (the unweighted IoU), and the 2D model's weighted
     area agrees with the 3D shadow within 10 % at all three elevations. The members
     the weight is made of are the builder's own (``tests/unit/test_open_frames.py``
     sweeps sizes and suns); a pergola's are its layout's plain boxes."""
     row = _rows()[name]
-    assert max(row.iou) < 0.40  # type: ignore[attr-defined]
+    assert max(row.iou) < 0.45  # type: ignore[attr-defined]  # the trimmed prism still holds air
     for ratio in row.ratio:  # type: ignore[attr-defined]
         assert 0.90 <= ratio <= 1.10
     script = _script()

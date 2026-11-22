@@ -22,6 +22,23 @@ def test_soil_prices_never_cross_unit_systems(qtbot):
     assert any(i.id == "mulch:ft2" and i.unit == "ft²" for i in items)
 
 
+def test_soil_and_mulch_follow_their_own_quantity(qtbot):
+    """#907: a Custom profile can mix area with volume; length cannot decide both."""
+    from open_garden_planner.core.unit_preference import Quantity, UnitProfile
+
+    scene = CanvasScene()
+    scene.addItem(RectangleItem(0, 0, 100, 100, object_type=ObjectType.RAISED_BED))
+    service = ShoppingListService(
+        scene, MagicMock(get_effective_record=MagicMock(return_value=None)), ProjectManager()
+    )
+    get_unit_preference().set_profile(
+        UnitProfile().with_system(Quantity.AREA, UnitSystem.IMPERIAL)
+    )
+    items = service.build()
+    assert any(i.id == "soil_fill:m3" and i.unit == "m³" for i in items)
+    assert any(i.id == "mulch:ft2" and i.unit == "ft²" for i in items)
+
+
 def test_seed_depth_refreshes_without_reselection(qtbot):
     from open_garden_planner.models.plant_data import PlantSpeciesData
     from open_garden_planner.ui.views.planting_calendar_view import _DetailPanel

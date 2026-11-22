@@ -282,7 +282,7 @@ class SeedPacketEditDialog(QDialog):
         temp_row.addWidget(self._temp_opt)
         temp_row.addWidget(QLabel(self.tr("Max:")))
         temp_row.addWidget(self._temp_max)
-        germ_form.addRow(self.tr("Temp. range (°C):"), temp_row)
+        germ_form.addRow(self.tr("Temp. range:"), temp_row)
 
         days_row = QHBoxLayout()
         self._days_min = self._make_days_spin()
@@ -363,13 +363,19 @@ class SeedPacketEditDialog(QDialog):
 
     @staticmethod
     def _make_temp_spin() -> QDoubleSpinBox:
-        sb = QDoubleSpinBox()
+        from open_garden_planner.ui.widgets.unit_spin_box import TemperatureSpinBox
+
+        sb = TemperatureSpinBox()
         sb.setRange(-20, 60)
         sb.setDecimals(1)
-        sb.setSuffix("°")
+        sb.setSuffix(" °C")
         sb.setSpecialValueText("—")
         sb.setValue(sb.minimum())
-        sb.setFixedWidth(70)
+        # #907 review: size from the font, not one hardcoded width, so the
+        # 14 pt layout case fits the same "140.0 °F" readout.
+        sb.setMinimumWidth(
+            max(115, sb.fontMetrics().horizontalAdvance("140.0 °F") + 40)
+        )
         return sb
 
     @staticmethod

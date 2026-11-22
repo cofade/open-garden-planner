@@ -24,7 +24,7 @@ class HarvestRecord:
 
     date: str = ""                       # ISO 8601, e.g. "2026-06-24"
     quantity: float = 0.0                # amount harvested (>= 0)
-    unit: str = "kg"                     # "g" | "kg" | "pcs" | "bunch" | "L" | …
+    unit: str = "kg"                     # "g" | "kg" | "lb" | "oz" | "pcs" | "bunch" | "L" | …
     quality: str = ""                    # free text, e.g. "excellent, sweet"
     notes: str = ""
     # Path to the attached photo, RELATIVE to the project's directory so the

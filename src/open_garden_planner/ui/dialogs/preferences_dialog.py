@@ -3,14 +3,13 @@
 import logging
 import os
 
-from PyQt6.QtCore import Qt, QUrl
+from PyQt6.QtCore import QSignalBlocker, Qt, QUrl
 from PyQt6.QtGui import QDesktopServices
 from PyQt6.QtWidgets import (
     QApplication,
     QCheckBox,
     QComboBox,
     QDialog,
-    QDoubleSpinBox,
     QFormLayout,
     QFrame,
     QGroupBox,
@@ -21,9 +20,14 @@ from PyQt6.QtWidgets import (
     QPushButton,
     QScrollArea,
     QSpinBox,
+    QTabWidget,
     QVBoxLayout,
     QWidget,
 )
+
+from open_garden_planner.core.unit_preference import UnitPreset, UnitProfile
+from open_garden_planner.core.units import UnitSystem
+from open_garden_planner.ui.widgets.unit_spin_box import TemperatureSpinBox
 
 logger = logging.getLogger(__name__)
 
@@ -66,41 +70,49 @@ class _PasswordLineEdit(QWidget):
 
 
 class PreferencesDialog(QDialog):
-    """Preferences dialog with API Keys configuration.
-
-    Allows users to enter and persist their online-service API credentials
-    via QSettings so they don't need environment variables.
+    """Tabbed application preferences dialog (General, Weather, Online services,
+    Agent API, and 3D View; #986).
     """
 
     def __init__(self, parent: QWidget | None = None) -> None:
         super().__init__(parent)
         self.setWindowTitle(self.tr("Preferences"))
-        self.setMinimumSize(550, 400)
+        self.setMinimumSize(600, 400)
         self._setup_ui()
         self._load_settings()
         self._resize_to_content()
 
     def _setup_ui(self) -> None:
         outer_layout = QVBoxLayout(self)
-        outer_layout.setSpacing(16)
+        outer_layout.setSpacing(12)
 
-        # The settings form is taller than a 1080p screen. Put it in a scroll
-        # area instead of letting Qt squeeze every control below its minimum
-        # height, and keep Save / Cancel outside the viewport so they are always
-        # reachable (#569). Same pattern as the shortcuts dialog.
-        scroll = QScrollArea()
-        scroll.setWidgetResizable(True)
-        scroll.setFrameShape(QFrame.Shape.NoFrame)
-        scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
-        content = QWidget()
-        layout = QVBoxLayout(content)
-        layout.setContentsMargins(0, 0, 0, 0)
-        layout.setSpacing(16)
-        scroll.setWidget(content)
-        outer_layout.addWidget(scroll, 1)
-        self._scroll_content = content
+        # #986: one long form became tabs. Each tab keeps its own scroll area so a
+        # laptop-height window never squeezes a control below its minimum height
+        # (#569), and Save / Cancel stay outside every viewport.
+        self._tabs = QTabWidget()
+        self._tabs.setDocumentMode(True)
+        outer_layout.addWidget(self._tabs, 1)
 
-        # Info label
+        def add_tab(title: str) -> QVBoxLayout:
+            scroll = QScrollArea()
+            scroll.setWidgetResizable(True)
+            scroll.setFrameShape(QFrame.Shape.NoFrame)
+            scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
+            content = QWidget()
+            page = QVBoxLayout(content)
+            page.setContentsMargins(0, 0, 0, 0)
+            page.setSpacing(16)
+            scroll.setWidget(content)
+            self._tabs.addTab(scroll, title)
+            return page
+
+        general = add_tab(self.tr("General"))
+        weather_tab = add_tab(self.tr("Weather"))
+        online = add_tab(self.tr("Online services"))
+        agent_tab = add_tab(self.tr("Agent API"))
+        view3d_tab = add_tab(self.tr("3D View"))
+
+        # Info label (Online services)
         info_label = QLabel(
             self.tr(
                 "Configure API keys for online services below. "
@@ -110,7 +122,7 @@ class PreferencesDialog(QDialog):
             )
         )
         info_label.setWordWrap(True)
-        layout.addWidget(info_label)
+        online.addWidget(info_label)
 
         # --- Trefle ---
         trefle_group = QGroupBox(self.tr("Trefle (trefle.io)"))
@@ -133,7 +145,7 @@ class PreferencesDialog(QDialog):
         trefle_links.addStretch()
         trefle_layout.addRow("", trefle_links)
 
-        layout.addWidget(trefle_group)
+        online.addWidget(trefle_group)
 
         # --- Perenual ---
         perenual_group = QGroupBox(self.tr("Perenual (perenual.com)"))
@@ -156,7 +168,7 @@ class PreferencesDialog(QDialog):
         perenual_links.addStretch()
         perenual_layout.addRow("", perenual_links)
 
-        layout.addWidget(perenual_group)
+        online.addWidget(perenual_group)
 
         # --- Permapeople ---
         permapeople_group = QGroupBox(self.tr("Permapeople (permapeople.org)"))
@@ -185,7 +197,7 @@ class PreferencesDialog(QDialog):
         permapeople_links.addStretch()
         permapeople_layout.addRow("", permapeople_links)
 
-        layout.addWidget(permapeople_group)
+        online.addWidget(permapeople_group)
 
         # --- Google Maps satellite background ---
         google_maps_group = QGroupBox(self.tr("Google Maps"))
@@ -207,13 +219,13 @@ class PreferencesDialog(QDialog):
         google_maps_note.setWordWrap(True)
         google_maps_layout.addRow("", google_maps_note)
 
-        layout.addWidget(google_maps_group)
+        online.addWidget(google_maps_group)
 
         # --- Weather (US-12.2) ---
         weather_group = QGroupBox(self.tr("Weather"))
         weather_layout = QFormLayout(weather_group)
 
-        self._frost_orange_spin = QDoubleSpinBox()
+        self._frost_orange_spin = TemperatureSpinBox()
         self._frost_orange_spin.setRange(-30.0, 10.0)
         self._frost_orange_spin.setSingleStep(0.5)
         self._frost_orange_spin.setDecimals(1)
@@ -221,9 +233,9 @@ class PreferencesDialog(QDialog):
         self._frost_orange_spin.setToolTip(
             self.tr("Temperature at or below which half-hardy plants are at risk")
         )
-        weather_layout.addRow(self.tr("Orange warning threshold (°C):"), self._frost_orange_spin)
+        weather_layout.addRow(self.tr("Orange warning threshold:"), self._frost_orange_spin)
 
-        self._frost_red_spin = QDoubleSpinBox()
+        self._frost_red_spin = TemperatureSpinBox()
         self._frost_red_spin.setRange(-30.0, 10.0)
         self._frost_red_spin.setSingleStep(0.5)
         self._frost_red_spin.setDecimals(1)
@@ -231,9 +243,9 @@ class PreferencesDialog(QDialog):
         self._frost_red_spin.setToolTip(
             self.tr("Temperature at or below which tender plants are at risk")
         )
-        weather_layout.addRow(self.tr("Red alert threshold (°C):"), self._frost_red_spin)
+        weather_layout.addRow(self.tr("Red alert threshold:"), self._frost_red_spin)
 
-        layout.addWidget(weather_group)
+        weather_tab.addWidget(weather_group)
 
         # --- Tasks (US-C2) ---
         tasks_group = QGroupBox(self.tr("Tasks"))
@@ -249,15 +261,51 @@ class PreferencesDialog(QDialog):
         )
         tasks_layout.addRow(self._notify_overdue_check)
 
-        layout.addWidget(tasks_group)
+        general.addWidget(tasks_group)
 
         units_group = QGroupBox(self.tr("Units"))
         units_layout = QFormLayout(units_group)
-        self._unit_system_combo = QComboBox()
-        self._unit_system_combo.addItem(self.tr("Metric (cm, m)"), "metric")
-        self._unit_system_combo.addItem(self.tr("Imperial (in, ft)"), "imperial")
-        units_layout.addRow(self._unit_system_combo)
-        layout.addWidget(units_group)
+
+        def quantity_combo() -> QComboBox:
+            combo = QComboBox()
+            combo.addItem(self.tr("Metric"), "metric")
+            combo.addItem(self.tr("Imperial (US)"), "imperial")
+            return combo
+
+        self._unit_preset_combo = QComboBox()
+        for preset, label in (
+            ("metric", self.tr("Metric")),
+            ("imperial", self.tr("Imperial (US)")),
+            ("canada_mixed", self.tr("Canada (mixed)")),
+            ("custom", self.tr("Custom")),
+        ):
+            self._unit_preset_combo.addItem(label, preset)
+        self._unit_preset_combo.setToolTip(
+            self.tr(
+                "Canada (mixed) is provisional: lengths and areas in feet and inches, "
+                "weather and harvest in metric units. Change any row to make it Custom."
+            )
+        )
+        self._unit_preset_combo.currentIndexChanged.connect(self._on_unit_preset_changed)
+        units_layout.addRow(self.tr("Preset:"), self._unit_preset_combo)
+
+        self._unit_system_combo = quantity_combo()  # length; kept for the old API
+        self._unit_area_combo = quantity_combo()
+        self._unit_volume_combo = quantity_combo()
+        self._unit_temperature_combo = quantity_combo()
+        self._unit_precipitation_combo = quantity_combo()
+        self._unit_mass_combo = quantity_combo()
+        for label, combo in (
+            (self.tr("Length:"), self._unit_system_combo),
+            (self.tr("Area:"), self._unit_area_combo),
+            (self.tr("Volume:"), self._unit_volume_combo),
+            (self.tr("Temperature:"), self._unit_temperature_combo),
+            (self.tr("Precipitation:"), self._unit_precipitation_combo),
+            (self.tr("Harvest mass:"), self._unit_mass_combo),
+        ):
+            combo.currentIndexChanged.connect(self._on_unit_quantity_changed)
+            units_layout.addRow(label, combo)
+        general.addWidget(units_group)
 
         # --- Canvas (#321): touch gestures ---
         canvas_group = QGroupBox(self.tr("Canvas"))
@@ -275,7 +323,7 @@ class PreferencesDialog(QDialog):
         )
         canvas_layout.addRow(self._touch_gestures_check)
 
-        layout.addWidget(canvas_group)
+        general.addWidget(canvas_group)
 
         # --- Agent API (US-D1.1) ---
         from open_garden_planner.app.settings import AppSettings
@@ -362,7 +410,7 @@ class PreferencesDialog(QDialog):
         self._agent_api_token_pending_note.setVisible(False)
         agent_layout.addRow("", self._agent_api_token_pending_note)
 
-        layout.addWidget(agent_group)
+        agent_tab.addWidget(agent_group)
 
         # --- 3D view (Phase 17 L1.4): quality and the animation policy ---
         view3d_group = QGroupBox(self.tr("3D View"))
@@ -412,9 +460,10 @@ class PreferencesDialog(QDialog):
         )
         view3d_layout.addRow(self._view3d_reduced_motion_check)
 
-        layout.addWidget(view3d_group)
+        view3d_tab.addWidget(view3d_group)
 
-        layout.addStretch()
+        for page in (general, weather_tab, online, agent_tab, view3d_tab):
+            page.addStretch()
 
         # --- Buttons ---
         btn_layout = QHBoxLayout()
@@ -433,19 +482,38 @@ class PreferencesDialog(QDialog):
         self._button_row = btn_layout
 
     def _resize_to_content(self) -> None:
-        """Open at the form's natural height, capped to the available screen.
+        """Open wide enough for all tabs and tall enough for the tallest tab,
+        capped to the available screen.
 
-        The scroll area alone would open at its small size hint (about 452 px)
-        on every monitor, forcing a scroll even where the whole form used to
-        fit. Size from the content instead, leaving room for the window frame
-        and the taskbar (#569).
+        A scroll area alone would open at its small size hint on every monitor,
+        forcing a scroll even where the form fits, and a fixed 600 px width clips
+        the 5-tab bar behind scroll arrows (#569, #986). Size from the tab bar
+        and content instead, leaving room for the window frame and taskbar.
         """
-        self._scroll_content.adjustSize()
+        pages: list[QWidget] = []
+        for index in range(self._tabs.count()):
+            scroll = self._tabs.widget(index)
+            if isinstance(scroll, QScrollArea):
+                content = scroll.widget()
+                if content is not None:
+                    pages.append(content)
+        for page in pages:
+            page.adjustSize()
+        self._tabs.ensurePolished()
+        content_height = max((page.sizeHint().height() for page in pages), default=0)
         outer = self.layout()
         margins = outer.contentsMargins() if outer is not None else None
         spacing = outer.spacing() if outer is not None else 0
-        wanted = (
-            self._scroll_content.sizeHint().height()
+        tab_bar = self._tabs.tabBar()
+        if tab_bar is not None:
+            tab_bar.ensurePolished()
+        tab_height = tab_bar.sizeHint().height() if tab_bar is not None else 0
+        tab_width = tab_bar.sizeHint().width() if tab_bar is not None else 0
+        h_margins = (margins.left() + margins.right()) if margins is not None else 0
+        wanted_width = max(self.minimumWidth(), tab_width + h_margins + 24)
+        wanted_height = (
+            content_height
+            + tab_height
             + self._button_row.sizeHint().height()
             + spacing
             + 2
@@ -458,15 +526,64 @@ class PreferencesDialog(QDialog):
             or QApplication.primaryScreen()
         )
         if screen is not None:
-            available = screen.availableGeometry().height()
-            wanted = min(wanted, max(self.minimumHeight(), available - 40))
-        self.resize(550, max(self.minimumHeight(), wanted))
+            avail = screen.availableGeometry()
+            wanted_width = min(wanted_width, max(self.minimumWidth(), avail.width() - 40))
+            wanted_height = min(wanted_height, max(self.minimumHeight(), avail.height() - 40))
+        self.resize(wanted_width, max(self.minimumHeight(), wanted_height))
+
+    def _quantity_combos(self) -> tuple[tuple[str, QComboBox], ...]:
+        return (
+            ("length", self._unit_system_combo),
+            ("area", self._unit_area_combo),
+            ("volume", self._unit_volume_combo),
+            ("temperature", self._unit_temperature_combo),
+            ("precipitation", self._unit_precipitation_combo),
+            ("mass", self._unit_mass_combo),
+        )
+
+    def _profile_from_combos(self) -> UnitProfile:
+        return UnitProfile(
+            length=UnitSystem(str(self._unit_system_combo.currentData())),
+            area=UnitSystem(str(self._unit_area_combo.currentData())),
+            volume=UnitSystem(str(self._unit_volume_combo.currentData())),
+            temperature=UnitSystem(str(self._unit_temperature_combo.currentData())),
+            precipitation=UnitSystem(str(self._unit_precipitation_combo.currentData())),
+            mass=UnitSystem(str(self._unit_mass_combo.currentData())),
+        )
+
+    def _set_unit_profile(self, profile: UnitProfile) -> None:
+        preset = profile.preset
+        with QSignalBlocker(self._unit_preset_combo):
+            self._unit_preset_combo.setCurrentIndex(
+                self._unit_preset_combo.findData(preset.value)
+            )
+        for index, (quantity, combo) in enumerate(self._quantity_combos()):
+            with QSignalBlocker(combo):
+                combo.setCurrentIndex(
+                    combo.findData(profile.system_for(quantity).value)
+                )
+            # The length combo is the legacy API's one field; leave it first.
+            if index == 0:
+                combo.setToolTip(self.tr("The system used for lengths and the canvas."))
+
+    def _on_unit_preset_changed(self) -> None:
+        preset = UnitPreset(str(self._unit_preset_combo.currentData()))
+        if preset != UnitPreset.CUSTOM:
+            self._set_unit_profile(UnitProfile.for_preset(preset))
+
+    def _on_unit_quantity_changed(self) -> None:
+        profile = self._profile_from_combos()
+        preset = profile.preset
+        with QSignalBlocker(self._unit_preset_combo):
+            self._unit_preset_combo.setCurrentIndex(
+                self._unit_preset_combo.findData(preset.value)
+            )
 
     def _load_settings(self) -> None:
         from open_garden_planner.app.settings import get_settings
 
         settings = get_settings()
-        self._unit_system_combo.setCurrentIndex(self._unit_system_combo.findData(settings.unit_system))
+        self._set_unit_profile(settings.unit_profile)
         self._trefle_token.setText(settings.trefle_api_token)
         self._perenual_key.setText(settings.perenual_api_key)
         self._permapeople_key_id.setText(settings.permapeople_key_id)
@@ -594,15 +711,30 @@ class PreferencesDialog(QDialog):
     def _save_and_accept(self) -> None:
         from open_garden_planner.app.settings import get_settings
 
+        # Commit and capture spinbox edits BEFORE applying the new unit profile:
+        # switching temperature units triggers TemperatureSpinBox._on_units_changed()
+        # which resets the text to the last committed value under QSignalBlocker,
+        # discarding any uncommitted keystrokes in Imperial mode (#907).
+        self._frost_orange_spin.interpretText()
+        self._frost_red_spin.interpretText()
+        frost_orange_c = self._frost_orange_spin.value()
+        frost_red_c = self._frost_red_spin.value()
+
         settings = get_settings()
-        settings.unit_system = self._unit_system_combo.currentData()
+        profile = self._profile_from_combos()
+        settings.unit_profile = profile
+        # Apply now, so a surface that is open behind the dialog follows the
+        # choice at once; the main window applies it again after exec().
+        from open_garden_planner.core.unit_preference import get_unit_preference
+
+        get_unit_preference().set_profile(profile)
         settings.trefle_api_token = self._trefle_token.text().strip()
         settings.perenual_api_key = self._perenual_key.text().strip()
         settings.permapeople_key_id = self._permapeople_key_id.text().strip()
         settings.permapeople_key_secret = self._permapeople_key_secret.text().strip()
         settings.google_maps_api_key = self._google_maps_key.text().strip()
-        settings.frost_warning_orange_c = self._frost_orange_spin.value()
-        settings.frost_warning_red_c = self._frost_red_spin.value()
+        settings.frost_warning_orange_c = frost_orange_c
+        settings.frost_warning_red_c = frost_red_c
         settings.notify_overdue_tasks_on_startup = self._notify_overdue_check.isChecked()
         settings.touch_gestures_enabled = self._touch_gestures_check.isChecked()
         settings.agent_api_enabled = self._agent_api_check.isChecked()

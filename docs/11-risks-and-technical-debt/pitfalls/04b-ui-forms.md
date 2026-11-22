@@ -228,21 +228,23 @@ Selection, tool and season hide below 1500 px; location below 1200 px.
 
 ### PF-UI-41
 
-- **Rule:** A unit-aware spin box keeps its exact model value separately from its rounded readout. Switching units or accepting unchanged text must emit no value change, including when Return enters Qt's C++ acceptance path.
-- **Pinned by:** `tests/ui/test_unit_spin_box.py::test_switch_emits_no_value_changed`; `tests/ui/test_unit_spin_box.py::test_untouched_metric_readout_after_switch_keeps_exact_value`; `tests/ui/test_unit_dialogs.py::test_unchanged_return_still_accepts_the_dialog`; `tests/ui/test_units_surfaces.py::test_focused_container_form_switches_feedback_without_rounding_edits`
-- **Source:** #673; ADR-078
+- **Rule:** A unit-aware spin box (`LengthSpinBox`, `VolumeSpinBox`, `TemperatureSpinBox`) keeps its exact model value separately from its rounded readout. Switching units or accepting unchanged text must emit no value change, including when Return enters Qt's C++ acceptance path. A dialog that applies a unit-profile change must `interpretText()` every edited field **before** the switch, or the signal-blocked reformat discards in-flight Imperial input.
+- **Pinned by:** `tests/ui/test_unit_spin_box.py::test_switch_emits_no_value_changed`; `tests/ui/test_unit_spin_box.py::test_untouched_metric_readout_after_switch_keeps_exact_value`; `tests/ui/test_unit_dialogs.py::test_unchanged_return_still_accepts_the_dialog`; `tests/ui/test_units_surfaces.py::test_focused_container_form_switches_feedback_without_rounding_edits`; `tests/integration/test_unit_quantities.py::test_preferences_save_commits_uncommitted_frost_edit_before_unit_switch`
+- **Source:** #673; #907; ADR-078, ADR-081
 - **Status:** standing
 - **Legacy:** none (new entry)
 
 `QDoubleSpinBox.setDecimals()` rounds its stored value, and C++ edits do not call a
-Python `setValue()` override. `LengthSpinBox` and `VolumeSpinBox` capture changes through
-their first `valueChanged` connection, restore the exact value under `QSignalBlocker`
-when changing precision, and recognize their unchanged canonical text. Return needs
-the same signal protection around the base handler, while retaining `editingFinished`
-and normal dialog acceptance. Test both Return and focus loss on a shown, focused
-widget: directly calling `interpretText()` does not exercise the full path. Refresh
-read-only feedback through the panel's field refresh rather than a form rebuild,
-whose focus guard deliberately defers replacement of an active editor.
+Python `setValue()` override. `LengthSpinBox`, `VolumeSpinBox` and `TemperatureSpinBox`
+capture changes through their first `valueChanged` connection, restore the exact value
+under `QSignalBlocker` when changing precision, and recognize their unchanged canonical
+text. Return needs the same signal protection around the base handler, while retaining
+`editingFinished` and normal dialog acceptance. Test both Return and focus loss on a
+shown, focused widget: directly calling `interpretText()` does not exercise the full
+path. Refresh read-only feedback through the panel's field refresh rather than a form
+rebuild, whose focus guard deliberately defers replacement of an active editor.
+`PreferencesDialog._save_and_accept` commits in-flight text before applying a profile;
+without that order a typed `35.0 °F` is reformatted as Metric before it is read.
 
 ### PF-UI-42
 

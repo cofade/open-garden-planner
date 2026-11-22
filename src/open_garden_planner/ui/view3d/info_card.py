@@ -93,7 +93,6 @@ from open_garden_planner.core.scene3d import (
     SHAPE_RECTANGLE,
     Record,
 )
-from open_garden_planner.core.units import UnitSystem
 from open_garden_planner.services.sun_mismatch_service import band_of
 from open_garden_planner.services.task_generator import calendar_windows
 from open_garden_planner.ui.sun_exposure_text import sun_requirement_label
@@ -234,7 +233,7 @@ class View3DInfoCard(QFrame):
         self.setSizePolicy(QSizePolicy.Policy.Ignored, QSizePolicy.Policy.Ignored)
         self._item_id = ""
         self._subject: CardSubject | None = None
-        units_notifier().changed.connect(self._on_unit_system_changed)
+        units_notifier().profile_changed.connect(self._on_unit_system_changed)
         outer = QVBoxLayout(self)
         outer.setContentsMargins(*_MARGINS)
         outer.setSpacing(_SPACING)
@@ -256,7 +255,7 @@ class View3DInfoCard(QFrame):
         self._note_text = ""
         self.hide()
 
-    def _on_unit_system_changed(self, _system: UnitSystem) -> None:
+    def _on_unit_system_changed(self, _profile: object) -> None:
         if self._subject is not None:
             self.show_subject(self._subject)
 

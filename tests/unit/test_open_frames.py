@@ -80,6 +80,7 @@ from open_garden_planner.core.shadow_geometry import (
     circle_footprint,
     compute_scene_shadows,
     compute_weighted_shadows,
+    open_frame_effective_length,
     open_frame_transmittance,
     shadow_direction_scene,
 )
@@ -129,13 +130,55 @@ def _record(kind: str, size: object, height: float | None = None):
     return script._polygon(kind, script._rectangle(*size), height)  # type: ignore[misc]
 
 
-def _measured_share(record, elevation: float, azimuth: float) -> float:
-    """The independent number: ALL triangles of the production mesh, projected and
-    united by the measuring script, over the 2D prism's shadow."""
+def _trimmed_prism(record, elevation: float, azimuth: float):
+    """The prism the 2D model casts after #855's reach trim, in the record's frame."""
+    local = open_frame_triangles_for_record(record)
+    if local is None:  # not an open frame: the plain prism is its 2D model
+        return _script().caster_shadow(record, elevation, azimuth)
+    frame = OpenFrame(local, record.footprints[0], 0.0)
+    length = open_frame_effective_length(frame, float(record.height_cm), elevation, azimuth)
+    if length <= 0.0:
+        return [list(record.footprints[0])]
+    # compute_scene_shadows takes a height and derives length = h / tan a
+    fake_height = length * math.tan(math.radians(elevation))
+    return compute_scene_shadows(
+        [(list(record.footprints[0]), fake_height)], elevation, azimuth
+    )
+
+
+def _full_share(record, elevation: float, azimuth: float) -> float:
+    """The untrimmed reference: 3D over the FULL prism, as #698 first recorded it.
+
+    ``caster_shadow`` itself now trims (#855), so this helper's arithmetic is
+    the only remaining untrimmed comparison and must not call it.
+    """
     script = _script()
     parts = production_registry().build(record)
     in_3d = script._area_cm2(script.mesh_shadow(parts, elevation, azimuth))
-    in_2d = script._area_cm2(script.caster_shadow(record, elevation, azimuth))
+    in_2d = script._area_cm2(
+        [
+            _to_int(polygon)
+            for polygon in compute_scene_shadows(
+                [(list(record.footprints[0]), float(record.height_cm))],
+                elevation,
+                azimuth,
+            )
+        ]
+    )
+    return in_3d / in_2d
+
+
+def _measured_share(record, elevation: float, azimuth: float) -> float:
+    """The transmittance reference: ALL triangles of the production mesh, projected
+    and united by the measuring script, over the production trimmed prism (#855).
+    The trim's independent arithmetic is ``_by_hand`` and the reach test; this
+    number is the consumer comparison."""
+    script = _script()
+    parts = production_registry().build(record)
+    in_3d = script._area_cm2(script.mesh_shadow(parts, elevation, azimuth))
+    in_2d = script._area_cm2(
+        [_to_int(polygon) for polygon in _trimmed_prism(record, elevation, azimuth)]
+    )
     return in_3d / in_2d
 
 
@@ -191,7 +234,22 @@ def _by_hand(kind: str, size: object, turn_deg: float, elevation: float, azimuth
                             pyclipper.PT_SUBJECT, True)
     union = clipper.Execute(pyclipper.CT_UNION, pyclipper.PFT_NONZERO, pyclipper.PFT_NONZERO)
     frame_area = sum(pyclipper.Area(path) for path in union)
-    prism = compute_scene_shadows([(list(footprint), float(record.height_cm))], elevation, azimuth)
+    # #855: the trimmed length BY HAND, from the turned members and the turned
+    # footprint - not by calling ``open_frame_effective_length``, which is the
+    # code this helper exists to check.
+    along = corners[:, :, 0] * direction[0] + corners[:, :, 1] * direction[1]
+    frame_far = float(
+        (along + np.maximum(corners[:, :, 2], 0.0) / math.tan(math.radians(elevation))).max()
+    )
+    ring = np.asarray(footprint, dtype=np.float64)
+    footprint_far = float((ring[:, 0] * direction[0] + ring[:, 1] * direction[1]).max())
+    full_length = float(record.height_cm or 0.0) / math.tan(math.radians(elevation))
+    length = max(0.0, min(full_length, frame_far - footprint_far))
+    if length <= 0.0:
+        prism = [list(footprint)]
+    else:
+        fake_height = length * math.tan(math.radians(elevation))
+        prism = compute_scene_shadows([(list(footprint), fake_height)], elevation, azimuth)
     prism_area = sum(pyclipper.Area(_to_int(polygon)) for polygon in prism)
     return 1.0 - frame_area / prism_area
 
@@ -235,7 +293,7 @@ def _prism_shares() -> dict[str, tuple[float, ...]]:
     shares = {}
     for kind, size in script.L4_OBJECT_SIZES.items():
         record = _record(kind, size)
-        shares[kind] = tuple(_measured_share(record, elevation, script.SOUTH)
+        shares[kind] = tuple(_full_share(record, elevation, script.SOUTH)
                              for elevation in script.ELEVATIONS_DEG)
     return shares
 
@@ -267,6 +325,8 @@ def test_an_open_frame_is_thin_members_at_every_elevation_a_canopy_is_not() -> N
     shares = _prism_shares()
     for kind in OPEN_KINDS:
         assert max(shares[kind]) < MOSTLY_AIR, kind
+        # The untrimmed prism's share moves less than 0.2 across 15-60 degrees
+        # (the garden light is widest at 0.16); a solid canopy swings much more.
         assert max(shares[kind]) - min(shares[kind]) < 0.2, kind
     parasol = shares["PARASOL"]
     assert max(parasol) > MOSTLY_AIR and max(parasol) - min(parasol) > 0.3
@@ -302,6 +362,39 @@ def test_what_is_no_open_frame_has_no_members() -> None:
     assert open_frame_triangles("SWING", "polygon", ((0.0, 0.0), (300.0, 0.0), (0.0, 300.0)), 220.0) is None
 
 
+def _area_of(polygons) -> float:
+    return sum(abs(pyclipper.Area(_to_int(polygon))) for polygon in polygons)
+
+
+def _reach_cm(polygons, direction: tuple[float, float]) -> float:
+    points = [point for polygon in polygons for point in polygon]
+    # An empty polygon has no tip; fail loudly instead of letting -inf pass the
+    # "no longer reaches past the mesh" assertion.
+    assert points, "the trimmed prism is empty"
+    return max(x * direction[0] + y * direction[1] for x, y in points)
+
+
+@pytest.mark.parametrize("kind", OPEN_KINDS)
+def test_the_shade_ends_at_the_frames_own_far_tip(kind: str) -> None:
+    """#855: the prism no longer reaches 4-71 cm past the real shadow."""
+    script = _script()
+    record = _record(kind, SIZES[kind][0])
+    parts = production_registry().build(record)
+    direction = shadow_direction_scene(script.SOUTH)
+    mesh = script.mesh_shadow(parts, 15.0, script.SOUTH)
+    mesh_cm = [
+        [(x / script.SCALE, y / script.SCALE) for x, y in polygon] for polygon in mesh
+    ]
+    trimmed = _trimmed_prism(record, 15.0, script.SOUTH)
+    trimmed_reach = _reach_cm(trimmed, direction)
+    mesh_reach = _reach_cm(mesh_cm, direction)
+    # Two-sided: the trimmed prism's tip lands ON the mesh shadow's tip. The old
+    # one-sided "no longer reaches past" reading also passed an over-trim. Only
+    # the reach is a contract: the weighted model spreads the frame's shade over
+    # the prism, so the real shadow may still sit partly outside it laterally.
+    assert abs(trimmed_reach - mesh_reach) <= 1.0
+
+
 @pytest.mark.parametrize("kind", OPEN_KINDS)
 def test_the_transmittance_is_the_measured_share_at_the_table_s_elevations(kind: str) -> None:
     """The issue's gate, as #440 set it for fences: the 2D model's weighted shadow is
@@ -310,9 +403,12 @@ def test_the_transmittance_is_the_measured_share_at_the_table_s_elevations(kind:
     record = _record(kind, SIZES[kind][0])
     row = {case.name: case for case in script.cases()}[kind.lower().replace("_", " ")]
     assert row.record.footprints == record.footprints and row.record.height_cm == record.height_cm
+    frame = _frame(kind, SIZES[kind][0])
     for elevation in script.ELEVATIONS_DEG:
         measured = _measured_share(record, elevation, script.SOUTH)
-        weight = script.caster_occlusion(record, elevation, script.SOUTH)
+        weight = 1.0 - open_frame_transmittance(
+            frame, float(record.height_cm), elevation, script.SOUTH
+        )
         assert 0.1 < weight < MOSTLY_AIR, (kind, elevation, weight)
         assert measured / weight == pytest.approx(1.0, abs=0.02), (kind, elevation)
 
@@ -511,7 +607,13 @@ def test_the_weighted_regions_carry_the_frame_s_transmittance(kind: str, turn_de
         assert 0.5 < through < 0.9
         assert region.transmittance == pytest.approx(through, abs=1e-6)
         assert region.occlusion == pytest.approx(1.0 - through, abs=1e-6)
-        assert weighted.union_polygons == opaque.union_polygons  # the same ground, lighter
+        weighted_area = sum(
+            abs(pyclipper.Area(_to_int(polygon))) for polygon in weighted.union_polygons
+        )
+        opaque_area = sum(
+            abs(pyclipper.Area(_to_int(polygon))) for polygon in opaque.union_polygons
+        )
+        assert weighted_area <= opaque_area + 1  # trimmed to the frame's own reach
         assert opaque.weighted_regions[0].occlusion == 1.0
 
 
@@ -681,9 +783,53 @@ def test_the_weighted_sweep_holds_every_owner_s_shadow_as_the_grouped_sweep_make
         weighted = compute_weighted_shadows([*casters, clear], elevation, azimuth)
         assert grouped is not None and weighted is not None
         union, owned = grouped
+        # Both sweeps share _caster_shadow_length so every owner — including open
+        # frames (#855) — matches identically between grouped and weighted sweeps.
         assert [polygons for polygons, _through in weighted.owned_shadows[:-1]] == owned
+        assert weighted.owned_shadows[-2][0]  # the frame still casts its weighted shade
         assert weighted.owned_shadows[-1] == ([], 1.0)
         assert weighted.union_polygons == union
+
+
+def test_elevated_receiver_in_swing_overhang_band_sees_trimmed_frame() -> None:
+    """#855: elevated receivers (e.g. plant in a raised bed) sweep via
+    ``compute_grouped_shadows`` and must trim open frames just like ground sweeps,
+    so a plant in the 71 cm overhang band past a swing's beam stays unshaded."""
+    from open_garden_planner.core.shade_aggregation import _slice_frame_for_elevation
+    from open_garden_planner.core.shadow_geometry import (
+        compute_grouped_shadows,
+        shadow_length_cm,
+    )
+
+    # Swing 200x150 cm centred at (500, 500), 220 cm tall, receiver on a 50 cm bed
+    ring = tuple((x + 500.0, y + 500.0) for x, y in _rect(200.0, 150.0))
+    frame = _frame("SWING", (200.0, 150.0), 0.0)
+    elev_cm = 50.0
+    eff_height = 220.0 - elev_cm
+    sliced = _slice_frame_for_elevation(frame, 0.0, elev_cm)
+    assert sliced is not None
+    caster = GroupedCaster((ring,), eff_height, 0.0, frame=sliced)
+
+    elevation_deg = 35.0
+    azimuth_deg = 180.0
+    grouped = compute_grouped_shadows([caster], elevation_deg, azimuth_deg)
+    weighted = compute_weighted_shadows([caster], elevation_deg, azimuth_deg)
+    # Passing the unsliced ground caster with receiver_elev_cm must agree identically.
+    ground_caster = GroupedCaster((ring,), 220.0, 0.0, frame=frame)
+    weighted_elev = compute_weighted_shadows(
+        [ground_caster], elevation_deg, azimuth_deg, receiver_elev_cm=elev_cm
+    )
+    assert grouped is not None and weighted is not None and weighted_elev is not None
+    assert grouped[1] == [polygons for polygons, _ in weighted.owned_shadows]
+    assert weighted_elev.owned_shadows == weighted.owned_shadows
+
+    # Far reach of trimmed shadow is strictly shorter than untrimmed footprint + h/tan(a)
+    untrimmed_far_y = 500.0 + 75.0 + float(shadow_length_cm(eff_height, elevation_deg))
+    trimmed_far_y = max(y for poly in grouped[0] for _x, y in poly)
+    assert untrimmed_far_y - trimmed_far_y > 60.0, (
+        f"expected ~71 cm overhang trimmed off (untrimmed={untrimmed_far_y:.1f}, "
+        f"trimmed={trimmed_far_y:.1f})"
+    )
 
 
 def test_which_boxes_meet_another() -> None:

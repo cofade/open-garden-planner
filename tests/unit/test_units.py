@@ -10,6 +10,9 @@ from open_garden_planner.core.units import (
     default_bare_unit_cm,
     format_area,
     format_length,
+    format_mass,
+    format_precipitation,
+    format_temperature,
     format_volume,
     grid_size_cm,
     imperial_step_inches,
@@ -17,6 +20,9 @@ from open_garden_planner.core.units import (
     nice_distances,
     nudge_fine_cm,
     parse_length,
+    parse_mass,
+    parse_precipitation,
+    parse_temperature,
     parse_volume,
 )
 
@@ -68,6 +74,128 @@ IMPERIAL_CASES = [
     (762.0, S.SCALE_BAR, "25 ft"),
     (120000.0, S.FEET, "3937 ft"),
 ]
+
+
+@pytest.mark.parametrize(
+    ("value", "system", "expected"),
+    [
+        (0.0, U.METRIC, "0 °C"),
+        (21.5, U.METRIC, "22 °C"),
+        (0.0, U.IMPERIAL, "32 °F"),
+        (21.5, U.IMPERIAL, "71 °F"),
+        (-17.8, U.IMPERIAL, "0 °F"),
+    ],
+)
+def test_temperature_display(value, system, expected):
+    assert format_temperature(value, system) == expected
+
+
+@pytest.mark.parametrize(
+    ("text", "system", "expected"),
+    [
+        ("20 °C", U.IMPERIAL, 20.0),
+        ("68 °F", U.METRIC, 20.0),
+        ("68", U.IMPERIAL, 20.0),
+        ("-4", U.METRIC, -4.0),
+        ("-4 °F", U.IMPERIAL, -20.0),
+        ("-4 °F", U.METRIC, -20.0),
+        ("-20 °F", U.IMPERIAL, (-20.0 - 32.0) / 1.8),
+        ("-40 °F", U.IMPERIAL, -40.0),
+        ("-0.5", U.IMPERIAL, (-0.5 - 32.0) / 1.8),
+        ("-4", U.IMPERIAL, -20.0),
+        ("+32 °F", U.METRIC, 0.0),
+    ],
+)
+def test_temperature_input_returns_celsius(text, system, expected):
+    assert parse_temperature(text, system) == pytest.approx(expected)
+
+
+def test_temperature_and_precipitation_without_unit_suffix():
+    assert format_temperature(21.0, U.METRIC, decimals=1, with_unit=False) == "21.0"
+    assert format_temperature(21.0, U.IMPERIAL, decimals=1, with_unit=False) == "69.8"
+    assert format_precipitation(25.4, U.METRIC, with_unit=False) == "25.4"
+    assert format_precipitation(25.4, U.IMPERIAL, with_unit=False) == "1.00"
+
+
+@pytest.mark.parametrize(
+    ("value", "system", "expected"),
+    [(25.4, U.METRIC, "25.4 mm"), (25.4, U.IMPERIAL, "1.00 in"), (0.0, U.IMPERIAL, "0.00 in"),
+     (0.5, U.IMPERIAL, "0.02 in")],
+)
+def test_precipitation_display(value, system, expected):
+    assert format_precipitation(value, system) == expected
+
+
+@pytest.mark.parametrize(
+    ("text", "system", "expected"),
+    [("2 in", U.METRIC, 50.8), ("50.8", U.METRIC, 50.8), ("1", U.IMPERIAL, 25.4)],
+)
+def test_precipitation_input_returns_millimetres(text, system, expected):
+    assert parse_precipitation(text, system) == pytest.approx(expected)
+
+
+def test_mass_display_and_input_round_trip():
+    assert format_mass(1.0, U.METRIC) == "1.00 kg"
+    assert format_mass(1.0, U.IMPERIAL) == "2.20 lb"
+    assert parse_mass("2.2046226218 lb", U.METRIC) == pytest.approx(1.0)
+    assert parse_mass("16 oz", U.METRIC) == pytest.approx(0.45359237)
+    assert parse_mass("1", U.IMPERIAL) == pytest.approx(0.45359237)
+
+
+def test_new_quantities_use_the_locale_number_format(qtbot):
+    """#907 round 5: the formatter branch wins; ``decimal_mark`` is not applied twice.
+
+    This is the branch the weather/calendar/germination surfaces exercise through
+    ``core.measurement_display`` in de/es/fr/ru, and it was untested before.
+    """
+    from PyQt6.QtWidgets import QApplication
+
+    from open_garden_planner.core.i18n import format_decimal, load_translator
+
+    app = QApplication.instance()
+    assert app is not None
+    try:
+        # English's formatter returns a dot. With an explicit comma mark, the
+        # guard is what keeps that dot: deleting ``if number_format is None``
+        # would rewrite it to a comma and fail here.
+        assert load_translator(app, "en")
+        assert format_decimal(21.5, 1) == "21.5"
+        assert format_temperature(
+            21.5, U.METRIC, decimals=1, decimal_mark=",", number_format=format_decimal
+        ) == "21.5 °C"
+        assert format_mass(
+            1.0, U.IMPERIAL, decimal_mark=",", number_format=format_decimal
+        ) == "2.20 lb"
+
+        assert load_translator(app, "de")
+        assert format_decimal(21.5, 1) == "21,5"
+        assert format_temperature(
+            21.5, U.METRIC, decimals=1, number_format=format_decimal
+        ) == "21,5 °C"
+        assert format_temperature(
+            21.5, U.IMPERIAL, decimals=1, number_format=format_decimal
+        ) == "70,7 °F"
+        assert format_precipitation(25.4, U.METRIC, number_format=format_decimal) == "25,4 mm"
+        assert format_precipitation(
+            25.4, U.IMPERIAL, number_format=format_decimal
+        ) == "1,00 in"
+        assert format_mass(1.0, U.IMPERIAL, number_format=format_decimal) == "2,20 lb"
+    finally:
+        load_translator(app, "en")
+
+
+def test_new_quantities_decimal_mark_applies_without_a_formatter():
+    """#907: temperature, precipitation and mass respect locale comma decimal marks."""
+    assert format_temperature(21.5, U.METRIC, decimals=1, decimal_mark=",") == "21,5 °C"
+    assert format_temperature(21.5, U.IMPERIAL, decimals=1, decimal_mark=",") == "70,7 °F"
+    assert format_precipitation(25.4, U.METRIC, decimal_mark=",") == "25,4 mm"
+    assert format_precipitation(25.4, U.IMPERIAL, decimal_mark=",") == "1,00 in"
+    assert format_mass(1.25, U.METRIC, decimal_mark=",") == "1,25 kg"
+    assert format_mass(1.0, U.IMPERIAL, decimal_mark=",") == "2,20 lb"
+    assert parse_temperature("-4,5 °F", U.IMPERIAL) == pytest.approx((-4.5 - 32.0) / 1.8)
+    assert parse_temperature("21,5 °C", U.IMPERIAL) == pytest.approx(21.5)
+    assert parse_precipitation("1,5 in", U.METRIC) == pytest.approx(38.1)
+    assert parse_mass("2,5 lb", U.METRIC) == pytest.approx(2.5 * 0.45359237)
 
 
 @pytest.mark.parametrize(("cm", "style", "expected"), METRIC_CASES)
