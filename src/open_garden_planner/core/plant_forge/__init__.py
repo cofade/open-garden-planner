@@ -133,7 +133,10 @@ def forge_plant(
     support: Mapping[str, Any] | None = None,
     include_accents: bool = True,
 ) -> tuple[MeshPart, ...]:
-    """Forge a 3D plant mesh for ``sprite`` at ``(height_cm, radius_cm, seed, lod)``."""
+    """Forge a 3D plant mesh for ``sprite`` at ``(height_cm, radius_cm, seed, lod)``.
+
+    With a cache, the mesh is built at the 2 % size bucket and stretched to the exact
+    height and spread (#973); without one, the exact size is built."""
     validate_lod(lod)
     h = float(height_cm)
     r = float(radius_cm)

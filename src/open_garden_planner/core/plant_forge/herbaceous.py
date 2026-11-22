@@ -398,7 +398,8 @@ def _forged_flowering_bulb(
     leaves up to ``BULB_LEAF_TOP`` of its height and one leafless scape per flower, the
     flower on its tip at the top. Scapes and flowers are one ``flowers`` part inside the
     fit, so the plant's top is a flower's and out of bloom the bulb is its leaves on its
-    neck (its wood); at LOD2 no flower is built and the scapes, wood, reach the top."""
+    neck (its wood) - at LOD2 too, where each scape carries a far patch of its petal
+    colour (#948, #971)."""
     flower = traits.flower
     assert flower is not None
     rng = _seed_rng(seed, 0xB01B5CA9)
