@@ -143,7 +143,8 @@ def compare(scene: CanvasScene, registry: BuilderRegistry | None = None, *,
     ``(mean, max)`` difference, and the bake. ``tile_px=2048`` makes the plan ONE
     tile — the bake without a tile border in it."""
     bake = Bake(scene, registry=registry,
-                baker=GroundBaker(bare_rgb=canvas_rgb(), tile_px=tile_px, budget_s=None))
+                baker=GroundBaker(bare_rgb=canvas_rgb(), tile_px=tile_px, budget_s=None,
+                                  surface_outlines=True))
     bake.step()
     assert bake.skipped == [] and bake.baker.failures == {}
     mean, worst = difference(bake.image(), canvas_render(scene, bake.grid))
@@ -637,7 +638,7 @@ class TestTheOrderOfRegionsDoesNotMatter:
                 material=Material("TERRACE_PATIO", fill_rgba=(200, 60, 40, 120),
                                   stroke_rgba=(20, 30, 160, 140), paint=Paint(stroke_width_cm=16.0)),
                 params=Params({"seed": "r"}))
-            baker = GroundBaker(budget_s=None)
+            baker = GroundBaker(budget_s=None, surface_outlines=True)
             tiles = baker.bake({"r": record}, None, (), PLAN_W, PLAN_D)
             assert baker.failures == {} and baker.painted_ids() == ("r",)
             return tuple(tile.pixels for tile in tiles), ground_rgba(baker.image())[..., :3]

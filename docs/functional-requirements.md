@@ -953,19 +953,23 @@ The built world complete (L4, #388, ADR-065).
   fill on its top face and keeps the slab finish on its edges and underside.
   An automatic flat house roof keeps the concrete slab finish. The roof-aware
   sun study uses the 3D roof geometry including pitch and overhang (FR-SUN-03).
-- **FR-3D-BUILT-03** (L4.1): A building has windows on its walls and a door on the
+- **FR-3D-BUILT-03** (L4.1, #965): A building has windows on its walls and a door on the
   wall that faces the nearest path (a garage: the nearest driveway, then path).
   On the door's wall the windows are spaced on each side of the door, so a long
   wall with its door in the middle has a window either side, and an upper row runs
   over them and over the door. Moving the building along its path does not move its
-  door to another wall. A building too low for a door has no door or window.
-- **FR-3D-BUILT-04** (L4.2): A path shows its style on the 3D ground: stepping
+  door to another wall. A building too low for a door has no door or window. A
+  flat-roofed house uses contemporary wide, tall, single-pane dark-framed windows
+  and a modern door rather than cottage crossbars (#965).
+- **FR-3D-BUILT-04** (L4.2, #961): A path shows its style on the 3D ground: stepping
   stones where the plan draws them, boardwalk planks, paving kerbs, a gravel path's
   edging. A gravel path is the gravel texture and a dirt path the soil texture, in
   the path's colour and opaque, in 2D and on the 3D ground alike (owner, L4 manual
   pass: they were translucent strokes the lawn showed through); a new dirt path
   starts in the 2D sprites' light soil colour. A terrace or driveway shows kerbs, or deck boards for a wood pattern;
-  a pond shows water inside a stone coping. All of this lies on the plan's painted
+  a formal pool (rectangular, circular or raised) shows water inside a stone coping,
+  while an organic multi-vertex ground pond (5+ vertices per ring) shows a smoothed
+  flush low earth shore (strictly below deck height) and darker natural water (#961). All of this lies on the plan's painted
   ground, casts no shadow and cannot be clicked: a click on it is a click on the
   ground, as on the flat surface before L4. A surface given a height is a raised solid with that top.
 - **FR-3D-BUILT-05** (L4.2): A path's width is its width on the ground in cm. New

@@ -70,15 +70,51 @@
         },
         {
           "x": 900.0,
-          "y": 210.0
+          "y": 220.0
         },
         {
-          "x": 620.0,
-          "y": 340.0
+          "x": 1260.0,
+          "y": 320.0
         },
         {
-          "x": 320.0,
-          "y": 430.0
+          "x": 1560.0,
+          "y": 540.0
+        },
+        {
+          "x": 1620.0,
+          "y": 860.0
+        },
+        {
+          "x": 1580.0,
+          "y": 1140.0
+        },
+        {
+          "x": 1260.0,
+          "y": 1210.0
+        },
+        {
+          "x": 820.0,
+          "y": 1160.0
+        },
+        {
+          "x": 580.0,
+          "y": 980.0
+        },
+        {
+          "x": 570.0,
+          "y": 785.0
+        },
+        {
+          "x": 610.0,
+          "y": 490.0
+        },
+        {
+          "x": 740.0,
+          "y": 310.0
+        },
+        {
+          "x": 900.0,
+          "y": 220.0
         }
       ],
       "object_type": "PATH",
@@ -89,56 +125,6 @@
       "stroke_width": 80.0,
       "path_fence_style": "DIRT_PATH",
       "stack_order": 11264
-    },
-    {
-      "type": "polyline",
-      "item_id": "a6b0236c-4461-594e-b5ce-f4ffb9a85fa9",
-      "points": [
-        {
-          "x": 900.0,
-          "y": 210.0
-        },
-        {
-          "x": 1300.0,
-          "y": 330.0
-        },
-        {
-          "x": 1600.0,
-          "y": 560.0
-        },
-        {
-          "x": 1650.0,
-          "y": 900.0
-        },
-        {
-          "x": 1640.0,
-          "y": 1150.0
-        },
-        {
-          "x": 1300.0,
-          "y": 1210.0
-        },
-        {
-          "x": 820.0,
-          "y": 1160.0
-        },
-        {
-          "x": 540.0,
-          "y": 1000.0
-        },
-        {
-          "x": 560.0,
-          "y": 580.0
-        }
-      ],
-      "object_type": "PATH",
-      "name": "Sendero pisado",
-      "layer_id": "55f59d67-d2d8-5e12-ae18-6945334e08cb",
-      "label_visible": false,
-      "stroke_color": "#ff7d5c3e",
-      "stroke_width": 80.0,
-      "path_fence_style": "DIRT_PATH",
-      "stack_order": 12288
     },
     {
       "type": "polygon",
@@ -194,23 +180,19 @@
       "stroke_width": 2.0,
       "fill_pattern": "WATER",
       "stroke_style": "SOLID",
-      "stack_order": 13312
+      "stack_order": 12288
     },
     {
       "type": "polyline",
-      "item_id": "d6972b38-141f-57bd-8d90-12c0f17e0cde",
+      "item_id": "ab20e3fd-9d41-589a-94f2-62a08edf1068",
       "points": [
         {
-          "x": 320.0,
-          "y": 430.0
+          "x": 570.0,
+          "y": 785.0
         },
         {
-          "x": 560.0,
-          "y": 580.0
-        },
-        {
-          "x": 800.0,
-          "y": 770.0
+          "x": 790.0,
+          "y": 785.0
         }
       ],
       "object_type": "PATH",
@@ -220,7 +202,7 @@
       "stroke_color": "#ffa07846",
       "stroke_width": 100.0,
       "path_fence_style": "WOODEN_BOARDWALK",
-      "stack_order": 14336
+      "stack_order": 13312
     },
     {
       "type": "polygon",
@@ -252,7 +234,7 @@
       "stroke_width": 2.0,
       "fill_pattern": "DECKING",
       "stroke_style": "SOLID",
-      "stack_order": 15360
+      "stack_order": 14336
     },
     {
       "type": "polyline",
@@ -495,8 +477,7 @@
       "stroke_width": 1.0,
       "fill_pattern": "SOLID",
       "stroke_style": "SOLID",
-      "rotation_angle": 180,
-      "stack_order": 16384
+      "stack_order": 15360
     },
     {
       "type": "circle",
@@ -552,13 +533,13 @@
       "plant_category": "SPREADING_SHRUB",
       "plant_species": "Iris",
       "spacing_radius_cm": 17.0,
-      "stack_order": 17408
+      "stack_order": 16384
     },
     {
       "type": "circle",
-      "item_id": "3246ffd0-46b2-5ef9-8146-2456b371f421",
-      "center_x": 825.0,
-      "center_y": 690.0,
+      "item_id": "e2344119-0c8f-5b31-812c-14a300773125",
+      "center_x": 835.0,
+      "center_y": 665.0,
       "radius": 30.0,
       "object_type": "SHRUB",
       "name": "Lirio",
@@ -608,7 +589,7 @@
       "plant_category": "SPREADING_SHRUB",
       "plant_species": "Iris",
       "spacing_radius_cm": 17.0,
-      "stack_order": 18432
+      "stack_order": 17408
     },
     {
       "type": "circle",
@@ -664,7 +645,7 @@
       "plant_category": "SPREADING_SHRUB",
       "plant_species": "Iris",
       "spacing_radius_cm": 17.0,
-      "stack_order": 19456
+      "stack_order": 18432
     },
     {
       "type": "circle",
@@ -720,7 +701,7 @@
       "plant_category": "SPREADING_SHRUB",
       "plant_species": "Iris",
       "spacing_radius_cm": 17.0,
-      "stack_order": 20480
+      "stack_order": 19456
     },
     {
       "type": "circle",
@@ -776,7 +757,7 @@
       "plant_category": "SPREADING_SHRUB",
       "plant_species": "Iris",
       "spacing_radius_cm": 17.0,
-      "stack_order": 21504
+      "stack_order": 20480
     },
     {
       "type": "circle",
@@ -832,7 +813,7 @@
       "plant_category": "SPREADING_SHRUB",
       "plant_species": "Iris",
       "spacing_radius_cm": 17.0,
-      "stack_order": 22528
+      "stack_order": 21504
     },
     {
       "type": "circle",
@@ -889,7 +870,7 @@
       "plant_category": "ROUND_DECIDUOUS",
       "plant_species": "Willow",
       "spacing_radius_cm": 199.0,
-      "stack_order": 23552
+      "stack_order": 22528
     },
     {
       "type": "circle",
@@ -946,7 +927,7 @@
       "plant_category": "ROUND_DECIDUOUS",
       "plant_species": "Oak",
       "spacing_radius_cm": 199.0,
-      "stack_order": 24576
+      "stack_order": 23552
     },
     {
       "type": "circle",
@@ -1003,7 +984,7 @@
       "plant_category": "ROUND_DECIDUOUS",
       "plant_species": "Birch",
       "spacing_radius_cm": 149.0,
-      "stack_order": 25600
+      "stack_order": 24576
     },
     {
       "type": "circle",
@@ -1064,7 +1045,7 @@
       "plant_category": "ROUND_DECIDUOUS",
       "plant_species": "Elderberry",
       "spacing_radius_cm": 104.0,
-      "stack_order": 26624
+      "stack_order": 25600
     },
     {
       "type": "circle",
@@ -1125,7 +1106,7 @@
       "plant_category": "ROUND_DECIDUOUS",
       "plant_species": "Elderberry",
       "spacing_radius_cm": 99.0,
-      "stack_order": 27648
+      "stack_order": 26624
     },
     {
       "type": "circle",
@@ -1183,7 +1164,7 @@
       "plant_category": "ROUND_DECIDUOUS",
       "plant_species": "Viburnum",
       "spacing_radius_cm": 84.0,
-      "stack_order": 28672
+      "stack_order": 27648
     },
     {
       "type": "circle",
@@ -1241,7 +1222,7 @@
       "plant_category": "SPREADING_SHRUB",
       "plant_species": "Barberry",
       "spacing_radius_cm": 69.0,
-      "stack_order": 29696
+      "stack_order": 28672
     },
     {
       "type": "circle",
@@ -1298,13 +1279,13 @@
       "plant_category": "ROUND_DECIDUOUS",
       "plant_species": "Holly",
       "spacing_radius_cm": 84.0,
-      "stack_order": 30720
+      "stack_order": 29696
     },
     {
       "type": "rectangle",
-      "item_id": "b11a89ee-1f72-56ad-87e0-222f713902de",
-      "x": 400.0,
-      "y": 700.0,
+      "item_id": "5ebe6697-f691-5389-863f-486f8a922541",
+      "x": 200.0,
+      "y": 780.0,
       "width": 210.0,
       "height": 90.0,
       "object_type": "HAMMOCK",
@@ -1316,13 +1297,13 @@
       "stroke_width": 1.0,
       "fill_pattern": "SOLID",
       "stroke_style": "SOLID",
-      "stack_order": 31744
+      "stack_order": 30720
     },
     {
       "type": "circle",
-      "item_id": "fab1b9fa-deda-5252-b8ee-70846755aa68",
-      "center_x": 1250.0,
-      "center_y": 420.0,
+      "item_id": "0ed86063-1e1d-550e-835d-fe4001546da3",
+      "center_x": 1140.0,
+      "center_y": 455.0,
       "radius": 26,
       "object_type": "BIRD_BATH",
       "name": "Bebedero de p\u00e1jaros",
@@ -1333,7 +1314,7 @@
       "stroke_width": 1.0,
       "fill_pattern": "SOLID",
       "stroke_style": "SOLID",
-      "stack_order": 32768
+      "stack_order": 31744
     },
     {
       "type": "rectangle",
@@ -1354,7 +1335,7 @@
       "stroke_width": 1.0,
       "fill_pattern": "SOLID",
       "stroke_style": "SOLID",
-      "stack_order": 33792
+      "stack_order": 32768
     },
     {
       "type": "circle",
@@ -1425,7 +1406,7 @@
       "plant_category": "FLOWERING_PERENNIAL",
       "plant_species": "Pot Marigold",
       "spacing_radius_cm": 4.0,
-      "stack_order": 34816
+      "stack_order": 33792
     },
     {
       "type": "circle",
@@ -1496,7 +1477,7 @@
       "plant_category": "FLOWERING_PERENNIAL",
       "plant_species": "Pot Marigold",
       "spacing_radius_cm": 4.0,
-      "stack_order": 35840
+      "stack_order": 34816
     },
     {
       "type": "circle",
@@ -1567,7 +1548,7 @@
       "plant_category": "FLOWERING_PERENNIAL",
       "plant_species": "Pot Marigold",
       "spacing_radius_cm": 4.0,
-      "stack_order": 36864
+      "stack_order": 35840
     },
     {
       "type": "circle",
@@ -1638,7 +1619,7 @@
       "plant_category": "FLOWERING_PERENNIAL",
       "plant_species": "Pot Marigold",
       "spacing_radius_cm": 4.0,
-      "stack_order": 37888
+      "stack_order": 36864
     },
     {
       "type": "circle",
@@ -1709,7 +1690,7 @@
       "plant_category": "FLOWERING_PERENNIAL",
       "plant_species": "Pot Marigold",
       "spacing_radius_cm": 4.0,
-      "stack_order": 38912
+      "stack_order": 37888
     },
     {
       "type": "circle",
@@ -1780,7 +1761,7 @@
       "plant_category": "FLOWERING_PERENNIAL",
       "plant_species": "Pot Marigold",
       "spacing_radius_cm": 4.0,
-      "stack_order": 39936
+      "stack_order": 38912
     },
     {
       "type": "circle",
@@ -1851,7 +1832,7 @@
       "plant_category": "FLOWERING_PERENNIAL",
       "plant_species": "Pot Marigold",
       "spacing_radius_cm": 4.0,
-      "stack_order": 40960
+      "stack_order": 39936
     },
     {
       "type": "circle",
@@ -1922,7 +1903,7 @@
       "plant_category": "FLOWERING_PERENNIAL",
       "plant_species": "Pot Marigold",
       "spacing_radius_cm": 4.0,
-      "stack_order": 41984
+      "stack_order": 40960
     },
     {
       "type": "circle",
@@ -1993,7 +1974,7 @@
       "plant_category": "FLOWERING_PERENNIAL",
       "plant_species": "Pot Marigold",
       "spacing_radius_cm": 4.0,
-      "stack_order": 43008
+      "stack_order": 41984
     },
     {
       "type": "circle",
@@ -2064,7 +2045,7 @@
       "plant_category": "FLOWERING_PERENNIAL",
       "plant_species": "Pot Marigold",
       "spacing_radius_cm": 4.0,
-      "stack_order": 44032
+      "stack_order": 43008
     },
     {
       "type": "circle",
@@ -2135,7 +2116,7 @@
       "plant_category": "FLOWERING_PERENNIAL",
       "plant_species": "Pot Marigold",
       "spacing_radius_cm": 4.0,
-      "stack_order": 45056
+      "stack_order": 44032
     },
     {
       "type": "circle",
@@ -2206,7 +2187,7 @@
       "plant_category": "FLOWERING_PERENNIAL",
       "plant_species": "Pot Marigold",
       "spacing_radius_cm": 4.0,
-      "stack_order": 46080
+      "stack_order": 45056
     },
     {
       "type": "circle",
@@ -2277,7 +2258,7 @@
       "plant_category": "FLOWERING_PERENNIAL",
       "plant_species": "Pot Marigold",
       "spacing_radius_cm": 4.0,
-      "stack_order": 47104
+      "stack_order": 46080
     },
     {
       "type": "circle",
@@ -2348,7 +2329,7 @@
       "plant_category": "FLOWERING_PERENNIAL",
       "plant_species": "Pot Marigold",
       "spacing_radius_cm": 4.0,
-      "stack_order": 48128
+      "stack_order": 47104
     },
     {
       "type": "circle",
@@ -2419,7 +2400,7 @@
       "plant_category": "FLOWERING_PERENNIAL",
       "plant_species": "Pot Marigold",
       "spacing_radius_cm": 4.0,
-      "stack_order": 49152
+      "stack_order": 48128
     },
     {
       "type": "circle",
@@ -2490,7 +2471,7 @@
       "plant_category": "FLOWERING_PERENNIAL",
       "plant_species": "Pot Marigold",
       "spacing_radius_cm": 4.0,
-      "stack_order": 50176
+      "stack_order": 49152
     },
     {
       "type": "circle",
@@ -2547,7 +2528,7 @@
       "plant_category": "SPREADING_SHRUB",
       "plant_species": "Cosmos",
       "spacing_radius_cm": 4.0,
-      "stack_order": 51200
+      "stack_order": 50176
     },
     {
       "type": "circle",
@@ -2604,7 +2585,7 @@
       "plant_category": "SPREADING_SHRUB",
       "plant_species": "Cosmos",
       "spacing_radius_cm": 4.0,
-      "stack_order": 52224
+      "stack_order": 51200
     },
     {
       "type": "circle",
@@ -2661,7 +2642,7 @@
       "plant_category": "SPREADING_SHRUB",
       "plant_species": "Cosmos",
       "spacing_radius_cm": 4.0,
-      "stack_order": 53248
+      "stack_order": 52224
     },
     {
       "type": "circle",
@@ -2718,7 +2699,7 @@
       "plant_category": "SPREADING_SHRUB",
       "plant_species": "Cosmos",
       "spacing_radius_cm": 4.0,
-      "stack_order": 54272
+      "stack_order": 53248
     },
     {
       "type": "circle",
@@ -2775,7 +2756,7 @@
       "plant_category": "SPREADING_SHRUB",
       "plant_species": "Cosmos",
       "spacing_radius_cm": 4.0,
-      "stack_order": 55296
+      "stack_order": 54272
     },
     {
       "type": "circle",
@@ -2832,7 +2813,7 @@
       "plant_category": "SPREADING_SHRUB",
       "plant_species": "Cosmos",
       "spacing_radius_cm": 4.0,
-      "stack_order": 56320
+      "stack_order": 55296
     },
     {
       "type": "circle",
@@ -2889,7 +2870,7 @@
       "plant_category": "SPREADING_SHRUB",
       "plant_species": "Cosmos",
       "spacing_radius_cm": 4.0,
-      "stack_order": 57344
+      "stack_order": 56320
     },
     {
       "type": "circle",
@@ -2946,7 +2927,7 @@
       "plant_category": "SPREADING_SHRUB",
       "plant_species": "Cosmos",
       "spacing_radius_cm": 4.0,
-      "stack_order": 58368
+      "stack_order": 57344
     },
     {
       "type": "circle",
@@ -3003,13 +2984,79 @@
       "plant_category": "SPREADING_SHRUB",
       "plant_species": "Cosmos",
       "spacing_radius_cm": 4.0,
+      "stack_order": 58368
+    },
+    {
+      "type": "circle",
+      "item_id": "f79c1469-ee05-5342-b29d-d002ac9bdff4",
+      "center_x": 1063.8,
+      "center_y": 158.0,
+      "radius": 10.0,
+      "object_type": "SHRUB",
+      "name": "Lino",
+      "metadata": {
+        "plant_species": {
+          "scientific_name": "Linum usitatissimum",
+          "common_name": "Lino",
+          "family": "Linaceae",
+          "genus": "Linum",
+          "cycle": "annual",
+          "growth_rate": "fast",
+          "flower_type": "hermaphrodite",
+          "pollination_type": "self_fertile",
+          "min_height_cm": 60.0,
+          "max_height_cm": 120.0,
+          "min_spread_cm": 10.0,
+          "max_spread_cm": 20.0,
+          "sun_requirement": "full_sun",
+          "water_needs": "low",
+          "hardiness_zone_min": 4,
+          "hardiness_zone_max": 9,
+          "ph_min": 6.0,
+          "ph_max": 7.0,
+          "edible": true,
+          "edible_parts": [
+            "seeds"
+          ],
+          "data_source": "bundled",
+          "frost_tolerance": "half-hardy",
+          "direct_sow_start": -4,
+          "direct_sow_end": 2,
+          "harvest_start": 10,
+          "harvest_end": 14,
+          "days_to_germination_min": 5,
+          "days_to_germination_max": 10,
+          "days_to_maturity_min": 75,
+          "days_to_maturity_max": 90,
+          "min_germination_temp_c": 7.0,
+          "seed_depth_cm": 0.5,
+          "nutrient_demand": "light",
+          "n_demand": "low",
+          "p_demand": "low",
+          "k_demand": "low",
+          "permaculture_layer": "herbaceous",
+          "functions": []
+        },
+        "plant_instance": {
+          "planting_date": "2026-04-12"
+        }
+      },
+      "layer_id": "55f59d67-d2d8-5e12-ae18-6945334e08cb",
+      "label_visible": false,
+      "fill_color": "#ff6b8e23",
+      "stroke_color": "#ff000000",
+      "stroke_width": 1.0,
+      "fill_pattern": "SOLID",
+      "stroke_style": "SOLID",
+      "plant_category": "SPREADING_SHRUB",
+      "plant_species": "Flax",
       "stack_order": 59392
     },
     {
       "type": "circle",
-      "item_id": "e3c46c19-7dfc-53ed-bebe-8bd33f7f2d91",
-      "center_x": 1066.2,
-      "center_y": 193.9,
+      "item_id": "07526858-5f09-5f85-a421-bc72af874ed9",
+      "center_x": 1154.6,
+      "center_y": 101.1,
       "radius": 10.0,
       "object_type": "SHRUB",
       "name": "Lino",
@@ -3073,9 +3120,9 @@
     },
     {
       "type": "circle",
-      "item_id": "853f68a9-24a4-5769-a048-a5768324c65f",
-      "center_x": 1160.9,
-      "center_y": 118.2,
+      "item_id": "57523cc0-d45d-50fc-9c6c-142fa14a1c66",
+      "center_x": 1110.6,
+      "center_y": 159.3,
       "radius": 10.0,
       "object_type": "SHRUB",
       "name": "Lino",
@@ -3139,9 +3186,9 @@
     },
     {
       "type": "circle",
-      "item_id": "93510250-becf-5883-b7a2-052c8864f83e",
-      "center_x": 1115.0,
-      "center_y": 195.8,
+      "item_id": "5c5241a5-2807-58c1-b1ca-e6855d1aa39a",
+      "center_x": 1381.5,
+      "center_y": 191.3,
       "radius": 10.0,
       "object_type": "SHRUB",
       "name": "Lino",
@@ -3205,9 +3252,9 @@
     },
     {
       "type": "circle",
-      "item_id": "af3c5b35-2dfa-5762-8825-059c92f0928a",
-      "center_x": 1397.6,
-      "center_y": 238.4,
+      "item_id": "847cfff4-9f9b-530d-bb10-b94323d82a15",
+      "center_x": 1353.8,
+      "center_y": 99.2,
       "radius": 10.0,
       "object_type": "SHRUB",
       "name": "Lino",
@@ -3271,9 +3318,9 @@
     },
     {
       "type": "circle",
-      "item_id": "9cede716-3aa3-553b-90bf-7ca2ce056b74",
-      "center_x": 1368.8,
-      "center_y": 115.6,
+      "item_id": "33648f50-e7b8-54e4-991e-aac04d449747",
+      "center_x": 1303.6,
+      "center_y": 183.0,
       "radius": 10.0,
       "object_type": "SHRUB",
       "name": "Lino",
@@ -3337,9 +3384,9 @@
     },
     {
       "type": "circle",
-      "item_id": "b6fb8bc1-0005-5150-9379-b91661f8e014",
-      "center_x": 1316.3,
-      "center_y": 227.4,
+      "item_id": "8c25b18c-7771-5dcf-8610-ecd3c8eb1c1c",
+      "center_x": 1248.0,
+      "center_y": 202.7,
       "radius": 10.0,
       "object_type": "SHRUB",
       "name": "Lino",
@@ -3403,9 +3450,9 @@
     },
     {
       "type": "circle",
-      "item_id": "007def89-0b8d-521d-9255-250779016dbf",
-      "center_x": 1258.4,
-      "center_y": 253.6,
+      "item_id": "3f54581f-c587-5c5d-95cf-a685aafff2dc",
+      "center_x": 1462.8,
+      "center_y": 166.2,
       "radius": 10.0,
       "object_type": "SHRUB",
       "name": "Lino",
@@ -3469,9 +3516,9 @@
     },
     {
       "type": "circle",
-      "item_id": "76b9fc81-2253-5795-9932-7e812fc81088",
-      "center_x": 1482.5,
-      "center_y": 204.9,
+      "item_id": "88cbd64d-9683-5cd8-b1fa-77a1b54c56a0",
+      "center_x": 1083.4,
+      "center_y": 130.5,
       "radius": 10.0,
       "object_type": "SHRUB",
       "name": "Lino",
@@ -3535,9 +3582,9 @@
     },
     {
       "type": "circle",
-      "item_id": "bf9cbe61-03e9-52ff-81a4-9b0539410557",
-      "center_x": 1047.2,
-      "center_y": 175.0,
+      "item_id": "8ac8d284-d50a-5349-b608-26989532e59d",
+      "center_x": 1181.8,
+      "center_y": 96.7,
       "radius": 10.0,
       "object_type": "SHRUB",
       "name": "Lino",
@@ -3601,9 +3648,9 @@
     },
     {
       "type": "circle",
-      "item_id": "6aa9cc3a-b095-5920-8f41-946a28a4daa4",
-      "center_x": 1086.6,
-      "center_y": 157.4,
+      "item_id": "88fc53cf-cfcc-5e97-bfee-2618e81e0d78",
+      "center_x": 1121.9,
+      "center_y": 70.5,
       "radius": 10.0,
       "object_type": "SHRUB",
       "name": "Lino",
@@ -3667,9 +3714,9 @@
     },
     {
       "type": "circle",
-      "item_id": "b922c1d2-b9f0-56c1-a716-fb109df7fac6",
-      "center_x": 1189.3,
-      "center_y": 112.2,
+      "item_id": "bb0b61b0-6013-565e-834e-7e57abb7d85d",
+      "center_x": 1114.0,
+      "center_y": 186.5,
       "radius": 10.0,
       "object_type": "SHRUB",
       "name": "Lino",
@@ -3733,9 +3780,9 @@
     },
     {
       "type": "circle",
-      "item_id": "38c6a452-0b76-5fbc-8557-02a901017ccd",
-      "center_x": 1126.8,
-      "center_y": 77.3,
+      "item_id": "0668bc7e-fc3b-54b6-acd5-457be8cced92",
+      "center_x": 1220.5,
+      "center_y": 112.8,
       "radius": 10.0,
       "object_type": "SHRUB",
       "name": "Lino",
@@ -3799,9 +3846,9 @@
     },
     {
       "type": "circle",
-      "item_id": "bce07cc6-0d10-50fa-8e91-cae1b8153d6f",
-      "center_x": 1118.5,
-      "center_y": 232.0,
+      "item_id": "901c8a0f-4fd6-5edd-ad2d-2890dbb81fd1",
+      "center_x": 1123.6,
+      "center_y": 123.7,
       "radius": 10.0,
       "object_type": "SHRUB",
       "name": "Lino",
@@ -3865,9 +3912,9 @@
     },
     {
       "type": "circle",
-      "item_id": "959cb336-9f90-50ee-9eb5-3c975d4e5744",
-      "center_x": 1229.7,
-      "center_y": 133.8,
+      "item_id": "2f2c6201-896e-56ff-ba9f-bc9aa299d4fe",
+      "center_x": 1384.5,
+      "center_y": 151.7,
       "radius": 10.0,
       "object_type": "SHRUB",
       "name": "Lino",
@@ -3931,9 +3978,9 @@
     },
     {
       "type": "circle",
-      "item_id": "ee086e4a-c9e6-57f3-90df-8130a905c9ac",
-      "center_x": 1128.5,
-      "center_y": 148.2,
+      "item_id": "42007f36-136c-5e8c-a351-d52f2b8f7c81",
+      "center_x": 1313.4,
+      "center_y": 106.5,
       "radius": 10.0,
       "object_type": "SHRUB",
       "name": "Lino",
@@ -3997,9 +4044,9 @@
     },
     {
       "type": "circle",
-      "item_id": "1ad7e2be-b25e-5781-8436-b7da29d058c5",
-      "center_x": 1400.8,
-      "center_y": 185.7,
+      "item_id": "4a583805-a497-5167-bb1a-f75836b1699c",
+      "center_x": 1266.7,
+      "center_y": 87.6,
       "radius": 10.0,
       "object_type": "SHRUB",
       "name": "Lino",
@@ -4063,9 +4110,9 @@
     },
     {
       "type": "circle",
-      "item_id": "09d96a99-0afc-5dde-9879-0cc969307e7a",
-      "center_x": 1326.6,
-      "center_y": 125.3,
+      "item_id": "849a53ea-79a5-5257-9880-c63ad7607f0d",
+      "center_x": 1155.2,
+      "center_y": 166.0,
       "radius": 10.0,
       "object_type": "SHRUB",
       "name": "Lino",
@@ -4129,9 +4176,9 @@
     },
     {
       "type": "circle",
-      "item_id": "6246bf3b-697a-5dd5-8d84-613110faa241",
-      "center_x": 1277.8,
-      "center_y": 100.1,
+      "item_id": "0c01f35e-25b6-56c2-b37e-e560a8c5f26b",
+      "center_x": 1327.7,
+      "center_y": 196.0,
       "radius": 10.0,
       "object_type": "SHRUB",
       "name": "Lino",
@@ -4195,9 +4242,9 @@
     },
     {
       "type": "circle",
-      "item_id": "3991d208-9967-54f0-8b06-47e011f51e6d",
-      "center_x": 1359.3,
-      "center_y": 92.5,
+      "item_id": "c66097f6-d85f-518e-b61b-c88fb346ee89",
+      "center_x": 1351.7,
+      "center_y": 174.2,
       "radius": 10.0,
       "object_type": "SHRUB",
       "name": "Lino",
@@ -4261,9 +4308,9 @@
     },
     {
       "type": "circle",
-      "item_id": "74dcf1da-c153-592d-ad1e-822945b726fd",
-      "center_x": 1161.5,
-      "center_y": 204.6,
+      "item_id": "f3914a8c-04b2-5cac-af95-adae9b9c2939",
+      "center_x": 1177.4,
+      "center_y": 135.0,
       "radius": 10.0,
       "object_type": "SHRUB",
       "name": "Lino",
@@ -4327,9 +4374,9 @@
     },
     {
       "type": "circle",
-      "item_id": "92e31949-6d5e-5fbf-9cc3-dda4b0b61b32",
-      "center_x": 1341.6,
-      "center_y": 244.7,
+      "item_id": "add73da0-42ce-5c24-ae7e-78913c33911a",
+      "center_x": 1036.9,
+      "center_y": 139.6,
       "radius": 10.0,
       "object_type": "SHRUB",
       "name": "Lino",
@@ -4393,9 +4440,9 @@
     },
     {
       "type": "circle",
-      "item_id": "8d2dd4cd-0abe-5dcc-b9da-bfc1a7455813",
-      "center_x": 1366.6,
-      "center_y": 215.6,
+      "item_id": "57dd3c21-1e69-5033-ae99-975f51295835",
+      "center_x": 1208.9,
+      "center_y": 78.3,
       "radius": 10.0,
       "object_type": "SHRUB",
       "name": "Lino",
@@ -4459,9 +4506,9 @@
     },
     {
       "type": "circle",
-      "item_id": "c2b1a2cc-e348-55f4-9acd-d77947d00a78",
-      "center_x": 1129.7,
-      "center_y": 172.6,
+      "item_id": "250b9489-4134-5593-92a7-e88fc06d1bd0",
+      "center_x": 1086.2,
+      "center_y": 175.8,
       "radius": 10.0,
       "object_type": "SHRUB",
       "name": "Lino",
@@ -4525,9 +4572,9 @@
     },
     {
       "type": "circle",
-      "item_id": "c383b57b-1869-5f4f-8644-fd27a7858012",
-      "center_x": 1184.7,
-      "center_y": 163.3,
+      "item_id": "7eeab7c5-d750-5cbd-ae29-35f66b5c5489",
+      "center_x": 1376.1,
+      "center_y": 82.1,
       "radius": 10.0,
       "object_type": "SHRUB",
       "name": "Lino",
@@ -4591,9 +4638,9 @@
     },
     {
       "type": "circle",
-      "item_id": "37c3c54a-56a7-5ebc-8ffb-3e0d700b52b6",
-      "center_x": 1489.6,
-      "center_y": 176.7,
+      "item_id": "407dd03b-fd05-5718-8187-01fc501a271f",
+      "center_x": 1189.2,
+      "center_y": 167.7,
       "radius": 10.0,
       "object_type": "SHRUB",
       "name": "Lino",
@@ -4657,9 +4704,9 @@
     },
     {
       "type": "circle",
-      "item_id": "944a8033-da17-5c70-9b7e-c106259a36ab",
-      "center_x": 1417.9,
-      "center_y": 204.9,
+      "item_id": "45910295-2706-51f1-b7ef-fc60deb4c978",
+      "center_x": 1419.4,
+      "center_y": 74.9,
       "radius": 10.0,
       "object_type": "SHRUB",
       "name": "Lino",
@@ -4723,9 +4770,9 @@
     },
     {
       "type": "circle",
-      "item_id": "ef834dc6-b91c-5781-8219-be255a100d3f",
-      "center_x": 1217.6,
-      "center_y": 87.7,
+      "item_id": "51331fea-978d-5120-b2c3-e8b2b863e2eb",
+      "center_x": 1444.2,
+      "center_y": 69.0,
       "radius": 10.0,
       "object_type": "SHRUB",
       "name": "Lino",
@@ -4789,9 +4836,9 @@
     },
     {
       "type": "circle",
-      "item_id": "db0c38af-d929-5cc4-9178-9c1a6aaa8bea",
-      "center_x": 1089.5,
-      "center_y": 217.8,
+      "item_id": "581aca61-148a-5163-8d82-5d05fde73035",
+      "center_x": 1403.0,
+      "center_y": 125.0,
       "radius": 10.0,
       "object_type": "SHRUB",
       "name": "Lino",
@@ -4855,9 +4902,9 @@
     },
     {
       "type": "circle",
-      "item_id": "17bcc634-93e5-560e-9c58-0468a15288e9",
-      "center_x": 1091.6,
-      "center_y": 131.5,
+      "item_id": "67ca3e78-6e2e-5af4-8c9b-b7cbe2cac37b",
+      "center_x": 1133.3,
+      "center_y": 213.0,
       "radius": 10.0,
       "object_type": "SHRUB",
       "name": "Lino",
@@ -4921,54 +4968,737 @@
     },
     {
       "type": "circle",
-      "item_id": "d920584c-d08e-5733-a226-b61b316b71e4",
-      "center_x": 1392.0,
-      "center_y": 92.8,
-      "radius": 10.0,
-      "object_type": "SHRUB",
-      "name": "Lino",
+      "item_id": "aea6079e-eb77-5e56-b38e-f2c9f21088e3",
+      "center_x": 1487.8,
+      "center_y": 107.9,
+      "radius": 30.0,
+      "object_type": "PERENNIAL",
+      "name": "Manzanilla",
       "metadata": {
         "plant_species": {
-          "scientific_name": "Linum usitatissimum",
-          "common_name": "Lino",
-          "family": "Linaceae",
-          "genus": "Linum",
+          "scientific_name": "Chamaemelum nobile",
+          "common_name": "Manzanilla",
+          "family": "Asteraceae",
+          "genus": "Chamaemelum",
+          "cycle": "perennial",
+          "growth_rate": "medium",
+          "flower_type": "hermaphrodite",
+          "pollination_type": "self_fertile",
+          "min_height_cm": 15.0,
+          "max_height_cm": 30.0,
+          "min_spread_cm": 30.0,
+          "max_spread_cm": 60.0,
+          "sun_requirement": "full_sun",
+          "water_needs": "medium",
+          "hardiness_zone_min": 4,
+          "hardiness_zone_max": 9,
+          "ph_min": 6.0,
+          "ph_max": 7.5,
+          "edible": true,
+          "edible_parts": [
+            "flowers"
+          ],
+          "data_source": "bundled",
+          "frost_tolerance": "hardy",
+          "frost_hardy_bloom": true,
+          "direct_sow_start": -4,
+          "direct_sow_end": 4,
+          "harvest_start": 8,
+          "harvest_end": 16,
+          "days_to_germination_min": 5,
+          "days_to_germination_max": 10,
+          "days_to_maturity_min": 60,
+          "days_to_maturity_max": 90,
+          "min_germination_temp_c": 10.0,
+          "seed_depth_cm": 0.2,
+          "nutrient_demand": "light",
+          "n_demand": "low",
+          "p_demand": "low",
+          "k_demand": "low",
+          "permaculture_layer": "ground_cover",
+          "functions": []
+        },
+        "plant_instance": {
+          "planting_date": "2024-04-20"
+        }
+      },
+      "layer_id": "55f59d67-d2d8-5e12-ae18-6945334e08cb",
+      "label_visible": false,
+      "fill_color": "#ff9acd32",
+      "stroke_color": "#ff000000",
+      "stroke_width": 1.0,
+      "fill_pattern": "SOLID",
+      "stroke_style": "SOLID",
+      "plant_category": "FLOWERING_PERENNIAL",
+      "plant_species": "Chamomile",
+      "spacing_radius_cm": 26.0,
+      "stack_order": 90112
+    },
+    {
+      "type": "circle",
+      "item_id": "14ae2701-ad2f-50b2-9159-ff5fb0aee6c5",
+      "center_x": 1050.1,
+      "center_y": 66.4,
+      "radius": 30.0,
+      "object_type": "PERENNIAL",
+      "name": "Manzanilla",
+      "metadata": {
+        "plant_species": {
+          "scientific_name": "Chamaemelum nobile",
+          "common_name": "Manzanilla",
+          "family": "Asteraceae",
+          "genus": "Chamaemelum",
+          "cycle": "perennial",
+          "growth_rate": "medium",
+          "flower_type": "hermaphrodite",
+          "pollination_type": "self_fertile",
+          "min_height_cm": 15.0,
+          "max_height_cm": 30.0,
+          "min_spread_cm": 30.0,
+          "max_spread_cm": 60.0,
+          "sun_requirement": "full_sun",
+          "water_needs": "medium",
+          "hardiness_zone_min": 4,
+          "hardiness_zone_max": 9,
+          "ph_min": 6.0,
+          "ph_max": 7.5,
+          "edible": true,
+          "edible_parts": [
+            "flowers"
+          ],
+          "data_source": "bundled",
+          "frost_tolerance": "hardy",
+          "frost_hardy_bloom": true,
+          "direct_sow_start": -4,
+          "direct_sow_end": 4,
+          "harvest_start": 8,
+          "harvest_end": 16,
+          "days_to_germination_min": 5,
+          "days_to_germination_max": 10,
+          "days_to_maturity_min": 60,
+          "days_to_maturity_max": 90,
+          "min_germination_temp_c": 10.0,
+          "seed_depth_cm": 0.2,
+          "nutrient_demand": "light",
+          "n_demand": "low",
+          "p_demand": "low",
+          "k_demand": "low",
+          "permaculture_layer": "ground_cover",
+          "functions": []
+        },
+        "plant_instance": {
+          "planting_date": "2024-04-20"
+        }
+      },
+      "layer_id": "55f59d67-d2d8-5e12-ae18-6945334e08cb",
+      "label_visible": false,
+      "fill_color": "#ff9acd32",
+      "stroke_color": "#ff000000",
+      "stroke_width": 1.0,
+      "fill_pattern": "SOLID",
+      "stroke_style": "SOLID",
+      "plant_category": "FLOWERING_PERENNIAL",
+      "plant_species": "Chamomile",
+      "spacing_radius_cm": 26.0,
+      "stack_order": 91136
+    },
+    {
+      "type": "circle",
+      "item_id": "0440c974-2b53-572d-b472-024e0f9bfcc5",
+      "center_x": 1422.8,
+      "center_y": 182.6,
+      "radius": 30.0,
+      "object_type": "PERENNIAL",
+      "name": "Manzanilla",
+      "metadata": {
+        "plant_species": {
+          "scientific_name": "Chamaemelum nobile",
+          "common_name": "Manzanilla",
+          "family": "Asteraceae",
+          "genus": "Chamaemelum",
+          "cycle": "perennial",
+          "growth_rate": "medium",
+          "flower_type": "hermaphrodite",
+          "pollination_type": "self_fertile",
+          "min_height_cm": 15.0,
+          "max_height_cm": 30.0,
+          "min_spread_cm": 30.0,
+          "max_spread_cm": 60.0,
+          "sun_requirement": "full_sun",
+          "water_needs": "medium",
+          "hardiness_zone_min": 4,
+          "hardiness_zone_max": 9,
+          "ph_min": 6.0,
+          "ph_max": 7.5,
+          "edible": true,
+          "edible_parts": [
+            "flowers"
+          ],
+          "data_source": "bundled",
+          "frost_tolerance": "hardy",
+          "frost_hardy_bloom": true,
+          "direct_sow_start": -4,
+          "direct_sow_end": 4,
+          "harvest_start": 8,
+          "harvest_end": 16,
+          "days_to_germination_min": 5,
+          "days_to_germination_max": 10,
+          "days_to_maturity_min": 60,
+          "days_to_maturity_max": 90,
+          "min_germination_temp_c": 10.0,
+          "seed_depth_cm": 0.2,
+          "nutrient_demand": "light",
+          "n_demand": "low",
+          "p_demand": "low",
+          "k_demand": "low",
+          "permaculture_layer": "ground_cover",
+          "functions": []
+        },
+        "plant_instance": {
+          "planting_date": "2024-04-20"
+        }
+      },
+      "layer_id": "55f59d67-d2d8-5e12-ae18-6945334e08cb",
+      "label_visible": false,
+      "fill_color": "#ff9acd32",
+      "stroke_color": "#ff000000",
+      "stroke_width": 1.0,
+      "fill_pattern": "SOLID",
+      "stroke_style": "SOLID",
+      "plant_category": "FLOWERING_PERENNIAL",
+      "plant_species": "Chamomile",
+      "spacing_radius_cm": 26.0,
+      "stack_order": 92160
+    },
+    {
+      "type": "circle",
+      "item_id": "e5b96d10-dcd3-5a0f-8101-72323a3c4129",
+      "center_x": 1488.0,
+      "center_y": 217.2,
+      "radius": 30.0,
+      "object_type": "PERENNIAL",
+      "name": "Manzanilla",
+      "metadata": {
+        "plant_species": {
+          "scientific_name": "Chamaemelum nobile",
+          "common_name": "Manzanilla",
+          "family": "Asteraceae",
+          "genus": "Chamaemelum",
+          "cycle": "perennial",
+          "growth_rate": "medium",
+          "flower_type": "hermaphrodite",
+          "pollination_type": "self_fertile",
+          "min_height_cm": 15.0,
+          "max_height_cm": 30.0,
+          "min_spread_cm": 30.0,
+          "max_spread_cm": 60.0,
+          "sun_requirement": "full_sun",
+          "water_needs": "medium",
+          "hardiness_zone_min": 4,
+          "hardiness_zone_max": 9,
+          "ph_min": 6.0,
+          "ph_max": 7.5,
+          "edible": true,
+          "edible_parts": [
+            "flowers"
+          ],
+          "data_source": "bundled",
+          "frost_tolerance": "hardy",
+          "frost_hardy_bloom": true,
+          "direct_sow_start": -4,
+          "direct_sow_end": 4,
+          "harvest_start": 8,
+          "harvest_end": 16,
+          "days_to_germination_min": 5,
+          "days_to_germination_max": 10,
+          "days_to_maturity_min": 60,
+          "days_to_maturity_max": 90,
+          "min_germination_temp_c": 10.0,
+          "seed_depth_cm": 0.2,
+          "nutrient_demand": "light",
+          "n_demand": "low",
+          "p_demand": "low",
+          "k_demand": "low",
+          "permaculture_layer": "ground_cover",
+          "functions": []
+        },
+        "plant_instance": {
+          "planting_date": "2024-04-20"
+        }
+      },
+      "layer_id": "55f59d67-d2d8-5e12-ae18-6945334e08cb",
+      "label_visible": false,
+      "fill_color": "#ff9acd32",
+      "stroke_color": "#ff000000",
+      "stroke_width": 1.0,
+      "fill_pattern": "SOLID",
+      "stroke_style": "SOLID",
+      "plant_category": "FLOWERING_PERENNIAL",
+      "plant_species": "Chamomile",
+      "spacing_radius_cm": 26.0,
+      "stack_order": 93184
+    },
+    {
+      "type": "circle",
+      "item_id": "083a0e41-d26d-54ee-98f2-8e11e6a45398",
+      "center_x": 1248.1,
+      "center_y": 163.0,
+      "radius": 30.0,
+      "object_type": "PERENNIAL",
+      "name": "Manzanilla",
+      "metadata": {
+        "plant_species": {
+          "scientific_name": "Chamaemelum nobile",
+          "common_name": "Manzanilla",
+          "family": "Asteraceae",
+          "genus": "Chamaemelum",
+          "cycle": "perennial",
+          "growth_rate": "medium",
+          "flower_type": "hermaphrodite",
+          "pollination_type": "self_fertile",
+          "min_height_cm": 15.0,
+          "max_height_cm": 30.0,
+          "min_spread_cm": 30.0,
+          "max_spread_cm": 60.0,
+          "sun_requirement": "full_sun",
+          "water_needs": "medium",
+          "hardiness_zone_min": 4,
+          "hardiness_zone_max": 9,
+          "ph_min": 6.0,
+          "ph_max": 7.5,
+          "edible": true,
+          "edible_parts": [
+            "flowers"
+          ],
+          "data_source": "bundled",
+          "frost_tolerance": "hardy",
+          "frost_hardy_bloom": true,
+          "direct_sow_start": -4,
+          "direct_sow_end": 4,
+          "harvest_start": 8,
+          "harvest_end": 16,
+          "days_to_germination_min": 5,
+          "days_to_germination_max": 10,
+          "days_to_maturity_min": 60,
+          "days_to_maturity_max": 90,
+          "min_germination_temp_c": 10.0,
+          "seed_depth_cm": 0.2,
+          "nutrient_demand": "light",
+          "n_demand": "low",
+          "p_demand": "low",
+          "k_demand": "low",
+          "permaculture_layer": "ground_cover",
+          "functions": []
+        },
+        "plant_instance": {
+          "planting_date": "2024-04-20"
+        }
+      },
+      "layer_id": "55f59d67-d2d8-5e12-ae18-6945334e08cb",
+      "label_visible": false,
+      "fill_color": "#ff9acd32",
+      "stroke_color": "#ff000000",
+      "stroke_width": 1.0,
+      "fill_pattern": "SOLID",
+      "stroke_style": "SOLID",
+      "plant_category": "FLOWERING_PERENNIAL",
+      "plant_species": "Chamomile",
+      "spacing_radius_cm": 26.0,
+      "stack_order": 94208
+    },
+    {
+      "type": "circle",
+      "item_id": "633f17a0-5106-5e68-999d-8099536f2141",
+      "center_x": 1013.7,
+      "center_y": 182.1,
+      "radius": 30.0,
+      "object_type": "PERENNIAL",
+      "name": "Manzanilla",
+      "metadata": {
+        "plant_species": {
+          "scientific_name": "Chamaemelum nobile",
+          "common_name": "Manzanilla",
+          "family": "Asteraceae",
+          "genus": "Chamaemelum",
+          "cycle": "perennial",
+          "growth_rate": "medium",
+          "flower_type": "hermaphrodite",
+          "pollination_type": "self_fertile",
+          "min_height_cm": 15.0,
+          "max_height_cm": 30.0,
+          "min_spread_cm": 30.0,
+          "max_spread_cm": 60.0,
+          "sun_requirement": "full_sun",
+          "water_needs": "medium",
+          "hardiness_zone_min": 4,
+          "hardiness_zone_max": 9,
+          "ph_min": 6.0,
+          "ph_max": 7.5,
+          "edible": true,
+          "edible_parts": [
+            "flowers"
+          ],
+          "data_source": "bundled",
+          "frost_tolerance": "hardy",
+          "frost_hardy_bloom": true,
+          "direct_sow_start": -4,
+          "direct_sow_end": 4,
+          "harvest_start": 8,
+          "harvest_end": 16,
+          "days_to_germination_min": 5,
+          "days_to_germination_max": 10,
+          "days_to_maturity_min": 60,
+          "days_to_maturity_max": 90,
+          "min_germination_temp_c": 10.0,
+          "seed_depth_cm": 0.2,
+          "nutrient_demand": "light",
+          "n_demand": "low",
+          "p_demand": "low",
+          "k_demand": "low",
+          "permaculture_layer": "ground_cover",
+          "functions": []
+        },
+        "plant_instance": {
+          "planting_date": "2024-04-20"
+        }
+      },
+      "layer_id": "55f59d67-d2d8-5e12-ae18-6945334e08cb",
+      "label_visible": false,
+      "fill_color": "#ff9acd32",
+      "stroke_color": "#ff000000",
+      "stroke_width": 1.0,
+      "fill_pattern": "SOLID",
+      "stroke_style": "SOLID",
+      "plant_category": "FLOWERING_PERENNIAL",
+      "plant_species": "Chamomile",
+      "spacing_radius_cm": 26.0,
+      "stack_order": 95232
+    },
+    {
+      "type": "circle",
+      "item_id": "e4302fa5-f91a-55f4-b9b2-0563fb0e20fa",
+      "center_x": 1177.5,
+      "center_y": 211.6,
+      "radius": 30.0,
+      "object_type": "PERENNIAL",
+      "name": "Manzanilla",
+      "metadata": {
+        "plant_species": {
+          "scientific_name": "Chamaemelum nobile",
+          "common_name": "Manzanilla",
+          "family": "Asteraceae",
+          "genus": "Chamaemelum",
+          "cycle": "perennial",
+          "growth_rate": "medium",
+          "flower_type": "hermaphrodite",
+          "pollination_type": "self_fertile",
+          "min_height_cm": 15.0,
+          "max_height_cm": 30.0,
+          "min_spread_cm": 30.0,
+          "max_spread_cm": 60.0,
+          "sun_requirement": "full_sun",
+          "water_needs": "medium",
+          "hardiness_zone_min": 4,
+          "hardiness_zone_max": 9,
+          "ph_min": 6.0,
+          "ph_max": 7.5,
+          "edible": true,
+          "edible_parts": [
+            "flowers"
+          ],
+          "data_source": "bundled",
+          "frost_tolerance": "hardy",
+          "frost_hardy_bloom": true,
+          "direct_sow_start": -4,
+          "direct_sow_end": 4,
+          "harvest_start": 8,
+          "harvest_end": 16,
+          "days_to_germination_min": 5,
+          "days_to_germination_max": 10,
+          "days_to_maturity_min": 60,
+          "days_to_maturity_max": 90,
+          "min_germination_temp_c": 10.0,
+          "seed_depth_cm": 0.2,
+          "nutrient_demand": "light",
+          "n_demand": "low",
+          "p_demand": "low",
+          "k_demand": "low",
+          "permaculture_layer": "ground_cover",
+          "functions": []
+        },
+        "plant_instance": {
+          "planting_date": "2024-04-20"
+        }
+      },
+      "layer_id": "55f59d67-d2d8-5e12-ae18-6945334e08cb",
+      "label_visible": false,
+      "fill_color": "#ff9acd32",
+      "stroke_color": "#ff000000",
+      "stroke_width": 1.0,
+      "fill_pattern": "SOLID",
+      "stroke_style": "SOLID",
+      "plant_category": "FLOWERING_PERENNIAL",
+      "plant_species": "Chamomile",
+      "spacing_radius_cm": 26.0,
+      "stack_order": 96256
+    },
+    {
+      "type": "circle",
+      "item_id": "77a7273c-91f1-57e4-9594-0ef1f86162b0",
+      "center_x": 1072.6,
+      "center_y": 216.7,
+      "radius": 30.0,
+      "object_type": "PERENNIAL",
+      "name": "Manzanilla",
+      "metadata": {
+        "plant_species": {
+          "scientific_name": "Chamaemelum nobile",
+          "common_name": "Manzanilla",
+          "family": "Asteraceae",
+          "genus": "Chamaemelum",
+          "cycle": "perennial",
+          "growth_rate": "medium",
+          "flower_type": "hermaphrodite",
+          "pollination_type": "self_fertile",
+          "min_height_cm": 15.0,
+          "max_height_cm": 30.0,
+          "min_spread_cm": 30.0,
+          "max_spread_cm": 60.0,
+          "sun_requirement": "full_sun",
+          "water_needs": "medium",
+          "hardiness_zone_min": 4,
+          "hardiness_zone_max": 9,
+          "ph_min": 6.0,
+          "ph_max": 7.5,
+          "edible": true,
+          "edible_parts": [
+            "flowers"
+          ],
+          "data_source": "bundled",
+          "frost_tolerance": "hardy",
+          "frost_hardy_bloom": true,
+          "direct_sow_start": -4,
+          "direct_sow_end": 4,
+          "harvest_start": 8,
+          "harvest_end": 16,
+          "days_to_germination_min": 5,
+          "days_to_germination_max": 10,
+          "days_to_maturity_min": 60,
+          "days_to_maturity_max": 90,
+          "min_germination_temp_c": 10.0,
+          "seed_depth_cm": 0.2,
+          "nutrient_demand": "light",
+          "n_demand": "low",
+          "p_demand": "low",
+          "k_demand": "low",
+          "permaculture_layer": "ground_cover",
+          "functions": []
+        },
+        "plant_instance": {
+          "planting_date": "2024-04-20"
+        }
+      },
+      "layer_id": "55f59d67-d2d8-5e12-ae18-6945334e08cb",
+      "label_visible": false,
+      "fill_color": "#ff9acd32",
+      "stroke_color": "#ff000000",
+      "stroke_width": 1.0,
+      "fill_pattern": "SOLID",
+      "stroke_style": "SOLID",
+      "plant_category": "FLOWERING_PERENNIAL",
+      "plant_species": "Chamomile",
+      "spacing_radius_cm": 26.0,
+      "stack_order": 97280
+    },
+    {
+      "type": "circle",
+      "item_id": "a2b7da02-2eac-5894-9f67-6221a5a51698",
+      "center_x": 1323.2,
+      "center_y": 68.7,
+      "radius": 30.0,
+      "object_type": "PERENNIAL",
+      "name": "Manzanilla",
+      "metadata": {
+        "plant_species": {
+          "scientific_name": "Chamaemelum nobile",
+          "common_name": "Manzanilla",
+          "family": "Asteraceae",
+          "genus": "Chamaemelum",
+          "cycle": "perennial",
+          "growth_rate": "medium",
+          "flower_type": "hermaphrodite",
+          "pollination_type": "self_fertile",
+          "min_height_cm": 15.0,
+          "max_height_cm": 30.0,
+          "min_spread_cm": 30.0,
+          "max_spread_cm": 60.0,
+          "sun_requirement": "full_sun",
+          "water_needs": "medium",
+          "hardiness_zone_min": 4,
+          "hardiness_zone_max": 9,
+          "ph_min": 6.0,
+          "ph_max": 7.5,
+          "edible": true,
+          "edible_parts": [
+            "flowers"
+          ],
+          "data_source": "bundled",
+          "frost_tolerance": "hardy",
+          "frost_hardy_bloom": true,
+          "direct_sow_start": -4,
+          "direct_sow_end": 4,
+          "harvest_start": 8,
+          "harvest_end": 16,
+          "days_to_germination_min": 5,
+          "days_to_germination_max": 10,
+          "days_to_maturity_min": 60,
+          "days_to_maturity_max": 90,
+          "min_germination_temp_c": 10.0,
+          "seed_depth_cm": 0.2,
+          "nutrient_demand": "light",
+          "n_demand": "low",
+          "p_demand": "low",
+          "k_demand": "low",
+          "permaculture_layer": "ground_cover",
+          "functions": []
+        },
+        "plant_instance": {
+          "planting_date": "2024-04-20"
+        }
+      },
+      "layer_id": "55f59d67-d2d8-5e12-ae18-6945334e08cb",
+      "label_visible": false,
+      "fill_color": "#ff9acd32",
+      "stroke_color": "#ff000000",
+      "stroke_width": 1.0,
+      "fill_pattern": "SOLID",
+      "stroke_style": "SOLID",
+      "plant_category": "FLOWERING_PERENNIAL",
+      "plant_species": "Chamomile",
+      "spacing_radius_cm": 26.0,
+      "stack_order": 98304
+    },
+    {
+      "type": "circle",
+      "item_id": "558432c3-da67-5ed9-816a-b4ede0e7c590",
+      "center_x": 1317.2,
+      "center_y": 146.0,
+      "radius": 30.0,
+      "object_type": "PERENNIAL",
+      "name": "Manzanilla",
+      "metadata": {
+        "plant_species": {
+          "scientific_name": "Chamaemelum nobile",
+          "common_name": "Manzanilla",
+          "family": "Asteraceae",
+          "genus": "Chamaemelum",
+          "cycle": "perennial",
+          "growth_rate": "medium",
+          "flower_type": "hermaphrodite",
+          "pollination_type": "self_fertile",
+          "min_height_cm": 15.0,
+          "max_height_cm": 30.0,
+          "min_spread_cm": 30.0,
+          "max_spread_cm": 60.0,
+          "sun_requirement": "full_sun",
+          "water_needs": "medium",
+          "hardiness_zone_min": 4,
+          "hardiness_zone_max": 9,
+          "ph_min": 6.0,
+          "ph_max": 7.5,
+          "edible": true,
+          "edible_parts": [
+            "flowers"
+          ],
+          "data_source": "bundled",
+          "frost_tolerance": "hardy",
+          "frost_hardy_bloom": true,
+          "direct_sow_start": -4,
+          "direct_sow_end": 4,
+          "harvest_start": 8,
+          "harvest_end": 16,
+          "days_to_germination_min": 5,
+          "days_to_germination_max": 10,
+          "days_to_maturity_min": 60,
+          "days_to_maturity_max": 90,
+          "min_germination_temp_c": 10.0,
+          "seed_depth_cm": 0.2,
+          "nutrient_demand": "light",
+          "n_demand": "low",
+          "p_demand": "low",
+          "k_demand": "low",
+          "permaculture_layer": "ground_cover",
+          "functions": []
+        },
+        "plant_instance": {
+          "planting_date": "2024-04-20"
+        }
+      },
+      "layer_id": "55f59d67-d2d8-5e12-ae18-6945334e08cb",
+      "label_visible": false,
+      "fill_color": "#ff9acd32",
+      "stroke_color": "#ff000000",
+      "stroke_width": 1.0,
+      "fill_pattern": "SOLID",
+      "stroke_style": "SOLID",
+      "plant_category": "FLOWERING_PERENNIAL",
+      "plant_species": "Chamomile",
+      "spacing_radius_cm": 26.0,
+      "stack_order": 99328
+    },
+    {
+      "type": "circle",
+      "item_id": "8749f827-128e-5570-8bf6-3b6a011fdd2c",
+      "center_x": 384.6,
+      "center_y": 554.2,
+      "radius": 30.0,
+      "object_type": "PERENNIAL",
+      "name": "Borraja",
+      "metadata": {
+        "plant_species": {
+          "scientific_name": "Borago officinalis",
+          "common_name": "Borraja",
+          "family": "Boraginaceae",
+          "genus": "Borago",
           "cycle": "annual",
           "growth_rate": "fast",
           "flower_type": "hermaphrodite",
           "pollination_type": "self_fertile",
-          "min_height_cm": 60.0,
-          "max_height_cm": 120.0,
-          "min_spread_cm": 10.0,
-          "max_spread_cm": 20.0,
+          "min_height_cm": 45.0,
+          "max_height_cm": 90.0,
+          "min_spread_cm": 30.0,
+          "max_spread_cm": 60.0,
           "sun_requirement": "full_sun",
-          "water_needs": "low",
-          "hardiness_zone_min": 4,
-          "hardiness_zone_max": 9,
+          "water_needs": "medium",
+          "hardiness_zone_min": 2,
+          "hardiness_zone_max": 11,
           "ph_min": 6.0,
           "ph_max": 7.0,
           "edible": true,
           "edible_parts": [
-            "seeds"
+            "leaves",
+            "flowers"
           ],
           "data_source": "bundled",
           "frost_tolerance": "half-hardy",
-          "direct_sow_start": -4,
-          "direct_sow_end": 2,
-          "harvest_start": 10,
+          "direct_sow_start": -2,
+          "direct_sow_end": 6,
+          "harvest_start": 6,
           "harvest_end": 14,
           "days_to_germination_min": 5,
-          "days_to_germination_max": 10,
-          "days_to_maturity_min": 75,
-          "days_to_maturity_max": 90,
-          "min_germination_temp_c": 7.0,
-          "seed_depth_cm": 0.5,
+          "days_to_germination_max": 14,
+          "days_to_maturity_min": 50,
+          "days_to_maturity_max": 70,
+          "min_germination_temp_c": 10.0,
+          "seed_depth_cm": 1.0,
           "nutrient_demand": "light",
           "n_demand": "low",
           "p_demand": "low",
           "k_demand": "low",
           "permaculture_layer": "herbaceous",
-          "functions": []
+          "functions": [
+            "pollinator_attractor"
+          ]
         },
         "plant_instance": {
           "planting_date": "2026-04-12"
@@ -4976,690 +5706,21 @@
       },
       "layer_id": "55f59d67-d2d8-5e12-ae18-6945334e08cb",
       "label_visible": false,
-      "fill_color": "#ff6b8e23",
-      "stroke_color": "#ff000000",
-      "stroke_width": 1.0,
-      "fill_pattern": "SOLID",
-      "stroke_style": "SOLID",
-      "plant_category": "SPREADING_SHRUB",
-      "plant_species": "Flax",
-      "stack_order": 90112
-    },
-    {
-      "type": "circle",
-      "item_id": "8884e1be-2e38-5a27-ae8c-98bd0d6fbbc3",
-      "center_x": 1358.2,
-      "center_y": 167.6,
-      "radius": 30.0,
-      "object_type": "PERENNIAL",
-      "name": "Manzanilla",
-      "metadata": {
-        "plant_species": {
-          "scientific_name": "Chamaemelum nobile",
-          "common_name": "Manzanilla",
-          "family": "Asteraceae",
-          "genus": "Chamaemelum",
-          "cycle": "perennial",
-          "growth_rate": "medium",
-          "flower_type": "hermaphrodite",
-          "pollination_type": "self_fertile",
-          "min_height_cm": 15.0,
-          "max_height_cm": 30.0,
-          "min_spread_cm": 30.0,
-          "max_spread_cm": 60.0,
-          "sun_requirement": "full_sun",
-          "water_needs": "medium",
-          "hardiness_zone_min": 4,
-          "hardiness_zone_max": 9,
-          "ph_min": 6.0,
-          "ph_max": 7.5,
-          "edible": true,
-          "edible_parts": [
-            "flowers"
-          ],
-          "data_source": "bundled",
-          "frost_tolerance": "hardy",
-          "frost_hardy_bloom": true,
-          "direct_sow_start": -4,
-          "direct_sow_end": 4,
-          "harvest_start": 8,
-          "harvest_end": 16,
-          "days_to_germination_min": 5,
-          "days_to_germination_max": 10,
-          "days_to_maturity_min": 60,
-          "days_to_maturity_max": 90,
-          "min_germination_temp_c": 10.0,
-          "seed_depth_cm": 0.2,
-          "nutrient_demand": "light",
-          "n_demand": "low",
-          "p_demand": "low",
-          "k_demand": "low",
-          "permaculture_layer": "ground_cover",
-          "functions": []
-        },
-        "plant_instance": {
-          "planting_date": "2024-04-20"
-        }
-      },
-      "layer_id": "55f59d67-d2d8-5e12-ae18-6945334e08cb",
-      "label_visible": false,
       "fill_color": "#ff9acd32",
       "stroke_color": "#ff000000",
       "stroke_width": 1.0,
       "fill_pattern": "SOLID",
       "stroke_style": "SOLID",
       "plant_category": "FLOWERING_PERENNIAL",
-      "plant_species": "Chamomile",
-      "stack_order": 91136
-    },
-    {
-      "type": "circle",
-      "item_id": "39499cd9-0093-5c00-af46-e40f86d006d5",
-      "center_x": 1517.6,
-      "center_y": 142.6,
-      "radius": 30.0,
-      "object_type": "PERENNIAL",
-      "name": "Manzanilla",
-      "metadata": {
-        "plant_species": {
-          "scientific_name": "Chamaemelum nobile",
-          "common_name": "Manzanilla",
-          "family": "Asteraceae",
-          "genus": "Chamaemelum",
-          "cycle": "perennial",
-          "growth_rate": "medium",
-          "flower_type": "hermaphrodite",
-          "pollination_type": "self_fertile",
-          "min_height_cm": 15.0,
-          "max_height_cm": 30.0,
-          "min_spread_cm": 30.0,
-          "max_spread_cm": 60.0,
-          "sun_requirement": "full_sun",
-          "water_needs": "medium",
-          "hardiness_zone_min": 4,
-          "hardiness_zone_max": 9,
-          "ph_min": 6.0,
-          "ph_max": 7.5,
-          "edible": true,
-          "edible_parts": [
-            "flowers"
-          ],
-          "data_source": "bundled",
-          "frost_tolerance": "hardy",
-          "frost_hardy_bloom": true,
-          "direct_sow_start": -4,
-          "direct_sow_end": 4,
-          "harvest_start": 8,
-          "harvest_end": 16,
-          "days_to_germination_min": 5,
-          "days_to_germination_max": 10,
-          "days_to_maturity_min": 60,
-          "days_to_maturity_max": 90,
-          "min_germination_temp_c": 10.0,
-          "seed_depth_cm": 0.2,
-          "nutrient_demand": "light",
-          "n_demand": "low",
-          "p_demand": "low",
-          "k_demand": "low",
-          "permaculture_layer": "ground_cover",
-          "functions": []
-        },
-        "plant_instance": {
-          "planting_date": "2024-04-20"
-        }
-      },
-      "layer_id": "55f59d67-d2d8-5e12-ae18-6945334e08cb",
-      "label_visible": false,
-      "fill_color": "#ff9acd32",
-      "stroke_color": "#ff000000",
-      "stroke_width": 1.0,
-      "fill_pattern": "SOLID",
-      "stroke_style": "SOLID",
-      "plant_category": "FLOWERING_PERENNIAL",
-      "plant_species": "Chamomile",
-      "stack_order": 92160
-    },
-    {
-      "type": "circle",
-      "item_id": "617b7011-7791-506e-acfd-284f5215774c",
-      "center_x": 1009.3,
-      "center_y": 142.1,
-      "radius": 30.0,
-      "object_type": "PERENNIAL",
-      "name": "Manzanilla",
-      "metadata": {
-        "plant_species": {
-          "scientific_name": "Chamaemelum nobile",
-          "common_name": "Manzanilla",
-          "family": "Asteraceae",
-          "genus": "Chamaemelum",
-          "cycle": "perennial",
-          "growth_rate": "medium",
-          "flower_type": "hermaphrodite",
-          "pollination_type": "self_fertile",
-          "min_height_cm": 15.0,
-          "max_height_cm": 30.0,
-          "min_spread_cm": 30.0,
-          "max_spread_cm": 60.0,
-          "sun_requirement": "full_sun",
-          "water_needs": "medium",
-          "hardiness_zone_min": 4,
-          "hardiness_zone_max": 9,
-          "ph_min": 6.0,
-          "ph_max": 7.5,
-          "edible": true,
-          "edible_parts": [
-            "flowers"
-          ],
-          "data_source": "bundled",
-          "frost_tolerance": "hardy",
-          "frost_hardy_bloom": true,
-          "direct_sow_start": -4,
-          "direct_sow_end": 4,
-          "harvest_start": 8,
-          "harvest_end": 16,
-          "days_to_germination_min": 5,
-          "days_to_germination_max": 10,
-          "days_to_maturity_min": 60,
-          "days_to_maturity_max": 90,
-          "min_germination_temp_c": 10.0,
-          "seed_depth_cm": 0.2,
-          "nutrient_demand": "light",
-          "n_demand": "low",
-          "p_demand": "low",
-          "k_demand": "low",
-          "permaculture_layer": "ground_cover",
-          "functions": []
-        },
-        "plant_instance": {
-          "planting_date": "2024-04-20"
-        }
-      },
-      "layer_id": "55f59d67-d2d8-5e12-ae18-6945334e08cb",
-      "label_visible": false,
-      "fill_color": "#ff9acd32",
-      "stroke_color": "#ff000000",
-      "stroke_width": 1.0,
-      "fill_pattern": "SOLID",
-      "stroke_style": "SOLID",
-      "plant_category": "FLOWERING_PERENNIAL",
-      "plant_species": "Chamomile",
-      "stack_order": 93184
-    },
-    {
-      "type": "circle",
-      "item_id": "a8dcee2a-ad24-52a3-aa50-291525a25e17",
-      "center_x": 1448.7,
-      "center_y": 116.8,
-      "radius": 30.0,
-      "object_type": "PERENNIAL",
-      "name": "Manzanilla",
-      "metadata": {
-        "plant_species": {
-          "scientific_name": "Chamaemelum nobile",
-          "common_name": "Manzanilla",
-          "family": "Asteraceae",
-          "genus": "Chamaemelum",
-          "cycle": "perennial",
-          "growth_rate": "medium",
-          "flower_type": "hermaphrodite",
-          "pollination_type": "self_fertile",
-          "min_height_cm": 15.0,
-          "max_height_cm": 30.0,
-          "min_spread_cm": 30.0,
-          "max_spread_cm": 60.0,
-          "sun_requirement": "full_sun",
-          "water_needs": "medium",
-          "hardiness_zone_min": 4,
-          "hardiness_zone_max": 9,
-          "ph_min": 6.0,
-          "ph_max": 7.5,
-          "edible": true,
-          "edible_parts": [
-            "flowers"
-          ],
-          "data_source": "bundled",
-          "frost_tolerance": "hardy",
-          "frost_hardy_bloom": true,
-          "direct_sow_start": -4,
-          "direct_sow_end": 4,
-          "harvest_start": 8,
-          "harvest_end": 16,
-          "days_to_germination_min": 5,
-          "days_to_germination_max": 10,
-          "days_to_maturity_min": 60,
-          "days_to_maturity_max": 90,
-          "min_germination_temp_c": 10.0,
-          "seed_depth_cm": 0.2,
-          "nutrient_demand": "light",
-          "n_demand": "low",
-          "p_demand": "low",
-          "k_demand": "low",
-          "permaculture_layer": "ground_cover",
-          "functions": []
-        },
-        "plant_instance": {
-          "planting_date": "2024-04-20"
-        }
-      },
-      "layer_id": "55f59d67-d2d8-5e12-ae18-6945334e08cb",
-      "label_visible": false,
-      "fill_color": "#ff9acd32",
-      "stroke_color": "#ff000000",
-      "stroke_width": 1.0,
-      "fill_pattern": "SOLID",
-      "stroke_style": "SOLID",
-      "plant_category": "FLOWERING_PERENNIAL",
-      "plant_species": "Chamomile",
-      "stack_order": 94208
-    },
-    {
-      "type": "circle",
-      "item_id": "67ae4404-4ab4-5df9-a4f3-0c64e652e6c1",
-      "center_x": 1448.6,
-      "center_y": 263.0,
-      "radius": 30.0,
-      "object_type": "PERENNIAL",
-      "name": "Manzanilla",
-      "metadata": {
-        "plant_species": {
-          "scientific_name": "Chamaemelum nobile",
-          "common_name": "Manzanilla",
-          "family": "Asteraceae",
-          "genus": "Chamaemelum",
-          "cycle": "perennial",
-          "growth_rate": "medium",
-          "flower_type": "hermaphrodite",
-          "pollination_type": "self_fertile",
-          "min_height_cm": 15.0,
-          "max_height_cm": 30.0,
-          "min_spread_cm": 30.0,
-          "max_spread_cm": 60.0,
-          "sun_requirement": "full_sun",
-          "water_needs": "medium",
-          "hardiness_zone_min": 4,
-          "hardiness_zone_max": 9,
-          "ph_min": 6.0,
-          "ph_max": 7.5,
-          "edible": true,
-          "edible_parts": [
-            "flowers"
-          ],
-          "data_source": "bundled",
-          "frost_tolerance": "hardy",
-          "frost_hardy_bloom": true,
-          "direct_sow_start": -4,
-          "direct_sow_end": 4,
-          "harvest_start": 8,
-          "harvest_end": 16,
-          "days_to_germination_min": 5,
-          "days_to_germination_max": 10,
-          "days_to_maturity_min": 60,
-          "days_to_maturity_max": 90,
-          "min_germination_temp_c": 10.0,
-          "seed_depth_cm": 0.2,
-          "nutrient_demand": "light",
-          "n_demand": "low",
-          "p_demand": "low",
-          "k_demand": "low",
-          "permaculture_layer": "ground_cover",
-          "functions": []
-        },
-        "plant_instance": {
-          "planting_date": "2024-04-20"
-        }
-      },
-      "layer_id": "55f59d67-d2d8-5e12-ae18-6945334e08cb",
-      "label_visible": false,
-      "fill_color": "#ff9acd32",
-      "stroke_color": "#ff000000",
-      "stroke_width": 1.0,
-      "fill_pattern": "SOLID",
-      "stroke_style": "SOLID",
-      "plant_category": "FLOWERING_PERENNIAL",
-      "plant_species": "Chamomile",
-      "stack_order": 95232
-    },
-    {
-      "type": "circle",
-      "item_id": "7c986420-f399-517e-bf5c-f3dfcccd040d",
-      "center_x": 1517.8,
-      "center_y": 276.5,
-      "radius": 30.0,
-      "object_type": "PERENNIAL",
-      "name": "Manzanilla",
-      "metadata": {
-        "plant_species": {
-          "scientific_name": "Chamaemelum nobile",
-          "common_name": "Manzanilla",
-          "family": "Asteraceae",
-          "genus": "Chamaemelum",
-          "cycle": "perennial",
-          "growth_rate": "medium",
-          "flower_type": "hermaphrodite",
-          "pollination_type": "self_fertile",
-          "min_height_cm": 15.0,
-          "max_height_cm": 30.0,
-          "min_spread_cm": 30.0,
-          "max_spread_cm": 60.0,
-          "sun_requirement": "full_sun",
-          "water_needs": "medium",
-          "hardiness_zone_min": 4,
-          "hardiness_zone_max": 9,
-          "ph_min": 6.0,
-          "ph_max": 7.5,
-          "edible": true,
-          "edible_parts": [
-            "flowers"
-          ],
-          "data_source": "bundled",
-          "frost_tolerance": "hardy",
-          "frost_hardy_bloom": true,
-          "direct_sow_start": -4,
-          "direct_sow_end": 4,
-          "harvest_start": 8,
-          "harvest_end": 16,
-          "days_to_germination_min": 5,
-          "days_to_germination_max": 10,
-          "days_to_maturity_min": 60,
-          "days_to_maturity_max": 90,
-          "min_germination_temp_c": 10.0,
-          "seed_depth_cm": 0.2,
-          "nutrient_demand": "light",
-          "n_demand": "low",
-          "p_demand": "low",
-          "k_demand": "low",
-          "permaculture_layer": "ground_cover",
-          "functions": []
-        },
-        "plant_instance": {
-          "planting_date": "2024-04-20"
-        }
-      },
-      "layer_id": "55f59d67-d2d8-5e12-ae18-6945334e08cb",
-      "label_visible": false,
-      "fill_color": "#ff9acd32",
-      "stroke_color": "#ff000000",
-      "stroke_width": 1.0,
-      "fill_pattern": "SOLID",
-      "stroke_style": "SOLID",
-      "plant_category": "FLOWERING_PERENNIAL",
-      "plant_species": "Chamomile",
-      "stack_order": 96256
-    },
-    {
-      "type": "circle",
-      "item_id": "d5527f8e-0e76-5769-934e-a8754ddd0918",
-      "center_x": 1258.0,
-      "center_y": 210.1,
-      "radius": 30.0,
-      "object_type": "PERENNIAL",
-      "name": "Manzanilla",
-      "metadata": {
-        "plant_species": {
-          "scientific_name": "Chamaemelum nobile",
-          "common_name": "Manzanilla",
-          "family": "Asteraceae",
-          "genus": "Chamaemelum",
-          "cycle": "perennial",
-          "growth_rate": "medium",
-          "flower_type": "hermaphrodite",
-          "pollination_type": "self_fertile",
-          "min_height_cm": 15.0,
-          "max_height_cm": 30.0,
-          "min_spread_cm": 30.0,
-          "max_spread_cm": 60.0,
-          "sun_requirement": "full_sun",
-          "water_needs": "medium",
-          "hardiness_zone_min": 4,
-          "hardiness_zone_max": 9,
-          "ph_min": 6.0,
-          "ph_max": 7.5,
-          "edible": true,
-          "edible_parts": [
-            "flowers"
-          ],
-          "data_source": "bundled",
-          "frost_tolerance": "hardy",
-          "frost_hardy_bloom": true,
-          "direct_sow_start": -4,
-          "direct_sow_end": 4,
-          "harvest_start": 8,
-          "harvest_end": 16,
-          "days_to_germination_min": 5,
-          "days_to_germination_max": 10,
-          "days_to_maturity_min": 60,
-          "days_to_maturity_max": 90,
-          "min_germination_temp_c": 10.0,
-          "seed_depth_cm": 0.2,
-          "nutrient_demand": "light",
-          "n_demand": "low",
-          "p_demand": "low",
-          "k_demand": "low",
-          "permaculture_layer": "ground_cover",
-          "functions": []
-        },
-        "plant_instance": {
-          "planting_date": "2024-04-20"
-        }
-      },
-      "layer_id": "55f59d67-d2d8-5e12-ae18-6945334e08cb",
-      "label_visible": false,
-      "fill_color": "#ff9acd32",
-      "stroke_color": "#ff000000",
-      "stroke_width": 1.0,
-      "fill_pattern": "SOLID",
-      "stroke_style": "SOLID",
-      "plant_category": "FLOWERING_PERENNIAL",
-      "plant_species": "Chamomile",
-      "stack_order": 97280
-    },
-    {
-      "type": "circle",
-      "item_id": "b6864830-fc7b-5488-b75e-3f0002261307",
-      "center_x": 1165.8,
-      "center_y": 272.4,
-      "radius": 30.0,
-      "object_type": "PERENNIAL",
-      "name": "Manzanilla",
-      "metadata": {
-        "plant_species": {
-          "scientific_name": "Chamaemelum nobile",
-          "common_name": "Manzanilla",
-          "family": "Asteraceae",
-          "genus": "Chamaemelum",
-          "cycle": "perennial",
-          "growth_rate": "medium",
-          "flower_type": "hermaphrodite",
-          "pollination_type": "self_fertile",
-          "min_height_cm": 15.0,
-          "max_height_cm": 30.0,
-          "min_spread_cm": 30.0,
-          "max_spread_cm": 60.0,
-          "sun_requirement": "full_sun",
-          "water_needs": "medium",
-          "hardiness_zone_min": 4,
-          "hardiness_zone_max": 9,
-          "ph_min": 6.0,
-          "ph_max": 7.5,
-          "edible": true,
-          "edible_parts": [
-            "flowers"
-          ],
-          "data_source": "bundled",
-          "frost_tolerance": "hardy",
-          "frost_hardy_bloom": true,
-          "direct_sow_start": -4,
-          "direct_sow_end": 4,
-          "harvest_start": 8,
-          "harvest_end": 16,
-          "days_to_germination_min": 5,
-          "days_to_germination_max": 10,
-          "days_to_maturity_min": 60,
-          "days_to_maturity_max": 90,
-          "min_germination_temp_c": 10.0,
-          "seed_depth_cm": 0.2,
-          "nutrient_demand": "light",
-          "n_demand": "low",
-          "p_demand": "low",
-          "k_demand": "low",
-          "permaculture_layer": "ground_cover",
-          "functions": []
-        },
-        "plant_instance": {
-          "planting_date": "2024-04-20"
-        }
-      },
-      "layer_id": "55f59d67-d2d8-5e12-ae18-6945334e08cb",
-      "label_visible": false,
-      "fill_color": "#ff9acd32",
-      "stroke_color": "#ff000000",
-      "stroke_width": 1.0,
-      "fill_pattern": "SOLID",
-      "stroke_style": "SOLID",
-      "plant_category": "FLOWERING_PERENNIAL",
-      "plant_species": "Chamomile",
-      "stack_order": 98304
-    },
-    {
-      "type": "circle",
-      "item_id": "9bd1436b-1156-51e9-83f5-2a88ee9bf49b",
-      "center_x": 1008.2,
-      "center_y": 213.5,
-      "radius": 30.0,
-      "object_type": "PERENNIAL",
-      "name": "Manzanilla",
-      "metadata": {
-        "plant_species": {
-          "scientific_name": "Chamaemelum nobile",
-          "common_name": "Manzanilla",
-          "family": "Asteraceae",
-          "genus": "Chamaemelum",
-          "cycle": "perennial",
-          "growth_rate": "medium",
-          "flower_type": "hermaphrodite",
-          "pollination_type": "self_fertile",
-          "min_height_cm": 15.0,
-          "max_height_cm": 30.0,
-          "min_spread_cm": 30.0,
-          "max_spread_cm": 60.0,
-          "sun_requirement": "full_sun",
-          "water_needs": "medium",
-          "hardiness_zone_min": 4,
-          "hardiness_zone_max": 9,
-          "ph_min": 6.0,
-          "ph_max": 7.5,
-          "edible": true,
-          "edible_parts": [
-            "flowers"
-          ],
-          "data_source": "bundled",
-          "frost_tolerance": "hardy",
-          "frost_hardy_bloom": true,
-          "direct_sow_start": -4,
-          "direct_sow_end": 4,
-          "harvest_start": 8,
-          "harvest_end": 16,
-          "days_to_germination_min": 5,
-          "days_to_germination_max": 10,
-          "days_to_maturity_min": 60,
-          "days_to_maturity_max": 90,
-          "min_germination_temp_c": 10.0,
-          "seed_depth_cm": 0.2,
-          "nutrient_demand": "light",
-          "n_demand": "low",
-          "p_demand": "low",
-          "k_demand": "low",
-          "permaculture_layer": "ground_cover",
-          "functions": []
-        },
-        "plant_instance": {
-          "planting_date": "2024-04-20"
-        }
-      },
-      "layer_id": "55f59d67-d2d8-5e12-ae18-6945334e08cb",
-      "label_visible": false,
-      "fill_color": "#ff9acd32",
-      "stroke_color": "#ff000000",
-      "stroke_width": 1.0,
-      "fill_pattern": "SOLID",
-      "stroke_style": "SOLID",
-      "plant_category": "FLOWERING_PERENNIAL",
-      "plant_species": "Chamomile",
-      "stack_order": 99328
-    },
-    {
-      "type": "circle",
-      "item_id": "700050fb-edb0-5546-b0a7-0f8e75af7ebc",
-      "center_x": 1295.5,
-      "center_y": 279.9,
-      "radius": 30.0,
-      "object_type": "PERENNIAL",
-      "name": "Manzanilla",
-      "metadata": {
-        "plant_species": {
-          "scientific_name": "Chamaemelum nobile",
-          "common_name": "Manzanilla",
-          "family": "Asteraceae",
-          "genus": "Chamaemelum",
-          "cycle": "perennial",
-          "growth_rate": "medium",
-          "flower_type": "hermaphrodite",
-          "pollination_type": "self_fertile",
-          "min_height_cm": 15.0,
-          "max_height_cm": 30.0,
-          "min_spread_cm": 30.0,
-          "max_spread_cm": 60.0,
-          "sun_requirement": "full_sun",
-          "water_needs": "medium",
-          "hardiness_zone_min": 4,
-          "hardiness_zone_max": 9,
-          "ph_min": 6.0,
-          "ph_max": 7.5,
-          "edible": true,
-          "edible_parts": [
-            "flowers"
-          ],
-          "data_source": "bundled",
-          "frost_tolerance": "hardy",
-          "frost_hardy_bloom": true,
-          "direct_sow_start": -4,
-          "direct_sow_end": 4,
-          "harvest_start": 8,
-          "harvest_end": 16,
-          "days_to_germination_min": 5,
-          "days_to_germination_max": 10,
-          "days_to_maturity_min": 60,
-          "days_to_maturity_max": 90,
-          "min_germination_temp_c": 10.0,
-          "seed_depth_cm": 0.2,
-          "nutrient_demand": "light",
-          "n_demand": "low",
-          "p_demand": "low",
-          "k_demand": "low",
-          "permaculture_layer": "ground_cover",
-          "functions": []
-        },
-        "plant_instance": {
-          "planting_date": "2024-04-20"
-        }
-      },
-      "layer_id": "55f59d67-d2d8-5e12-ae18-6945334e08cb",
-      "label_visible": false,
-      "fill_color": "#ff9acd32",
-      "stroke_color": "#ff000000",
-      "stroke_width": 1.0,
-      "fill_pattern": "SOLID",
-      "stroke_style": "SOLID",
-      "plant_category": "FLOWERING_PERENNIAL",
-      "plant_species": "Chamomile",
+      "plant_species": "Borage",
+      "spacing_radius_cm": 28.0,
       "stack_order": 100352
     },
     {
       "type": "circle",
-      "item_id": "1a5b5d62-041d-5366-9a8c-f80f42c8802d",
-      "center_x": 759.2,
-      "center_y": 488.6,
+      "item_id": "a4a7506b-65dd-5fdd-9fc8-a8733a73287f",
+      "center_x": 368.8,
+      "center_y": 493.5,
       "radius": 30.0,
       "object_type": "PERENNIAL",
       "name": "Borraja",
@@ -5727,9 +5788,9 @@
     },
     {
       "type": "circle",
-      "item_id": "73b8bcbd-cf9f-53c1-8e82-00ca6bcaa6a7",
-      "center_x": 647.3,
-      "center_y": 555.6,
+      "item_id": "bb8db401-86ed-5ae2-832a-359dbda5c348",
+      "center_x": 252.3,
+      "center_y": 633.0,
       "radius": 30.0,
       "object_type": "PERENNIAL",
       "name": "Borraja",
@@ -5797,9 +5858,9 @@
     },
     {
       "type": "circle",
-      "item_id": "ddb619b0-de00-5a6d-ae2c-6d5e445c09bc",
-      "center_x": 829.2,
-      "center_y": 453.0,
+      "item_id": "fa0e4cea-a01c-577f-bbaa-ceee40b948df",
+      "center_x": 324.7,
+      "center_y": 556.8,
       "radius": 30.0,
       "object_type": "PERENNIAL",
       "name": "Borraja",
@@ -5867,9 +5928,9 @@
     },
     {
       "type": "circle",
-      "item_id": "13af59df-9563-5abe-94eb-24acfdf5d130",
-      "center_x": 738.0,
-      "center_y": 402.5,
+      "item_id": "686c22e5-7090-51b7-9943-b8d68b42bce4",
+      "center_x": 467.2,
+      "center_y": 512.3,
       "radius": 30.0,
       "object_type": "PERENNIAL",
       "name": "Borraja",
@@ -5937,9 +5998,9 @@
     },
     {
       "type": "circle",
-      "item_id": "3745e157-02fc-5659-86eb-591d5e4a8b69",
-      "center_x": 666.0,
-      "center_y": 491.4,
+      "item_id": "fbd49648-0d03-599a-b64a-aeab849f193d",
+      "center_x": 247.8,
+      "center_y": 479.2,
       "radius": 30.0,
       "object_type": "PERENNIAL",
       "name": "Borraja",
@@ -6007,9 +6068,9 @@
     },
     {
       "type": "circle",
-      "item_id": "ed6d7a19-b72c-560e-9693-f0665706319c",
-      "center_x": 643.5,
-      "center_y": 424.8,
+      "item_id": "45eb8e34-8bec-56bf-a602-b91b4208e968",
+      "center_x": 454.5,
+      "center_y": 643.6,
       "radius": 30.0,
       "object_type": "PERENNIAL",
       "name": "Borraja",
@@ -6077,9 +6138,9 @@
     },
     {
       "type": "circle",
-      "item_id": "60c6ef83-2350-55d1-9dda-4b1582fa4373",
-      "center_x": 818.4,
-      "center_y": 564.5,
+      "item_id": "969e6a06-00ef-5788-b909-c37d52516fd2",
+      "center_x": 263.4,
+      "center_y": 560.8,
       "radius": 30.0,
       "object_type": "PERENNIAL",
       "name": "Borraja",
@@ -6147,9 +6208,9 @@
     },
     {
       "type": "circle",
-      "item_id": "13b2781e-533a-5103-9ca4-0da5a0f0b4b3",
-      "center_x": 719.3,
-      "center_y": 532.1,
+      "item_id": "110d9d3c-eeed-5508-a8f8-fbec670647d5",
+      "center_x": 353.1,
+      "center_y": 613.6,
       "radius": 30.0,
       "object_type": "PERENNIAL",
       "name": "Borraja",
@@ -6214,76 +6275,6 @@
       "plant_species": "Borage",
       "spacing_radius_cm": 28.0,
       "stack_order": 108544
-    },
-    {
-      "type": "circle",
-      "item_id": "2052765c-92ce-50ac-907e-80881cfc649f",
-      "center_x": 800.4,
-      "center_y": 402.2,
-      "radius": 30.0,
-      "object_type": "PERENNIAL",
-      "name": "Borraja",
-      "metadata": {
-        "plant_species": {
-          "scientific_name": "Borago officinalis",
-          "common_name": "Borraja",
-          "family": "Boraginaceae",
-          "genus": "Borago",
-          "cycle": "annual",
-          "growth_rate": "fast",
-          "flower_type": "hermaphrodite",
-          "pollination_type": "self_fertile",
-          "min_height_cm": 45.0,
-          "max_height_cm": 90.0,
-          "min_spread_cm": 30.0,
-          "max_spread_cm": 60.0,
-          "sun_requirement": "full_sun",
-          "water_needs": "medium",
-          "hardiness_zone_min": 2,
-          "hardiness_zone_max": 11,
-          "ph_min": 6.0,
-          "ph_max": 7.0,
-          "edible": true,
-          "edible_parts": [
-            "leaves",
-            "flowers"
-          ],
-          "data_source": "bundled",
-          "frost_tolerance": "half-hardy",
-          "direct_sow_start": -2,
-          "direct_sow_end": 6,
-          "harvest_start": 6,
-          "harvest_end": 14,
-          "days_to_germination_min": 5,
-          "days_to_germination_max": 14,
-          "days_to_maturity_min": 50,
-          "days_to_maturity_max": 70,
-          "min_germination_temp_c": 10.0,
-          "seed_depth_cm": 1.0,
-          "nutrient_demand": "light",
-          "n_demand": "low",
-          "p_demand": "low",
-          "k_demand": "low",
-          "permaculture_layer": "herbaceous",
-          "functions": [
-            "pollinator_attractor"
-          ]
-        },
-        "plant_instance": {
-          "planting_date": "2026-04-12"
-        }
-      },
-      "layer_id": "55f59d67-d2d8-5e12-ae18-6945334e08cb",
-      "label_visible": false,
-      "fill_color": "#ff9acd32",
-      "stroke_color": "#ff000000",
-      "stroke_width": 1.0,
-      "fill_pattern": "SOLID",
-      "stroke_style": "SOLID",
-      "plant_category": "FLOWERING_PERENNIAL",
-      "plant_species": "Borage",
-      "spacing_radius_cm": 28.0,
-      "stack_order": 109568
     },
     {
       "type": "circle",
@@ -6352,7 +6343,7 @@
       "plant_category": "SPREADING_SHRUB",
       "plant_species": "Echinacea",
       "spacing_radius_cm": 25.0,
-      "stack_order": 110592
+      "stack_order": 109568
     },
     {
       "type": "circle",
@@ -6421,7 +6412,7 @@
       "plant_category": "SPREADING_SHRUB",
       "plant_species": "Echinacea",
       "spacing_radius_cm": 25.0,
-      "stack_order": 111616
+      "stack_order": 110592
     },
     {
       "type": "circle",
@@ -6490,7 +6481,7 @@
       "plant_category": "SPREADING_SHRUB",
       "plant_species": "Echinacea",
       "spacing_radius_cm": 25.0,
-      "stack_order": 112640
+      "stack_order": 111616
     },
     {
       "type": "circle",
@@ -6559,7 +6550,7 @@
       "plant_category": "SPREADING_SHRUB",
       "plant_species": "Echinacea",
       "spacing_radius_cm": 25.0,
-      "stack_order": 113664
+      "stack_order": 112640
     },
     {
       "type": "circle",
@@ -6628,7 +6619,7 @@
       "plant_category": "SPREADING_SHRUB",
       "plant_species": "Echinacea",
       "spacing_radius_cm": 25.0,
-      "stack_order": 114688
+      "stack_order": 113664
     },
     {
       "type": "circle",
@@ -6697,7 +6688,7 @@
       "plant_category": "SPREADING_SHRUB",
       "plant_species": "Echinacea",
       "spacing_radius_cm": 25.0,
-      "stack_order": 115712
+      "stack_order": 114688
     },
     {
       "type": "circle",
@@ -6766,7 +6757,7 @@
       "plant_category": "SPREADING_SHRUB",
       "plant_species": "Echinacea",
       "spacing_radius_cm": 25.0,
-      "stack_order": 116736
+      "stack_order": 115712
     },
     {
       "type": "circle",
@@ -6835,7 +6826,7 @@
       "plant_category": "SPREADING_SHRUB",
       "plant_species": "Echinacea",
       "spacing_radius_cm": 25.0,
-      "stack_order": 117760
+      "stack_order": 116736
     },
     {
       "type": "circle",
@@ -6904,7 +6895,7 @@
       "plant_category": "SPREADING_SHRUB",
       "plant_species": "Echinacea",
       "spacing_radius_cm": 25.0,
-      "stack_order": 118784
+      "stack_order": 117760
     },
     {
       "type": "circle",
@@ -6973,13 +6964,82 @@
       "plant_category": "SPREADING_SHRUB",
       "plant_species": "Echinacea",
       "spacing_radius_cm": 25.0,
+      "stack_order": 118784
+    },
+    {
+      "type": "circle",
+      "item_id": "4cb8f2a0-66cf-5344-bbfc-e27d1046ca62",
+      "center_x": 790.7,
+      "center_y": 989.7,
+      "radius": 30.0,
+      "object_type": "SHRUB",
+      "name": "Valeriana",
+      "metadata": {
+        "plant_species": {
+          "scientific_name": "Valeriana officinalis",
+          "common_name": "Valeriana",
+          "family": "Caprifoliaceae",
+          "genus": "Valeriana",
+          "cycle": "perennial",
+          "growth_rate": "medium",
+          "flower_type": "hermaphrodite",
+          "pollination_type": "self_fertile",
+          "min_height_cm": 60.0,
+          "max_height_cm": 150.0,
+          "min_spread_cm": 30.0,
+          "max_spread_cm": 60.0,
+          "sun_requirement": "partial_sun",
+          "water_needs": "medium",
+          "hardiness_zone_min": 4,
+          "hardiness_zone_max": 9,
+          "ph_min": 6.0,
+          "ph_max": 7.5,
+          "edible": true,
+          "edible_parts": [
+            "roots"
+          ],
+          "data_source": "bundled",
+          "frost_tolerance": "hardy",
+          "direct_sow_start": -4,
+          "direct_sow_end": 4,
+          "transplant_start": 0,
+          "transplant_end": 4,
+          "harvest_start": 16,
+          "harvest_end": 24,
+          "days_to_germination_min": 10,
+          "days_to_germination_max": 21,
+          "days_to_maturity_min": 90,
+          "days_to_maturity_max": 120,
+          "min_germination_temp_c": 10.0,
+          "seed_depth_cm": 0.2,
+          "nutrient_demand": "light",
+          "n_demand": "low",
+          "p_demand": "low",
+          "k_demand": "low",
+          "permaculture_layer": "herbaceous",
+          "functions": []
+        },
+        "plant_instance": {
+          "planting_date": "2024-04-20"
+        }
+      },
+      "layer_id": "55f59d67-d2d8-5e12-ae18-6945334e08cb",
+      "label_visible": false,
+      "fill_color": "#ff6b8e23",
+      "stroke_color": "#ff000000",
+      "stroke_width": 1.0,
+      "fill_pattern": "SOLID",
+      "stroke_style": "SOLID",
+      "plant_category": "SPREADING_SHRUB",
+      "plant_species": "Valerian",
+      "spacing_radius_cm": 23.0,
       "stack_order": 119808
     },
     {
       "type": "circle",
-      "item_id": "8a26fafe-2080-5718-bdec-e97845165d7e",
-      "center_x": 731.9,
-      "center_y": 1047.9,
+      "item_id": "567b1c06-32d7-5399-933f-35792c2b15de",
+      "center_x": 704.6,
+      "center_y": 958.5,
       "radius": 30.0,
       "object_type": "SHRUB",
       "name": "Valeriana",
@@ -7041,14 +7101,14 @@
       "stroke_style": "SOLID",
       "plant_category": "SPREADING_SHRUB",
       "plant_species": "Valerian",
-      "spacing_radius_cm": 28.0,
+      "spacing_radius_cm": 23.0,
       "stack_order": 120832
     },
     {
       "type": "circle",
-      "item_id": "7e7aaab9-42cf-50fd-a5ee-4ae54713bb03",
-      "center_x": 640.7,
-      "center_y": 1013.8,
+      "item_id": "321d3097-f896-5cb6-87f3-62da33a3092f",
+      "center_x": 702.2,
+      "center_y": 1045.2,
       "radius": 30.0,
       "object_type": "SHRUB",
       "name": "Valeriana",
@@ -7110,14 +7170,14 @@
       "stroke_style": "SOLID",
       "plant_category": "SPREADING_SHRUB",
       "plant_species": "Valerian",
-      "spacing_radius_cm": 28.0,
+      "spacing_radius_cm": 23.0,
       "stack_order": 121856
     },
     {
       "type": "circle",
-      "item_id": "30c94341-c0fd-56c0-9152-59f66a095010",
-      "center_x": 638.2,
-      "center_y": 1108.4,
+      "item_id": "4197e884-c226-53d3-af12-66fe4f70af7b",
+      "center_x": 725.4,
+      "center_y": 1002.6,
       "radius": 30.0,
       "object_type": "SHRUB",
       "name": "Valeriana",
@@ -7179,14 +7239,14 @@
       "stroke_style": "SOLID",
       "plant_category": "SPREADING_SHRUB",
       "plant_species": "Valerian",
-      "spacing_radius_cm": 28.0,
+      "spacing_radius_cm": 23.0,
       "stack_order": 122880
     },
     {
       "type": "circle",
-      "item_id": "c75d5d62-fd05-5361-a678-efd5ec398140",
-      "center_x": 791.2,
-      "center_y": 1064.2,
+      "item_id": "046e7d2b-9bf9-54ce-85bb-0f26acf6c912",
+      "center_x": 846.6,
+      "center_y": 1004.7,
       "radius": 30.0,
       "object_type": "SHRUB",
       "name": "Valeriana",
@@ -7248,59 +7308,58 @@
       "stroke_style": "SOLID",
       "plant_category": "SPREADING_SHRUB",
       "plant_species": "Valerian",
-      "spacing_radius_cm": 28.0,
+      "spacing_radius_cm": 23.0,
       "stack_order": 123904
     },
     {
       "type": "circle",
-      "item_id": "f276d681-61e5-5c74-9fc9-cf33de08cc83",
-      "center_x": 746.7,
-      "center_y": 1110.1,
-      "radius": 30.0,
+      "item_id": "5b7ece73-b804-52d0-ae48-abe3db5b2e17",
+      "center_x": 1286.6,
+      "center_y": 441.9,
+      "radius": 20.0,
       "object_type": "SHRUB",
-      "name": "Valeriana",
+      "name": "Achicoria",
       "metadata": {
         "plant_species": {
-          "scientific_name": "Valeriana officinalis",
-          "common_name": "Valeriana",
-          "family": "Caprifoliaceae",
-          "genus": "Valeriana",
+          "scientific_name": "Cichorium intybus",
+          "common_name": "Achicoria",
+          "family": "Asteraceae",
+          "genus": "Cichorium",
           "cycle": "perennial",
           "growth_rate": "medium",
           "flower_type": "hermaphrodite",
           "pollination_type": "self_fertile",
-          "min_height_cm": 60.0,
-          "max_height_cm": 150.0,
-          "min_spread_cm": 30.0,
-          "max_spread_cm": 60.0,
-          "sun_requirement": "partial_sun",
+          "min_height_cm": 30.0,
+          "max_height_cm": 100.0,
+          "min_spread_cm": 20.0,
+          "max_spread_cm": 40.0,
+          "sun_requirement": "full_sun",
           "water_needs": "medium",
-          "hardiness_zone_min": 4,
+          "hardiness_zone_min": 3,
           "hardiness_zone_max": 9,
           "ph_min": 6.0,
-          "ph_max": 7.5,
+          "ph_max": 7.0,
           "edible": true,
           "edible_parts": [
+            "leaves",
             "roots"
           ],
           "data_source": "bundled",
           "frost_tolerance": "hardy",
-          "direct_sow_start": -4,
+          "direct_sow_start": -2,
           "direct_sow_end": 4,
-          "transplant_start": 0,
-          "transplant_end": 4,
-          "harvest_start": 16,
-          "harvest_end": 24,
-          "days_to_germination_min": 10,
-          "days_to_germination_max": 21,
-          "days_to_maturity_min": 90,
-          "days_to_maturity_max": 120,
+          "harvest_start": 10,
+          "harvest_end": 16,
+          "days_to_germination_min": 7,
+          "days_to_germination_max": 14,
+          "days_to_maturity_min": 70,
+          "days_to_maturity_max": 90,
           "min_germination_temp_c": 10.0,
-          "seed_depth_cm": 0.2,
+          "seed_depth_cm": 0.5,
           "nutrient_demand": "light",
           "n_demand": "low",
-          "p_demand": "low",
-          "k_demand": "low",
+          "p_demand": "medium",
+          "k_demand": "medium",
           "permaculture_layer": "herbaceous",
           "functions": []
         },
@@ -7316,15 +7375,14 @@
       "fill_pattern": "SOLID",
       "stroke_style": "SOLID",
       "plant_category": "SPREADING_SHRUB",
-      "plant_species": "Valerian",
-      "spacing_radius_cm": 28.0,
+      "plant_species": "Chicory",
       "stack_order": 124928
     },
     {
       "type": "circle",
-      "item_id": "48c8aa77-78f1-5503-b16b-e06d2c73ce66",
-      "center_x": 1501.1,
-      "center_y": 462.0,
+      "item_id": "d3d4473f-7fba-5254-862f-97076dbc1cdb",
+      "center_x": 1362.9,
+      "center_y": 528.8,
       "radius": 20.0,
       "object_type": "SHRUB",
       "name": "Achicoria",
@@ -7389,9 +7447,9 @@
     },
     {
       "type": "circle",
-      "item_id": "5aed125a-b41d-5b1e-8696-48ef6ef57f74",
-      "center_x": 1543.1,
-      "center_y": 662.6,
+      "item_id": "e1e04b6c-d201-5113-bfad-175bb7a6d3fb",
+      "center_x": 1284.0,
+      "center_y": 490.5,
       "radius": 20.0,
       "object_type": "SHRUB",
       "name": "Achicoria",
@@ -7456,9 +7514,9 @@
     },
     {
       "type": "circle",
-      "item_id": "7fa799eb-f3f6-5c5c-810c-af503457bc41",
-      "center_x": 1499.7,
-      "center_y": 574.2,
+      "item_id": "ae9c44be-6a91-5410-bcb7-630b493452c2",
+      "center_x": 1231.8,
+      "center_y": 515.3,
       "radius": 20.0,
       "object_type": "SHRUB",
       "name": "Achicoria",
@@ -7523,9 +7581,9 @@
     },
     {
       "type": "circle",
-      "item_id": "9a8bd25d-463e-598b-8b1d-d3d6ff1e7e9b",
-      "center_x": 1471.0,
-      "center_y": 631.4,
+      "item_id": "0070efce-32aa-5746-91bf-5c438683356f",
+      "center_x": 1330.5,
+      "center_y": 494.8,
       "radius": 20.0,
       "object_type": "SHRUB",
       "name": "Achicoria",
@@ -7590,9 +7648,9 @@
     },
     {
       "type": "circle",
-      "item_id": "91d20c5f-9df9-58a4-9349-439ccf7b5975",
-      "center_x": 1516.3,
-      "center_y": 620.2,
+      "item_id": "e2f232d2-c9b6-50c0-83f4-53b07415a155",
+      "center_x": 1239.6,
+      "center_y": 451.9,
       "radius": 20.0,
       "object_type": "SHRUB",
       "name": "Achicoria",
@@ -7657,9 +7715,9 @@
     },
     {
       "type": "circle",
-      "item_id": "26c70fd6-03f9-57e7-9357-d3f7c0d2c632",
-      "center_x": 1572.1,
-      "center_y": 424.4,
+      "item_id": "251aa674-3b49-5d74-bf56-c3519ac4cbff",
+      "center_x": 1415.6,
+      "center_y": 425.6,
       "radius": 20.0,
       "object_type": "SHRUB",
       "name": "Achicoria",
@@ -7724,9 +7782,9 @@
     },
     {
       "type": "circle",
-      "item_id": "109a9af7-32cc-5a8c-b9c8-0ea68de60088",
-      "center_x": 1571.1,
-      "center_y": 610.6,
+      "item_id": "7d44cd7d-c67b-5aed-ad4b-5845f8f5662c",
+      "center_x": 1334.8,
+      "center_y": 448.4,
       "radius": 20.0,
       "object_type": "SHRUB",
       "name": "Achicoria",
@@ -7791,9 +7849,9 @@
     },
     {
       "type": "circle",
-      "item_id": "298c7e43-5fba-5864-8a33-e5019d145fb2",
-      "center_x": 1488.1,
-      "center_y": 525.4,
+      "item_id": "3cce09e8-5137-5780-9b40-df83e225e30c",
+      "center_x": 1413.8,
+      "center_y": 506.3,
       "radius": 20.0,
       "object_type": "SHRUB",
       "name": "Achicoria",
@@ -7858,53 +7916,55 @@
     },
     {
       "type": "circle",
-      "item_id": "c6bff57a-9ca3-52ca-8e80-7bb63c392c53",
-      "center_x": 1530.1,
-      "center_y": 409.6,
-      "radius": 20.0,
-      "object_type": "SHRUB",
-      "name": "Achicoria",
+      "item_id": "d04f3f76-4390-53f0-b87d-c05fd142fe2a",
+      "center_x": 912.7,
+      "center_y": 390.9,
+      "radius": 30.0,
+      "object_type": "PERENNIAL",
+      "name": "Hisopo",
       "metadata": {
         "plant_species": {
-          "scientific_name": "Cichorium intybus",
-          "common_name": "Achicoria",
-          "family": "Asteraceae",
-          "genus": "Cichorium",
+          "scientific_name": "Hyssopus officinalis",
+          "common_name": "Hisopo",
+          "family": "Lamiaceae",
+          "genus": "Hyssopus",
           "cycle": "perennial",
           "growth_rate": "medium",
           "flower_type": "hermaphrodite",
           "pollination_type": "self_fertile",
           "min_height_cm": 30.0,
-          "max_height_cm": 100.0,
-          "min_spread_cm": 20.0,
-          "max_spread_cm": 40.0,
+          "max_height_cm": 60.0,
+          "min_spread_cm": 30.0,
+          "max_spread_cm": 60.0,
           "sun_requirement": "full_sun",
-          "water_needs": "medium",
-          "hardiness_zone_min": 3,
+          "water_needs": "low",
+          "hardiness_zone_min": 4,
           "hardiness_zone_max": 9,
-          "ph_min": 6.0,
-          "ph_max": 7.0,
+          "ph_min": 6.5,
+          "ph_max": 7.5,
           "edible": true,
           "edible_parts": [
             "leaves",
-            "roots"
+            "flowers"
           ],
           "data_source": "bundled",
           "frost_tolerance": "hardy",
-          "direct_sow_start": -2,
-          "direct_sow_end": 4,
-          "harvest_start": 10,
-          "harvest_end": 16,
-          "days_to_germination_min": 7,
-          "days_to_germination_max": 14,
-          "days_to_maturity_min": 70,
-          "days_to_maturity_max": 90,
-          "min_germination_temp_c": 10.0,
-          "seed_depth_cm": 0.5,
+          "indoor_sow_start": -8,
+          "indoor_sow_end": -6,
+          "transplant_start": 2,
+          "transplant_end": 6,
+          "harvest_start": 14,
+          "harvest_end": 24,
+          "days_to_germination_min": 14,
+          "days_to_germination_max": 21,
+          "days_to_maturity_min": 90,
+          "days_to_maturity_max": 120,
+          "min_germination_temp_c": 15.0,
+          "seed_depth_cm": 0.3,
           "nutrient_demand": "light",
           "n_demand": "low",
-          "p_demand": "medium",
-          "k_demand": "medium",
+          "p_demand": "low",
+          "k_demand": "low",
           "permaculture_layer": "herbaceous",
           "functions": []
         },
@@ -7914,20 +7974,21 @@
       },
       "layer_id": "55f59d67-d2d8-5e12-ae18-6945334e08cb",
       "label_visible": false,
-      "fill_color": "#ff6b8e23",
+      "fill_color": "#ff9acd32",
       "stroke_color": "#ff000000",
       "stroke_width": 1.0,
       "fill_pattern": "SOLID",
       "stroke_style": "SOLID",
-      "plant_category": "SPREADING_SHRUB",
-      "plant_species": "Chicory",
+      "plant_category": "FLOWERING_PERENNIAL",
+      "plant_species": "Hyssop",
+      "spacing_radius_cm": 28.0,
       "stack_order": 134144
     },
     {
       "type": "circle",
-      "item_id": "0de8869b-5cb2-5fd1-889d-662055c9bc4d",
-      "center_x": 1248.0,
-      "center_y": 361.0,
+      "item_id": "c7f4755f-d21f-57af-b7cd-a890a6ec24f6",
+      "center_x": 1023.8,
+      "center_y": 461.7,
       "radius": 30.0,
       "object_type": "PERENNIAL",
       "name": "Hisopo",
@@ -7995,9 +8056,9 @@
     },
     {
       "type": "circle",
-      "item_id": "60221d9c-de3d-5341-bb64-d0cc51240eac",
-      "center_x": 1346.7,
-      "center_y": 437.7,
+      "item_id": "adafc6ad-cc22-50fd-8b3a-4dfb6f064764",
+      "center_x": 800.6,
+      "center_y": 509.6,
       "radius": 30.0,
       "object_type": "PERENNIAL",
       "name": "Hisopo",
@@ -8065,9 +8126,9 @@
     },
     {
       "type": "circle",
-      "item_id": "69e6c153-07f8-5c38-a527-35af190bb228",
-      "center_x": 1148.3,
-      "center_y": 489.6,
+      "item_id": "f4bdf4ad-e59c-5a8e-a446-b16363a5d022",
+      "center_x": 968.7,
+      "center_y": 434.7,
       "radius": 30.0,
       "object_type": "PERENNIAL",
       "name": "Hisopo",
@@ -8135,9 +8196,9 @@
     },
     {
       "type": "circle",
-      "item_id": "a87ef2b7-f211-5572-830b-89d5badd733b",
-      "center_x": 1353.5,
-      "center_y": 362.1,
+      "item_id": "c4c6f7cb-43eb-5e84-9255-7932e63f5a26",
+      "center_x": 1031.4,
+      "center_y": 391.9,
       "radius": 30.0,
       "object_type": "PERENNIAL",
       "name": "Hisopo",
@@ -8205,9 +8266,9 @@
     },
     {
       "type": "circle",
-      "item_id": "77cd8c49-3eaf-5eec-9e34-39de8b6ddf32",
-      "center_x": 1184.7,
-      "center_y": 422.6,
+      "item_id": "c90af1c1-ab3b-5caa-8d83-67ea2274ba0d",
+      "center_x": 841.5,
+      "center_y": 447.8,
       "radius": 30.0,
       "object_type": "PERENNIAL",
       "name": "Hisopo",
@@ -8274,76 +8335,6 @@
       "stack_order": 139264
     },
     {
-      "type": "circle",
-      "item_id": "d02930e8-b9e4-5d7b-9609-d720266c1226",
-      "center_x": 1250.9,
-      "center_y": 478.2,
-      "radius": 30.0,
-      "object_type": "PERENNIAL",
-      "name": "Hisopo",
-      "metadata": {
-        "plant_species": {
-          "scientific_name": "Hyssopus officinalis",
-          "common_name": "Hisopo",
-          "family": "Lamiaceae",
-          "genus": "Hyssopus",
-          "cycle": "perennial",
-          "growth_rate": "medium",
-          "flower_type": "hermaphrodite",
-          "pollination_type": "self_fertile",
-          "min_height_cm": 30.0,
-          "max_height_cm": 60.0,
-          "min_spread_cm": 30.0,
-          "max_spread_cm": 60.0,
-          "sun_requirement": "full_sun",
-          "water_needs": "low",
-          "hardiness_zone_min": 4,
-          "hardiness_zone_max": 9,
-          "ph_min": 6.5,
-          "ph_max": 7.5,
-          "edible": true,
-          "edible_parts": [
-            "leaves",
-            "flowers"
-          ],
-          "data_source": "bundled",
-          "frost_tolerance": "hardy",
-          "indoor_sow_start": -8,
-          "indoor_sow_end": -6,
-          "transplant_start": 2,
-          "transplant_end": 6,
-          "harvest_start": 14,
-          "harvest_end": 24,
-          "days_to_germination_min": 14,
-          "days_to_germination_max": 21,
-          "days_to_maturity_min": 90,
-          "days_to_maturity_max": 120,
-          "min_germination_temp_c": 15.0,
-          "seed_depth_cm": 0.3,
-          "nutrient_demand": "light",
-          "n_demand": "low",
-          "p_demand": "low",
-          "k_demand": "low",
-          "permaculture_layer": "herbaceous",
-          "functions": []
-        },
-        "plant_instance": {
-          "planting_date": "2024-04-20"
-        }
-      },
-      "layer_id": "55f59d67-d2d8-5e12-ae18-6945334e08cb",
-      "label_visible": false,
-      "fill_color": "#ff9acd32",
-      "stroke_color": "#ff000000",
-      "stroke_width": 1.0,
-      "fill_pattern": "SOLID",
-      "stroke_style": "SOLID",
-      "plant_category": "FLOWERING_PERENNIAL",
-      "plant_species": "Hyssop",
-      "spacing_radius_cm": 28.0,
-      "stack_order": 140288
-    },
-    {
       "type": "text",
       "item_id": "dc37248c-2c55-51b3-b927-b56467cc27fb",
       "x": 40.0,
@@ -8369,8 +8360,8 @@
     }
   },
   "harvest_logs": {
-    "9bd1436b-1156-51e9-83f5-2a88ee9bf49b": {
-      "target_id": "9bd1436b-1156-51e9-83f5-2a88ee9bf49b",
+    "633f17a0-5106-5e68-999d-8099536f2141": {
+      "target_id": "633f17a0-5106-5e68-999d-8099536f2141",
       "records": [
         {
           "id": "a075b104-115d-55df-87a7-c05749b80e0b",
@@ -8391,8 +8382,8 @@
       "species_key": "chamaemelum nobile",
       "species_name": "Manzanilla"
     },
-    "ed6d7a19-b72c-560e-9693-f0665706319c": {
-      "target_id": "ed6d7a19-b72c-560e-9693-f0665706319c",
+    "fbd49648-0d03-599a-b64a-aeab849f193d": {
+      "target_id": "fbd49648-0d03-599a-b64a-aeab849f193d",
       "records": [
         {
           "id": "c5c6d1c1-4e3d-55a2-ab88-9ad37d4c9a2d",

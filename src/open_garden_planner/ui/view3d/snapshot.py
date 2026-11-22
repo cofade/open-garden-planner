@@ -1122,7 +1122,8 @@ def _record_of(item: Any, object_type: Any, item_id: str, at_date: date | None,
         raise refused  # a solid needs regions: left out and reported, as before
     pattern = getattr(item, "fill_pattern", None)
     if pattern is not None and (kind in _PATTERNED_SURFACES  # a deck's boards are geometry (L4.2)
-                                or (kind == "LAWN" and pattern.name == MEADOW_PATTERN)):  # a meadow (#940)
+                                or (kind == "LAWN" and pattern.name == MEADOW_PATTERN)  # a meadow (#940)
+                                or (kind == "RAISED_BED" and pattern.name != "SOLID")):  # frame material (#957)
         params[PARAM_SURFACE_PATTERN] = pattern.name
     parent = getattr(item, "parent_bed_id", None)
     base = item_base_cm(item, lookup, at_date) if parent is not None else 0.0

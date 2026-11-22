@@ -48,7 +48,10 @@ void MAIN()
         base = srgb * (srgb * (srgb * 0.305306011 + 0.682171111) + 0.012522878);
     }
     BASE_COLOR = vec4(base, 1.0);   // linear
-    ROUGHNESS = uRough;
+    // #958: Qt's Ultra SSR pass reads ROUGHNESS; keeping it above the sharp-mirror
+    // threshold avoids mirror-like house reflections on pools while SPECULAR_LIGHT
+    // and IBL_PROBE below still use uRough for crisp sun glints and sky Fresnel.
+    ROUGHNESS = uSsrRough;
     METALNESS = 0.0;
     SPECULAR_AMOUNT = 0.5;
 }
@@ -70,7 +73,7 @@ void SPECULAR_LIGHT()
     float ndl = max(dot(NORMAL, TO_LIGHT_DIR), 0.0);
     float ndv = max(dot(NORMAL, VIEW_VECTOR), 1e-4);
     float ndh = max(dot(NORMAL, halfway), 0.0);
-    float alpha = ROUGHNESS * ROUGHNESS;
+    float alpha = uRough * uRough;
     float alpha2 = alpha * alpha;
     float denom = ndh * ndh * (alpha2 - 1.0) + 1.0;
     float distribution = alpha2 / (3.14159265 * denom * denom);
@@ -95,6 +98,6 @@ void IBL_PROBE()
     DIFFUSE += BASE_COLOR.rgb * uBody * waterLuma(qt_sampleDiffuse(NORMAL).rgb) * AO_FACTOR;
     float ndv = clamp(dot(NORMAL, VIEW_VECTOR), 0.0, 1.0);
     float fresnel = 0.02 + 0.98 * pow(1.0 - ndv, 5.0);
-    SPECULAR += uReflect * fresnel * qt_sampleGlossy(NORMAL, VIEW_VECTOR, ROUGHNESS).rgb;
+    SPECULAR += uReflect * fresnel * qt_sampleGlossy(NORMAL, VIEW_VECTOR, uRough).rgb;
 #endif
 }

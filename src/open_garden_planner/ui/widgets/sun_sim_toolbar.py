@@ -231,6 +231,7 @@ class SunSimToolbar(QToolBar):
         self._scene = scene
         self._controls_ready = False
         self._requesting_month = False
+        self._reflowing = False
         self._preferred_day = 1
         self._exposure_hint = ""
         self._map_status: tuple[date | None, bool, str] = (None, False, "")
@@ -407,37 +408,55 @@ class SunSimToolbar(QToolBar):
         button.setCheckable(checkable)
         group.addWidget(button)
 
+    def showEvent(self, event: Any) -> None:
+        super().showEvent(event)
+        self.reflow()
+
     def resizeEvent(self, event: Any) -> None:
         super().resizeEvent(event)
-        self._reflow()
+        self.reflow()
 
     def flow_width(self) -> int:
         """The width the reflow fits the control groups into."""
-        return max(1, self.width() - 12)
+        width = self.width()
+        parent = self.parentWidget()
+        if not self.isVisible() and parent is not None:
+            width = max(width, parent.width())
+        return max(1, width - 12)
+
+    def reflow(self) -> None:
+        """Reflow the control groups to fit the toolbar's current or parent width."""
+        if self._reflowing:
+            return
+        self._reflowing = True
+        try:
+            available = self.flow_width()
+            slider_width = 140 if (available + 12) < 1100 else 180
+            while True:
+                for slider in (self._month_slider, self._slider):
+                    slider.setFixedWidth(slider_width)
+                # Font metrics vary across platforms and themes. Recalculate group
+                # hints before deciding whether the preferred slider length fits.
+                for index in range(self._flow.count()):
+                    item = self._flow.itemAt(index)
+                    widget = item.widget() if item is not None else None
+                    layout = widget.layout() if widget is not None else None
+                    if widget is not None and layout is not None:
+                        layout.invalidate()
+                        layout.activate()
+                        widget.updateGeometry()
+                if self._flow.rows_for_width(available) <= 2 or slider_width <= _MIN_SLIDER_WIDTH:
+                    break
+                slider_width -= 10
+            height = self._flow.heightForWidth(available)
+            if self._content.height() != height:
+                self._content.setFixedHeight(height)
+                self.setFixedHeight(height + 8)
+        finally:
+            self._reflowing = False
 
     def _reflow(self) -> None:
-        slider_width = 140 if self.width() < 1100 else 180
-        available = self.flow_width()
-        while True:
-            for slider in (self._month_slider, self._slider):
-                slider.setFixedWidth(slider_width)
-            # Font metrics vary across platforms and themes. Recalculate group
-            # hints before deciding whether the preferred slider length fits.
-            for index in range(self._flow.count()):
-                item = self._flow.itemAt(index)
-                widget = item.widget() if item is not None else None
-                layout = widget.layout() if widget is not None else None
-                if widget is not None and layout is not None:
-                    layout.invalidate()
-                    layout.activate()
-                    widget.updateGeometry()
-            if self._flow.rows_for_width(available) <= 2 or slider_width <= _MIN_SLIDER_WIDTH:
-                break
-            slider_width -= 10
-        height = self._flow.heightForWidth(available)
-        if self._content.height() != height:
-            self._content.setFixedHeight(height)
-            self.setFixedHeight(height + 8)
+        self.reflow()
 
     # ── public API ─────────────────────────────────────────────
 

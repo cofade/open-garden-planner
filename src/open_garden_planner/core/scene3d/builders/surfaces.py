@@ -69,6 +69,7 @@ from ..record import (
     PARAM_SURFACE_PATTERN,
     PATTERN_TILE_CM,
     SHAPE_CIRCLE,
+    SHAPE_POLYGON,
     Record,
     Ring,
     lawn_blade_share,
@@ -89,18 +90,35 @@ DECK_PATTERNS: Final[frozenset[str]] = frozenset({"DECKING", "WOOD"})
 #: A path narrower than this (cm) gets no relief: a line that thin is a 2D pattern, not
 #: a path one walks on (plans from before L4 drew paths 5 to 10 cm wide).
 MIN_RELIEF_WIDTH_CM: Final = 20.0
-#: Relief heights (cm): a stone, a kerb, a board's top, the water's surface.
+#: Relief heights (cm): a stone, a kerb, a gravel rim, a board's top, the water's surface.
 STONE_CM: Final = 4.0
 KERB_CM: Final = 3.0
+#: A gravel path's 3D rim sits below ``DECK_TOP_CM`` (2.5 cm) so a round end cap that
+#: meets a wooden terrace stays cleanly underneath the deck boards instead of cutting
+#: through them.
+GRAVEL_RIM_CM: Final = 1.8
 BOARD_TOP_CM: Final = 6.0
 #: A terrace's deck boards: low, because the furniture on a deck stands on the plan's
 #: ground (z 0) — at 6 cm a chair's legs sank into the boards (3D review of #388).
 DECK_TOP_CM: Final = 2.5
 WATER_CM: Final = 1.0
-#: A pond's coping: how far it reaches over the water, out over the bank, and up (cm).
+#: A formal pond/pool's coping: how far it reaches over the water, out over the bank, and up (cm).
 COPING_IN_CM: Final = 13.0
 COPING_OUT_CM: Final = 7.0
 COPING_UP_CM: Final = 7.0
+#: #961: a natural pond's low flush earth shore (organic multi-vertex polygons):
+#: stays strictly below ``DECK_TOP_CM`` (2.5 cm) so overhanging pond decks and boardwalks
+#: clear the shore cleanly with no raised grey-brown curb cutting through the timber.
+BANK_IN_CM: Final = 14.0
+BANK_OUT_CM: Final = 7.0
+BANK_UP_CM: Final = 1.35
+#: #961: linear tint multiplier on a natural pond's water (earthy olive-green, darker than a formal pool's 0.9).
+NATURAL_POND_WATER_WEIGHT: Final[tuple[float, float, float, float]] = (0.46, 0.58, 0.28, 1.0)
+#: Subdivisions per convex corner when filleting a natural pond's outline (#961).
+NATURAL_POND_CORNER_STEPS: Final = 4
+#: Maximum inward corner cut (cm) so the ``BANK_OUT_CM`` sloped bank completely covers the
+#: original 2D polygon corner underneath (no cobalt triangle peeking out, #961).
+NATURAL_POND_MAX_CUT_CM: Final = BANK_OUT_CM - 1.5
 #: A gravel path's edging: at most this wide (cm) and this share of the path's width,
 #: in the line's colour times this — the rim the 2D painter draws
 #: (``ui/canvas/items/path_style_paint.py`` holds the same three, a test both).
@@ -430,9 +448,10 @@ def _path(record: Record) -> tuple[MeshPart, ...]:
         return _relief(_rails(walked, False, (-width / 2.0 + kerb / 2.0, width / 2.0 - kerb / 2.0), kerb,
                               min(KERB_CM, 0.05 * width), _shade(0.74)), "kerb")
     if style == "GRAVEL_PATH":
-        # the 2D rim's width and place (``path_style_paint.GRAVEL_EDGE_*``)
+        # the 2D rim's width and place (``path_style_paint.GRAVEL_EDGE_*``); height stays
+        # below DECK_TOP_CM so a round cap abutting a wooden deck never pokes through it
         edge = min(GRAVEL_EDGE_CM, GRAVEL_EDGE_SHARE * width)
-        return _relief(_gravel_rim(walked, width, edge, min(KERB_CM, 0.05 * width)), "gravel")
+        return _relief(_gravel_rim(walked, width, edge, min(GRAVEL_RIM_CM, 0.05 * width)), "gravel")
     return ()
 
 
@@ -584,10 +603,91 @@ def pond_regions(record: Record) -> tuple[tuple[Ring, tuple[Ring, ...]], ...]:
     return tuple(regions)
 
 
-def _water_plan(record: Record) -> F64 | None:
+def is_natural_pond(record: Record) -> bool:
+    """True when a ``POND_POOL`` is an organic multi-vertex ground pond rather than a
+    formal rectangular, circular or raised pool (#961)."""
+    return (record.height_cm is None
+            and record.shape == SHAPE_POLYGON
+            and bool(record.footprints)
+            and all(len(ring) >= 5 for ring in record.footprints))
+
+
+def _smooth_pond_ring(points: F64, steps: int = NATURAL_POND_CORNER_STEPS) -> F64:
+    """Round each convex corner of a natural pond polygon with a quadratic Bézier fillet
+    whose inward displacement stays within ``NATURAL_POND_MAX_CUT_CM`` (#961).
+
+    Cutting only convex corners keeps the smoothed ring strictly inside the original
+    footprint (never cutting across a concave reflex corner outside the plan), while
+    clamping the inward cut below ``BANK_OUT_CM`` ensures the sloped bank completely
+    covers the painted 2D polygon corner underneath with no blue triangles peeking out."""
+    n = len(points)
+    if n < 3 or steps < 1:
+        return points
+    ccw = signed_area(points) >= 0.0
+    prev = np.roll(points, 1, axis=0)
+    nxt = np.roll(points, -1, axis=0)
+    e_in = points - prev
+    e_out = nxt - points
+    len_in = np.linalg.norm(e_in, axis=1)
+    len_out = np.linalg.norm(e_out, axis=1)
+    u_in = e_in / np.maximum(len_in, 1e-12)[:, None]
+    u_out = e_out / np.maximum(len_out, 1e-12)[:, None]
+    turn = u_in[:, 0] * u_out[:, 1] - u_in[:, 1] * u_out[:, 0]
+    convex = turn > 1e-4 if ccw else turn < -1e-4
+    # Exterior turn angle theta in (0, pi); midpoint inward cut of quadratic Bezier is
+    # 0.5 * d * sin(theta / 2) = 0.5 * d * sqrt((1 - dot(u_in, u_out)) / 2).
+    dots = np.clip((u_in * u_out).sum(axis=1), -1.0, 1.0)
+    sin_half = np.sqrt(np.maximum(0.5 * (1.0 - dots), 0.0))
+    ts = np.linspace(0.0, 1.0, steps + 1)
+    out: list[F64] = []
+    for i in range(n):
+        if not convex[i] or len_in[i] < 1.0 or len_out[i] < 1.0 or sin_half[i] < 1e-3:
+            out.append(points[i])
+            continue
+        max_d = min(0.42 * float(len_in[i]), 0.42 * float(len_out[i]),
+                    2.0 * NATURAL_POND_MAX_CUT_CM / float(sin_half[i]))
+        a = points[i] - max_d * u_in[i]
+        b = points[i] + max_d * u_out[i]
+        for t in ts:
+            s = 1.0 - t
+            out.append(s * s * a + 2.0 * s * t * points[i] + t * t * b)
+    return np.asarray(out, dtype=np.float64)
+
+
+def _natural_pond_regions(record: Record) -> tuple[tuple[Ring, tuple[Ring, ...]], ...]:
+    """The regions of a natural pond smoothed within ``MAX_RELIEF_VERTICES``."""
+    regions = pond_regions(record)
+    total = _outline_vertices(regions)
+    steps = 0
+    for candidate in range(NATURAL_POND_CORNER_STEPS, 0, -1):
+        if total * (candidate + 1) <= MAX_RELIEF_VERTICES:
+            steps = candidate
+            break
+    if steps == 0:
+        return regions
+
+    def smooth(ring: Ring) -> Ring:
+        pts = _smooth_pond_ring(np.asarray(ring, dtype=np.float64), steps)
+        return tuple((float(x), float(y)) for x, y in pts)
+
+    validated: list[tuple[Ring, tuple[Ring, ...]]] = []
+    for outer, holes in regions:
+        smoothed = (smooth(outer), tuple(smooth(h) for h in holes))
+        try:
+            cut_region(smoothed[0], smoothed[1])
+        except ValueError:
+            # #961: a pinched concave outline whose fillet crosses a reflex corner or hole
+            # falls back to its original valid ring rather than silently dropping the pond.
+            validated.append((outer, holes))
+        else:
+            validated.append(smoothed)
+    return tuple(validated)
+
+
+def _water_plan(regions: tuple[tuple[Ring, tuple[Ring, ...]], ...]) -> F64 | None:
     """The pond's regions (holes cut out) as plan triangles (t, 3, 2), or None."""
     triangles: list[F64] = []
-    for outer, holes in pond_regions(record):
+    for outer, holes in regions:
         try:
             vertices, faces = cut_region(tuple(outer), tuple(holes))
         except ValueError:
@@ -598,13 +698,15 @@ def _water_plan(record: Record) -> F64 | None:
     return np.stack(triangles) if triangles else None
 
 
-def _water(plan: F64, level: float, uv_origin: tuple[float, float] = (0.0, 0.0)) -> Mesh:
+def _water(plan: F64, level: float, uv_origin: tuple[float, float] = (0.0, 0.0),
+           color: Color | None = None) -> Mesh:
     """The water surface at ``level``, with the plan's UVs (a raised pool shows its
     own water picture: one texel per vertex would sample a single texel, #627)."""
     triangles = np.concatenate([plan, np.full((len(plan), 3, 1), level)], axis=2)
     normalised = np.asarray(uv_origin, dtype=np.float64)
     uvs = (triangles[:, :, :2] + normalised) / PATTERN_TILE_CM
-    return flat_mesh(triangles, _shade(0.9), outward=(0.0, 0.0, 1.0), vertex_uvs=uvs)
+    return flat_mesh(triangles, _shade(0.9) if color is None else color,
+                     outward=(0.0, 0.0, 1.0), vertex_uvs=uvs)
 
 
 def _raised_pool(record: Record, height: float, plan: F64) -> tuple[MeshPart, ...]:
@@ -646,26 +748,40 @@ def _pond(record: Record) -> tuple[MeshPart, ...]:
     if len(points) and ((np.ptp(points, axis=0) < MIN_DETAIL_DIMENSION_CM).any()
                        or (record.height_cm is not None and record.height_cm < MIN_DETAIL_DIMENSION_CM)):
         return default_builder(record)
-    plan = _water_plan(record)
+    natural = is_natural_pond(record)
+    regions = _natural_pond_regions(record) if natural else pond_regions(record)
+    plan = _water_plan(regions)
     if plan is None:
         return ()
     if record.height_cm is not None:
         return _raised_pool(record, record.height_cm, plan)
-    water = _water(plan, WATER_CM)
+    water = _water(plan, WATER_CM, color=NATURAL_POND_WATER_WEIGHT if natural else None)
     coping = []
     # the water's work bound holds per region: this total cap is what bounds the coping
     # of a pond of many regions
-    regions = pond_regions(record)
     for outer, holes in regions if _outline_vertices(regions) <= MAX_RELIEF_VERTICES else ():
         for ring in (outer, *holes):
-            points = np.asarray(ring, dtype=np.float64)
-            if len(points) < 3:
+            pts = np.asarray(ring, dtype=np.float64)
+            if len(pts) < 3:
                 continue
-            up = COPING_UP_CM
-            profile = [(COPING_IN_CM, 0.0), (COPING_IN_CM, 0.55 * up), (0.75 * COPING_IN_CM, 0.9 * up),
-                       (0.3 * COPING_IN_CM, up), (-0.3 * COPING_OUT_CM, up), (-0.8 * COPING_OUT_CM, 0.8 * up),
-                       (-COPING_OUT_CM, 0.4 * up), (-COPING_OUT_CM, 0.0)]
-            coping.append(sweep(profile, points, palette.STONE.linear, closed=True))
+            if natural:
+                # #961: flush, low organic earth shore strictly below DECK_TOP_CM (2.5 cm)
+                # so overhanging pond decks clear it and there is no raised stone curb.
+                up = BANK_UP_CM
+                profile = [
+                    (BANK_IN_CM, 0.2),
+                    (0.5 * BANK_IN_CM, WATER_CM + 0.12),
+                    (0.0, up),
+                    (-0.45 * BANK_OUT_CM, 0.55 * up),
+                    (-BANK_OUT_CM, 0.0),
+                ]
+                coping.append(sweep(profile, pts, palette.SOIL.linear, closed=True, profile_closed=False))
+            else:
+                up = COPING_UP_CM
+                profile = [(COPING_IN_CM, 0.0), (COPING_IN_CM, 0.55 * up), (0.75 * COPING_IN_CM, 0.9 * up),
+                           (0.3 * COPING_IN_CM, up), (-0.3 * COPING_OUT_CM, up), (-0.8 * COPING_OUT_CM, 0.8 * up),
+                           (-COPING_OUT_CM, 0.4 * up), (-COPING_OUT_CM, 0.0)]
+                coping.append(sweep(profile, pts, palette.STONE.linear, closed=True))
     return (*_relief([water], "water", "water"),
             *_relief(coping, "coping", tinted=False))
 

@@ -79,7 +79,7 @@ class CapturingHost(FakeHost):
         return False
 
     def capture(self, size: tuple[int, int], shot: Any = None, *, wind_time_s: float | None = None,
-                photo: Any = None, label: str = "", fitted_shadows: bool = False) -> QImage:
+                photo: Any = None, label: str = "", fitted_shadows: bool | None = None) -> QImage:
         if self.capture_error is not None:
             raise self.capture_error
         self.pictures.append({"size": size, "shot": shot, "wind": wind_time_s, "photo": photo,

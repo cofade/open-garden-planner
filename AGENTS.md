@@ -305,10 +305,10 @@ Full how-to (step-by-step, `.ts` format, recompile command): see `docs/08-crossc
     One `scene_azimuth` rule serves every sun surface. A live frost alert is
     classified against the wall day on every surface; an agent task read stays
     bounded by the window it reports.
-  - 3D look (#687-#807): read the ADR-059 and ADR-072 addenda and the
-    `ogp-lush-cinematic` references 013-019 before touching `ground.frag`, a built
+  - 3D look (#687-#807, #883-#965): read the ADR-059 and ADR-072 addenda and the
+    `ogp-lush-cinematic` references 013-021 before touching `ground.frag`, a built
     part's surface (`core/scene3d/materials.SURFACES`), the twilight fill, wind or
-    the tour video. One shader draws all ground; a still fits its own shadow map.
+    the tour video. One shader draws all ground; a still or resting view fits its own shadow map.
   - Bundled examples and README pictures (#940/#564): read the ADR-066 addendum and
     §8.33 before touching `scripts/example_plans/`. The shipped files are generated
     (`scripts/generate_examples.py`, `--check` in the suite); a plan's row in
