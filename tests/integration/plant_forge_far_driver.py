@@ -1,9 +1,9 @@
 """Real-engine evidence for #948 and #963: a far crop and a dormant bulb.
 
-A 4.2 m cherry at 45 m is rendered at LOD2 in bloom and at ripeness, once with its
-far crop parts and once without; a 50 cm tulip is rendered at LOD0 on 15 April and
-15 July against the same frame without the plant. The driver writes ``result.json``
-with the pixel counts the test gates and the PNGs beside it.
+A 4.2 m cherry at the 45 m LOD2 threshold (forced LOD2) is rendered in bloom and at
+ripeness, once with its far crop parts and once without; a 50 cm tulip is rendered at
+LOD0 on 15 April and 15 July against the same frame without the plant. The driver writes
+``result.json`` with the pixel counts the test gates and the PNGs beside it.
 """
 
 from __future__ import annotations
