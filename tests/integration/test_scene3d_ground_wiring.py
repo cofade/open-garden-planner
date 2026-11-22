@@ -310,10 +310,10 @@ def test_an_item_whose_paint_fails_is_listed_in_the_users_words(
     real = ground_bake.paint_record
     lawn = rig.lawn(100.0, 100.0, 300.0, 300.0)
 
-    def brittle(painter: Any, record: Any, *, budget: Any = None) -> None:
+    def brittle(painter: Any, record: Any, **kwargs: Any) -> None:
         if record.item_id == str(lawn.item_id):
             raise MemoryError("no image for the lawn")
-        real(painter, record, budget=budget)
+        real(painter, record, **kwargs)
 
     monkeypatch.setattr(ground_bake, "paint_record", brittle)
     changes: list[int] = []
@@ -346,10 +346,10 @@ def test_the_strip_counts_no_object_whose_ground_paint_failed(
     lawn = RectangleItem(300.0, 300.0, 600.0, 400.0, object_type=ObjectType.LAWN,
                          layer_id=bench.scene.active_layer.id)
 
-    def brittle(painter: Any, record: Any, *, budget: Any = None) -> None:
+    def brittle(painter: Any, record: Any, **kwargs: Any) -> None:
         if record.item_id == str(lawn.item_id):
             raise MemoryError("no image for the lawn")
-        real(painter, record, budget=budget)
+        real(painter, record, **kwargs)
 
     monkeypatch.setattr(ground_bake, "paint_record", brittle)
     bench.commands.execute(CreateItemCommand(bench.scene, lawn, "lawn"))
