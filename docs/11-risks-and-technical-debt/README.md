@@ -123,7 +123,7 @@ Permanent IDs survive retirement (ADR-061). [Pitfalls](pitfalls/) hold rules and
 | API | [Agent API & Security Index](pitfalls/index/08-agent-api-security.md) | agent API, MCP and security | [08-agent-api-security.md](pitfalls/08-agent-api-security.md) |
 | DOM | [Domain & Solver Index](pitfalls/index/09-domain-solver.md) | domain data, solver and dates | [09-domain-solver.md](pitfalls/09-domain-solver.md) |
 | E3D | [3D Engine & Scene Index](pitfalls/index/10-3d-engine-scene.md) | 3D engine and scene. The host's state contract is written down once, in `src/open_garden_planner/ui/view3d/quick3d/lifecycle.py`. | [10-3d-engine-scene.md](pitfalls/10-3d-engine-scene.md) |
-| L3D | [3D Look & Ground Index](pitfalls/index/11-3d-look-ground-build.md) | 3D look, ground and build | [11-3d-look-ground-build.md](pitfalls/11-3d-look-ground-build.md) |
+| L3D | [3D Look & Ground Index](pitfalls/index/11-3d-look-ground-build.md) | 3D look, ground and build | [11-3d-look-ground-build.md](pitfalls/11-3d-look-ground-build.md), [11b-3d-look-shaders.md](pitfalls/11b-3d-look-shaders.md) |
 | PRC | [Process & Docs Index](pitfalls/index/12-process-and-docs.md) | process and documentation | [12-process-and-docs.md](pitfalls/12-process-and-docs.md) |
 
 ### Redirect of legacy numbered IDs
