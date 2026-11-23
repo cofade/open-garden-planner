@@ -321,7 +321,9 @@ SPECIES: dict[str, Recipe] = {
                       flowers=dict(spec="gold", petals=16, double=True)),
     # #940: three species of the bundled example plans (appended: the table's order is
     # the order the generator writes the files in)
-    "japanese_maple": dict(a="canopy", pal="redleaf", leaf_scale=0.65, n_out=24, frilly=True),
+    # #960: its leaves were large diamonds at 0.65; 0.45 keeps the maple's fine,
+    # deeply cut leaf while the hue gate holds its red.
+    "japanese_maple": dict(a="canopy", pal="redleaf", leaf_scale=0.45, n_out=24, frilly=True),
     "bamboo": dict(a="grass", pal="fresh", r=44, n_out=26, leaf_scale=0.85),
     "grape_vine": dict(a="climber", pal="fresh", frilly=True, leaf_scale=1.2,
                        fruit=dict(kind="grape", n=7, size=(1.9, 2.3), per=(8, 12))),

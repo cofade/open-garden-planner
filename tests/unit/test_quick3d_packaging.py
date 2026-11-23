@@ -89,6 +89,7 @@ class TestSpec:
             "built_detail.frag", "built_detail.vert",   # roof tiles, wall courses (#801)
             "built_snow.frag", "built_snow.vert",   # snow on built tops (#687)
             "foliage.frag", "foliage.vert", "foliage_door.frag", "foliage_door.vert",
+            "glass.frag",                     # a window pane's Ultra SSR (#992)
             "grass.vert", "grass_door.vert", "ground.frag", "lawn.frag", "overlay.frag", "overlay.vert",
             "photoblur_compose.frag", "photoblur_layer.frag", "photoblur_rows.frag",
             "plant_sway.vert",                # a plant's wood and fruit in the wind (#800)

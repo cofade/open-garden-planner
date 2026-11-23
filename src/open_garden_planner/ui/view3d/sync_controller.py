@@ -1216,7 +1216,10 @@ class Scene3DController(QObject):
         self._capture_reconciling = reconciling
         self._capture_started = time.perf_counter()
         try:
+            from open_garden_planner.core.phenology import plan_latitude
+
             self._capture = snapshot_steps(self._scene, self._capture_date,
+                                           latitude_deg=plan_latitude(self._location()),
                                            skipped=self._capture_skipped)
             try:
                 next(self._capture)  # the scene's items are listed HERE, on this turn

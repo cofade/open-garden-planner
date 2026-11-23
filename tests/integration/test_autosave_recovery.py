@@ -44,6 +44,7 @@ def populated_project(scene: CanvasScene) -> ProjectManager:
         "task_states": {"task": {"status": "done", "done_date": "2026-11-16"}},
         "harvest_logs": {"bed": {"entries": [{"date": "2026-11-16", "quantity_kg": 2.5}]}},
         "camera_tours": [tour.to_dict()],
+        "weather": "snow",
     }
     scene_fields = {"canvas_width", "canvas_height", "objects", "layers", "constraints", "guides"}
     assert {field.name for field in fields(ProjectData)} == scene_fields | metadata.keys()

@@ -207,11 +207,12 @@ _TURNED: Final = 0.2
 #: flowers are within reach: a tall tree's crown is not where they flutter (board, L5).
 _IN_FLOWER: Final = 0.35
 _FLOWER_HEIGHT_MAX_CM: Final = 350.0
-#: A falling leaf is its own crown's colour (#687): this many samples of the Forge's leaf
-#: colours for the tree's palette (``plant_forge.palette_leaf_colors``, what the crown is
-#: built with), from its outer, upper leaves — the ones that fall —, times the season's
-#: tint (``PhenologyState.foliage_tint_linear``, the crown's ``seasonTint``). The style
-#: table forbids a palette literal: one (amber, rust, ochre) gave a red maple amber leaves.
+#: A falling leaf is its own crown's colour (#687, #941, #895): this many samples of the
+#: Forge's leaf colours for the tree's palette (``plant_forge.palette_leaf_colors``, what
+#: the crown is built with), from its outer, upper leaves — the ones that fall — mapped
+#: through the same two-anchor autumn ramp and snow tint as ``foliage.frag``
+#: (``phenology.map_autumn_leaves``). The style table forbids a palette literal: one
+#: (amber, rust, ochre) gave a red maple amber leaves.
 _LEAF_SAMPLES: Final = 8
 _FALLING_HEIGHT: Final = (0.45, 1.0)
 _FALLING_DEPTH: Final = (0.6, 1.0)
@@ -249,6 +250,7 @@ def _crown_leaf_palette(record: Record, state: PhenologyState
     """The colours a falling leaf of ``record`` picks from (``_LEAF_SAMPLES``, linear):
     its crown's own on the date of ``state`` — deterministic per item, never two trees'
     clones."""
+    from ..phenology import map_autumn_leaves
     from ..plant_art import DEFAULT_PALETTE, traits_for
     from ..plant_forge.foliage import palette_leaf_colors
     from .builders.plants import plant_sprite
@@ -261,9 +263,8 @@ def _crown_leaf_palette(record: Record, state: PhenologyState
     rng = np.random.default_rng(_stable_seed("leaf-palette", record.item_id))
     height = rng.uniform(*_FALLING_HEIGHT, _LEAF_SAMPLES)
     depth = rng.uniform(*_FALLING_DEPTH, _LEAF_SAMPLES)
-    colours = (palette_leaf_colors(palette, sprite, height, depth, rng)[:, :3].astype(np.float64)
-               * np.asarray(state.foliage_tint_linear, dtype=np.float64))
-    return tuple((float(r), float(g), float(b)) for r, g, b in colours)
+    raw = palette_leaf_colors(palette, sprite, height, depth, rng)[:, :3].astype(np.float64)
+    return map_autumn_leaves(raw, state)
 
 
 def _share(weights: list[float], budget: int, *, at_least: int = 1) -> list[int]:

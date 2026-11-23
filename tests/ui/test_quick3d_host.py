@@ -257,6 +257,29 @@ def _record(item_id: str, east: float = 0.0, north: float = 0.0, rotation: float
                   params=Params({"seed": item_id}))
 
 
+def test_the_plant_season_payload_keeps_the_autumn_hue_out_of_the_multiplier() -> None:
+    """#941: the shader maps the autumn hue from its two anchors; its tint carries snow
+    only. The legacy ``foliage_tint_linear`` multiplier must not be sent."""
+    from types import SimpleNamespace
+
+    from open_garden_planner.ui.view3d.quick3d.host import Quick3DHost
+
+    state = SimpleNamespace(
+        leaf_density=1.0, foliage_snow_tint_linear=(1.0, 1.0, 1.0), bloom=0.0,
+        ripeness=0.0, snow=0.0, accent_tint_linear=(1.0, 1.0, 1.0), autumn_color=0.8,
+        summer_dark_linear=(0.0, 0.0, 0.0), summer_light_linear=(1.0, 1.0, 1.0),
+        autumn_dark_linear=(0.1, 0.0, 0.0), autumn_light_linear=(0.8, 0.2, 0.1))
+    host = object.__new__(Quick3DHost)
+    sent: dict[str, Any] = {}
+    host._open = lambda _name: None                # type: ignore[method-assign]
+    host._call = lambda name, values: sent.update({name: values})  # type: ignore[method-assign]
+    host.request_frame = lambda: None              # type: ignore[method-assign]
+    host.set_plant_seasons({"p": state})           # type: ignore[dict-item]
+    values = sent["setPlantSeasons"]["p"]
+    assert values[1:4] == [1.0, 1.0, 1.0], "the autumn multiplier was sent a second time"
+    assert values[10] == 0.8 and values[17:20] == [0.1, 0.0, 0.0]
+
+
 @pytest.fixture()
 def host(qtbot) -> Iterator[Any]:  # noqa: ARG001 - Qt must be initialised
     made = _new_host((320, 240))

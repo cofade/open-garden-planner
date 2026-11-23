@@ -1,6 +1,12 @@
 // Leaves and blades (ported from the L0 spike; shared by foliage.vert and
 // grass.vert). albedo = vertex colour x the part's tint, both linear.
 VARYING vec4 vColor;
+
+float leafLuma(vec3 c)
+{
+    return dot(c, vec3(0.2126, 0.7152, 0.0722));
+}
+
 // The screen door of a faded part (L2.4, #386): the same 4 x 4 ordered dither as
 // screen.frag. A COPY of foliage.frag with this block and the discard in MAIN added
 // (test_quick3d_qml pins it): the look shader carries no discard, so nothing changes
@@ -21,6 +27,16 @@ void MAIN()
     if (screenDoor(FRAGCOORD.xy) >= uOpacity)
         discard;
     BASE_COLOR = vec4(vColor.rgb * uTint, 1.0);
+    // #941: one multiplier per channel made dark leaves olive and light leaves salmon.
+    // Map each leaf's position on the SUMMER palette's dark..light ramp onto the AUTUMN
+    // palette's ramp; every leaf keeps its own tone, the hue comes from the palette.
+    // The uniforms are read HERE, in MAIN: Qt inserts a custom material's uniforms
+    // after the user's helper functions, so a helper that reads them does not compile.
+    float low = leafLuma(uSummerDark);
+    float high = max(leafLuma(uSummerLight), low + 1e-4);
+    float tone = clamp((leafLuma(vColor.rgb) - low) / (high - low), 0.0, 1.0);
+    vec3 autumnLeaf = mix(uAutumnDark, uAutumnLight, tone);
+    BASE_COLOR.rgb = mix(BASE_COLOR.rgb, autumnLeaf * uTint, uAutumn);
     BASE_COLOR.rgb = mix(BASE_COLOR.rgb, vec3(0.68, 0.71, 0.75), uSnow * max(NORMAL.y, 0.0));
     // L5 (ADR-070): wet leaves are darker and shine - the rain 1, a morning dew 0.6.
     // Not glossier than 0.6: at 0.38 a low sun left cream glints on the wet leaves in the

@@ -47,7 +47,9 @@ SAME = 1
 TABLE_MEAN, TABLE_MAX = 0.5, 8
 #: The largest luma step between neighbouring frames of the two-week clock-change tour.
 #: Measured on the dev box: 1.53 after the tour held UTC; 18.07 at the change before it
-#: (the owner read 24 in the year video, #732). Every other step stays below 2.
+#: (the owner read 24 in the year video, #732). The seasonal lawn/meadow tint adds a few
+#: levels to this window: the 4-day grid measured 3.36 worst (the old 14-day grid 7.02),
+#: so 4.0 is the bound; a step much above it is the tint or the clock, not noise.
 DST_STEP_BOUND = 4.0
 #: #733, the family garden at sunset: a 4K picture's horizon band against 1080p's, in
 #: luma. Measured -0.41 mean / -0.53 worst 40-row bucket with the capture's AO radius

@@ -50,7 +50,6 @@ from PyQt6.QtWidgets import (
     QMessageBox,
     QProgressBar,
     QPushButton,
-    QSpinBox,
     QStackedWidget,
     QTimeEdit,
     QVBoxLayout,
@@ -237,8 +236,14 @@ class TourDialog(QDialog):
         orbit = QWidget(group)
         orbit_form = QFormLayout(orbit)
         orbit_form.setContentsMargins(0, 0, 0, 0)
-        self.turns_spin = QSpinBox(orbit)
+        self.turns_spin = QDoubleSpinBox(orbit)
+        self.turns_spin.setDecimals(2)
+        self.turns_spin.setSingleStep(0.25)
         self.turns_spin.setRange(*ORBIT_TURNS)
+        self.turns_spin.setValue(1.0)
+        self.turns_spin.setToolTip(self.tr(
+            "How much of a turn the drone makes. Less than a full turn keeps a garden "
+            "with a house on one side on its garden side."))
         self.turns_spin.valueChanged.connect(self._sync_controls)
         orbit_form.addRow(self.tr("Turns:"), self.turns_spin)
         self.clockwise_check = QCheckBox(self.tr("Clockwise"), orbit)
@@ -701,7 +706,7 @@ class TourDialog(QDialog):
         self._duration_chosen = True   # the tour's length, not the camera's default
         self.motion_combo.setCurrentIndex(self.motion_combo.findData(tour.motion))
         if tour.orbit is not None:
-            self.turns_spin.setValue(int(tour.orbit.turns))
+            self.turns_spin.setValue(float(tour.orbit.turns))
             self.clockwise_check.setChecked(tour.orbit.clockwise)
             self.ease_check.setChecked(tour.orbit.ease)   # absent in an older file: no easing
         kind = "year" if tour.date_range else "day" if tour.time_range else "none"

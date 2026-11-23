@@ -139,6 +139,22 @@ def _rectangle() -> Any:
     return RectangleItem(100.3, 50.7, 240.0, 130.5, object_type=ObjectType.TOOL_SHED)
 
 
+def test_a_lawn_keeps_the_seasons_but_the_path_beside_it_does_not(canvas: Any) -> None:
+    """#943: a January lawn is not June's green; a path keeps its own colour."""
+    lawn = RectangleItem(100.0, 100.0, 500.0, 300.0, object_type=ObjectType.LAWN)
+    path = RectangleItem(100.0, 450.0, 500.0, 80.0, object_type=ObjectType.PATH)
+    canvas.scene().addItem(lawn)
+    canvas.scene().addItem(path)
+    summer = snapshot_records(canvas.scene(), JUNE, latitude_deg=52.0)
+    winter = snapshot_records(canvas.scene(), date(2027, 1, 15), latitude_deg=52.0)
+    lawn_id, path_id = str(lawn.item_id), str(path.item_id)
+    assert summer[lawn_id].material.fill_rgba != winter[lawn_id].material.fill_rgba
+    assert winter[lawn_id].material.fill_rgba[1] < summer[lawn_id].material.fill_rgba[1]
+    assert summer[path_id].material.fill_rgba == winter[path_id].material.fill_rgba
+    southern = snapshot_records(canvas.scene(), date(2027, 7, 15), latitude_deg=-52.0)
+    assert southern[lawn_id].material.fill_rgba != summer[lawn_id].material.fill_rgba
+
+
 def _polygon() -> Any:
     # concave L; vertex 3 is the reflex corner, inside the bounding box
     vertices = [QPointF(200.0, 100.0), QPointF(520.5, 100.0), QPointF(520.5, 260.25),
@@ -435,9 +451,15 @@ class TestDiffMatrix:
         assert grown.params["radius_cm"] == 200.0 > young.params["radius_cm"]  # type: ignore[operator]
         assert grown.transform == young.transform
 
-    def test_the_date_changes_nothing_but_dated_plants(self, undated_stage: Stage) -> None:
+    def test_the_date_changes_only_dated_plants_and_a_lawn_s_season(
+            self, undated_stage: Stage) -> None:
         undated_stage.at = date(2040, 1, 1)
-        assert undated_stage.step().is_empty
+        bystander = str(undated_stage.bystander.item_id)
+        result = undated_stage.step()
+        assert set(result.material) <= {bystander}, (
+            "only a lawn's season colour may follow the date (#943)")
+        assert not (result.added or result.removed or result.transform or result.geometry
+                    or result.reordered)
 
     def test_select_deselect_hover_and_rename_give_an_empty_diff(self, stage: Stage) -> None:
         stage.item.setSelected(True)  # handles, annotations and labels appear as child items
@@ -2762,7 +2784,7 @@ class TestContainment:
         import inspect
 
         signature = inspect.signature(snapshot_records)
-        assert list(signature.parameters) == ["scene", "at_date", "skipped"]
+        assert list(signature.parameters) == ["scene", "at_date", "latitude_deg", "skipped"]
         assert signature.parameters["skipped"].kind is inspect.Parameter.KEYWORD_ONLY
         assert signature.parameters["skipped"].default is None
         scene = canvas.scene()

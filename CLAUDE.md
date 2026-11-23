@@ -254,6 +254,8 @@ Full how-to (step-by-step, `.ts` format, recompile command): see `docs/08-crossc
   "Current work" section, then `git status` and `git log --oneline -20`.
 - Current release: **v1.41.2** (2026-11-22). No roadmap phase is active.
   See the roadmap's Current work table and the open issues for the next change.
+- Open draft PR: [PR #998](https://github.com/cofade/open-garden-planner/pull/998) on
+  `feature/3d-showcase-followups-941-992` awaits the owner's manual visual pass.
 - Live decisions that constrain the next change:
   - Bloom hardiness & CAN pitfall index (ADR-014 addendum, ADR-061 addendum, PF-CAN-68):
     `frost_hardy_bloom` lives on `plant_species.json`; CAN pitfalls PF-CAN-49+

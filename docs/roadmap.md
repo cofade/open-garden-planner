@@ -33,7 +33,8 @@ No roadmap phase is active. Open work is tracked in GitHub issues; the current t
 | Theme | Open issues | Why it matters |
 |-------|-------------|----------------|
 | Store/MSIX readiness | #767, #375 | Distribution and user-data safety on the second channel. |
-| 3D rendering quality and performance | #744, #534, #531, #992 | The 3D view's trust and frame budget. |
+| 3D rendering quality and performance | #744, #534, #531 | The 3D view's trust and frame budget. |
+| 3D showcase follow-ups (draft PR) | #941, #943, #944, #949, #954, #955, #956, #960, #966, #992 | The example plans' look: a two-anchor autumn, year-round grass, a stored plan weather, domed rocks, moss and raked sand, a board fence and a Scots pine, a dwarf palm, a pergola climber, part-turn orbits and Ultra window reflections. [Draft PR #998](https://github.com/cofade/open-garden-planner/pull/998); the owner's visual pass is pending. |
 | CAD and drawing tools | — | Precision and editing depth. |
 | Architecture and tech debt | #667 | Remove redundant surfaces and make tests repeatable; its seed wiring shipped, the owner-run soak measurement is still owed. |
 | Documentation before advertising | #939 | The user-facing documents describe today's product before it is shared. |

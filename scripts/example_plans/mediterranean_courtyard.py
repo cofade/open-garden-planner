@@ -17,6 +17,10 @@ SLUG = "mediterranean-courtyard"
 #: The stored orbit looks down more steeply than the dialog's 18 degrees: from there
 #: the wall hid the garden behind it (3D review of #940).
 ORBIT_PITCH_DEG = 34.0
+#: The house closes the north side: half a turn stays over the courtyard (#966).
+#: Counter-clockwise from the WSW start sweeps south across the courtyard instead of north behind the house.
+ORBIT_TURNS = 0.5
+ORBIT_CLOCKWISE = False
 
 META = {
     "name_en": "Mediterranean courtyard - 12 x 10 m", "name_de": "Mediterraner Innenhof - 12 x 10 m",

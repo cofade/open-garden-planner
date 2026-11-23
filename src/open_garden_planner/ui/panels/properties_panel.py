@@ -44,6 +44,7 @@ from open_garden_planner.core.item_look import (
 )
 from open_garden_planner.core.measurement_display import volume_text
 from open_garden_planner.core.object_types import (
+    PATH_FENCE_STYLES,
     ObjectType,
     PathFenceStyle,
     StrokeStyle,
@@ -2445,11 +2446,7 @@ class PropertiesPanel(QWidget):
                 model.item(idx).setEnabled(False)
             for pfs in [
                 PathFenceStyle.NONE,
-                PathFenceStyle.GRAVEL_PATH,
-                PathFenceStyle.STEPPING_STONES,
-                PathFenceStyle.PAVED_PATH,
-                PathFenceStyle.WOODEN_BOARDWALK,
-                PathFenceStyle.DIRT_PATH,
+                *(style for style, info in PATH_FENCE_STYLES.items() if info.category == "path"),
             ]:
                 style_combo.addItem(get_translated_path_fence_style_name(pfs), pfs)
             # Add "Fences" group
@@ -2458,11 +2455,7 @@ class PropertiesPanel(QWidget):
             if model:
                 model.item(idx).setEnabled(False)
             for pfs in [
-                PathFenceStyle.WOODEN_FENCE,
-                PathFenceStyle.METAL_FENCE,
-                PathFenceStyle.CHAIN_LINK,
-                PathFenceStyle.HEDGE_FENCE,
-                PathFenceStyle.STONE_WALL,
+                style for style, info in PATH_FENCE_STYLES.items() if info.category == "fence"
             ]:
                 style_combo.addItem(get_translated_path_fence_style_name(pfs), pfs)
 
@@ -2535,6 +2528,7 @@ class PropertiesPanel(QWidget):
                 FillPattern.CLAY: self.tr("Clay"),
                 FillPattern.DECKING: self.tr("Decking"),
                 FillPattern.CORTEN: self.tr("Corten steel"),
+                FillPattern.MOSS: self.tr("Moss"),
             }
             for pattern in FillPattern:
                 pattern_combo.addItem(_pattern_names.get(pattern, pattern.name), pattern)

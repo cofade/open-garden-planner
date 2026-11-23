@@ -2119,6 +2119,10 @@ class GardenPlannerApp(QMainWindow):
         from open_garden_planner.ui.view3d.workspace import Workspace
 
         self._workspace = Workspace(self.canvas_view, parent=self)
+        # #944: choosing a concrete weather stores it in the plan; opening a plan applies
+        # the stored choice without writing it back (the flag breaks the round trip).
+        self._applying_plan_weather = False
+        self._workspace.living.weather_chosen.connect(self._store_plan_weather)
         self._main_splitter = QSplitter(Qt.Orientation.Horizontal)
         self._main_splitter.addWidget(self._workspace)
         # Route CanvasView's status messages to the window's status bar. This is
@@ -3105,6 +3109,7 @@ class GardenPlannerApp(QMainWindow):
             # After the rewire, like every document change (#795): the clock
             # re-raises a listener's error.
             self._showcase_moment.document_opened(None)
+            self._apply_plan_weather()
             self._autosave_manager.adopt_recovery_file(recovery_path)
 
             self.statusBar().showMessage(self.tr("Recovered from auto-save. Remember to save your work!"))
@@ -3349,6 +3354,10 @@ class GardenPlannerApp(QMainWindow):
         # Last, after the document is rewired (#795): the clock re-raises a
         # listener's error, and nothing above may be skipped by it.
         self._showcase_moment.document_opened(None)
+        # A new untitled plan has no weather of its own: keep Today's live forecast
+        # (session-only), while resetting any previous plan's concrete weather to clear
+        # so the 3D view and project_manager.plan_weather never disagree (#944).
+        self._apply_plan_weather(reset_session=False)
 
     def _on_canvas_size(self) -> None:
         """Handle Canvas Size action — resize the current canvas."""
@@ -3525,6 +3534,43 @@ class GardenPlannerApp(QMainWindow):
         self._workspace.set_opening_side(
             opening_side(self._project_manager.camera_tours) if moment is not None else None)
         self._showcase_moment.document_opened(moment)
+        self._apply_plan_weather()
+
+    def _store_plan_weather(self, weather: str) -> None:
+        """The user's concrete weather becomes the plan's own (#944).
+
+        Today's Weather is a live forecast choice, not a plan fact: it is not stored.
+        """
+        from open_garden_planner.core.scene3d.weather import TODAY, WEATHERS
+
+        if self._applying_plan_weather or weather == TODAY or weather not in WEATHERS:
+            return
+        self._project_manager.set_plan_weather(weather)
+
+    def _apply_plan_weather(self, *, reset_session: bool = True) -> None:
+        """Open the window in the weather the document carries (#944), clear included.
+
+        The weather is now the plan's, not the session's: a bundled example opens in the
+        sky it was built for, and a snowy example followed by a clear one does not leave
+        snow on the second. A NEW untitled plan has no weather of its own: it preserves
+        Today's live forecast (session-only, never stored in a plan) while resetting any
+        concrete plan weather from the previous document to clear so the view and
+        ``project_manager.plan_weather`` never disagree.
+        """
+        from open_garden_planner.core.scene3d.weather import TODAY
+
+        weather = self._project_manager.plan_weather
+        if (
+            not reset_session
+            and weather == "clear"
+            and self._workspace.living.weather_choice == TODAY
+        ):
+            return
+        self._applying_plan_weather = True
+        try:
+            self._workspace.living.set_weather(weather)
+        finally:
+            self._applying_plan_weather = False
 
     def _reset_compare_overlay_after_failed_load(self) -> None:
         """#337: a failed load can leave the compare-overlay action state

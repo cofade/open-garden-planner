@@ -506,7 +506,7 @@ class TestAnOpaqueCoverEndsTheWalk:
         pattern: all 24 do. One that did not would not end a walk."""
         monkeypatch.setattr(ground_bake, "_OPAQUE_PATTERNS", {})
         assert all(ground_bake._pattern_is_opaque(pattern.name) for pattern in FillPattern)
-        assert len(ground_bake._OPAQUE_PATTERNS) == len(FillPattern) == 25
+        assert len(ground_bake._OPAQUE_PATTERNS) == len(FillPattern) == 26
         assert ground_bake._pattern_is_opaque(None) and ground_bake._pattern_is_opaque("NO_SUCH")
 
         def glassy(pattern: FillPattern, color: QColor) -> Any:

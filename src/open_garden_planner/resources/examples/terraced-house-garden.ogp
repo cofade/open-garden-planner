@@ -2344,11 +2344,11 @@
         "yaw_deg": 85.7,
         "pitch_deg": 45.0,
         "fov_deg": 40.0,
-        "turns": 1,
-        "clockwise": true,
+        "turns": 0.5,
+        "clockwise": false,
         "ease": true
       },
-      "duration_s": 30.0,
+      "duration_s": 15.0,
       "fps": 30,
       "size": [
         1920,

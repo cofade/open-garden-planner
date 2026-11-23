@@ -27,6 +27,7 @@ from scripts.translations_l4 import DE as _L4_TRANSLATIONS
 from scripts.translations_l5 import DE as _L5_TRANSLATIONS
 from scripts.translations_l6 import DE as _L6_TRANSLATIONS
 from scripts.translations_l7 import DE as _L7_TRANSLATIONS
+from scripts.translations_showcase import DE as _SHOWCASE_TRANSLATIONS
 from scripts.translations_sun_map import DE as _SUN_MAP_TRANSLATIONS
 from scripts.translations_units_prefs import DE as _UNITS_PREFS_TRANSLATIONS
 
@@ -3640,6 +3641,10 @@ for _ctx, _strings in _SUN_MAP_TRANSLATIONS.items():
 
 # ── Tabbed Preferences and per-quantity units (#986, #907) ──
 for _ctx, _strings in _UNITS_PREFS_TRANSLATIONS.items():
+    TRANSLATIONS.setdefault(_ctx, {}).update(_strings)
+
+# ── The 3D showcase follow-ups: board fence, moss, part-turn tooltip (#960, #966) ──
+for _ctx, _strings in _SHOWCASE_TRANSLATIONS.items():
     TRANSLATIONS.setdefault(_ctx, {}).update(_strings)
 
 

@@ -665,6 +665,32 @@ class PathStylePaint:
 
         painter.restore()
 
+    def _paint_board_fence(self, painter: QPainter) -> None:
+        """Board fence: a closed timber screen with board seams and stouter posts (#960)."""
+        painter.save()
+        painter.setRenderHint(QPainter.RenderHint.Antialiasing)
+        color = self.pen().color()
+        width = self.pen().widthF()
+        painter.setPen(QPen(color.darker(125), width, Qt.PenStyle.SolidLine,
+                            Qt.PenCapStyle.FlatCap, Qt.PenJoinStyle.MiterJoin))
+        painter.drawPath(self._stroke_path())
+        seam_pen = QPen(color.darker(160))
+        seam_pen.setWidthF(0.8)
+        painter.setPen(seam_pen)
+        for pt, _dir_x, _dir_y, nx, ny in self._walk_path(15.0):
+            painter.drawLine(QPointF(pt.x() + nx * width / 2.0, pt.y() + ny * width / 2.0),
+                             QPointF(pt.x() - nx * width / 2.0, pt.y() - ny * width / 2.0))
+        painter.setPen(QPen(color.darker(145), 0.8))
+        painter.setBrush(QBrush(color.darker(115)))
+        post = width * 1.8
+        for pt, dir_x, dir_y, _nx, _ny in self._walk_path(200.0):
+            painter.save()
+            painter.translate(pt.x(), pt.y())
+            painter.rotate(math.degrees(math.atan2(dir_y, dir_x)))
+            painter.drawRect(QRectF(-post / 2.0, -post / 2.0, post, post))
+            painter.restore()
+        painter.restore()
+
     def _paint_metal_fence(self, painter: QPainter) -> None:
         """Metal/wrought iron fence: thin posts with decorative tops."""
         painter.save()
@@ -999,6 +1025,7 @@ _STYLE_PAINTERS: Final[dict[PathFenceStyle, Callable[[PathStylePaint, QPainter],
     PathFenceStyle.WOODEN_BOARDWALK: PathStylePaint._paint_wooden_boardwalk,
     PathFenceStyle.DIRT_PATH: PathStylePaint._paint_dirt_path,
     PathFenceStyle.WOODEN_FENCE: PathStylePaint._paint_wooden_fence,
+    PathFenceStyle.BOARD_FENCE: PathStylePaint._paint_board_fence,
     PathFenceStyle.METAL_FENCE: PathStylePaint._paint_metal_fence,
     PathFenceStyle.CHAIN_LINK: PathStylePaint._paint_chain_link,
     PathFenceStyle.HEDGE_FENCE: PathStylePaint._paint_hedge_fence,

@@ -142,6 +142,10 @@ def surface_look(kind: str, surface: str) -> SurfaceLook | None:
                                     "surfaceSpecular": entry.specular,
                                     "surfaceAlbedo": albedo,
                                     "surfaceAlbedoSrgb": albedo_srgb}
+    if kind == "vc":
+        # #992: a window pane gets its own fragment material on vcPart, so Ultra SSR
+        # can reflect the garden at 0.38 while its sky IBL keeps the 0.70 flicker floor
+        properties["surfaceGlass"] = 1.0 if entry.name == "glass_pane" else 0.0
     detail = detail_of(entry.name, kind)
     if detail is None:
         return SurfaceLook(MappingProxyType(properties), None)

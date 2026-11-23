@@ -179,7 +179,7 @@ def test_a_style_painter_reads_the_items_own_points(qtbot: Any) -> None:
 def test_the_table_of_style_painters_is_built_once_and_names_every_style() -> None:
     assert frozenset(STYLES) == STYLES_PAINTED
     assert style_paint._STYLE_PAINTERS.keys() == STYLES_PAINTED
-    assert len({painter.__name__ for painter in style_paint._STYLE_PAINTERS.values()}) == 10
+    assert len({painter.__name__ for painter in style_paint._STYLE_PAINTERS.values()}) == 11
     image = QImage(8, 8, QImage.Format.Format_RGBA8888_Premultiplied)
     painter = QPainter(image)
     try:

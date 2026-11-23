@@ -16,6 +16,8 @@ KEEP_PROJECT_FIELDS = frozenset({
     "succession_plans", "auto_assign_permaculture_layers",
     # #737: a camera tour is a path through the geometry that is kept, and no site data.
     "camera_tours",
+    # #944: the showcase weather is part of the plan's look, not personal site data.
+    "weather",
     # #663: north is the plan's drawing frame, not personal site data.
     "north_angle_deg",
 })

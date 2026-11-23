@@ -56,6 +56,7 @@ CROWN_SHAPES: Final[frozenset[str]] = frozenset({
     "weeping",
     "conical",
     "tiered",
+    "umbrella",
     "fan",
     "mound",
     "flat",
@@ -863,14 +864,18 @@ def _build_traits(group: str, stem: str, recipe: Recipe) -> Traits3D:
         is_pine = stem == "pine"
         is_juniper = stem == "juniper"
         crown = CrownTraits(
-            shape="tiered" if not is_juniper else "conical",
-            trunk_share=0.22 if is_pine else (0.08 if is_juniper else 0.12),
-            taper=0.65 if is_pine else 0.82,
-            droop=0.28 if is_pine else 0.48,
+            # #960: a Scots pine is an umbrella, not a spruce cone: a long bare trunk
+            # (its crown starts above half its height) and a broad, flat-topped head.
+            shape="umbrella" if is_pine else ("conical" if is_juniper else "tiered"),
+            trunk_share=0.55 if is_pine else (0.08 if is_juniper else 0.12),
+            taper=0.30 if is_pine else 0.82,
+            droop=0.15 if is_pine else 0.48,
             aspect_xy=1.0,
         )
         branching = BranchingTraits(220, 2.4, 0.020, 0.25, 0.05, BARK_PINE, 1.0)
-        leaf = LeafTraits("needle", round(14.0 * leaf_scale, 2), 0.35, leaf_scale, frilly, narrow)
+        # #960 review: pine needles are short and narrow, not the broad blades a
+        # generic conifer leaf gets; the umbrella builder keeps this scale.
+        leaf = LeafTraits("needle", round(6.0 * leaf_scale, 2), 0.18, leaf_scale, frilly, narrow)
         return Traits3D(
             ref, archetype, pal, crown, branching, leaf, False,
             bloom_months, blossom_spec, fruit_months, harvest_weeks, pal,

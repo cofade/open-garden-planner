@@ -1604,6 +1604,21 @@
     "state": "CLOSED",
     "title": "Ship 13 bundled example plans as showcase material (nine new, food forest enlarged)"
   },
+  "941": {
+    "is_pr": false,
+    "state": "OPEN",
+    "title": "3D: the autumn tint turns green crowns olive and salmon instead of a clean autumn colour"
+  },
+  "943": {
+    "is_pr": false,
+    "state": "OPEN",
+    "title": "3D: lawn and meadow keep one colour all year"
+  },
+  "944": {
+    "is_pr": false,
+    "state": "OPEN",
+    "title": "Weather cannot be stored in a plan, so an example or a tour cannot open in snow or rain"
+  },
   "945": {
     "is_pr": false,
     "state": "CLOSED",
@@ -1611,8 +1626,13 @@
   },
   "948": {
     "is_pr": false,
-    "state": "OPEN",
+    "state": "CLOSED",
     "title": "3D: flowers and fruit vanish beyond 45 m from the camera"
+  },
+  "949": {
+    "is_pr": false,
+    "state": "OPEN",
+    "title": "3D: the palm look has only a tall-trunk form"
   },
   "950": {
     "is_pr": false,
@@ -1629,6 +1649,21 @@
     "state": "CLOSED",
     "title": "3D: at night, faces turned away from the moon are pure black"
   },
+  "954": {
+    "is_pr": false,
+    "state": "OPEN",
+    "title": "3D: a long hedge renders as a flat painted wall (one leaf budget per item)"
+  },
+  "955": {
+    "is_pr": false,
+    "state": "OPEN",
+    "title": "3D: no rock - a stone-filled polygon is a flat-topped prism"
+  },
+  "956": {
+    "is_pr": false,
+    "state": "OPEN",
+    "title": "3D: a climber on a pergola stays a column at the post and never covers the top"
+  },
   "957": {
     "is_pr": false,
     "state": "CLOSED",
@@ -1644,6 +1679,11 @@
     "state": "CLOSED",
     "title": "3D: pebble and compost surfaces read as bubble wrap from close by"
   },
+  "960": {
+    "is_pr": false,
+    "state": "OPEN",
+    "title": "3D: moss, raked sand, Scots pine and a tall timber fence have no look of their own"
+  },
   "961": {
     "is_pr": false,
     "state": "CLOSED",
@@ -1651,7 +1691,7 @@
   },
   "963": {
     "is_pr": false,
-    "state": "OPEN",
+    "state": "CLOSED",
     "title": "3D: bulb leaves are up in January and still standing in July"
   },
   "965": {
@@ -1659,19 +1699,24 @@
     "state": "CLOSED",
     "title": "3D: a flat-roofed house gets cottage windows and a lilac roof"
   },
-  "969": {
+  "966": {
     "is_pr": false,
     "state": "OPEN",
+    "title": "Camera tours: an orbit of less than a full turn"
+  },
+  "969": {
+    "is_pr": false,
+    "state": "CLOSED",
     "title": "3D: the canopy tip weight is a median over all canopy sprites, so one new sprite re-tints every tree"
   },
   "970": {
     "is_pr": false,
-    "state": "OPEN",
+    "state": "CLOSED",
     "title": "3D: some far-distance (LOD2) trees and climbers come out at 0.87-0.89 of their spread"
   },
   "973": {
     "is_pr": false,
-    "state": "OPEN",
+    "state": "CLOSED",
     "title": "3D: a growing tree is forged anew every day, so a year time-lapse flickers; fruit appears all at once"
   },
   "976": {
@@ -1689,19 +1734,29 @@
     "state": "MERGED",
     "title": "feat(#828, #829, #945, #875, #976): plan time zone, split frames and documentation truth"
   },
+  "992": {
+    "is_pr": false,
+    "state": "OPEN",
+    "title": "3D Ultra: house windows show no garden or sky reflections"
+  },
   "994": {
     "is_pr": true,
-    "state": "OPEN",
+    "state": "MERGED",
     "title": "feat(3d): plant seasonal truth and forge stability (#948, #963, #969, #970, #973, #995, #996)"
   },
   "995": {
     "is_pr": false,
-    "state": "OPEN",
+    "state": "CLOSED",
     "title": "3D: live year animation replaces forged trees with v0 silhouettes (or bare trunk stumps) every 500 ms and starves distant trees"
   },
   "996": {
     "is_pr": false,
-    "state": "OPEN",
+    "state": "CLOSED",
     "title": "3D: year playback triggers 4-5 s QQuickView freezes (releaseResources, AutoPreset shader recompiles) and redundant 2D recomputes on every tick"
+  },
+  "998": {
+    "is_pr": true,
+    "state": "OPEN",
+    "title": "feat(3d): showcase follow-ups - autumn, seasons, rocks, weather and part turns"
   }
 }

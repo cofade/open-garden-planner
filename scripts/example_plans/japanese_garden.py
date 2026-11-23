@@ -40,17 +40,23 @@ META = {
 def build():
     T, plan = ObjectType, Plan(SLUG, 1200, 1000, layer=text("Garden", "Garten", "Jardín"))
     plan.site("duesseldorf")
-    plan.rect(0, 0, 1200, 1000, T.LAWN, text("Moss lawn", "Moosrasen", "Césped de musgo"))
+    plan.rect(0, 0, 1200, 1000, T.LAWN, text("Moss lawn", "Moosrasen", "Césped de musgo"),
+              fill=FillPattern.MOSS, color="#4b6337")
     plan.line([(8, 8), (8, 992), (1192, 992), (1192, 8), (660, 8)], T.FENCE,
-              text("Timber fence", "Holzzaun", "Valla de madera"), style=PathFenceStyle.WOODEN_FENCE, tall=190)
-    plan.line([(540, 8), (8, 8)], T.FENCE, "Timber fence", style=PathFenceStyle.WOODEN_FENCE, tall=190)
+              text("Timber fence", "Holzzaun", "Valla de madera"),
+              style=PathFenceStyle.BOARD_FENCE, tall=190)
+    plan.line([(540, 8), (8, 8)], T.FENCE,
+              text("Timber fence", "Holzzaun", "Valla de madera"),
+              style=PathFenceStyle.BOARD_FENCE, tall=190)
 
     # ── the sand court with its islands
     plan.rect(90, 90, 620, 420, T.TERRACE_PATIO, text("Raked sand", "Geharkter Sand", "Arena rastrillada"),
               fill=FillPattern.SAND)
     island = text("Moss island", "Moosinsel", "Isla de musgo")
-    plan.polygon([(190, 300), (290, 270), (380, 320), (360, 410), (250, 430), (180, 380)], T.LAWN, island)
-    plan.polygon([(500, 250), (590, 240), (640, 300), (600, 360), (510, 340)], T.LAWN, island)
+    plan.polygon([(190, 300), (290, 270), (380, 320), (360, 410), (250, 430), (180, 380)],
+                 T.LAWN, island, fill=FillPattern.MOSS, color="#4b6337")
+    plan.polygon([(500, 250), (590, 240), (640, 300), (600, 360), (510, 340)],
+                 T.LAWN, island, fill=FillPattern.MOSS, color="#4b6337")
     rock = text("Rock", "Stein", "Roca")
     for tall, points in (
             (60, [(255, 332), (272, 322), (296, 320), (314, 334), (318, 356), (304, 372), (282, 378),

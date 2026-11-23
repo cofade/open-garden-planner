@@ -18,6 +18,7 @@ from open_garden_planner.core.plant_art import (
     SpriteRef,
     palette_key,
     recipe_for,
+    traits_for,
 )
 from open_garden_planner.core.plant_forge import (
     CLIMBER_SUPPORT_MAX_DISTANCE_CM,
@@ -35,6 +36,7 @@ from open_garden_planner.core.plant_forge import (
     SUPPORT_PERGOLA,
     SUPPORT_TRELLIS,
     ForgeCache,
+    build_forged_climber,
     enrich_climber_records,
     forge_plant,
     forge_record,
@@ -201,6 +203,75 @@ class TestL34ClimberSupportResolution:
         climber = _climber_record(ref, radius_cm=40.0, east_cm=0.0, north_cm=0.0)
         sup = resolve_climber_support(climber, [pergola, climber])
         assert sup["kind"] == SUPPORT_PERGOLA
+
+    def test_a_climber_on_a_pergola_is_trained_along_a_rafter(self) -> None:
+        """#956: a pergola climber climbs to the rafters and spreads overhead along and
+        across them (including on a non-centred pergola footprint)."""
+        ref = SpriteRef("species", "grape_vine")
+        # Offset footprint (not centred on (0, 0)) to verify pergola_layout recentering.
+        offset_ring = ((100.0, 200.0), (400.0, 200.0), (400.0, 400.0), (100.0, 400.0))
+        pergola = Record(
+            item_id="pergola-1", kind="PERGOLA", name="Pergola", shape="rectangle",
+            footprints=(offset_ring,), height_cm=240.0,
+            transform=Transform(), material=Material(key="pergola"),
+        )
+        climber = _climber_record(ref, radius_cm=90.0, east_cm=120.0, north_cm=220.0,
+                                  parent_id="pergola-1")
+        sup = resolve_climber_support(climber, [pergola, climber])
+        assert sup["kind"] == SUPPORT_PERGOLA
+        assert "pergola_center_cm" in sup
+        segment = np.asarray(sup["segment_cm"], dtype=float).reshape(2, 2)
+        assert abs(segment[1, 1] - segment[0, 1]) > 150.0, "a rafter runs the pergola's depth"
+        assert abs(segment[1, 0] - segment[0, 0]) < 1e-6
+        # Rafter sits inside the offset pergola footprint [100..400], not around (0, 0)
+        assert -20.0 <= segment[0, 0] <= 280.0
+        parts = build_forged_climber(traits_for(ref), 240.0, 90.0, seed=41,
+                                     support=sup, lod=LOD0)
+        wood = next(part for part in parts if part.name == PART_WOOD)
+        foliage = next(part for part in parts if part.name == PART_FOLIAGE)
+        assert float(wood.mesh.positions[:, 2].min()) == pytest.approx(0.0, abs=1e-3)
+        top_wood = wood.mesh.positions[wood.mesh.positions[:, 2] >= 0.80 * 240.0]
+        top_foliage = foliage.mesh.positions[foliage.mesh.positions[:, 2] >= 0.80 * 240.0]
+        assert top_wood.size and float(np.ptp(top_wood[:, 0])) > 45.0, "wood fans inward across rafters"
+        assert float(np.ptp(top_wood[:, 1])) > 45.0, "wood spreads along the rafter"
+        assert top_foliage.size and float(np.ptp(top_foliage[:, 0])) > 60.0
+        assert float(np.ptp(top_foliage[:, 1])) > 60.0
+
+        # Concrete pergola climber stays valid under verify_builder across LOD0-LOD2
+        # (built through enrich_climber_record so the concrete pergola branch is exercised)
+        # and a young vine far below the rafters stays vertical instead of fanning in mid-air.
+        enriched_lod = enrich_climber_records([
+            pergola,
+            _climber_record(ref, height_cm=240.0, radius_cm=90.0, seed=41,
+                            east_cm=120.0, north_cm=220.0, parent_id="pergola-1"),
+        ])[1]
+        assert len(enriched_lod.params[PARAM_CLIMBER_SUPPORT]) >= 12
+        for lod in (LOD0, LOD1, LOD2):
+            verify_builder(lambda r, _lod=lod: forge_record(r, lod=_lod, cache=None),
+                           enriched_lod, height_tolerance=0.03)
+        young = build_forged_climber(traits_for(ref), 80.0, 90.0, seed=41, support=sup, lod=LOD0)
+        young_wood = next(part for part in young if part.name == PART_WOOD).mesh.positions
+        young_top = young_wood[young_wood[:, 2] >= 0.80 * 80.0]
+        assert young_top.size
+        assert float(np.ptp(young_top[:, 0])) < 20.0, "short vine must not fan horizontally in mid-air"
+        assert float(np.ptp(young_top[:, 1])) < 20.0, "short vine must stay vertical along post"
+
+        # A mature climber taller than its pergola (400 cm / 600 cm grape on a 240 cm pergola)
+        # must stay trained along the 240 cm rafters instead of hovering above them.
+        for tall_h in (400.0, 600.0):
+            for lod in (LOD0, LOD1, LOD2):
+                tall_parts = build_forged_climber(traits_for(ref), tall_h, 90.0, seed=41,
+                                                  support=sup, lod=lod)
+                tall_wood = next(part for part in tall_parts if part.name == PART_WOOD).mesh.positions
+                tall_foliage = next(
+                    part for part in tall_parts if part.name == PART_FOLIAGE
+                ).mesh.positions
+                assert float(tall_wood[:, 2].max()) <= 240.5, (tall_h, lod)
+                assert float(tall_foliage[:, 2].max()) <= 240.5, (tall_h, lod)
+                if lod == LOD0:
+                    roof_wood = tall_wood[tall_wood[:, 2] >= 0.85 * 240.0]
+                    assert roof_wood.size and float(np.ptp(roof_wood[:, 0])) > 45.0
+                    assert float(np.ptp(roof_wood[:, 1])) > 45.0
 
     def test_forge_worker_enriches_climber_support_from_snapshot(self) -> None:
         sink = RecordingSink()

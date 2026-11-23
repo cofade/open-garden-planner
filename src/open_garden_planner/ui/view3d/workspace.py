@@ -106,7 +106,7 @@ from PyQt6.QtWidgets import (
 )
 
 from open_garden_planner.core.measurement_display import length_text
-from open_garden_planner.core.phenology import plan_latitude
+from open_garden_planner.core.phenology import plan_latitude, seasonal_ground_tint
 from open_garden_planner.core.plain_text import clip_text, log_text
 from open_garden_planner.core.scene3d.camera import FOV_DEG, OrbitCamera
 from open_garden_planner.ui.sim_clock_subscription import connect_qobject
@@ -450,6 +450,7 @@ class Workspace(QWidget):
         self._scene: QGraphicsScene | None = None
         self._clock: SimClock | None = None
         self._location: LocationProvider = lambda: None
+        self._ground_season: tuple[float, float, float] | None = None
         self._north: Callable[[], float] = lambda: 0.0
         self._ui_state: Any = None
         self._pane: _Pane3D | None = None
@@ -925,11 +926,12 @@ class Workspace(QWidget):
             self._update_compat_notice()
             return
         self._host, self._controller, self._input = host, controller, orbit
+        self._ground_season = None
         self._look = look
         look.set_southern(self._southern())  # L5: where the place's noon stands
         if self._playback_active:
             look.hold_preset(True)
-        self._living.wire(look)  # L5: the session's weather, the life switch
+        self._living.wire(look)  # L5: the plan's weather, the life switch
         if self.engine_factory is quick3d_engine:
             from ...core.plant_forge import ForgeCache
             from .forge_worker import ForgeWorker
@@ -1263,6 +1265,13 @@ class Workspace(QWidget):
             self._look.set_southern(self._southern())  # L5: and so was its noon
         if self._controller is not None:
             self._controller.refresh_sun()
+            # #943: a hemisphere switch changes seasonal_ground_tint, so baked LAWN
+            # tiles and 3D blades must re-snapshot alongside the meadow shader uniform.
+            if (self._controller.pass_date is not None
+                    and seasonal_ground_tint(
+                        self._controller.pass_date, plan_latitude(self._location()),
+                    ) != self._ground_season):
+                self._controller.mark_dirty()
         if self._analysis is not None:
             self._analysis.location_changed()  # L2: the sun path is the place's
             self._update_legend()
@@ -1319,6 +1328,7 @@ class Workspace(QWidget):
         if self._look is not None and self._controller is not None:
             self._look.pause_auto_sample()
             self._look.set_sun(self._controller.sync.sun)
+        self._show_ground_season()
         self._applied_at = _now()
         self._retired += report.retired
         if self._retired >= RELEASE_NOW_RETIRED and not self._playback_active:
@@ -1335,6 +1345,20 @@ class Workspace(QWidget):
         """The plan's place lies south of the equator (no location: the phenology's
         default, a northern one)."""
         return plan_latitude(self._location()) < 0.0
+
+    def _show_ground_season(self) -> None:
+        """Give the ground the plan date's grass colour (#943), when it changed."""
+        host, controller = self._host, self._controller
+        if host is None or controller is None or controller.pass_date is None:
+            return
+        tint = seasonal_ground_tint(controller.pass_date, plan_latitude(self._location()))
+        if tint == self._ground_season:
+            return
+        self._ground_season = tint
+        try:
+            host.set_meadow_season(tint)
+        except Exception as error:  # noqa: BLE001 - the look never takes the view down
+            _LOG.debug("3D workspace: the seasonal meadow tint could not be set", exc_info=error)
 
     def _refresh_forge(self) -> None:
         worker, controller = self._forge_worker, self._controller

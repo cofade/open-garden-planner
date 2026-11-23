@@ -509,3 +509,11 @@ Symptom (#970): at LOD2 a jasmine, clematis, wisteria and the climbing-plant cat
 - **Legacy:** none (new entry)
 
 Symptom (#995, #996): during the year animation in `spring-garden.ogp` at Normal speed, forged trees repeatedly collapsed to v0 `build_silhouette` spheres or bare conical trunk stumps every 500 ms, distant trees stayed stuck as silhouettes/stumps for seconds, and the entire UI froze for 4-6 s at a time. Measured: 132 `v0_build_plant` calls in 6 s, 2 `QQuickWindow.releaseResources()` calls whose next `QQuickView` `UpdateRequest` blocked for `5,032.3 ms` each, 2 `AutoPreset` downgrades (`high -> medium -> low`) whose next frame blocked for `4,330.7 ms` and `5,546.1 ms`, and 26 hidden 2D `SunShadowController._recompute` calls (`1,143.3 ms`). Fix: `Scene3DController` consults `ForgeWorker.prepare_for_sync` before `SceneSync.apply` (warm 2 % bucket hit stretched immediately; cold bucket miss keeps the last forged mesh stretched to the new dimensions while the new bucket builds in the background; newly appearing dated plants forged directly), `Workspace` connects `SimClock.date_changed` to `ForgeWorker.scrub_date`, holds `LookController.hold_preset` and defers `_release_engine_caches()` during playback, resets `AutoPreset` sample windows during pipeline passes and `ForgeWorker` uploads (`pause_auto_sample`), and skips 2D shadow solves and heavy date diagnostics while hidden or animating. Measured after fix on `spring-garden.ogp` (6 s year playback in `VIEW3D`): `0` `v0_build_plant` calls, `0` hidden shadow solves, `0` cache releases, preset `high -> high`, `242` presented frames (~40.3 FPS), max `processEvents` turn `137.2 ms`.
+
+### PF-L3D-39
+
+- **Rule:** A two-anchor autumn map must not also apply the old palette multiplier; the shader takes the snow tint only.
+- **Pinned by:** `tests/unit/test_phenology.py::test_the_autumn_multiplier_is_not_applied_twice`
+- **Source:** #941; ADR-059 addendum
+- **Status:** pointer → [ADR-059 addendum](../../09-architecture-decisions/README.md#adr-059-addendum-the-3d-showcase-follow-ups-941-943-955-960-992)
+- **Legacy:** none (new entry)

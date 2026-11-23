@@ -183,7 +183,7 @@ class TestParityPerPattern:
         assert worst <= (2 if angle else 0), (pattern.name, mean, worst)
 
     def test_all_24_textures_and_the_solid_fill_are_covered(self) -> None:
-        assert len(FillPattern) == 25 and FillPattern.SOLID in FillPattern
+        assert len(FillPattern) == 26 and FillPattern.SOLID in FillPattern
 
 
 # ── G1, continued: every shape, every path style, sprites, pens ───────────────

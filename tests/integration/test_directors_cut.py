@@ -945,6 +945,23 @@ def test_a_new_orbit_eases_tilts_to_show_the_sky_and_turns_in_thirty_seconds(rig
     dialog.close()
 
 
+def test_a_part_turn_starts_the_orbit_at_the_view_and_stops_half_way_round(rig: Rig) -> None:
+    """#966: a garden with a house on one side stores a half turn on its garden side."""
+    dialog = dialog_of(rig)
+    dialog.turns_spin.setValue(0.5)
+    orbit = dialog.spec().motion
+    assert isinstance(orbit, DroneOrbit) and orbit.turns == 0.5
+    assert dialog.duration_spin.value() == 15.0, "30 s a turn, half a turn is 15 s"
+    frames = list(tour_frames(dialog.spec()))
+    start, end = frames[0].key.eye, frames[-1].key.eye
+    target = orbit.pose.target_scene
+    def bearing(eye: tuple[float, float, float]) -> float:
+        return math.degrees(math.atan2(eye[0] - target[0], eye[1] - target[1])) % 360.0
+    turned = (bearing(end) - bearing(start)) % 360.0
+    assert turned == pytest.approx(180.0, abs=1.0), "an eased half turn stops opposite its start"
+    dialog.close()
+
+
 def test_the_tilt_is_the_orbits_pitch_and_keeps_the_eye_above_the_ground(rig: Rig) -> None:
     dialog = dialog_of(rig)
     dialog.pitch_spin.setValue(10.0)
