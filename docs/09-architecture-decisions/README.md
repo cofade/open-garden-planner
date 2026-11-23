@@ -10091,6 +10091,7 @@ changed explicitly; no absolute deadline or presented-FPS guarantee is claimed.
 This correction changes tests and documentation, not the released runtime.
 
 **Addendum (plant seasonal truth and forge stability, issues #948, #963, #969, #970, #973, #995, #996).**
+**Status**: Shipped in [v1.41.2](https://github.com/cofade/open-garden-planner/releases/tag/v1.41.2) after owner acceptance (2026-11-22; [PR #994](https://github.com/cofade/open-garden-planner/pull/994)).
 Seven follow-ups to #940 settled how a plant's season survives growth, distance, live year
 playback and a growing
 species catalogue. (1) **The canopy's tip weight is measured over green-leaved sprites only**
