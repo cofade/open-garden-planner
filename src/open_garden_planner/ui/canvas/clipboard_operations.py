@@ -596,6 +596,8 @@ class ClipboardOperations:
         # Add original at grid position (0,0)
         grid.append((0, 0, source_item))
 
+        # col → rightward = +x; row → downward on screen = -y (scene Y-flip),
+        # hence the negative row step.
         for r, c, offset_x, offset_y in grid_offsets(rows, cols, -row_spacing, col_spacing):
             if r == 0 and c == 0:
                 continue  # original

@@ -33,6 +33,21 @@ def test_preferences_keys_configure_their_sources(clean_env):
     assert manager.configured_source_count == 2
 
 
+def test_permapeople_needs_both_preference_values(clean_env):
+    assert PlantAPIManager.from_settings(
+        _preferences(permapeople_key_id="id"),
+    ).configured_source_count == 0
+    assert PlantAPIManager.from_settings(
+        _preferences(permapeople_key_id="id", permapeople_key_secret="secret"),
+    ).configured_source_count == 1
+
+
+def test_permapeople_environment_fills_unset_preferences(clean_env):
+    clean_env.setenv("PERMAPEOPLE_KEY_ID", "id")
+    clean_env.setenv("PERMAPEOPLE_KEY_SECRET", "secret")
+    assert PlantAPIManager.from_settings(_preferences()).configured_source_count == 1
+
+
 def test_environment_fills_an_unset_preference(clean_env):
     clean_env.setenv("PERENUAL_API_KEY", "from-env")
     assert PlantAPIManager.from_settings(_preferences()).configured_source_count == 1

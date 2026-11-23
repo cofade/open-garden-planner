@@ -4493,9 +4493,15 @@ class CanvasView(QGraphicsView):
         # The scene's own foreground: the object labels, above the grid.
         super().drawForeground(painter, rect)
         # The active tool's view-only draft (ADR-082), above the labels.
+        # The view owns the painter state, so a tool cannot leak a transform
+        # or pen into the guides painted after it.
         active_tool = self._tool_manager.active_tool
         if active_tool is not None:
-            active_tool.paint_foreground(painter)
+            painter.save()
+            try:
+                active_tool.paint_foreground(painter)
+            finally:
+                painter.restore()
 
         # Draw snap alignment guides
         if self._snap_guides:

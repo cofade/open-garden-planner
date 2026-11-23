@@ -2,10 +2,21 @@
 
 from __future__ import annotations
 
+from collections.abc import Callable
 from math import atan2, degrees, isfinite
 from typing import TYPE_CHECKING, Any
 
-from PyQt6.QtCore import QCoreApplication, QLineF, QPointF, QRectF, QSignalBlocker, Qt
+from PyQt6.QtCore import (
+    QCoreApplication,
+    QEvent,
+    QLineF,
+    QObject,
+    QPointF,
+    QRectF,
+    QSignalBlocker,
+    Qt,
+    QTimer,
+)
 from PyQt6.QtGui import QColor, QMouseEvent, QPainter, QPen, QTransform
 from PyQt6.QtWidgets import (
     QDialog,
@@ -56,6 +67,30 @@ _MAX_PLANT_DIAMETER = 5000.0  # cm
 _HANDLES = ((-1, -1), (0, -1), (1, -1), (1, 0), (1, 1), (0, 1), (-1, 1), (-1, 0))
 
 
+class _ViewportResizeWatcher(QObject):
+    """Calls back when the viewport is resized.
+
+    An ``AnchorViewCenter`` re-centre after a resize moves the scene through
+    the view's alignment, not the scroll bars, so no scroll signal reports it.
+    The viewport's Resize event also arrives *before* ``QGraphicsView`` has
+    re-centred, so the callback runs one event-loop turn later. The timer is
+    a child of this watcher, which is a child of the viewport: it dies with it.
+    """
+
+    def __init__(self, viewport: QWidget, callback: Callable[[], None]) -> None:
+        super().__init__(viewport)
+        self._timer = QTimer(self)
+        self._timer.setSingleShot(True)
+        self._timer.setInterval(0)
+        self._timer.timeout.connect(callback)
+        viewport.installEventFilter(self)
+
+    def eventFilter(self, _watched: QObject | None, event: QEvent | None) -> bool:
+        if event is not None and event.type() == QEvent.Type.Resize:
+            self._timer.start()
+        return False
+
+
 class PlantGridTool(BaseTool):
     tool_type = ToolType.PLANT_GRID
     shortcut = ""
@@ -91,11 +126,13 @@ class PlantGridTool(BaseTool):
         self._size_slider: QSlider | None = None
         self._preview_button: QToolButton | None = None
         # The control strip follows the draft on screen. It is placed from the
-        # input and view-change paths, never from a paint (ADR-082).
+        # input and view-change paths (zoom, scrolling, viewport resize),
+        # never from a paint (ADR-082).
         view.zoom_changed.connect(self._place_controls)
         for bar in (view.horizontalScrollBar(), view.verticalScrollBar()):
             if bar is not None:
                 bar.valueChanged.connect(self._place_controls)
+        self._resize_watcher = _ViewportResizeWatcher(self._viewport, self._place_controls)
 
     @property
     def _viewport(self) -> QWidget:
@@ -337,11 +374,16 @@ class PlantGridTool(BaseTool):
             self._set_extent(scene_pos)
         elif self._drag is not None and event.buttons() & Qt.MouseButton.LeftButton:
             self._transform_drag(scene_pos, event.modifiers())
+            self._place_controls()
         else:
+            # A hover changes nothing but the highlighted handle: repaint the
+            # plan (and up to 400 preview sprites) only when that changes.
             self._drag = None
-            self._hover = self._handle_at(scene_pos)
-            self._update_cursor(self._hover)
-        self._place_controls()
+            hover = self._handle_at(scene_pos)
+            if hover == self._hover:
+                return True
+            self._hover = hover
+            self._update_cursor(hover)
         self._viewport.update()
         return True
 
@@ -538,7 +580,11 @@ class PlantGridTool(BaseTool):
             self._size_edited = self._size_edited_before
             self._sync_size_slider()
         self._drag = self._hover = None
-        self._update_cursor(None)
+        if self._editing:
+            self._update_cursor(None)
+        else:
+            # Back in the rubber-band phase, which shows the tool's own cursor.
+            self.view.setCursor(self.cursor)
         self._place_controls()
         self._viewport.update()
 

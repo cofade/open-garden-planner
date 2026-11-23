@@ -1397,8 +1397,10 @@ active tool, in scene coordinates, above the object labels. A one-gesture previe
 that are about to exist keeps using scene items at `preview_z`.
 
 - **A paint only reads.** Never move a widget, change a scene item or change tool state in
-  the hook. A widget attached to the draft is placed from the tool's mouse handlers and
-  from `zoom_changed` and the scroll bars' `valueChanged`.
+  the hook. A widget attached to the draft is placed from the tool's mouse handlers, from
+  `zoom_changed` and the scroll bars' `valueChanged`, and from a viewport-resize event
+  filter that defers one event-loop turn (the Resize event precedes the view's
+  re-centring). The view saves and restores the painter around the hook.
 - **View-only by construction.** Exports and the minimap use `scene.render()` and never
   see the draft (§8.9.16), so the tool needs no exclusion filter.
 - **Esc belongs to the view (#829).** The tool does not handle Esc itself. The view ends the
@@ -1410,7 +1412,8 @@ that are about to exist keeps using scene items at `preview_z`.
   draws it.
 
 Test pattern: move the attached widget, grab the viewport, and assert that the widget did
-not move; then zoom and scroll, and assert that it did
+not move; then zoom, scroll and resize, and assert that it did (`qtbot.waitUntil` for the
+deferred resize)
 (`tests/integration/test_plant_grid_tool.py`).
 
 ## 8.10 Integration Test Policy

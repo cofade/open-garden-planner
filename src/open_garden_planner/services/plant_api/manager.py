@@ -86,7 +86,7 @@ class PlantAPIManager:
         import os
 
         if settings is None:
-            from open_garden_planner.app.settings import get_settings
+            from open_garden_planner.config.settings import get_settings
 
             settings = get_settings()
         trefle_token = settings.trefle_api_token or os.environ.get("TREFLE_API_TOKEN", "")

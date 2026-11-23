@@ -358,6 +358,32 @@ def test_control_strip_follows_view_changes_but_never_moves_in_a_paint(qtbot, mo
     placed = controls.pos()
     view.horizontalScrollBar().setValue(view.horizontalScrollBar().value() + 40)
     assert controls.pos() != placed
+    # A resize at a zoom with no scroll range re-centres the scene through the
+    # view's alignment, which no scroll signal reports (round-2 review).
+    view.set_zoom(0.2)
+    placed = controls.pos()
+    view.resize(1400, 1000)
+    qtbot.waitUntil(lambda: controls.pos() != placed)
+
+
+def test_a_pinch_while_the_extent_is_completed_returns_to_the_rubber_band(qtbot, monkeypatch):
+    """The second finger takes over the press that fixed the extent."""
+    _scene, view = _grid_view(qtbot)
+    _accept_setup(monkeypatch)
+    grid = _start_draft(qtbot, view, editing=False)
+    viewport = view.viewport()
+    corner = view.mapFromScene(QPointF(400, 500))
+    qtbot.mouseMove(viewport, corner)
+    extent = (QPointF(grid._center), grid._width, grid._height)
+    qtbot.mousePress(viewport, Qt.MouseButton.LeftButton, pos=corner)
+    assert grid._editing
+    view._touch_mouse_press = (QPointF(corner), Qt.MouseButton.LeftButton)
+    view._cancel_touch_press()
+    assert not grid._editing and grid._origin is not None
+    assert (grid._center, grid._width, grid._height) == extent
+    assert grid._controls.isHidden()
+    assert view.cursor().shape() == grid.cursor
+    assert view.command_manager.undo_depth == 0
 
 
 def test_species_picker_uses_the_preferences_credentials(qtbot, monkeypatch):

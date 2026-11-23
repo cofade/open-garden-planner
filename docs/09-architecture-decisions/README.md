@@ -14400,11 +14400,16 @@ that named this one tool, and it moved the control strip from inside that paint.
 1. **One hook.** `BaseTool.paint_foreground(painter)` is a no-op by default.
    `CanvasView.drawForeground` calls it for the active tool only. The call comes after the
    scene's own foreground (the object labels) and before the snap guides, with the painter
-   in scene coordinates. The view never names a tool.
+   in scene coordinates. The view wraps the call in `painter.save()`/`restore()`, so a tool
+   cannot leak a transform or pen into what is painted after it. The view never names a
+   tool.
 2. **A paint only reads.** The hook does not move widgets and does not change scene or tool
    state. A widget that follows the draft (Plant Grid's control strip) is placed from the
-   input paths and from the view-change signals (`CanvasView.zoom_changed`, both scroll
-   bars' `valueChanged`). Moving a child widget inside the parent's paint schedules
+   input paths and from the view changes: `CanvasView.zoom_changed`, both scroll bars'
+   `valueChanged`, and a viewport resize. The resize is watched by an event filter and
+   handled one event-loop turn later, because the viewport's Resize event arrives before
+   `QGraphicsView` re-centres the scene (an `AnchorViewCenter` re-centre without a scroll
+   range moves no scroll bar). Moving a child widget inside the parent's paint schedules
    another paint each time the position changes.
 3. **Which mechanism.** A one-gesture preview of items about to exist uses scene items at
    `preview_z`. A multi-press draft that is not part of the document uses
@@ -14419,5 +14424,6 @@ that named this one tool, and it moved the control strip from inside that paint.
 picture of the plan (§8.9.16). It is never hit-tested, selected or serialized. A second
 multi-press tool reuses the hook and needs no change to the view. Tests:
 `tests/integration/test_plant_grid_tool.py` (the preview paints, the control strip does
-not move during a paint but follows zoom and scrolling, and a pinch keeps the draft).
+not move during a paint but follows zoom, scrolling and a resize, and a pinch keeps the
+draft in both phases).
 Cross-refs: §8.9.12, §8.9.21, FR-PLANT-25, FR-CANVAS-04.
