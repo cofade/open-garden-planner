@@ -190,7 +190,10 @@ On confirmation the tool maps each cell centre from grid coordinates to the
 scene. If all centres fit the plan, the grouping question offers Yes, No, or
 Cancel. Cancel returns to the draft. Yes or No creates the plants through
 `CreateItemsCommand`, which reconciles bed membership at the resulting centres.
-Yes adds `GroupCommand` to the same undo step.
+Yes adds `GroupCommand` to the same undo step. The new plants, or their group,
+are then selected, as after a single drop. Escape is handled by the view's single
+Esc rule (#829): the view returns to Select, and the tool's `cancel()` discards the
+draft. The draft is painted through `BaseTool.paint_foreground` (ADR-082).
 
 ## 6.2 Save/Load Flow
 

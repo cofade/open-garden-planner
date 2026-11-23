@@ -6,7 +6,7 @@ from math import atan2, degrees, isfinite
 from typing import TYPE_CHECKING, Any
 
 from PyQt6.QtCore import QCoreApplication, QLineF, QPointF, QRectF, QSignalBlocker, Qt
-from PyQt6.QtGui import QColor, QKeyEvent, QMouseEvent, QPainter, QPen, QTransform
+from PyQt6.QtGui import QColor, QMouseEvent, QPainter, QPen, QTransform
 from PyQt6.QtWidgets import (
     QDialog,
     QDialogButtonBox,
@@ -30,6 +30,8 @@ from open_garden_planner.core.plant_sizing import species_drop_diameter_cm
 from open_garden_planner.core.tools.base_tool import BaseTool, ToolType
 from open_garden_planner.services import PlantAPIManager
 from open_garden_planner.services.bundled_species_db import merge_calendar_data
+from open_garden_planner.ui.canvas.items.circle_item import PLANT_FILL_SCALE
+from open_garden_planner.ui.canvas.items.group_item import GroupItem
 from open_garden_planner.ui.canvas.items.resize_handle import (
     HANDLE_COLOR,
     HANDLE_HOVER_COLOR,
@@ -88,6 +90,12 @@ class PlantGridTool(BaseTool):
         self._size_button: QToolButton | None = None
         self._size_slider: QSlider | None = None
         self._preview_button: QToolButton | None = None
+        # The control strip follows the draft on screen. It is placed from the
+        # input and view-change paths, never from a paint (ADR-082).
+        view.zoom_changed.connect(self._place_controls)
+        for bar in (view.horizontalScrollBar(), view.verticalScrollBar()):
+            if bar is not None:
+                bar.valueChanged.connect(self._place_controls)
 
     @property
     def _viewport(self) -> QWidget:
@@ -106,13 +114,14 @@ class PlantGridTool(BaseTool):
         form.addRow(QCoreApplication.translate("PlantGridTool", "Rows"), rows)
         form.addRow(QCoreApplication.translate("PlantGridTool", "Columns"), columns)
         self._dialog_buttons(dialog, form)
-        generation = getattr(self._scene, "_document_generation", 0)
+        generation = self._scene.document_generation
         accepted = dialog.exec() == QDialog.DialogCode.Accepted and self._is_current(generation)
         if accepted:
             self._dimensions = (rows.value(), columns.value())
             settings = get_settings()
             settings.plant_grid_dimensions = self._dimensions
             settings.sync()
+            self._place_controls()
             self._viewport.update()
         dialog.deleteLater()
         return accepted
@@ -127,9 +136,9 @@ class PlantGridTool(BaseTool):
         form.addRow(buttons)
 
     def _pick_plant(self) -> bool:
-        dialog = PlantSearchDialog(PlantAPIManager(), self.view)
+        dialog = PlantSearchDialog(PlantAPIManager.from_settings(), self.view)
         try:
-            generation = getattr(self._scene, "_document_generation", 0)
+            generation = self._scene.document_generation
             if not dialog.exec() or dialog.selected_plant is None or not self._is_current(generation):
                 return False
             self._species = merge_calendar_data(dialog.selected_plant.to_dict())
@@ -142,19 +151,21 @@ class PlantGridTool(BaseTool):
             )
             self._size_edited = self._diameter != diameter
             self._sync_size_slider()
+            self._place_controls()
             self._viewport.update()
             return True
         finally:
             dialog.deleteLater()
 
     def _is_current(self, generation: int) -> bool:
-        return self.view.active_tool is self and generation == getattr(self._scene, "_document_generation", 0)
+        return self.view.active_tool is self and generation == self._scene.document_generation
 
     def _toggle_plant_size(self, enabled: bool) -> None:
         if self._size_slider is not None and self._controls is not None:
             self._sync_size_slider()
             self._size_slider.setVisible(enabled)
             self._controls.adjustSize()
+            self._place_controls()
         self._viewport.update()
 
     def _sync_size_slider(self) -> None:
@@ -308,6 +319,7 @@ class PlantGridTool(BaseTool):
             self._set_extent(scene_pos)
             self._editing = True
             self._ensure_controls().show()
+            self._place_controls()
         else:
             self._drag = self._handle_at(scene_pos)
             self._drag_start = scene_pos
@@ -329,6 +341,7 @@ class PlantGridTool(BaseTool):
             self._drag = None
             self._hover = self._handle_at(scene_pos)
             self._update_cursor(self._hover)
+        self._place_controls()
         self._viewport.update()
         return True
 
@@ -379,16 +392,14 @@ class PlantGridTool(BaseTool):
             self._drag = None
             self._hover = self._handle_at(scene_pos)
             self._update_cursor(self._hover)
+            self._place_controls()
             self._viewport.update()
         return True
 
-    def key_press(self, event: QKeyEvent) -> bool:
-        if event.key() == Qt.Key.Key_Escape:
-            self._finish()
-            return True
-        return False
+    # Esc is not handled here: the view's single Esc rule (#829) ends the
+    # tool, and ``deactivate`` -> ``cancel`` discards the draft.
 
-    def paint_preview(self, painter: QPainter) -> None:
+    def paint_foreground(self, painter: QPainter) -> None:
         if self._origin is None:
             return
         transform = self._transform()
@@ -407,7 +418,10 @@ class PlantGridTool(BaseTool):
         species_name = (species.get("common_name") or species.get("scientific_name") or "") if species else ""
         for point in self._centers():
             if object_type is not None:
-                rect = QRectF(point.x() - radius, point.y() - radius, self._diameter, self._diameter)
+                # Drawn as the placed CircleItem draws it: the sprite is wider
+                # than the footprint by the same fill factor.
+                size = self._diameter * PLANT_FILL_SCALE
+                rect = QRectF(point.x() - size / 2, point.y() - size / 2, size, size)
                 if paint_plant(painter, rect, object_type, species=species_name):
                     continue
             painter.drawEllipse(point, radius, radius)
@@ -441,15 +455,20 @@ class PlantGridTool(BaseTool):
             else:
                 painter.drawRect(bounds)
         painter.restore()
+
+    def _place_controls(self, *_args: object) -> None:
+        """Keep the control strip just below the draft's handles on screen."""
         controls = self._controls
-        if controls is not None:
-            viewport = self._viewport
-            x = round(max(p.x() for p in handles.values())) - controls.width()
-            y = round(max(p.y() for p in handles.values())) + 12
-            if y + controls.height() > viewport.height():
-                y = round(min(p.y() for p in handles.values())) - controls.height() - 12
-            controls.move(max(0, min(x, viewport.width() - controls.width())),
-                          max(0, min(y, viewport.height() - controls.height())))
+        if controls is None or not self._editing or not controls.isVisible():
+            return
+        viewport = self._viewport
+        points = [QPointF(self.view.mapFromScene(point)) for point in self._handles().values()]
+        x = round(max(p.x() for p in points)) - controls.width()
+        y = round(max(p.y() for p in points)) + 12
+        if y + controls.height() > viewport.height():
+            y = round(min(p.y() for p in points)) - controls.height() - 12
+        controls.move(max(0, min(x, viewport.width() - controls.width())),
+                      max(0, min(y, viewport.height() - controls.height())))
 
     def _commit(self) -> None:
         if not self._editing or self._species is None:
@@ -464,7 +483,7 @@ class PlantGridTool(BaseTool):
 
         group = False
         if len(positions) > 1:
-            generation = getattr(self._scene, "_document_generation", 0)
+            generation = self._scene.document_generation
             choice = QMessageBox.question(
                 self.view,
                 QCoreApplication.translate("PlantGridTool", "Plant Grid"),
@@ -494,6 +513,11 @@ class PlantGridTool(BaseTool):
         command = CompoundCommand([create, GroupCommand(self._scene, items)]) if group else create
         self.view.command_manager.execute(command)
         self._finish()
+        # As after a single drop: the new plants (or their group) are selected.
+        self._scene.clearSelection()
+        parent = items[0].parentItem()
+        for item in [parent] if isinstance(parent, GroupItem) else items:
+            item.setSelected(True)
 
     def _finish(self) -> None:
         if self.view.active_tool is self:
@@ -515,6 +539,7 @@ class PlantGridTool(BaseTool):
             self._sync_size_slider()
         self._drag = self._hover = None
         self._update_cursor(None)
+        self._place_controls()
         self._viewport.update()
 
     def cancel(self) -> None:

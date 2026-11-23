@@ -42,6 +42,11 @@ from .resize_handle import (
 _UNSET_DATE = object()
 _UNSET_RING = object()
 
+#: A plant sprite is drawn this much wider than its footprint, because the
+#: SVGs carry organic internal padding. A tool that previews a plant before it
+#: exists (Plant Grid) reads the same factor so the preview matches the item.
+PLANT_FILL_SCALE = 1.15
+
 
 def _show_properties_dialog(item: QGraphicsEllipseItem) -> None:
     """Show properties dialog for an item (imported locally to avoid circular import)."""
@@ -285,7 +290,7 @@ class CircleItem(RotationHandleMixin, ResizeHandlesMixin, GardenItemMixin, QGrap
         self.update()
 
     # Scale factor to fill the circle area (SVGs have organic internal padding)
-    _PLANT_FILL_SCALE = 1.15
+    _PLANT_FILL_SCALE = PLANT_FILL_SCALE
     # Companion highlight ring dimensions (cm)
     _HIGHLIGHT_STROKE_WIDTH = 4.0
     _HIGHLIGHT_MARGIN = 3.0  # half stroke + tiny gap

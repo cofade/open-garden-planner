@@ -1,7 +1,7 @@
 """Plant-grid drafts only become real objects when confirmed."""
 
 import pytest
-from PyQt6.QtCore import QLineF, QPointF, Qt
+from PyQt6.QtCore import QLineF, QPoint, QPointF, Qt
 from PyQt6.QtGui import QTransform
 from PyQt6.QtWidgets import QDialog, QMessageBox, QSpinBox, QToolButton
 
@@ -11,7 +11,7 @@ from open_garden_planner.core.tools import ToolType
 from open_garden_planner.models.plant_data import PlantSpeciesData
 from open_garden_planner.ui.canvas.canvas_scene import CanvasScene
 from open_garden_planner.ui.canvas.canvas_view import CanvasView
-from open_garden_planner.ui.canvas.items.circle_item import CircleItem
+from open_garden_planner.ui.canvas.items.circle_item import PLANT_FILL_SCALE, CircleItem
 from open_garden_planner.ui.canvas.items.group_item import GroupItem
 from open_garden_planner.ui.canvas.items.rectangle_item import RectangleItem
 from open_garden_planner.ui.canvas.items.resize_handle import (
@@ -42,8 +42,8 @@ def test_plant_grid_preview_transform_commit_and_undo(qtbot, monkeypatch, groupe
     grid_button = toolbar._buttons[ToolType.PLANT_GRID]
     assert not grid_button.icon().isNull()
     grid_button.click()
-    grid = view._plant_grid_tool
-    assert view.active_tool is grid
+    grid = view.active_tool
+    assert grid.tool_type == ToolType.PLANT_GRID
     AppSettings().plant_grid_dimensions = (4, 5)
     picked = PlantSpeciesData("Malus domestica", "Apple", max_height_cm=500)
 
@@ -91,7 +91,8 @@ def test_plant_grid_preview_transform_commit_and_undo(qtbot, monkeypatch, groupe
     monkeypatch.setattr("open_garden_planner.ui.canvas.plant_grid_tool.paint_plant", paint_preview)
     preview.click()
     viewport.grab()
-    assert previewed[-6:] == [(grid._diameter, "Apple")] * 6
+    # The preview sprite is as wide as the placed plant's sprite.
+    assert previewed[-6:] == [(pytest.approx(grid._diameter * PLANT_FILL_SCALE), "Apple")] * 6
     preview.click()
     previewed.clear()
     viewport.grab()
@@ -190,7 +191,17 @@ def test_plant_grid_preview_transform_commit_and_undo(qtbot, monkeypatch, groupe
         assert actual == pytest.approx(target)
     assert all(item.object_type == ObjectType.TREE and item.radius == diameter / 2 for item in planted)
     assert all(item.parent_bed_id == bed.item_id for item in planted)
-    assert all(item.metadata["plant_instance"]["current_spread_cm"] == diameter for item in planted)
+    # The chosen size is a drawn footprint, never a measured current spread:
+    # that field would switch on growth scaling and shrink the tree's height.
+    assert all(
+        "current_spread_cm" not in item.metadata.get("plant_instance", {}) for item in planted
+    )
+    # As after a single drop, the new plants (or their group) are selected.
+    selected = scene.selectedItems()
+    if grouped:
+        assert len(selected) == 1 and isinstance(selected[0], GroupItem)
+    else:
+        assert set(selected) == set(planted)
     assert view.command_manager.undo_depth == 1
     view.command_manager.undo()
     assert not any(isinstance(item, CircleItem) for item in scene.items())
@@ -225,3 +236,153 @@ def test_plant_grid_preview_transform_commit_and_undo(qtbot, monkeypatch, groupe
     assert not any(isinstance(item, GroupItem) for item in scene.items())
     assert grid._controls.isHidden()
     assert view.command_manager.undo_depth == 0
+
+
+# --- PR #1000 review: Esc, setup cancels, refusal, control strip, credentials ---
+
+
+def _grid_view(qtbot):
+    scene = CanvasScene(width_cm=1500, height_cm=1500)
+    view = CanvasView(scene)
+    view.set_snap_enabled(False)
+    qtbot.addWidget(view)
+    view.resize(1000, 800)
+    view.show()
+    view.set_zoom(1.0)
+    view.centerOn(300, 300)
+    return scene, view
+
+
+def _click(qtbot, view, point):
+    qtbot.mouseClick(view.viewport(), Qt.MouseButton.LeftButton, pos=view.mapFromScene(point))
+
+
+def _accept_setup(monkeypatch):
+    monkeypatch.setattr(QDialog, "exec", lambda _dialog: QDialog.DialogCode.Accepted)
+
+    def choose_plant(dialog):
+        dialog._selected_plant = PlantSpeciesData("Lactuca sativa", "Lettuce", max_height_cm=30)
+        dialog.accept()
+        return dialog.result()
+
+    monkeypatch.setattr(PlantSearchDialog, "exec", choose_plant)
+
+
+def _start_draft(qtbot, view, *, editing=True):
+    view.set_active_tool(ToolType.PLANT_GRID)
+    grid = view.active_tool
+    _click(qtbot, view, QPointF(100, 100))
+    if editing:
+        _click(qtbot, view, QPointF(400, 500))
+        assert grid._editing and grid._controls.isVisible()
+    else:
+        assert grid._origin is not None and not grid._editing
+    return grid
+
+
+@pytest.mark.parametrize("editing", [False, True])
+def test_escape_ends_the_draft_through_the_view_rule(qtbot, monkeypatch, editing):
+    """Esc is the view's single rule (#829): the tool ends, the draft is gone."""
+    scene, view = _grid_view(qtbot)
+    _accept_setup(monkeypatch)
+    grid = _start_draft(qtbot, view, editing=editing)
+    view.setFocus()
+    qtbot.keyClick(view, Qt.Key.Key_Escape)
+    assert view.active_tool.tool_type == ToolType.SELECT
+    assert grid._origin is None and not grid._editing
+    assert grid._controls is None or grid._controls.isHidden()
+    assert not any(isinstance(item, CircleItem) for item in scene.items())
+    assert view.command_manager.undo_depth == 0
+
+
+@pytest.mark.parametrize("cancelled", ["dimensions", "species"])
+def test_cancelling_a_setup_dialog_leaves_no_draft(qtbot, monkeypatch, cancelled):
+    scene, view = _grid_view(qtbot)
+    asked_species = []
+
+    def dimensions(_dialog):
+        return QDialog.DialogCode.Rejected if cancelled == "dimensions" else QDialog.DialogCode.Accepted
+
+    def species(_dialog):
+        asked_species.append(True)
+        return QDialog.DialogCode.Rejected
+
+    monkeypatch.setattr(QDialog, "exec", dimensions)
+    monkeypatch.setattr(PlantSearchDialog, "exec", species)
+    view.set_active_tool(ToolType.PLANT_GRID)
+    grid = view.active_tool
+    _click(qtbot, view, QPointF(100, 100))
+    assert asked_species == ([True] if cancelled == "species" else [])
+    assert view.active_tool.tool_type == ToolType.SELECT
+    assert grid._origin is None and grid._species is None
+    assert not any(isinstance(item, CircleItem) for item in scene.items())
+    assert view.command_manager.undo_depth == 0
+
+
+def test_a_grid_outside_the_plan_is_refused_before_any_question(qtbot, monkeypatch):
+    scene, view = _grid_view(qtbot)
+    _accept_setup(monkeypatch)
+    grid = _start_draft(qtbot, view)
+    messages = []
+    view.status_message.connect(messages.append)
+    monkeypatch.setattr(
+        QMessageBox, "question",
+        lambda *_args: pytest.fail("A refused grid must not ask about grouping"),
+    )
+    # Move the draft by its body until its first column lies left of the plan.
+    start = grid._center
+    finish = start - QPointF(300, 0)
+    viewport = view.viewport()
+    qtbot.mousePress(viewport, Qt.MouseButton.LeftButton, pos=view.mapFromScene(start))
+    qtbot.mouseMove(viewport, view.mapFromScene(finish))
+    qtbot.mouseRelease(viewport, Qt.MouseButton.LeftButton, pos=view.mapFromScene(finish))
+    assert grid._center.x() == pytest.approx(finish.x())
+    grid._controls.findChild(QToolButton, "check").click()
+    assert messages and "inside the plan" in messages[-1]
+    assert grid._editing and grid._controls.isVisible()
+    assert not any(isinstance(item, CircleItem) for item in scene.items())
+    assert view.command_manager.undo_depth == 0
+
+
+def test_control_strip_follows_view_changes_but_never_moves_in_a_paint(qtbot, monkeypatch):
+    """A paint only reads (ADR-082); zoom and scroll place the strip."""
+    _scene, view = _grid_view(qtbot)
+    _accept_setup(monkeypatch)
+    grid = _start_draft(qtbot, view)
+    controls = grid._controls
+    controls.move(0, 0)
+    view.viewport().grab()
+    assert controls.pos() == QPoint(0, 0)
+    view.set_zoom(0.5)
+    assert controls.pos() != QPoint(0, 0)
+    placed = controls.pos()
+    view.horizontalScrollBar().setValue(view.horizontalScrollBar().value() + 40)
+    assert controls.pos() != placed
+
+
+def test_species_picker_uses_the_preferences_credentials(qtbot, monkeypatch):
+    """Plant Grid searches with the keys from Preferences, like the main search."""
+    from types import SimpleNamespace
+
+    from open_garden_planner.config import settings as settings_module
+
+    for name in ("TREFLE_API_TOKEN", "PERENUAL_API_KEY", "PERMAPEOPLE_KEY_ID", "PERMAPEOPLE_KEY_SECRET"):
+        monkeypatch.delenv(name, raising=False)
+    preferences = SimpleNamespace(
+        trefle_api_token="token-from-preferences", perenual_api_key="",
+        permapeople_key_id="", permapeople_key_secret="",
+    )
+    monkeypatch.setattr(settings_module, "get_settings", lambda: preferences)
+    _scene, view = _grid_view(qtbot)
+    managers = []
+
+    def capture(dialog):
+        managers.append(dialog._api_manager)
+        return QDialog.DialogCode.Rejected
+
+    monkeypatch.setattr(QDialog, "exec", lambda _dialog: QDialog.DialogCode.Accepted)
+    monkeypatch.setattr(PlantSearchDialog, "exec", capture)
+    view.set_active_tool(ToolType.PLANT_GRID)
+    _click(qtbot, view, QPointF(100, 100))
+    assert len(managers) == 1
+    assert managers[0].configured_source_count == 1

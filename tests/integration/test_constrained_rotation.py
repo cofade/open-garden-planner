@@ -689,6 +689,9 @@ class TestRotationUndoDiscipline:
             def mouse_release(self, *_args: object) -> bool:
                 return True
 
+            def paint_foreground(self, *_args: object) -> None:
+                """The view paints the active tool's draft (ADR-082)."""
+
         rect_a = RectangleItem(0.0, 0.0, 100.0, 100.0)
         rect_a.setPos(300.0, 300.0)
         rect_b = RectangleItem(0.0, 0.0, 100.0, 100.0)

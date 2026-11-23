@@ -533,8 +533,7 @@ class CanvasView(QGraphicsView):
 
         # Register basic tools
         self._tool_manager.register_tool(SelectTool(self))
-        self._plant_grid_tool = PlantGridTool(self, self._canvas_scene)
-        self._tool_manager.register_tool(self._plant_grid_tool)
+        self._tool_manager.register_tool(PlantGridTool(self, self._canvas_scene))
         self._tool_manager.register_tool(MeasureTool(self))
         self._tool_manager.register_tool(ConstraintTool(self))
         self._tool_manager.register_tool(EdgeLengthConstraintTool(self))
@@ -4493,8 +4492,10 @@ class CanvasView(QGraphicsView):
 
         # The scene's own foreground: the object labels, above the grid.
         super().drawForeground(painter, rect)
-        if self._tool_manager.active_tool is self._plant_grid_tool:
-            self._plant_grid_tool.paint_preview(painter)
+        # The active tool's view-only draft (ADR-082), above the labels.
+        active_tool = self._tool_manager.active_tool
+        if active_tool is not None:
+            active_tool.paint_foreground(painter)
 
         # Draw snap alignment guides
         if self._snap_guides:

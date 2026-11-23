@@ -53,10 +53,10 @@ def build_species_plant(
     category = {ObjectType.TREE: PlantCategory.ROUND_DECIDUOUS,
                 ObjectType.SHRUB: PlantCategory.SPREADING_SHRUB,
                 ObjectType.PERENNIAL: PlantCategory.FLOWERING_PERENNIAL}[object_type]
+    # A chosen diameter is a drawn footprint, exactly as a resized single drop.
+    # It is never stored as a measured current spread: that field switches on
+    # growth-date scaling and rewrites the plant's height (PR #1000 review).
     diameter = diameter_cm if diameter_cm is not None else species_drop_diameter_cm(species, object_type.name)
-    item = build_plant(scene, position, object_type, diameter / 2,
-                      species_name=species.get("common_name") or species.get("scientific_name", ""),
-                      plant_category=category, species_dict=species, auto_assign=auto_assign)
-    if diameter_cm is not None:
-        item.metadata.setdefault("plant_instance", {})["current_spread_cm"] = diameter_cm
-    return item
+    return build_plant(scene, position, object_type, diameter / 2,
+                       species_name=species.get("common_name") or species.get("scientific_name", ""),
+                       plant_category=category, species_dict=species, auto_assign=auto_assign)

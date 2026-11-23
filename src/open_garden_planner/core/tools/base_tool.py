@@ -5,7 +5,7 @@ from enum import Enum, auto
 from typing import TYPE_CHECKING
 
 from PyQt6.QtCore import QPointF, Qt
-from PyQt6.QtGui import QKeyEvent, QMouseEvent
+from PyQt6.QtGui import QKeyEvent, QMouseEvent, QPainter
 
 if TYPE_CHECKING:
     from open_garden_planner.ui.canvas.canvas_view import CanvasView
@@ -281,8 +281,26 @@ class BaseTool(ABC):
         """
 
     def cancel_pointer_press(self) -> None:
-        """Revert the first finger's press when a pinch begins."""
+        """Revert the first finger's press when a pinch begins (§8.9.12).
+
+        ``CanvasView._cancel_touch_press`` calls this instead of ``cancel()``.
+        The default discards the whole in-progress operation, which is right
+        for a tool whose operation *is* one press-drag-release. A tool that
+        keeps a draft across several presses (Plant Grid) overrides it to undo
+        only that one press and keep the draft.
+        """
         self.cancel()
+
+    def paint_foreground(self, painter: QPainter) -> None:  # noqa: B027
+        """Paint this tool's transient draft above the plan (ADR-082).
+
+        ``CanvasView.drawForeground`` calls it for the active tool only, with
+        the painter in scene coordinates. What is painted here is view-only:
+        it never reaches ``scene.render()`` exports, the minimap capture or
+        hit testing. Tools whose preview is a set of scene items use
+        ``preview_z`` instead. Default: nothing. Must not change widgets or
+        scene state; a paint only reads.
+        """
 
     # ------------------------------------------------------------------
     # Typed coordinate input (Package A US-A1/A2/A4)
