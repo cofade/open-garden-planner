@@ -20,7 +20,7 @@ Place named reference points for snapping and measurement. Choose French in View
 
 ## Current status
 
-Latest release: [v1.41.3](https://github.com/cofade/open-garden-planner/releases/latest).
+Latest release: [v1.42.0](https://github.com/cofade/open-garden-planner/releases/latest).
 Phases 1–15 and Phase 17 are complete. Phase 16, Platform & Community, is future work.
 
 The [canonical roadmap](https://github.com/cofade/open-garden-planner/blob/master/docs/roadmap.md)

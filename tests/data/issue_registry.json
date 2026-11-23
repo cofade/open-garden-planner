@@ -1,8 +1,33 @@
 {
-  "1002": {
+  "1000": {
+    "is_pr": true,
+    "state": "MERGED",
+    "title": "Add interactive Plant Grid placement"
+  },
+  "1001": {
     "is_pr": false,
     "state": "OPEN",
+    "title": "Moving a group out of a bed leaves stale parent_bed_id on its plants"
+  },
+  "1002": {
+    "is_pr": false,
+    "state": "CLOSED",
     "title": "Plant Grid: place a species grid on the plan in one undo step (PR #1000)"
+  },
+  "1003": {
+    "is_pr": false,
+    "state": "OPEN",
+    "title": "Plant Grid precision: typed size/spacing, snapping handle drags, own icon"
+  },
+  "1005": {
+    "is_pr": false,
+    "state": "OPEN",
+    "title": "Plant Grid tech debt: Qt-free grid geometry, overlay placement, document_generation and project-manager access"
+  },
+  "1006": {
+    "is_pr": false,
+    "state": "OPEN",
+    "title": "Flaky on llvmpipe: live-regrowth forge test times out waiting for the forged wood"
   },
   "114": {
     "is_pr": true,
@@ -1708,10 +1733,5 @@
     "is_pr": false,
     "state": "CLOSED",
     "title": "3D: year playback triggers 4-5 s QQuickView freezes (releaseResources, AutoPreset shader recompiles) and redundant 2D recomputes on every tick"
-  },
-  "998": {
-    "is_pr": true,
-    "state": "MERGED",
-    "title": "feat(3d): showcase follow-ups - autumn, seasons, rocks, weather and part turns"
   }
 }
