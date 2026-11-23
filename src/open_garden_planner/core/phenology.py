@@ -147,7 +147,7 @@ def seasonal_ground_tint(plan_date: datetime.date,
     Linear in the seasonal day between the keyframes above, wrapping across New Year;
     the Southern Hemisphere uses the same broadleaf seasons six months later.
     By default (``step_days=LAWN_TINT_STEP_DAYS``), non-summer days snap to one shared
-    fortnightly grid so both baked lawns and the open-ground meadow stay bit-identical
+    4-day grid so both baked lawns and the open-ground meadow stay bit-identical
     while year playback avoids daily tile re-bakes; summer stays exact ``(1, 1, 1)``.
     """
     day = seasonal_day_of_year(plan_date, latitude_deg)

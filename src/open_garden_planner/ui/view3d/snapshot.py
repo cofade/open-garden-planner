@@ -834,7 +834,7 @@ def _seasonal_fill(kind: str, fill: Rgba | None, at_date: date | None,
     The ground bake paints LAWN tiles with the item's fill colour and the 3D lawn's blades
     take the same tint, so one factor changes both — while moss stays evergreen and a path
     or terrace beside it keeps its own colour. Uses ``seasonal_ground_tint`` directly so
-    baked lawns and the open-ground meadow share the exact same fortnightly seasonal grid.
+    baked lawns and the open-ground meadow share the exact same 4-day seasonal grid.
     """
     if kind != "LAWN" or pattern == MOSS_PATTERN or fill is None or at_date is None:
         return fill
