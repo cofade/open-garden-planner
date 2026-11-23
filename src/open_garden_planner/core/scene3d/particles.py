@@ -207,11 +207,12 @@ _TURNED: Final = 0.2
 #: flowers are within reach: a tall tree's crown is not where they flutter (board, L5).
 _IN_FLOWER: Final = 0.35
 _FLOWER_HEIGHT_MAX_CM: Final = 350.0
-#: A falling leaf is its own crown's colour (#687): this many samples of the Forge's leaf
-#: colours for the tree's palette (``plant_forge.palette_leaf_colors``, what the crown is
-#: built with), from its outer, upper leaves — the ones that fall —, times the season's
-#: tint (``PhenologyState.foliage_tint_linear``, the crown's ``seasonTint``). The style
-#: table forbids a palette literal: one (amber, rust, ochre) gave a red maple amber leaves.
+#: A falling leaf is its own crown's colour (#687, #941, #895): this many samples of the
+#: Forge's leaf colours for the tree's palette (``plant_forge.palette_leaf_colors``, what
+#: the crown is built with), from its outer, upper leaves — the ones that fall — mapped
+#: through the same two-anchor autumn ramp and snow tint as ``foliage.frag``
+#: (``phenology.map_autumn_leaves``). The style table forbids a palette literal: one
+#: (amber, rust, ochre) gave a red maple amber leaves.
 _LEAF_SAMPLES: Final = 8
 _FALLING_HEIGHT: Final = (0.45, 1.0)
 _FALLING_DEPTH: Final = (0.6, 1.0)

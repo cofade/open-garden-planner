@@ -1486,6 +1486,12 @@ class TestHedges:
         _area, run = measured
         assert run == pytest.approx(4000.0, abs=1e-3)
 
+    def test_low_board_fence_keeps_rail_inside_height(self) -> None:
+        """A short board fence scales bevels and clamps its rail inside height_cm."""
+        low = line_record("FENCE", ((0.0, 0.0), (400.0, 0.0)), 5.0, style="BOARD_FENCE")
+        parts = verify_builder(REGISTRY.builder_for("FENCE"), low)
+        assert parts and float(parts[0].mesh.positions[:, 2].max()) == pytest.approx(5.0, abs=1e-3)
+
     def test_the_plan_wide_hedge_budget_is_shared_out(self) -> None:
         from open_garden_planner.core.scene3d.context import (
             MAX_PLAN_HEDGE_LEAVES,

@@ -1195,8 +1195,9 @@ tier `tests/integration/test_scene3d_ground_render.py` and the frozen
   one in the 3D strip's Weather menu marks the plan dirty; saving stores it; opening the plan
   applies it, clear included, so a bundled example opens in the sky it was built for and a
   snowy example followed by a clear one does not leave snow on the second. A **new untitled
-  plan** has no weather of its own and keeps the session's current choice, Today's forecast
-  included. It is the plan's
+  plan** has no weather of its own: it keeps **Today's Weather** (session-only live forecast)
+  when active, and resets any previous plan's concrete weather to clear so the 3D view and
+  `plan_weather` stay in sync. It is the plan's
   look, not a personal fact, so a portable template keeps it. A file without the key, an
   unknown value, or `today` opens clear; **Today's Weather** is a live forecast and is never
   written. No `FILE_VERSION` change: an older app ignores the key and writes the plan without

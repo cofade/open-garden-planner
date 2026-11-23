@@ -1265,6 +1265,13 @@ class Workspace(QWidget):
             self._look.set_southern(self._southern())  # L5: and so was its noon
         if self._controller is not None:
             self._controller.refresh_sun()
+            # #943: a hemisphere switch changes seasonal_ground_tint, so baked LAWN
+            # tiles and 3D blades must re-snapshot alongside the meadow shader uniform.
+            if (self._controller.pass_date is not None
+                    and seasonal_ground_tint(
+                        self._controller.pass_date, plan_latitude(self._location()),
+                    ) != self._ground_season):
+                self._controller.mark_dirty()
         if self._analysis is not None:
             self._analysis.location_changed()  # L2: the sun path is the place's
             self._update_legend()

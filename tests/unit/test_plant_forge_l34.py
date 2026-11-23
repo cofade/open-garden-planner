@@ -237,6 +237,19 @@ class TestL34ClimberSupportResolution:
         assert top_foliage.size and float(np.ptp(top_foliage[:, 0])) > 60.0
         assert float(np.ptp(top_foliage[:, 1])) > 60.0
 
+        # Concrete pergola climber stays valid under verify_builder across LOD0-LOD2
+        # and a young vine far below the rafters stays vertical instead of fanning in mid-air.
+        for lod in (LOD0, LOD1, LOD2):
+            rec_lod = _climber_record(ref, height_cm=240.0, radius_cm=90.0, seed=41, support=sup)
+            verify_builder(lambda r, _lod=lod: forge_record(r, lod=_lod, cache=None),
+                           rec_lod, height_tolerance=0.03)
+        young = build_forged_climber(traits_for(ref), 80.0, 90.0, seed=41, support=sup, lod=LOD0)
+        young_wood = next(part for part in young if part.name == PART_WOOD).mesh.positions
+        young_top = young_wood[young_wood[:, 2] >= 0.80 * 80.0]
+        assert young_top.size
+        assert float(np.ptp(young_top[:, 0])) < 20.0, "short vine must not fan horizontally in mid-air"
+        assert float(np.ptp(young_top[:, 1])) < 20.0, "short vine must stay vertical along post"
+
     def test_forge_worker_enriches_climber_support_from_snapshot(self) -> None:
         sink = RecordingSink()
         worker = ForgeWorker(sink, cache=ForgeCache(max_entries=16))

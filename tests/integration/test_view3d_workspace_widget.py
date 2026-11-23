@@ -1736,3 +1736,46 @@ def test_a_session_that_never_enters_split_keeps_nothing(
     bench.workspace.set_mode(PLAN)
     bench.workspace.shutdown()
     assert app_settings.create_qsettings().value("UiState/splitter_workspace") is None
+
+
+def test_hemisphere_location_change_updates_lawns_and_meadow_together(
+        canvas: CanvasView, qtbot, tmp_path: Path) -> None:
+    """#943: switching hemispheres via location_changed() must re-snapshot LAWN items
+    alongside updating meadowSeason so baked lawns never stay stuck in the old season."""
+    from datetime import date
+
+    from PyQt6.QtCore import QPointF
+    from PyQt6.QtGui import QColor, QPolygonF
+
+    from open_garden_planner.core.object_types import ObjectType
+    from open_garden_planner.ui.canvas.items import PolygonItem
+
+    lawn = PolygonItem(
+        QPolygonF([QPointF(0, 0), QPointF(400, 0), QPointF(400, 300), QPointF(0, 300)]),
+        object_type=ObjectType.LAWN,
+        name="Lawn",
+    )
+    recolour_fill(lawn, QColor(100, 160, 80, 255)).execute()
+    canvas.scene().addItem(lawn)
+    lawn_id = str(lawn.item_id)
+
+    bench = Bench(canvas, qtbot, tmp_path, location={"latitude": 52.0, "longitude": 10.0})
+    bench.clock.set_date(date(2026, 1, 15))
+    bench.workspace.set_mode(VIEW3D)
+    bench.settle()
+
+    # Northern Hemisphere January: dormant winter lawn and meadow.
+    winter_lawn = bench.workspace.controller.sync.records[lawn_id].material.fill_rgba
+    winter_meadow = bench.hosts[-1].meadow_seasons[-1]
+    assert winter_meadow[1] < 0.8 and winter_lawn[1] < 130
+
+    # Flip to Southern Hemisphere (January = midsummer): BOTH lawn and meadow must turn summer.
+    bench.location = {"latitude": -35.0, "longitude": 149.0}
+    bench.workspace.location_changed()
+    bench.settle()
+
+    summer_lawn = bench.workspace.controller.sync.records[lawn_id].material.fill_rgba
+    summer_meadow = bench.hosts[-1].meadow_seasons[-1]
+    assert summer_meadow == (1.0, 1.0, 1.0)
+    assert summer_lawn[:3] == (100, 160, 80)
+    bench.workspace.shutdown()

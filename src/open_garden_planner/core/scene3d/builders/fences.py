@@ -335,8 +335,9 @@ def board_fence(run: _Run, height_cm: float, post_cm: float) -> Mesh:
     A 1.9 m garden screen is not a picket fence seen from a post: the boards close the
     panel from the ground to just under the post tops, so it reads as a timber wall.
     """
+    k = _scale(height_cm)
     posts_at, post_angle = run.posts(POST_SPACING_CM)
-    posts = bevelled_boxes(posts_at, (post_cm, post_cm), 0.0, height_cm, POST_BEVEL_CM,
+    posts = bevelled_boxes(posts_at, (post_cm, post_cm), 0.0, height_cm, POST_BEVEL_CM * k,
                            post_angle, TINT)
     at, angle, _index = run.every(BOARD_PITCH_CM)
     board_top = height_cm - min(BOARD_GAP_CM, 0.05 * height_cm)
@@ -345,7 +346,7 @@ def board_fence(run: _Run, height_cm: float, post_cm: float) -> Mesh:
     # one rail behind the boards ties them together where a joint is not a post
     rail_size = np.stack([run.length, np.full(run.count, RAIL_ACROSS_CM)], axis=1)
     rail = boxes(run.mid(), rail_size, 0.18 * height_cm,
-                 0.18 * height_cm + RAIL_TALL_CM, run.angle, TINT)
+                 min(0.18 * height_cm + RAIL_TALL_CM, 0.38 * height_cm), run.angle, TINT)
     return Mesh.merge([posts, boards, rail])
 
 

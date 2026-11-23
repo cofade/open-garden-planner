@@ -238,10 +238,10 @@ class PhenologyState:
     summer_light_linear: tuple[float, float, float] = (1.0, 1.0, 1.0)
     autumn_dark_linear: tuple[float, float, float] = (0.0, 0.0, 0.0)
     autumn_light_linear: tuple[float, float, float] = (1.0, 1.0, 1.0)
-    #: #941: the multiplier the foliage SHADER still applies. It holds the snow dust only:
-    #: the autumn hue comes from the two anchors, so the old autumn multiplier must not be
-    #: applied a second time. ``foliage_tint_linear`` keeps it for falling leaves, which
-    #: are not shaded by that fragment shader.
+    #: #941: the multiplier the foliage SHADER and falling leaves still apply (snow dust
+    #: only): the autumn hue comes from the two anchors (``foliage.frag`` and
+    #: ``map_autumn_leaves``), so the legacy ``foliage_tint_linear`` multiplier is kept
+    #: only for backwards-compatible inspection and is never applied to leaves.
     foliage_snow_tint_linear: tuple[float, float, float] = (1.0, 1.0, 1.0)
 
     @property

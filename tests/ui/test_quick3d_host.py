@@ -259,7 +259,7 @@ def _record(item_id: str, east: float = 0.0, north: float = 0.0, rotation: float
 
 def test_the_plant_season_payload_keeps_the_autumn_hue_out_of_the_multiplier() -> None:
     """#941: the shader maps the autumn hue from its two anchors; its tint carries snow
-    only. ``foliage_tint_linear`` (multiplier for falling leaves) must not be sent."""
+    only. The legacy ``foliage_tint_linear`` multiplier must not be sent."""
     from types import SimpleNamespace
 
     from open_garden_planner.ui.view3d.quick3d.host import Quick3DHost

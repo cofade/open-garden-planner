@@ -263,6 +263,7 @@ def build_forged_climber(
     support_map = support if isinstance(support, Mapping) else {}
     concrete = "segment_cm" in support_map and sup_kind != SUPPORT_BEAN_POLES
     target = np.zeros(2, dtype=float)
+    raw_support_h = height_cm
     train_top = height_cm
     if concrete:
         segment = np.asarray(support_map["segment_cm"], dtype=float).reshape(2, 2)
@@ -275,7 +276,8 @@ def build_forged_climber(
         width = float(support_map.get("width_cm", 0.0))
         if distance > 1e-9:
             target *= min(max(0.0, distance - width * 0.25), radius_cm) / distance
-        train_top = max(0.0, min(height_cm, float(support_map.get("height_cm", height_cm))))
+        raw_support_h = float(support_map.get("height_cm", height_cm))
+        train_top = max(0.0, min(height_cm, raw_support_h))
 
     if lod == LOD0:
         n_vines = 6
@@ -380,7 +382,7 @@ def build_forged_climber(
             proj1 = float(np.dot(segment[1] - target, along))
             if abs(proj0) > abs(proj1):
                 along = -along
-        can_reach_roof = train_top > 0.0 and train_top <= height_cm * 1.15
+        can_reach_roof = raw_support_h > 0.0 and raw_support_h <= height_cm * 1.15
         roof_z = (
             min(height_cm * 0.92, max(height_cm * 0.68, train_top - 12.0))
             if can_reach_roof else height_cm * 0.94
@@ -390,9 +392,13 @@ def build_forged_climber(
         post_twine = min(5.0, radius_cm * 0.08)
         for v_i in range(n_vines):
             frac = v_i / max(n_vines - 1, 1)
-            # Spread leaders along the rafter and laterally inward across rafters.
+            # Spread leaders along the rafter and laterally inward across rafters only
+            # once the vine is tall enough to reach the overhead pergola deck.
             along_dir = -0.35 if (v_i == n_vines - 1 and n_vines >= 4) else 1.0
-            along_reach = radius_cm * along_dir * (0.92 if v_i == 0 else float(rng.uniform(0.55, 0.90)))
+            along_reach = (
+                radius_cm * along_dir * (0.92 if v_i == 0 else float(rng.uniform(0.55, 0.90)))
+                if can_reach_roof else 0.0
+            )
             perp_reach = radius_cm * (0.08 + 0.78 * frac) if can_reach_roof else 0.0
             v_top_z = height_cm * 0.99 if v_i == 0 else (
                 roof_z + (top_z - roof_z) * float(rng.uniform(0.45, 1.0))
@@ -560,7 +566,9 @@ def build_forged_climber(
             low, high = float(foliage.pos[:, axis].min()), float(foliage.pos[:, axis].max())
             if low < 0 < high:
                 foliage.pos[:, axis] *= np.where(foliage.pos[:, axis] < 0, radius_cm / -low, radius_cm / high)
-    if lod == LOD2:   # #970: a sparse far crown's box sits on diagonals
+    if lod == LOD2 and not (concrete and sup_kind == SUPPORT_PERGOLA):
+        # #970: a sparse far crown's box sits on diagonals; skip for concrete pergola
+        # climbers so LOD2 does not rotate leaves outside the pergola into empty air.
         parts = fit_forged_parts(wood, foliage, accent_geo, height_cm, radius_cm,
                                  structural_height=traits.deciduous or concrete,
                                  preserve_horizontal_frame=concrete)

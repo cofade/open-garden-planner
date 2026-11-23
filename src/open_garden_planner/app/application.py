@@ -3354,8 +3354,9 @@ class GardenPlannerApp(QMainWindow):
         # Last, after the document is rewired (#795): the clock re-raises a
         # listener's error, and nothing above may be skipped by it.
         self._showcase_moment.document_opened(None)
-        # A new untitled plan has no weather of its own: keep the session's choice
-        # (Today's forecast included). Opening a saved plan is different (#944).
+        # A new untitled plan has no weather of its own: keep Today's live forecast
+        # (session-only), while resetting any previous plan's concrete weather to clear
+        # so the 3D view and project_manager.plan_weather never disagree (#944).
         self._apply_plan_weather(reset_session=False)
 
     def _on_canvas_size(self) -> None:

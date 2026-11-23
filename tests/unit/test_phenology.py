@@ -403,17 +403,16 @@ class TestL35PhenologyAndHemispheres:
             assert difference < 0.5
 
     def test_the_autumn_multiplier_is_not_applied_twice(self) -> None:
-        """#941: the shader maps the hue from the anchors; it still receives snow only.
-
-        The crown's old multiplier stays in ``foliage_tint_linear`` for the falling
-        leaves, which are drawn outside that shader. Sending it to the shader as well
-        turned a clean redleaf ramp dark and brown.
+        """#941: the shader and falling leaves map the hue from the two anchors; their
+        tint carries snow dust only (``foliage_snow_tint_linear``). Sending the legacy
+        ``foliage_tint_linear`` multiplier to the shader as well turned a clean redleaf
+        ramp dark and brown.
         """
         pear = SpriteRef("species", "pear_tree")
         autumn = evaluate_phenology(pear, datetime.date(2026, 10, 20), latitude_deg=52.0)
         assert autumn.autumn_color > 0.8
         assert autumn.foliage_tint_linear != (1.0, 1.0, 1.0), (
-            "the falling leaves keep the crown's autumn colour")
+            "legacy field remains populated for backwards-compatible inspection")
         assert autumn.foliage_snow_tint_linear == (1.0, 1.0, 1.0), (
             "the shader maps the autumn hue itself and must not multiply it again")
         winter = evaluate_phenology(pear, datetime.date(2027, 1, 15), latitude_deg=52.0)
