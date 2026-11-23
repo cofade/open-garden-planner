@@ -16,7 +16,8 @@ the record's own frame, once every record exists (``with_context``):
   (painted on the ground, no height, not a plant, later in paint order; or
   enclosed) whose box meets the lawn's, in the lawn's frame — a pond's grown by its
   coping (``POND_CLEARANCE_CM``), an open gravel or dirt path's the rounded stroke the
-  canvas paints (``ROUND_PATH_STYLES``). At most
+  canvas paints (``ROUND_PATH_STYLES``), a stepping-stone path's the stroke that holds
+  the stones the canvas paints beyond its ends (#998). At most
   ``MAX_CUTOUTS`` outlines and ``MAX_CUTOUT_VERTICES`` vertices, the largest
   first: beyond that, the smallest items let blades through.
 - **How many blades a lawn grows** is the PLAN's to say: ``params["lawn_blades"]``
@@ -221,12 +222,18 @@ def _blade_shares(
 def _cutout_rings(record: Record) -> list[tuple[tuple[float, float], ...]]:
     """The ground ``record`` keeps blades off, in its own frame, one ring a region (its
     holes joined in: ``_keyhole``): its outline — for a pond grown by its coping, for an
-    open gravel or dirt path the rounded stroke the canvas paints."""
+    open gravel or dirt path the rounded stroke the canvas paints, for a stepping-stone
+    path the stroke that holds its painted stones (they are centred on the path's ends)."""
     if record.kind == "POND_POOL":  # the outline its coping is built on (a round pond: round)
         return [_keyhole(grown, holes) for outer, holes in pond_regions(record)
                 for grown in grown_polygon(outer, POND_CLEARANCE_CM)]
     width = record.path_width_cm
-    if record.kind == "PATH" and record.params.get(PARAM_PATH_STYLE) in ROUND_PATH_STYLES and width:
+    style = record.params.get(PARAM_PATH_STYLE)
+    # #998: the canvas paints a stepping stone centred on the path's end, so its picture
+    # reaches 0.4 widths beyond the footprint; a lawn's blades, and a raked court's
+    # ridges, must stop at the painted stone. The stroke's round cap covers it.
+    round_stroke = style in ROUND_PATH_STYLES or style == "STEPPING_STONES"
+    if record.kind == "PATH" and round_stroke and width:
         line, closed = centre_line(record)
         if not closed and len(line) >= 2:
             rounded = polyline_round_outline([(float(x), float(y)) for x, y in line], width)

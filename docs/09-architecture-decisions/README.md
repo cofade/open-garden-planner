@@ -8485,9 +8485,14 @@ relief or profile that is correct in centimetres can still be invisible or wrong
 product's default framing; judge it on a rendered board, not on the builder's numbers.
 The sand court's cut-outs now come from the same context pass as a lawn's
 (`_lawn_cutouts` serves a SAND surface too), so the moss islands painted above it stop
-the rake and no tan ridge crosses a green cushion. The winter tint's darkness, the moss
-cushion's flatness and the board's hero camera outside a tall screen stay recorded
-P2/owner questions.
+the rake and no tan ridge crosses a green cushion. The owner's manual pass then caught
+the same class of defect at a stepping stone: the canvas paints a stone centred on the
+path's end, so its picture reaches 0.4 widths past the footprint while the cut-out was
+only the footprint, and the rake ran across the painted stone. A stepping-stone path's
+cut-out is now its rounded stroke (`polyline_round_outline`), whose round cap holds the
+painted stone; the 3D relief's own 9 cm slide is unchanged. The winter tint's darkness,
+the moss cushion's flatness and the board's hero camera outside a tall screen stay
+recorded P2/owner questions.
 
 ## ADR-060: The 3D workspace — Plan / 3D / Split in the main window, one kept engine host (Phase 17, L1.3)
 

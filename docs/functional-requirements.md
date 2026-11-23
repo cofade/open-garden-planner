@@ -1091,7 +1091,9 @@ The built world complete (L4, #388, ADR-065).
   existing plans that use `FillPattern.SAND`) is raked in 3D: parallel 13 cm ridges 2.4 cm wide and
   1.5 cm high with alternating 1.0/0.78 shade bands. They follow the court's own outline; a flat
   item painted above the court (a moss island, a path, a bed) stops them, so a tan ridge never
-  crosses a green cushion. They lie on the ground (no shadow, not clickable) and are bounded per
+  crosses a green cushion — nor a stepping stone, whose cut-out is the path's rounded stroke
+  because the canvas paints a stone centred on the path's end. They lie on the ground (no
+  shadow, not clickable) and are bounded per
   surface by both rows (`MAX_RAKED_ROWS = 1,000`) and total ridges
   (`MAX_RAKED_RIDGES = 2,000`). Both are additive reads of the fill pattern (no `FILE_VERSION`
   change); plans without `MOSS` or `SAND` fills are unchanged. Pinned by

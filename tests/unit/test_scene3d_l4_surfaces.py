@@ -46,7 +46,11 @@ from open_garden_planner.core.scene3d.context import (
     with_context,
 )
 from open_garden_planner.core.scene3d.pick_oracle import pick_scene
-from open_garden_planner.core.scene3d.polygon import RegionTooLargeError, group_rings
+from open_garden_planner.core.scene3d.polygon import (
+    RegionTooLargeError,
+    group_rings,
+    point_in_ring,
+)
 from open_garden_planner.core.scene3d.record import BUILD_ONLY_PARAMS, Params
 from open_garden_planner.core.shadow_geometry import polyline_round_outline
 from tests.unit.scene3d_builder_cases import (
@@ -125,6 +129,37 @@ def test_a_raked_court_does_not_draw_a_ridge_across_an_island_above_it() -> None
         # The island is x/y in [-50, 50]; a beam may be beside it, never through it.
         assert not (y0 < 50.0 and y1 > -50.0 and x0 < 50.0 and x1 > -50.0), (
             x0, x1, y0, y1)
+
+
+def test_a_stepping_stone_paths_painted_stone_is_cut_out_of_the_rake() -> None:
+    """#998: the canvas paints a stepping stone centred on the path's end, so its
+    picture reaches 0.4 widths (22 cm at 55 cm) beyond the footprint. The court's
+    cut-out covers that painted stone, so no ridge is drawn across it."""
+    width = 55.0
+    court = polygon_record("TERRACE_PATIO", rectangle(600.0, 420.0), None,
+                           params={"surface_pattern": "SAND"}, item_id="court")
+    path = dataclasses.replace(
+        line_record("PATH", ((0.0, 0.0), (250.0, 0.0)), None, width=width,
+                    style="STEPPING_STONES", item_id="steps"),
+        material=Material("PATH", (200, 180, 140, 255), paint=Paint()))
+    records = {court.item_id: court, path.item_id: path}
+    with_context(records)
+    rings = records[court.item_id].params.get("lawn_cutouts", ())
+    half_along = 0.4 * width   # a stone is 0.8 widths long, centred on the walk
+    half_across = 0.3 * width  # and 0.6 widths across
+    assert rings and any(point_in_ring(-half_along, 0.0, ring) for ring in rings), (
+        "the cut-out stops at the path footprint, not at the painted stone")
+    beams = surfaces._raked_sand(records[court.item_id])
+    assert beams
+    # The painted stone is a rounded rectangle (radius 2 cm): compare against its
+    # straight-sided core, not the corner the ridge's own 2.4 cm width may graze.
+    core_along, core_across = half_along - 2.0, half_across - 2.0
+    for beam in beams:
+        x0, x1 = float(beam.positions[:, 0].min()), float(beam.positions[:, 0].max())
+        y0, y1 = float(beam.positions[:, 1].min()), float(beam.positions[:, 1].max())
+        assert not (y0 < core_across and y1 > -core_across
+                    and x0 < core_along and x1 > -core_along), (
+            "a ridge crosses the painted stone", x0, x1, y0, y1)
 
 
 def test_batched_lawn_mask_matches_even_odd_at_edges_holes_and_self_crossings() -> None:

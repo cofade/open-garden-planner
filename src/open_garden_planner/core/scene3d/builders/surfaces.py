@@ -95,6 +95,10 @@ MIN_RELIEF_WIDTH_CM: Final = 20.0
 #: Relief heights (cm): a stone, a kerb, a gravel rim, a board's top, the water's surface.
 STONE_CM: Final = 4.0
 KERB_CM: Final = 3.0
+#: How far (cm) a stepping stone of a stepping-stone path may stand outside the path's
+#: footprint: the 2D painter draws a stone half over a path's end, and ``_path`` slides
+#: or drops it to stay within this margin (the 3D truth gate's 10 cm, less one).
+STEPPING_STONE_OVERHANG_CM: Final = 9.0
 #: A gravel path's 3D rim sits below ``DECK_TOP_CM`` (2.5 cm) so a round end cap that
 #: meets a wooden terrace stays cleanly underneath the deck boards instead of cutting
 #: through them.
@@ -425,8 +429,9 @@ def _path(record: Record) -> tuple[MeshPart, ...]:
         def fits(centres: F64) -> np.ndarray:
             corners = [centres + along * (sx * 0.4 * width) + across * (sy * 0.3 * width)
                        for sx in (-1.0, 1.0) for sy in (-1.0, 1.0)]
-            return np.asarray(np.all([_on_ground(corner, record, 9.0) for corner in corners], axis=0),
-                              dtype=bool)
+            return np.asarray(np.all(
+                [_on_ground(corner, record, STEPPING_STONE_OVERHANG_CM) for corner in corners],
+                axis=0), dtype=bool)
 
         points = points.copy()
         keep = fits(points)
@@ -1396,6 +1401,6 @@ def register(registry: BuilderRegistry) -> None:
 
 __all__ = ["BUILDERS", "DECK_PATTERNS", "KINDS", "LAWN_BLADES", "MEADOW_PATTERN",
            "MOSS_BLADE_CM", "MOSS_BLADES_PER_M2", "MOSS_PATTERN", "ROCK_PATTERN",
-           "SAND_PATTERN", "clear_lawn_cache", "flower_colours", "is_meadow", "is_moss",
-           "is_sand", "pond_regions", "register", "rock_parts", "sward_cache_info",
-           "walk_path"]
+           "SAND_PATTERN", "STEPPING_STONE_OVERHANG_CM", "clear_lawn_cache",
+           "flower_colours", "is_meadow", "is_moss", "is_sand", "pond_regions", "register",
+           "rock_parts", "sward_cache_info", "walk_path"]
