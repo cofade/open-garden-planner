@@ -116,10 +116,12 @@ LAWN_SEASON_TINTS: Final = (
 
 
 #: Quantisation grid (in seasonal days) shared by lawn and meadow (#943 / PF-L3D-38):
-#: fortnightly steps move all three RGB channels together (<= 20 transitions across a full
-#: 365-day year, so >94 % of daily steps trigger zero ground tile re-bakes or meadow
-#: uniform churn), while summer holds exact (1.0, 1.0, 1.0) and lawn/meadow stay identical.
-LAWN_TINT_STEP_DAYS: Final[float] = 14.0
+#: 4-day steps move all three RGB channels together (<= 65 transitions across a full
+#: 365-day year, so >82 % of daily steps trigger zero ground tile re-bakes or meadow
+#: uniform churn while keeping every step in a year time-lapse under ~2 luma levels —
+#: well below the 4.0 DST smoothness bound), summer holds exact (1.0, 1.0, 1.0), and
+#: lawn and meadow stay bit-identical on every date.
+LAWN_TINT_STEP_DAYS: Final[float] = 4.0
 
 
 def _tint_at_seasonal_day(day: float) -> tuple[float, float, float]:

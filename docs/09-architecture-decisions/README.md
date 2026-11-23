@@ -8413,8 +8413,9 @@ sun, a shadow, a footprint or a saved file's version.
    dust only (`foliage_snow_tint_linear`).
 2. **The grass through the year.** `phenology.seasonal_ground_tint(date, latitude)` is the
    one sRGB lawn/meadow multiplier (`FR-3D-GROUND-09`), quantised by default on a shared
-   14-day seasonal grid (`LAWN_TINT_STEP_DAYS`) so year playback avoids daily tile re-bakes
-   while keeping baked lawns and the open-ground meadow bit-identical and summer exact. A
+   4-day seasonal grid (`LAWN_TINT_STEP_DAYS`) so year playback avoids daily tile re-bakes
+   while keeping baked lawns and the open-ground meadow bit-identical, time-lapse steps
+   smooth, and summer exact. A
    grass lawn's fill is scaled in the snapshot (`snapshot._seasonal_fill`), while MOSS lawns
    stay evergreen; the open ground reads `meadowSeason` in `ground.frag` in sRGB before
    `groundLinear()` across every surface mode, eliminating any lawn-to-meadow colour-space
