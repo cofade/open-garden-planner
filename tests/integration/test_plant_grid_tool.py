@@ -394,12 +394,14 @@ def test_species_picker_uses_the_preferences_credentials(qtbot, monkeypatch):
 
     for name in ("TREFLE_API_TOKEN", "PERENUAL_API_KEY", "PERMAPEOPLE_KEY_ID", "PERMAPEOPLE_KEY_SECRET"):
         monkeypatch.delenv(name, raising=False)
+    # Build the view first: it imports the tool module lazily, and a tool
+    # module imported after the patch below would bind the fake settings.
+    _scene, view = _grid_view(qtbot)
     preferences = SimpleNamespace(
         trefle_api_token="token-from-preferences", perenual_api_key="",
         permapeople_key_id="", permapeople_key_secret="",
     )
     monkeypatch.setattr(settings_module, "get_settings", lambda: preferences)
-    _scene, view = _grid_view(qtbot)
     managers = []
 
     def capture(dialog):
