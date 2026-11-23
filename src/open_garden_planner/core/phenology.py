@@ -165,20 +165,55 @@ def _palette_anchors(summer_pal_name: str, autumn_pal_name: str) -> tuple[
         tuple[float, float, float], ...]:
     """The summer and autumn palettes' dark and light linear anchors (#941).
 
-    ``t0`` is a palette's dark leaf and ``b1`` its light one (the same pair the
-    multiplier above averages). The shader maps a leaf's position between the summer
-    anchors onto the autumn anchors, so every leaf keeps its own tone inside the
-    palette's ramp instead of taking one clamped channel multiplier.
+    In ``PALETTES`` (``plant_forge/foliage.py``), ``b0`` is the darkest base colour
+    and ``t1`` is the lightest tip colour (``luma(b0) < luma(t1)`` for every palette).
+    The shader maps each leaf's position between the summer anchors onto the autumn
+    anchors, so every leaf keeps its own tone inside the palette's ramp instead of
+    taking one clamped channel multiplier.
     """
     def pair(name: str) -> tuple[tuple[float, float, float], tuple[float, float, float]]:
         palette = PALETTES.get(name, PALETTES["fresh"])
-        dark = tuple(float(channel) for channel in srgb_to_linear(palette["t0"])[:3])
-        light = tuple(float(channel) for channel in srgb_to_linear(palette["b1"])[:3])
+        dark = tuple(float(channel) for channel in srgb_to_linear(palette["b0"])[:3])
+        light = tuple(float(channel) for channel in srgb_to_linear(palette["t1"])[:3])
         return dark, light  # type: ignore[return-value]
 
     summer_dark, summer_light = pair(summer_pal_name)
     autumn_dark, autumn_light = pair(autumn_pal_name)
     return summer_dark, summer_light, autumn_dark, autumn_light
+
+
+def map_autumn_leaves(
+    colors_linear: object,
+    state: PhenologyState,
+) -> tuple[tuple[float, float, float], ...]:
+    """Apply the foliage shader's exact two-anchor autumn ramp and snow tint (#941, #895).
+
+    ``colors_linear`` is any sequence/array of linear ``(r, g, b)`` tuples. Used by
+    falling leaves (``core/scene3d/particles.py``) and tests so CPU leaf colours match
+    ``foliage.frag`` without drift.
+    """
+    def _luma(rgb: tuple[float, float, float]) -> float:
+        return 0.2126 * rgb[0] + 0.7152 * rgb[1] + 0.0722 * rgb[2]
+
+    low = _luma(state.summer_dark_linear)
+    high = max(_luma(state.summer_light_linear), low + 1e-4)
+    span = high - low
+    ad = state.autumn_dark_linear
+    al = state.autumn_light_linear
+    mix = state.autumn_color
+    sr, sg, sb = state.foliage_snow_tint_linear
+    out: list[tuple[float, float, float]] = []
+    for row in colors_linear:  # type: ignore[attr-defined]
+        r, g, b = float(row[0]), float(row[1]), float(row[2])
+        tone = min(max((_luma((r, g, b)) - low) / span, 0.0), 1.0)
+        ar = ad[0] + (al[0] - ad[0]) * tone
+        ag = ad[1] + (al[1] - ad[1]) * tone
+        ab = ad[2] + (al[2] - ad[2]) * tone
+        mr = (r + (ar - r) * mix) * sr
+        mg = (g + (ag - g) * mix) * sg
+        mb = (b + (ab - b) * mix) * sb
+        out.append((mr, mg, mb))
+    return tuple(out)
 
 
 @dataclass(frozen=True, slots=True)
@@ -229,7 +264,12 @@ class PhenologyState:
             "ripeness": self.ripeness,
             "snow": self.snow,
             "uOpacity": self.leaf_density,
-            "uTint": self.foliage_tint_linear,
+            "uTint": self.foliage_snow_tint_linear,
+            "uAutumn": self.autumn_color,
+            "uSummerDark": self.summer_dark_linear,
+            "uSummerLight": self.summer_light_linear,
+            "uAutumnDark": self.autumn_dark_linear,
+            "uAutumnLight": self.autumn_light_linear,
             "accent_uOpacity": self.accent_opacity,
             "accent_uTint": self.accent_tint_linear,
         }
@@ -634,6 +674,7 @@ __all__ = [
     "DEFAULT_LATITUDE_DEG",
     "LAWN_SEASON_TINTS",
     "RIPENESS_PROGRESS_FROM",
+    "map_autumn_leaves",
     "plan_latitude",
     "seasonal_ground_tint",
     "SNOW_LINEAR_RGB",

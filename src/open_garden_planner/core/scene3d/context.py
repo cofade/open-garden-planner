@@ -44,7 +44,13 @@ from ..shadow_geometry import grown_polygon, polyline_round_outline
 from .builders import OBJECT_KINDS, hedges
 from .builders.common import centre_line
 from .builders.facade import door_wall_index
-from .builders.surfaces import BLADES_PER_M2, COPING_OUT_CM, pond_regions
+from .builders.surfaces import (
+    BLADES_PER_M2,
+    COPING_OUT_CM,
+    MOSS_BLADES_PER_M2,
+    is_moss,
+    pond_regions,
+)
 from .builders.surfaces import MAX_BLADES as MAX_LAWN_BLADES
 from .frame import cos_sin, pose_ring
 from .polygon import group_rings, ring_area
@@ -184,14 +190,22 @@ def _box(rings: list[_F64]) -> tuple[float, float, float, float]:
     return float(low[0]), float(low[1]), float(high[0]), float(high[1])
 
 
-def _blade_shares(areas: dict[int, float]) -> dict[int, int]:
+def _blade_shares(
+    areas: dict[int, float],
+    densities: dict[int, float] | None = None,
+) -> dict[int, int]:
     """The plan's blades shared out by area: each lawn gets its own density's count
-    (``BLADES_PER_M2``, at most ``MAX_LAWN_BLADES``) where the budget allows, and what
-    a lawn cannot use (a capped lawn, a small one) goes to the others — the lawns
-    that want least per square metre are served first, each at most its area's share
-    of what is left."""
-    demand = {index: min(MAX_LAWN_BLADES, int(BLADES_PER_M2 * area / 10_000.0))
-              for index, area in areas.items()}
+    (``BLADES_PER_M2`` for grass, ``MOSS_BLADES_PER_M2`` for moss, at most
+    ``MAX_LAWN_BLADES``) where the budget allows, and what a lawn cannot use (a capped
+    lawn, a small one) goes to the others — the lawns that want least per square metre
+    are served first, each at most its area's share of what is left."""
+    demand = {
+        index: min(
+            MAX_LAWN_BLADES,
+            int((densities[index] if densities is not None else BLADES_PER_M2) * area / 10_000.0),
+        )
+        for index, area in areas.items()
+    }
     budget = float(MAX_PLAN_BLADES)
     area_left = sum(areas.values())
     shares: dict[int, int] = {}
@@ -259,8 +273,12 @@ def _lawn_cutouts(records: MutableMapping[str, Record]) -> None:
             continue
         rings = [np.asarray(pose_ring(other.transform, ring), dtype=np.float64) for ring in own]
         candidates.append((len(order) if enclosed else index, own, rings, _box(rings)))
-    shares = _blade_shares({index: sum(ring_area(ring) for ring in records[order[index]].footprints)
-                            for index in lawns})
+    shares = _blade_shares(
+        {index: sum(ring_area(ring) for ring in records[order[index]].footprints)
+         for index in lawns},
+        {index: MOSS_BLADES_PER_M2 if is_moss(records[order[index]]) else BLADES_PER_M2
+         for index in lawns},
+    )
     for index in lawns:
         item_id = order[index]
         lawn = records[item_id]

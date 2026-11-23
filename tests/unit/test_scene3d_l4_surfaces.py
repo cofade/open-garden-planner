@@ -75,12 +75,18 @@ def test_tiny_raised_ponds_are_valid_prisms(size_cm, height_cm) -> None:
 
 
 def test_moss_is_a_low_dense_cushion_and_sand_is_raked() -> None:
-    """#960: the Japanese garden's moss and raked-sand court have looks of their own."""
+    """#960: the Japanese garden's moss and raked-sand court have looks of their own,
+    moss gets MOSS_BLADES_PER_M2 through with_context, and hostile comb sand is capped."""
     lawn = polygon_record("LAWN", rectangle(400.0, 300.0), None,
-                          params={"surface_pattern": "MOSS", "lawn_blades": 3000})
-    blades = REGISTRY.build(lawn)
+                          params={"surface_pattern": "MOSS"})
+    records = {lawn.item_id: lawn}
+    with_context(records)
+    # 12 m² at 1800/m² = 21,600 (clamped by MAX_BLADES), well above regular 220/m² (2,640)
+    assert records[lawn.item_id].params["lawn_blades"] > int(surfaces.BLADES_PER_M2 * 12.0) * 3
+    blades = REGISTRY.build(records[lawn.item_id])
     assert len(blades) == 1 and blades[0].name == surfaces.LAWN_BLADES
     assert float(blades[0].mesh.positions[:, 2].max()) <= surfaces.MOSS_BLADE_CM * 1.3 + 0.31
+
     zen = polygon_record("TERRACE_PATIO", rectangle(600.0, 420.0), None,
                          params={"surface_pattern": "SAND"})
     parts = REGISTRY.build(zen)
@@ -88,6 +94,15 @@ def test_moss_is_a_low_dense_cushion_and_sand_is_raked() -> None:
     assert ridges and ridges[0].ground_detail and ridges[0].casts_shadow is False
     assert float(ridges[0].mesh.positions[:, 2].max()) <= surfaces.RAKED_SAND_HEIGHT_CM + 1e-4
     assert len(ridges[0].mesh.positions) > 200
+
+    # Hostile comb polygon: stays under MAX_RELIEF_VERTICES but exceeds MAX_RAKED_RIDGES.
+    teeth = 60
+    comb = [(0.0, 0.0), (teeth * 20.0, 0.0)]
+    for i in range(teeth - 1, -1, -1):
+        x = i * 20.0
+        comb.extend([(x + 15.0, 1200.0), (x + 5.0, 1200.0), (x + 5.0, 20.0), (x, 20.0)])
+    hostile = polygon_record("TERRACE_PATIO", tuple(comb), None, params={"surface_pattern": "SAND"})
+    assert REGISTRY.build(hostile) == ()
 
 
 def test_batched_lawn_mask_matches_even_odd_at_edges_holes_and_self_crossings() -> None:

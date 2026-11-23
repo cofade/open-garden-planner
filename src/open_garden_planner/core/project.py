@@ -1402,7 +1402,7 @@ class ProjectManager(QObject):
         """Restore non-scene project metadata and emit change signals."""
         self._location = data.location
         self.location_changed.emit(self._location)
-        self._plan_weather = normalise_weather(data.weather, "clear")
+        self._plan_weather = _plan_weather(data.weather)
         self.plan_weather_changed.emit(self._plan_weather)
         self._north_angle_deg = normalize_north_angle(data.north_angle_deg)
         self.north_angle_changed.emit(self._north_angle_deg)

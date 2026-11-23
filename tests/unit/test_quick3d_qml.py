@@ -859,11 +859,14 @@ def test_the_truth_view_keeps_the_flat_meadow_and_the_grass_is_one_texture_for_l
 def test_the_ground_shader_lays_grass_only_where_the_ground_is_open() -> None:
     """``ground.frag``: the grass's deviation from the flat colour is added in proportion to
     the OPEN share of the point — ``1 - tile alpha``, times the switch — so an item's own
-    picture is never textured over, and its mean is the flat colour's."""
+    picture is never textured over, and its mean is the flat colour's; seasonal meadow tint
+    scales uncovered ground in sRGB before linearisation across every surface mode (#943)."""
     code = "\n".join(line.split("//")[0] for line in
                      (QML_DIR / "ground.frag").read_text(encoding="utf-8").splitlines())
-    assert "float open = (1.0 - tile.a) * uGrassShare;" in code
-    assert "albedo += open * groundLinear(uMeadow) * (grass - 1.0);" in code
+    assert "float uncovered = 1.0 - tile.a;" in code
+    assert "float open = uncovered * uGrassShare;" in code
+    assert "vec3 albedo = groundLinear(min(tile.rgb * seasonSrgb, vec3(1.0)));" in code
+    assert "albedo += open * seasonalMeadow * (grass - 1.0);" in code
     assert "vec4 tile = uHasTile > 0.5 ? texture(uBaseMap, uv) : vec4(uMeadow, 0.0);" in code
     # the grass is laid in WORLD space, the same on the meadow and on the plan
     assert "meadowGrass(VAR_WORLD_POSITION.xz, max(reach.x, reach.y), grassSlope)" in code
@@ -902,10 +905,11 @@ def test_snow_lies_on_the_built_tops_through_one_shader_only_while_it_snows() ->
                         (roof, "Qt.vector3d(tint.r, tint.g, tint.b)")):
         # the snowy look, and (#800) a plant's swaying wood, which carries the snow too
         assert block.count('fragmentShader: "built_snow.frag"') == (2 if block is vc else 1)
-        assert block.count('vertexShader: "built_snow.vert"') == 1   # the colour as COLOR
+        # vcPart uses built_snow.vert for both vcSnow and vcGlass (#992); roofPart for roofSnow
+        assert block.count('vertexShader: "built_snow.vert"') == (2 if block is vc else 1)
         # ... and (#801) the detail material, which lays the same snow
         n = 3 if block is vc else 2
-        assert block.count(f"property vector3d uTintSrgb: {tint}") == n
+        assert block.count(f"property vector3d uTintSrgb: {tint}") == (4 if block is vc else 2)
         assert block.count("property real uSnowCover: root.builtSnow") == n
         assert block.count("property real uSnowRough: root.groundRoughness") == n
         assert block.count("property real uSnowSpecular: root.groundSpecular") == n
@@ -960,3 +964,56 @@ def test_a_plant_sways_as_one_by_its_own_frame_and_the_lawn_keeps_its_wind() -> 
     warmer = code[code.index("id: shaderWarmer"):]
     assert 'vertexShader: "plant_sway.vert"' in warmer
     assert "uWind:" not in warmer.split('vertexShader: "foliage_door.vert"')[0].rsplit("Model {", 1)[1]
+
+
+def test_every_custom_material_declares_every_uniform_its_shaders_use() -> None:
+    """Static QML<->shader uniform contract (PR #998): every CustomMaterial block in
+    ``Garden.qml`` (including ``shaderWarmer``) must declare every ``u[A-Z]...`` uniform
+    referenced by its bound vertex and fragment shaders, and declare no dead uniform."""
+    code = _scene()
+    # Extract balanced CustomMaterial { ... } blocks so nested TextureInput { ... } stay inside.
+    blocks: list[tuple[int, str]] = []
+    pos = 0
+    while True:
+        match = re.search(r"\bCustomMaterial\s*\{", code[pos:])
+        if not match:
+            break
+        start = pos + match.start()
+        brace = pos + match.end() - 1
+        depth = 0
+        end = brace
+        for idx in range(brace, len(code)):
+            ch = code[idx]
+            if ch == "{":
+                depth += 1
+            elif ch == "}":
+                depth -= 1
+                if depth == 0:
+                    end = idx + 1
+                    break
+        line_no = code.count("\n", 0, start) + 1
+        blocks.append((line_no, code[start:end]))
+        pos = end
+
+    assert len(blocks) >= 15, f"expected >= 15 CustomMaterial blocks, got {len(blocks)}"
+    for line_no, block in blocks:
+        stripped_qml = "\n".join(line.split("//")[0] for line in block.splitlines())
+        declared = set(re.findall(r"\bproperty\s+\w+\s+(u[A-Z]\w*)\s*:", stripped_qml))
+        shaders: list[str] = []
+        for field in ("vertexShader", "fragmentShader"):
+            for m in re.finditer(rf"\b{field}\s*:\s*([^\n]+)", stripped_qml):
+                shaders.extend(re.findall(r'"([^"]+\.(?:vert|frag))"', m.group(1)))
+        assert shaders, f"CustomMaterial at Garden.qml:{line_no} binds no shader"
+        referenced: set[str] = set()
+        for shader_name in shaders:
+            src = (QML_DIR / shader_name).read_text(encoding="utf-8")
+            clean = "\n".join(line.split("//")[0] for line in src.splitlines())
+            referenced.update(re.findall(r"\b(u[A-Z]\w*)\b", clean))
+        missing = sorted(referenced - declared)
+        assert not missing, (
+            f"CustomMaterial at Garden.qml:{line_no} ({shaders}) missing uniforms: {missing}"
+        )
+        unused = sorted(declared - referenced)
+        assert not unused, (
+            f"CustomMaterial at Garden.qml:{line_no} ({shaders}) declares unused uniforms: {unused}"
+        )

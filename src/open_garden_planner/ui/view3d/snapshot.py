@@ -828,14 +828,14 @@ def _material(key: str, fill: Rgba | None, stroke: Rgba | None, pattern: str | N
 
 
 def _seasonal_fill(kind: str, fill: Rgba | None, at_date: date | None,
-                   latitude_deg: float) -> Rgba | None:
-    """A lawn's fill through the year (#943); every other fill is untouched.
+                   latitude_deg: float, pattern: str | None = None) -> Rgba | None:
+    """A lawn's fill through the year (#943); moss (#960) and every other fill stay untouched.
 
     The ground bake paints LAWN tiles with the item's fill colour and the 3D lawn's blades
-    take the same tint, so one factor changes both — while a path or terrace beside it
-    keeps its own colour.
+    take the same tint, so one factor changes both — while moss stays evergreen and a path
+    or terrace beside it keeps its own colour.
     """
-    if kind != "LAWN" or fill is None or at_date is None:
+    if kind != "LAWN" or pattern == MOSS_PATTERN or fill is None or at_date is None:
         return fill
     tint = seasonal_ground_tint(at_date, latitude_deg)
     # The late-summer keyframe reaches 1.03: a near-white lawn may not exceed the
@@ -1155,7 +1155,8 @@ def _record_of(item: Any, object_type: Any, item_id: str, at_date: date | None,
         footprints=tuple(outer for outer, _holes in regions),
         transform=frame.transform(quantize_cm(base)),
         material=_material(kind, _seasonal_fill(
-                               kind, _rgba(getattr(item, "fill_color", None)), at_date, latitude_deg),
+                               kind, _rgba(getattr(item, "fill_color", None)), at_date, latitude_deg,
+                               pattern.name if pattern is not None else None),
                            _rgba(stroke),
                            pattern.name if pattern is not None else None, paint),
         height_cm=height,

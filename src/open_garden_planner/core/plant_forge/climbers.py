@@ -82,16 +82,17 @@ def _support_segments(rec: Record) -> NDArray[np.float64]:
     if rec.kind in ("PERGOLA", "ARBOUR") and rec.footprints:
         # #956: a climber trained to a pergola grows along its RAFTERS, not round the
         # rectangle's edge. The rafters are the pergola's own layout (#769): nine beams
-        # across its depth, the same ones its 2D picture and 3D timber draw.
+        # across its depth, centred on the footprint's bounding box.
         points = np.asarray(rec.footprints[0], dtype=float)
         low, high = points.min(axis=0), points.max(axis=0)
+        center = (low + high) * 0.5
         built = pergola_layout(float(high[0] - low[0]), float(high[1] - low[1]),
                                float(rec.height_cm or 240.0))
         if built is not None:
             for rafter in built.rafters:
                 x, _y = rafter.centre
-                local.append((np.asarray([x, rafter.y0], dtype=float),
-                              np.asarray([x, rafter.y1], dtype=float)))
+                local.append((np.asarray([center[0] + x, center[1] + rafter.y0], dtype=float),
+                              np.asarray([center[0] + x, center[1] + rafter.y1], dtype=float)))
         else:
             local.extend(zip(points, np.roll(points, -1, axis=0), strict=True))
     elif rec.path:
@@ -141,7 +142,7 @@ def _concrete_support(plant: Record, support: Record, kind: str) -> dict[str, An
     if not isinstance(raw_radius, (int, float, str)):
         raise TypeError("Climber canopy radius must be a numeric value")
     radius = float(raw_radius)
-    return {
+    result: dict[str, Any] = {
         "kind": kind,
         "azimuth_deg": azimuth,
         "distance_cm": max(0.0, float(distances[index]) - radius - width * 0.5),
@@ -150,6 +151,12 @@ def _concrete_support(plant: Record, support: Record, kind: str) -> dict[str, An
         "height_cm": float(support.height_cm or 0.0) + support.transform.base_cm - plant.transform.base_cm,
         "base_cm": support.transform.base_cm - plant.transform.base_cm,
     }
+    if kind == SUPPORT_PERGOLA:
+        # Centre of the pergola's rafters in the plant's local frame so vines spread
+        # INWARD across overhead rafters instead of sticking outside the pergola (#956).
+        center_local = (segments.mean(axis=(0, 1)) - origin) @ rotation.T
+        result["pergola_center_cm"] = (float(center_local[0]), float(center_local[1]))
+    return result
 
 
 def resolve_climber_support(
@@ -222,6 +229,7 @@ def enrich_climber_record(
         str(sup["kind"]), float(sup["azimuth_deg"]), float(sup["distance_cm"]),
         *sup.get("segment_cm", ()),
         *(float(sup[key]) for key in ("width_cm", "height_cm", "base_cm") if key in sup),
+        *sup.get("pergola_center_cm", ()),
     )
     return dataclasses.replace(rec, params=Params(merged))
 
@@ -352,6 +360,75 @@ def build_forged_climber(
                 if k >= 1:
                     vine_nodes.append(cur_pt)
                 prev_pt = cur_pt
+    elif concrete and sup_kind == SUPPORT_PERGOLA:
+        # #956: a pergola climber climbs its post/support to the overhead rafter deck,
+        # then turns horizontally to spread along the nearest rafter and inward across
+        # neighbouring rafters within the plant's canopy radius.
+        seg_len = max(float(np.linalg.norm(delta)), 1e-6)
+        along = delta / seg_len
+        perp = np.array([-along[1], along[0]], dtype=np.float64)
+        inward_raw = support_map.get("pergola_center_cm")
+        if isinstance(inward_raw, (tuple, list)) and len(inward_raw) >= 2:
+            to_center = np.array([float(inward_raw[0]), float(inward_raw[1])], dtype=np.float64) - target
+            if float(np.dot(to_center, perp)) < 0.0:
+                perp = -perp
+            if float(np.dot(to_center, along)) < 0.0:
+                along = -along
+        else:
+            # No pergola centre supplied: orient along the longer end of the rafter.
+            proj0 = float(np.dot(segment[0] - target, along))
+            proj1 = float(np.dot(segment[1] - target, along))
+            if abs(proj0) > abs(proj1):
+                along = -along
+        can_reach_roof = train_top > 0.0 and train_top <= height_cm * 1.15
+        roof_z = (
+            min(height_cm * 0.92, max(height_cm * 0.68, train_top - 12.0))
+            if can_reach_roof else height_cm * 0.94
+        )
+        top_z = min(height_cm * 0.99, max(roof_z + 4.0, train_top)) if can_reach_roof else height_cm * 0.99
+        climb_end = 0.45
+        post_twine = min(5.0, radius_cm * 0.08)
+        for v_i in range(n_vines):
+            frac = v_i / max(n_vines - 1, 1)
+            # Spread leaders along the rafter and laterally inward across rafters.
+            along_dir = -0.35 if (v_i == n_vines - 1 and n_vines >= 4) else 1.0
+            along_reach = radius_cm * along_dir * (0.92 if v_i == 0 else float(rng.uniform(0.55, 0.90)))
+            perp_reach = radius_cm * (0.08 + 0.78 * frac) if can_reach_roof else 0.0
+            v_top_z = height_cm * 0.99 if v_i == 0 else (
+                roof_z + (top_z - roof_z) * float(rng.uniform(0.45, 1.0))
+            )
+            phase = float(rng.uniform(0.0, 2.0 * math.pi))
+            prev_pt = None
+            steps = np.unique(np.r_[np.linspace(0.0, 1.0, vine_steps + 1), climb_end])
+            for k, t in enumerate(steps):
+                if t <= climb_end:
+                    u = t / climb_end
+                    z = roof_z * u
+                    twine = post_twine * math.sin(u * math.pi)
+                    angle = phase + 2.0 * math.pi * 1.5 * u
+                    xy = target * u + (along * math.cos(angle) + perp * math.sin(angle)) * twine
+                else:
+                    u = (t - climb_end) / max(1.0 - climb_end, 1e-6)
+                    z = roof_z + (v_top_z - roof_z) * (u**0.75)
+                    # Follow the finite rafter segment along `delta` and fan across rafters.
+                    raw_along = target + along * (along_reach * u)
+                    proj = float(np.dot(raw_along - segment[0], delta)) / max(float(np.dot(delta, delta)), 1e-12)
+                    clamped_along = segment[0] + delta * min(max(proj, 0.0), 1.0)
+                    xy = clamped_along + perp * (perp_reach * (u**0.85))
+                    # Keep the overhead canopy within the plant's recorded radius.
+                    xy_norm = float(np.linalg.norm(xy))
+                    max_xy = radius_cm * 0.94
+                    if xy_norm > max_xy > 1e-6:
+                        xy = xy * (max_xy / xy_norm)
+                cur_pt = np.array([xy[0], xy[1], z], dtype=np.float64)
+                if prev_pt is not None:
+                    p0_list.append(prev_pt)
+                    p1_list.append(cur_pt)
+                    r0_list.append(vine_r * (1.0 - 0.55 * float(steps[k - 1])))
+                    r1_list.append(vine_r * (1.0 - 0.55 * t))
+                if k >= 1:
+                    vine_nodes.append(cur_pt)
+                prev_pt = cur_pt
     elif concrete:
         along = np.array([math.cos(az_rad), math.sin(az_rad)])
         support_base = max(0.0, float(support_map.get("base_cm", 0.0)))
@@ -476,7 +553,7 @@ def build_forged_climber(
         cup=0.06,
     )
     accent_geo = accents if accents is not None else empty_geo()
-    if concrete:
+    if concrete and sup_kind != SUPPORT_PERGOLA:
         # Leaf spread is decorative; the woody training coordinates are fixed.
         # Expand the leaf envelope about the true anchor, never recenter wood.
         for axis in (0, 1):

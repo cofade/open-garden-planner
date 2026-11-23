@@ -296,8 +296,15 @@ def build_forged_palm(
     frond_az = np.linspace(0.0, 2.0 * math.pi, n_fronds, endpoint=False) + float(
         rng.uniform(0.0, 2.0 * math.pi)
     ) + rng.uniform(-0.22, 0.22, size=n_fronds)
-    # Mix upper ascending fronds and lower arching/drooping fronds
-    frond_elev = np.linspace(0.68, -0.18, n_fronds) + rng.uniform(-0.12, 0.12, size=n_fronds)
+    # Mix upper ascending fronds and lower arching/drooping fronds; dwarf/clumping
+    # palms rise from near ground level so their fronds fan upwards instead of dipping
+    # below z = 0 (which would cause fit_forged_parts to hoist the trunk into mid-air).
+    if dwarf:
+        frond_elev = np.linspace(1.05, 0.35, n_fronds) + rng.uniform(-0.08, 0.08, size=n_fronds)
+        arch_droop = 0.26
+    else:
+        frond_elev = np.linspace(0.68, -0.18, n_fronds) + rng.uniform(-0.12, 0.12, size=n_fronds)
+        arch_droop = 0.58
     rng.shuffle(frond_elev)
 
     leaflet_pos_list: list[np.ndarray] = []
@@ -318,9 +325,11 @@ def build_forged_palm(
 
         s = np.linspace(0.12, 0.98, leaflets_per_side)
         # Parabolic arch of the frond rachis
-        arch_z = reach * (math.sin(el) * s - 0.58 * (s**1.85))
+        arch_z = reach * (math.sin(el) * s - arch_droop * (s**1.85))
         rachis_pts = crown_origin[None, :] + horiz[None, :] * (reach * s[:, None])
         rachis_pts[:, 2] += arch_z
+        if dwarf:
+            rachis_pts[:, 2] = np.maximum(rachis_pts[:, 2], max(shaft_z * 0.25, 2.0))
 
         # Two rows of V-folded leaflets along the rachis
         taper = np.sin(s * math.pi * 0.92) ** 0.65
@@ -363,9 +372,12 @@ def build_forged_palm(
         rng,
         center=crown_origin,
         spherize=0.58,
-        droop=0.32,
+        droop=0.18 if dwarf else 0.32,
         cup=0.06,
     )
+    if dwarf and foliage.vertex_count > 0:
+        # Keep every leaflet above ground so fit_forged_parts never lifts the trunk off z = 0.
+        foliage.pos[:, 2] = np.maximum(foliage.pos[:, 2], 1.0)
     accent_geo = accents if accents is not None else empty_geo()
     return fit_forged_parts(wood, foliage, accent_geo, height_cm, radius_cm,
                             structural_height=traits.deciduous)

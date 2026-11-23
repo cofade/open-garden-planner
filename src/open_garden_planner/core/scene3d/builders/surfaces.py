@@ -244,6 +244,9 @@ RAKED_SAND_SPACING_CM: Final = 13.0
 RAKED_SAND_WIDTH_CM: Final = 0.8
 RAKED_SAND_HEIGHT_CM: Final = 0.45
 MAX_RAKED_ROWS: Final = 1_000
+#: Total ridge segments across all rows, matching ``MAX_DECK_BOARDS`` so a comb-shaped
+#: polygon cannot emit millions of triangles on the GUI thread.
+MAX_RAKED_RIDGES: Final = 2_000
 
 
 def _relief(meshes: list[Mesh], name: str, kind: str = "vc", *, tinted: bool = True) -> tuple[MeshPart, ...]:
@@ -576,10 +579,10 @@ def _deck(record: Record, top: float, solid: bool) -> list[Mesh] | None:
 
 
 def _raked_sand(record: Record) -> list[Mesh]:
-    """Parallel raised ridges in a sand court's own ground (#960), bounded by rows."""
+    """Parallel raised ridges in a sand court's own ground (#960), bounded by rows and total ridges."""
     if _outline_vertices(record.regions) > MAX_RELIEF_VERTICES:
         return []
-    ridges: list[Mesh] = []
+    runs: list[tuple[float, float, float, int]] = []
     rows = 0
     for outer, holes in record.regions:
         xs, ys = [x for x, _y in outer], [y for _x, y in outer]
@@ -594,13 +597,17 @@ def _raked_sand(record: Record) -> list[Mesh]:
             for x0, x1 in _inside_at(edges, y):
                 if x1 - x0 <= 1.0:
                     continue
-                shade = 1.0 if rows % 2 else 0.86
-                ridges.append(beam((x0 + 0.5, y, RAKED_SAND_HEIGHT_CM / 2.0),
-                                   (x1 - 0.5, y, RAKED_SAND_HEIGHT_CM / 2.0),
-                                   RAKED_SAND_WIDTH_CM, RAKED_SAND_HEIGHT_CM,
-                                   _shade(shade), across=(0.0, 1.0, 0.0)))
+                runs.append((x0, x1, y, rows))
+                if len(runs) > MAX_RAKED_RIDGES:
+                    return []
             y += RAKED_SAND_SPACING_CM
-    return ridges
+    return [
+        beam((x0 + 0.5, y, RAKED_SAND_HEIGHT_CM / 2.0),
+             (x1 - 0.5, y, RAKED_SAND_HEIGHT_CM / 2.0),
+             RAKED_SAND_WIDTH_CM, RAKED_SAND_HEIGHT_CM,
+             _shade(1.0 if row % 2 else 0.86), across=(0.0, 1.0, 0.0))
+        for x0, x1, y, row in runs
+    ]
 
 
 @surfaced

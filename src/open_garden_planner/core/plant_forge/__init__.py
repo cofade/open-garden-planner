@@ -343,6 +343,8 @@ def record_forge_spec(
                 height_cm=support[8],
                 base_cm=support[9],
             )
+            if len(support) >= 12:
+                support_map["pergola_center_cm"] = support[10:12]
     else:
         support_map = None
     h_bucket = h if cache is None else quantised_size_cm(h)

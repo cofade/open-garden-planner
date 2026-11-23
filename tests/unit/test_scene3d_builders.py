@@ -1463,7 +1463,7 @@ class TestHedges:
         ring = hedges.core_ring(rectangle(100.0, 40.0))
         expected = hedges.leaf_count(
             hedges.shell_area_cm2(hedges.ring_shell(ring, 60.0)),
-            run_length_cm=2.0 * (100.0 + 40.0))
+            run_length_cm=100.0 + 40.0)
         assert int(small.sum()) == 4 * expected  # four vertices a leaf
         assert int(large.sum()) > int(small.sum())
 
@@ -1474,8 +1474,17 @@ class TestHedges:
         _part, _core, long = hedge_anatomy(
             polygon_record("HEDGE_SECTION", rectangle(50.0, 4500.0), 150.0))
         assert int(long.sum()) > 3 * int(short.sum())
-        run_cm = 2.0 * (50.0 + 4500.0)
+        run_cm = 50.0 + 4500.0
         assert int(long.sum()) // 4 <= hedges.leaf_cap_for_run(run_cm)
+
+    def test_closed_hedge_fence_counts_the_closing_segment(self) -> None:
+        """Closed HEDGE_FENCE loop run length includes its closing edge in both context and build."""
+        square = ((0.0, 0.0), (1000.0, 0.0), (1000.0, 1000.0), (0.0, 1000.0), (0.0, 0.0))
+        closed_rec = line_record("FENCE", square, 150.0, style="HEDGE_FENCE", width=40.0)
+        measured = hedges.hedge_area_and_run(closed_rec)
+        assert measured is not None
+        _area, run = measured
+        assert run == pytest.approx(4000.0, abs=1e-3)
 
     def test_the_plan_wide_hedge_budget_is_shared_out(self) -> None:
         from open_garden_planner.core.scene3d.context import (

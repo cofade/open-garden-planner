@@ -20,7 +20,9 @@ SLUG = "modern-garden"
 #: the wall hid the garden behind it (3D review of #940).
 ORBIT_PITCH_DEG = 30.0
 #: The bungalow fills the north side: half a turn stays over the garden (#966).
+#: Counter-clockwise from the WSW start sweeps south across the garden instead of north behind the bungalow.
 ORBIT_TURNS = 0.5
+ORBIT_CLOCKWISE = False
 CORTEN = "#8b4a2a"
 DUSK = text("Evening into night", "Vom Abend in die Nacht", "Del atardecer a la noche")
 
@@ -46,6 +48,7 @@ def more_tours(framing):
     fully on when it stands three degrees under the horizon. It ends in twilight, six
     degrees under: later, the faces turned away from the moon are black (#953)."""
     return [orbit_tour(framing.orbit(), DUSK, turns=ORBIT_TURNS,
+                       clockwise=ORBIT_CLOCKWISE,
                        time_range=(time(19, 15), time(21, 0)))]
 
 

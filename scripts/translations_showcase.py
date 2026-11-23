@@ -1,6 +1,6 @@
 """Targets for the 3D showcase follow-up package (#941-#966).
 
-German, Spanish, French and Russian targets for the three new user-visible strings:
+German, Spanish and French targets for the three new user-visible strings:
 a board fence style, the moss fill pattern, and the camera tour's part-turn tooltip.
 """
 
@@ -42,18 +42,6 @@ FR = {
         "with a house on one side on its garden side.": (
             "La part de tour effectuée par le drone. Moins d’un tour complet garde "
             "un jardin avec une maison d’un côté du côté du jardin."
-        ),
-    },
-}
-
-RU = {
-    "PathFenceStyle": {"Board Fence": "Дощатый забор"},
-    "PropertiesPanel": {"Moss": "Мох"},
-    "TourDialog": {
-        "How much of a turn the drone makes. Less than a full turn keeps a garden "
-        "with a house on one side on its garden side.": (
-            "Какую часть оборота делает дрон. Меньше полного оборота оставляет сад "
-            "с домом с одной стороны со стороны сада."
         ),
     },
 }

@@ -8407,35 +8407,46 @@ sun, a shadow, a footprint or a saved file's version.
 
 **Decision**:
 1. **Two-anchor autumn.** `PhenologyState` carries the summer and autumn palettes' dark
-   and light linear anchors; `foliage.frag`/`foliage_door.frag` map each leaf's summer
-   luma from the summer pair onto the autumn pair. The old one-multiplier value stays in
-   `foliage_tint_linear` for the falling leaves (`core/scene3d/particles.py`), which the
-   foliage shader does not draw; the shader receives `foliage_snow_tint_linear` (snow
-   dust only), so the multiplier is never applied twice.
+   (`b0`) and light (`t1`) linear anchors (`luma(dark) < luma(light)` for every palette);
+   `foliage.frag`/`foliage_door.frag` map each leaf's summer luma from the summer pair onto
+   the autumn pair. Falling leaves (`core/scene3d/particles.py`) apply the same two-anchor
+   ramp via `phenology.map_autumn_leaves` so crowns and falling leaves match (#941, #895);
+   the foliage shader receives `foliage_snow_tint_linear` (snow dust only) so the autumn
+   hue is never applied twice.
 2. **The grass through the year.** `phenology.seasonal_ground_tint(date, latitude)` is the
-   one lawn/meadow multiplier (keyframed, hemisphere-aware). A lawn's fill is scaled in the
-   snapshot (`snapshot._seasonal_fill`), so its ground picture and blades agree; the open
-   ground reads the same value as `meadowSeason` in `ground.frag`; covered surfaces are
-   untouched. `snapshot_records(..., latitude_deg=)` is additive and `Scene3DController`
-   supplies `plan_latitude`.
+   one sRGB lawn/meadow multiplier (keyframed, hemisphere-aware). A grass lawn's fill is
+   scaled in the snapshot (`snapshot._seasonal_fill`), while MOSS lawns stay evergreen; the
+   open ground reads `meadowSeason` in `ground.frag` in sRGB before `groundLinear()` across
+   every surface mode (Low, Medium, High, Ultra, compatibility, `openGroundGrass=false`),
+   eliminating any lawn-to-meadow colour-space seam. Covered surfaces stay untouched.
+   `snapshot_records(..., latitude_deg=)` is additive, `Scene3DController` supplies
+   `plan_latitude`, and `offscreen.render_records` wires `set_meadow_season` alongside
+   `forge_scene_plants`.
 3. **A rock is a stone polygon's 3D form** (`surfaces.rock_parts`): upright base walls and
    a three-ring domed top with one exact peak, for a convex ring of at most 512 vertices
    with a height; a concave/hostile outline keeps the prism. `GENERIC_POLYGON` joins the
    surfaces family so the builder is registered once.
 4. **Materials with a look of their own.** `PathFenceStyle.BOARD_FENCE` is a closed board
-   screen in 2D and 3D; a MOSS-filled lawn is a 2.2 cm cushion and its 2D fill the hedge
-   texture in the moss colour; a SAND-filled ground surface gains raked ridges. The
-   Japanese maple's leaf scale drops to 0.45 (the recipe and its regenerated sprite); the
-   canopy tip weight stays #994's green-sprite constant 0.43. The Scots pine's crown is
-   the `umbrella` shape, and a low/wide palm is trunkless (`plant_forge/woody.py`); a
-   pergola climber follows `core/pergola.py`'s own rafters.
-5. **A window pane at Ultra** gets `glass.frag`: `uSsrRough` is 0.38 only while the view
-   draws SSR, and 0.70 (the #883 flicker floor) otherwise. Metalness stays 0; the sky
-   reflection keeps its roughness.
+   screen in 2D and 3D and is exposed in `PropertiesPanel` (derived dynamically from
+   `PATH_FENCE_STYLES`); a MOSS-filled lawn is a 2.2 cm cushion at `MOSS_BLADES_PER_M2`
+   (1,800/m², wired in `context._blade_shares`) and its 2D fill is the hedge texture in the
+   moss colour; a SAND-filled ground surface gains raked ridges bounded by `MAX_RAKED_ROWS`
+   (1,000) and `MAX_RAKED_RIDGES` (2,000). The Japanese maple's leaf scale drops to 0.45
+   (the recipe and its regenerated sprite); the canopy tip weight stays #994's green-sprite
+   constant 0.43. The Scots pine's crown is the `umbrella` shape, and a low/wide palm is
+   trunkless and grounded (`plant_forge/woody.py`); a pergola climber climbs to the rafters
+   and spreads along and inward across `core/pergola.py`'s centred rafters.
+5. **A window pane at Ultra** gets `vcGlass` (`built_snow.vert` + `glass.frag`, warmed in
+   `shaderWarmer`): `MAIN()` sets `ROUGHNESS = uSsrRough` (`0.38` only while `ssrVisible`,
+   `0.70` otherwise) and linearises `uTintSrgb` via `engineLinear()`, while `IBL_PROBE()`
+   samples `qt_sampleGlossy(..., uRough)` at the #883 `0.70` flicker floor. Metalness stays
+   0. Translucent greenhouse glass (`glassPart`, `NeverDepthDraw`) stays excluded from SSR.
 6. **Hedges keep their density** (#954): a hedge's leaves are capped at 600 a metre of
-   run, with a 30,000-leaf plan-wide budget shared by demand. The two bench plans grow
-   30,606 and 71,614 triangles; their build medians remain under 40/60 ms, and the plan
-   triangle tripwires are raised to 35,000/80,000 with those measurements.
+   run (including the closing edge of a closed `HEDGE_FENCE` loop, and half-perimeter run
+   length for polygon hedges), with a 30,000-leaf plan-wide budget shared by demand. The
+   two bench plans grow 30,606 and 71,614 triangles; their build medians remain under
+   40/60 ms, and the plan triangle tripwires are raised to 35,000/80,000 with those
+   measurements.
 
 **Alternatives rejected**: keeping the one-multiplier autumn (no single multiplier gives
 a clean palette; reference 018); storing the season in the plan (the plan date already
@@ -8448,12 +8459,11 @@ second autumn field for the shader (the anchors already carry the palette).
 addendum) and one additive tour field value range (`turns`, ADR-072 addendum). One new
 shader (`glass.frag`) ships in the bundle. The plan-wide hedge budget is a new
 performance bound; its evidence is `tests/perf/test_scene3d_built_world_budget.py`.
-A CustomMaterial's uniforms are declared per material, not per shader: the frozen
-`--selftest` caught the two **shader warmers** using `foliage_door.frag` without the five
-autumn properties, and Qt compiled their copy without the uniforms even though the real
-`foliageDoor`/`grassDoor` blocks had them. Every material that names a shader — the
-warmers included — must declare the new uniform properties; the static QML tests cannot
-see this, the frozen selftest can.
+A CustomMaterial's uniforms are declared per material, not per shader: every material in
+`Garden.qml` (warmers included) must declare every `u[A-Z]...` uniform referenced by its
+bound vertex and fragment shaders and declare no dead uniform; this contract is now
+statically pinned by `tests/unit/test_quick3d_qml.py::test_every_custom_material_declares_every_uniform_its_shaders_use`
+in addition to the frozen `--selftest` and `Render 3D` runs.
 Pinned by `tests/unit/test_phenology.py`, `tests/ui/test_quick3d_host.py`,
 `tests/integration/test_scene3d_snapshot.py`, `tests/unit/test_scene3d_rock.py`,
 `tests/unit/test_scene3d_l4_surfaces.py`, `tests/unit/test_scene3d_builders.py`,
@@ -10161,16 +10171,21 @@ resolver only knew a rectangle's edge.
 **Decision**:
 1. **The palm's trunk is a function of the plant.** A palm at or below 160 cm, or one
    whose canopy diameter is at least 1.5 times its height, is the dwarf/clumping form:
-   `trunk_share = 0.08`, half the trunk rings, three more fronds and a fifth of the
-   lean. A taller palm keeps `max(crown.trunk_share, 0.64)`. One builder
-   (`plant_forge/woody.build_forged_palm`), chosen from the recorded size.
+   `trunk_share = 0.08`, half the trunk rings, three more fronds, gentler lean
+   (`0.05..0.16` vs `0.14..0.34`), and ascending fronds clamped above ground so the trunk
+   base stays grounded at `z = 0` across all LODs. A taller palm keeps
+   `max(crown.trunk_share, 0.64)`. One builder (`plant_forge/woody.build_forged_palm`),
+   chosen from the recorded size.
 2. **The Scots pine is an `umbrella`.** `traits3d` gains the named crown shape;
-   `build_forged_conifer` gives it a broad lower crown and a flattened head, and the
-   skeleton builder spreads its branches at the top. Other conifers are unchanged.
+   `build_forged_conifer` (`plant_forge/woody.py`) gives it a broad lower crown and a
+   flattened head. Other conifers are unchanged.
 3. **A pergola climber follows the rafters.** `climbers._support_segments` asks
-   `core/pergola.layout` for the pergola's own rafters and uses their centre lines as
-   the support, so the vine's top spreads along the pergola's depth. A pergola too
-   small for that layout keeps its outline; trellis and path supports are unchanged.
+   `core/pergola.layout` for the pergola's own rafters centred on the footprint bounding
+   box, `_concrete_support` records the pergola centre in the plant's local frame, and
+   `build_forged_climber` climbs the post to the rafter deck before fanning overhead along
+   the nearest rafter and inward across neighbouring rafters within the plant's canopy
+   radius. A pergola too small for that layout keeps its outline; trellis and path supports
+   are unchanged.
 4. **The Japanese maple's leaves are small** (`recipes.py` leaf scale 0.45, from 0.65),
    so its crown is not a mass of large diamonds. The green canopy's tip weight stays
    #994's 0.43, measured over green-leaved sprites only.
@@ -12378,9 +12393,12 @@ addendum), and the weather is a property of the whole plan's look, not of one fl
 2. **The choice is the user's and dirties the plan.** `ProjectManager.set_plan_weather`
    emits `plan_weather_changed` and marks the plan dirty; the window's
    `_store_plan_weather` stores every concrete weather the toolbar emits and refuses
-   `today` (a forecast, not a plan fact). Opening a plan calls `_apply_plan_weather`,
-   which applies the stored weather — **clear included** — with an
-   `_applying_plan_weather` guard so the feed-back does not dirty the document.
+   `today` (a forecast, not a plan fact); `_restore_project_metadata` normalises through
+   `_plan_weather` so `today` can never leak into `plan_weather`. Opening a plan calls
+   `_apply_plan_weather`, which applies the stored weather — **clear included** — with an
+   `_applying_plan_weather` guard so the feed-back does not dirty the document. `File -> New`
+   preserves `today` (session-only) while resetting any previous plan's concrete weather to
+   `clear` so the 3D view and `plan_weather` never desynchronise.
 3. **A portable template keeps it.** `weather` joins `KEEP_PROJECT_FIELDS`: it is part
    of the plan's look, not personal site data.
 4. **A tour keeps no weather.** A tour rendered from a plan uses that plan's weather
@@ -13124,7 +13142,8 @@ bundled examples showed the back of the house for half the video.
    whole and a float otherwise; `_orbit_from` clamps any written value to the dialog's
    range and rounds to two decimals. `SavedTour` validates the range, not integrality.
 3. **The bundled examples use it.** Terraced-house, Mediterranean and modern gardens
-   store a half-turn orbit; their first frame is still the stored view.
+   store a counter-clockwise (`ORBIT_CLOCKWISE = False`) half-turn orbit sweeping across
+   the south/garden side opposite the house; their first frame is still the stored view.
 
 **Alternatives rejected**: a separate "half turn" checkbox (two truths for one number);
 only whole turns in the file (a plan could not say what the dialog offers); a fixed

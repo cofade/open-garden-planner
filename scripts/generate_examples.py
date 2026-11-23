@@ -111,7 +111,8 @@ def example_content(slug):
                       sun_offset_deg=getattr(module, "ORBIT_SUN_OFFSET_DEG", SUN_BEHIND_DEG),
                       closer=getattr(module, "ORBIT_CLOSER", 1.0))
     manager.set_camera_tours([
-        orbit_tour(framing.orbit(), turns=getattr(module, "ORBIT_TURNS", 1.0)),
+        orbit_tour(framing.orbit(), turns=getattr(module, "ORBIT_TURNS", 1.0),
+                   clockwise=getattr(module, "ORBIT_CLOCKWISE", True)),
         *getattr(module, "more_tours", lambda _framing: [])(framing)])
     manager.set_plan_weather(getattr(module, "SHOWCASE_WEATHER", "clear"))
     raw = manager._build_project_data(scene).to_dict()

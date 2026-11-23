@@ -718,16 +718,17 @@ Item {
             }
             CustomMaterial {
                 id: vcGlass
-                // #992: the pane's sky IBL keeps the measured 0.70 flicker floor, while
-                // Ultra's SSR gets a 0.38 reflection of the garden and the sky.
-                property vector3d uTint: Qt.vector3d(tintLinear.x * seasonTint.x, tintLinear.y * seasonTint.y, tintLinear.z * seasonTint.z)
+                // #992: the pane's sky IBL keeps the measured 0.70 flicker floor (uRough
+                // inside IBL_PROBE()), while Ultra's SSR gets a 0.38 reflection of the
+                // garden and the sky via ROUGHNESS = uSsrRough.
+                property vector3d uTintSrgb: Qt.vector3d(tint.r * seasonTint.x, tint.g * seasonTint.y, tint.b * seasonTint.z)
                 property real uSsrRough: root.ssrVisible ? 0.38 : surfaceRough
                 property real uAlbedo: surfaceAlbedo
                 property real uRough: surfaceRough
                 property real uSpecular: surfaceSpecular
                 shadingMode: CustomMaterial.Shaded
                 cullMode: root.roofsHidden ? Material.NoCulling : Material.BackFaceCulling
-                vertexShader: "built_detail.vert"
+                vertexShader: "built_snow.vert"
                 fragmentShader: "glass.frag"
             }
             CustomMaterial {
@@ -828,7 +829,6 @@ Item {
             property real detailNormal: 0.0
             property real detailFade: 4000
             property real detailContrast: 1.0
-            property real surfaceGlass: 0.0
             receivesShadows: true
             pickable: fade >= 1.0 && !root.roofsHidden && !groundDetail
             // Cutaway (L2.4): a binding, so a roof built while it is on is born cut - a
@@ -1048,7 +1048,7 @@ Item {
                 // other pair puts a luma step where a baked lawn meets the meadow at the
                 // plan's edge (the L1.4 look review measured 2-8 luma for 0.92 / 0.2)
                 property vector3d uGroundTint: Qt.vector3d(root.groundTint.r, root.groundTint.g, root.groundTint.b)
-                property vector3d uMeadowSeason: root.meadowSeason
+                property vector3d uMeadowSeason: root.topDown ? Qt.vector3d(1, 1, 1) : root.meadowSeason
                 property real uRough: root.groundRoughness
                 property real uSpecular: root.groundSpecular
                 property real uSnowCover: root.snowCover
@@ -1459,7 +1459,7 @@ Item {
                 property real uGrassShare: 1.0
                 property vector3d uMeadow: Qt.vector3d(root.meadowColor.r, root.meadowColor.g, root.meadowColor.b)
                 property vector3d uGroundTint: Qt.vector3d(root.groundTint.r, root.groundTint.g, root.groundTint.b)
-                property vector3d uMeadowSeason: root.meadowSeason
+                property vector3d uMeadowSeason: root.topDown ? Qt.vector3d(1, 1, 1) : root.meadowSeason
                 property real uRough: root.groundRoughness     // 1.0 dry; wet in the rain (L5)
                 property real uSpecular: root.groundSpecular   // 0.15 dry
                 property real uSnowCover: root.snowCover
@@ -1493,7 +1493,7 @@ Item {
                 property real uGrassShare: root.openGroundGrass ? 1.0 : 0.0
                 property vector3d uMeadow: Qt.vector3d(root.meadowColor.r, root.meadowColor.g, root.meadowColor.b)
                 property vector3d uGroundTint: Qt.vector3d(root.groundTint.r, root.groundTint.g, root.groundTint.b)
-                property vector3d uMeadowSeason: root.meadowSeason
+                property vector3d uMeadowSeason: root.topDown ? Qt.vector3d(1, 1, 1) : root.meadowSeason
                 property real uRough: root.groundRoughness     // 1.0 dry; wet in the rain (L5)
                 property real uSpecular: root.groundSpecular   // 0.15 dry
                 property real uSnowCover: root.snowCover
@@ -1824,6 +1824,23 @@ Item {
                     cullMode: Material.NoCulling
                     vertexShader: "grass_door.vert"
                     fragmentShader: "foliage_door.frag"
+                }
+            }
+            Model {   // #992: a window pane's SSR/IBL shader, compiled at startup and selftest
+                source: "#Rectangle"
+                pickable: false
+                castsShadows: false
+                receivesShadows: false
+                materials: CustomMaterial {
+                    property vector3d uTintSrgb: Qt.vector3d(1, 1, 1)
+                    property real uSsrRough: 0.70
+                    property real uAlbedo: 1.0
+                    property real uRough: 0.70
+                    property real uSpecular: 0.40
+                    shadingMode: CustomMaterial.Shaded
+                    cullMode: Material.NoCulling
+                    vertexShader: "built_snow.vert"
+                    fragmentShader: "glass.frag"
                 }
             }
             Model {

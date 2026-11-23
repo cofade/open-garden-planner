@@ -3551,12 +3551,19 @@ class GardenPlannerApp(QMainWindow):
 
         The weather is now the plan's, not the session's: a bundled example opens in the
         sky it was built for, and a snowy example followed by a clear one does not leave
-        snow on the second. A NEW untitled plan has no weather of its own, so it keeps
-        the session's current choice (``reset_session=False``) — Today's forecast
-        included; only a stored concrete weather overrides it.
+        snow on the second. A NEW untitled plan has no weather of its own: it preserves
+        Today's live forecast (session-only, never stored in a plan) while resetting any
+        concrete plan weather from the previous document to clear so the view and
+        ``project_manager.plan_weather`` never disagree.
         """
+        from open_garden_planner.core.scene3d.weather import TODAY
+
         weather = self._project_manager.plan_weather
-        if not reset_session and weather == "clear":
+        if (
+            not reset_session
+            and weather == "clear"
+            and self._workspace.living.weather_choice == TODAY
+        ):
             return
         self._applying_plan_weather = True
         try:

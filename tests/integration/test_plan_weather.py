@@ -56,3 +56,23 @@ def test_the_window_stores_a_concrete_weather_and_opens_in_it(
 
     living.set_weather("today")
     assert manager.plan_weather == "snow", "a forecast choice is not a plan fact"
+
+    # File -> New while on Today keeps Today (session-only forecast, plan stays clear).
+    window._new_project_document(width_cm=1000.0, height_cm=1000.0)
+    assert living.weather_choice == "today" and manager.plan_weather == "clear"
+
+    # File -> New after opening a snowy plan resets BOTH view and plan_weather to clear
+    # so the displayed weather and saved weather never desynchronise.
+    window._open_project_file(str(path))
+    assert living.weather_choice == "snow" and manager.plan_weather == "snow"
+    window._new_project_document(width_cm=1000.0, height_cm=1000.0)
+    assert living.weather_choice == "clear" and manager.plan_weather == "clear"
+
+
+def test_restore_project_metadata_refuses_today_weather() -> None:
+    """In-memory ProjectData(weather='today') must never leak into plan_weather."""
+    from open_garden_planner.core.project import ProjectData
+
+    manager = ProjectManager()
+    manager._restore_project_metadata(ProjectData(weather="today"))
+    assert manager.plan_weather == "clear"

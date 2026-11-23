@@ -138,7 +138,8 @@ class TestL32ConifersPalmsShrubsHedges:
         assert bands[1] >= 0.8 * bands[0], "the head stays broad instead of tapering at once"
 
     def test_a_dwarf_palm_is_trunkless_and_a_tall_palm_is_not(self) -> None:
-        """#949: the trunk height follows the plant, not one 0.64-trunk-height look."""
+        """#949: the trunk height follows the plant, not one 0.64-trunk-height look,
+        and the trunk base always stays grounded at z = 0 across all LODs."""
         palm = SpriteRef("categories", "palm")
         traits = traits_for(palm)
         tall = build_forged_palm(traits, 480.0, 160.0, seed=101, lod=LOD0)
@@ -154,6 +155,12 @@ class TestL32ConifersPalmsShrubsHedges:
         assert tall_low > 0.45 * 480.0, "the tall windmill palm keeps its bare trunk"
         assert dwarf_low < 0.25 * 90.0, "the dwarf's fronds begin near the ground"
         assert dwarf_high <= 90.0 + 1e-3 and tall_high <= 480.0 + 1e-3
+        for height, radius in ((90.0, 85.0), (150.0, 120.0), (480.0, 160.0)):
+            for lod in (LOD0, LOD1, LOD2):
+                parts = build_forged_palm(traits, height, radius, seed=101, lod=lod)
+                wood = next(part for part in parts if part.name == PART_WOOD)
+                assert float(wood.mesh.positions[:, 2].min()) == pytest.approx(0.0, abs=1e-3), (
+                    height, radius, lod)
 
     @pytest.mark.parametrize("sprite", L32_SPRITES, ids=lambda s: f"{s.group}/{s.name}")
     def test_lod_triangle_caps_and_ordering(self, sprite: SpriteRef) -> None:

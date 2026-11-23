@@ -72,6 +72,8 @@ MAX_LEAVES_PER_M: Final = 600
 MAX_PLAN_HEDGE_LEAVES: Final = 30_000
 #: A record made by hand (no run context) keeps the old per-item cap.
 MAX_LEAVES: Final = 6000
+#: Default hedge-fence thickness (cm), shared with ``builders/fences.py``.
+HEDGE_THICKNESS_CM: Final = 40.0
 #: The core is the footprint drawn in by this much; leaves are rooted on it.
 CORE_INSET_CM: Final = 4.0
 #: The core's top lies this far under the clipped top; top leaves root halfway.
@@ -83,8 +85,9 @@ Shell = tuple[F64, F64]  # triangles (t, 3, 3) and their outward normals (t, 3)
 
 
 def leaf_cap_for_run(run_length_cm: float) -> int:
-    """A hedge's own cap: ``MAX_LEAVES_PER_M`` per metre of run, at least ``MIN_LEAVES``."""
-    return max(MIN_LEAVES, int(math.ceil(MAX_LEAVES_PER_M * max(run_length_cm, 0.0) / 100.0)))
+    """A hedge's own cap: at least ``MAX_LEAVES`` (matching short/tall hedges before
+    #954), scaling at ``MAX_LEAVES_PER_M`` per metre for runs longer than 10 m."""
+    return max(MAX_LEAVES, int(math.ceil(MAX_LEAVES_PER_M * max(run_length_cm, 0.0) / 100.0)))
 
 
 def leaf_count(shell_area_cm2: float, *, run_length_cm: float | None = None,
@@ -257,9 +260,10 @@ def _hedge(record: Record, height_cm: float) -> tuple[MeshPart, ...]:
         return ()
     core = prism(ring, 0.0, max(height_cm - CORE_DROP_CM, 0.5 * height_cm),
                  palette.HEDGE_CORE.linear)
-    run = float(np.linalg.norm(np.diff(np.vstack((ring, ring[:1])), axis=0), axis=1).sum())
+    perimeter = float(np.linalg.norm(np.diff(np.vstack((ring, ring[:1])), axis=0), axis=1).sum())
+    # A strip polygon's perimeter counts both sides, so half its perimeter is its run length.
     return hedge_parts(core, ring_shell(ring, height_cm), height_cm, seed_of(record), tinted=False,
-                       run_length_cm=run, wanted=hedge_leaf_share(record.params))
+                       run_length_cm=0.5 * perimeter, wanted=hedge_leaf_share(record.params))
 
 
 build_hedge: Final = BuiltBuilder(_hedge, "hedge")
@@ -298,15 +302,16 @@ def hedge_area_and_run(record: Record) -> tuple[float, float] | None:
         ring = core_ring(footprint_of(record))
         if len(ring) < 3:
             return None
-        closed = np.vstack((ring, ring[:1]))
-        run = float(np.linalg.norm(np.diff(closed, axis=0), axis=1).sum())
-        area = abs(float(signed_area(ring))) + run * root
-        return max(area, 0.0), run
-    line, _closed = centre_line(record)
+        closed_ring = np.vstack((ring, ring[:1]))
+        perimeter = float(np.linalg.norm(np.diff(closed_ring, axis=0), axis=1).sum())
+        area = abs(float(signed_area(ring))) + perimeter * root
+        return max(area, 0.0), 0.5 * perimeter
+    line, closed = centre_line(record)
     if len(line) < 2:
         return None
-    run = float(np.linalg.norm(np.diff(line, axis=0), axis=1).sum())
-    width = max(record.path_width_cm or 0.0, 40.0) - 2.0 * CORE_INSET_CM
+    segments = np.vstack((line, line[:1])) if closed else line
+    run = float(np.linalg.norm(np.diff(segments, axis=0), axis=1).sum())
+    width = max(record.path_width_cm or 0.0, HEDGE_THICKNESS_CM) - 2.0 * CORE_INSET_CM
     area = max(width, 0.0) * run + 2.0 * run * root
     return max(area, 0.0), run
 

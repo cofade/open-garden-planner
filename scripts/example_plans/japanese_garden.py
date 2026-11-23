@@ -45,7 +45,8 @@ def build():
     plan.line([(8, 8), (8, 992), (1192, 992), (1192, 8), (660, 8)], T.FENCE,
               text("Timber fence", "Holzzaun", "Valla de madera"),
               style=PathFenceStyle.BOARD_FENCE, tall=190)
-    plan.line([(540, 8), (8, 8)], T.FENCE, "Timber fence",
+    plan.line([(540, 8), (8, 8)], T.FENCE,
+              text("Timber fence", "Holzzaun", "Valla de madera"),
               style=PathFenceStyle.BOARD_FENCE, tall=190)
 
     # ── the sand court with its islands

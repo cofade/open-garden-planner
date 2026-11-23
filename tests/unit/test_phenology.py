@@ -350,32 +350,56 @@ class TestL35PhenologyAndHemispheres:
     def test_the_autumn_ramp_uses_the_palette_s_own_two_anchors(self) -> None:
         """#941: the shader maps a leaf's summer tone onto the autumn palette's ramp.
 
-        A pear's fresh palette becomes redleaf. Its darkest and lightest leaves must
-        therefore become the redleaf palette's own dark and light colours, not a
-        single per-channel multiplier that turns them olive and salmon.
+        Every palette's dark anchor (``b0``) must be strictly darker in luminance than its
+        light anchor (``t1``), and mapping real forged leaf samples must preserve leaf
+        tone monotonically while landing on the autumn palette's hues.
         """
         import colorsys
 
-        from open_garden_planner.core.plant_art import PALETTES
+        import numpy as np
+
+        from open_garden_planner.core.phenology import map_autumn_leaves
+        from open_garden_planner.core.plant_art import PALETTES, traits_for
+        from open_garden_planner.core.plant_forge.foliage import palette_leaf_colors
         from open_garden_planner.core.scene3d.color import srgb_to_linear
+
+        def luma(rgb: tuple[float, float, float]) -> float:
+            return 0.2126 * rgb[0] + 0.7152 * rgb[1] + 0.0722 * rgb[2]
+
+        for name, pal in PALETTES.items():
+            d_lin = tuple(float(c) for c in srgb_to_linear(pal["b0"])[:3])
+            l_lin = tuple(float(c) for c in srgb_to_linear(pal["t1"])[:3])
+            assert luma(d_lin) < luma(l_lin), f"{name}: b0 must be darker than t1"
 
         pear = SpriteRef("species", "pear_tree")
         state = evaluate_phenology(pear, datetime.date(2026, 10, 20), latitude_deg=52.0)
         assert state.autumn_color > 0.8
         palette = PALETTES["redleaf"]
-        dark = tuple(srgb_to_linear(palette["t0"])[:3])
-        light = tuple(srgb_to_linear(palette["b1"])[:3])
+        dark = tuple(srgb_to_linear(palette["b0"])[:3])
+        light = tuple(srgb_to_linear(palette["t1"])[:3])
         assert state.autumn_dark_linear == pytest.approx(dark, abs=1e-6)
         assert state.autumn_light_linear == pytest.approx(light, abs=1e-6)
         assert state.summer_dark_linear == pytest.approx(
-            tuple(srgb_to_linear(PALETTES["fresh"]["t0"])[:3]), abs=1e-6)
+            tuple(srgb_to_linear(PALETTES["fresh"]["b0"])[:3]), abs=1e-6)
+        assert state.summer_light_linear == pytest.approx(
+            tuple(srgb_to_linear(PALETTES["fresh"]["t1"])[:3]), abs=1e-6)
+        assert luma(state.summer_dark_linear) < luma(state.summer_light_linear)
+        assert luma(state.autumn_dark_linear) < luma(state.autumn_light_linear)
+
+        rng = np.random.default_rng(7)
+        raw = palette_leaf_colors(traits_for(pear).palette, pear,
+                                  rng.random(500), rng.random(500), rng)[:, :3]
+        mapped = np.asarray(map_autumn_leaves(raw, state))
+        l_in = np.array([luma(tuple(c)) for c in raw])
+        l_out = np.array([luma(tuple(c)) for c in mapped])
+        assert float(np.corrcoef(l_in, l_out)[0, 1]) > 0.90, "tone ordering must stay monotonic"
 
         def hue(rgb: tuple[float, float, float]) -> float:
             return colorsys.rgb_to_hsv(*rgb)[0] * 360.0
 
-        for mapped, anchor in ((state.autumn_dark_linear, dark),
-                               (state.autumn_light_linear, light)):
-            difference = abs((hue(mapped) - hue(anchor) + 180.0) % 360.0 - 180.0)
+        for mapped_anchor, anchor in ((state.autumn_dark_linear, dark),
+                                      (state.autumn_light_linear, light)):
+            difference = abs((hue(mapped_anchor) - hue(anchor) + 180.0) % 360.0 - 180.0)
             assert difference < 0.5
 
     def test_the_autumn_multiplier_is_not_applied_twice(self) -> None:

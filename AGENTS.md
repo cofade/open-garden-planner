@@ -257,9 +257,8 @@ Full how-to (step-by-step, `.ts` format, recompile command): see `docs/08-crossc
 - Open draft PR: the 3D showcase follow-ups (#941, #943, #944, #949, #954, #955,
   #956, #960, #966, #992) are on `feature/3d-showcase-followups-941-992`;
   [PR #998](https://github.com/cofade/open-garden-planner/pull/998) stays a draft
-  until the owner's manual visual pass. The branch was rebased onto
-  #994 (1be221c6); the 40 golden tree references and the generated examples were
-  regenerated after the rebase.
+  until the owner's manual visual pass. The branch has merged latest `master`
+  and regenerated the affected bundled examples.
 - Live decisions that constrain the next change:
   - Bloom hardiness & CAN pitfall index (ADR-014 addendum, ADR-061 addendum, PF-CAN-68):
     `frost_hardy_bloom` lives on `plant_species.json`; CAN pitfalls PF-CAN-49+

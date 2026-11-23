@@ -47,6 +47,7 @@ from ..record import PARAM_SEED, ParamValue, Record, hedge_leaf_share
 from .hedges import (
     CORE_DROP_CM,
     CORE_INSET_CM,
+    HEDGE_THICKNESS_CM,
     hedge_parts,
     leaf_cap_for_run,
     line_shell,
@@ -103,8 +104,6 @@ CHAIN_POST_SPACING_CM: Final = 250.0
 CHAIN_RAIL_CM: Final = 3.0
 CHAIN_WIRE_RADIUS_CM: Final = 0.4
 CHAIN_WIRE_PITCH_CM: Final = 25.0
-# hedge fence
-HEDGE_THICKNESS_CM: Final = 40.0
 
 
 def is_fence_style(style: ParamValue | None) -> bool:
@@ -391,7 +390,7 @@ def hedge_fence_parts(record: Record, line: F64, closed: bool,
     profile = [(-half, 0.0), (half, 0.0), (half, core_top), (-half, core_top)]
     core = sweep(profile, line, TINT, closed=closed, edges=[False, True, True, True])
     shell = line_shell(line, closed, half, height_cm)
-    run = float(np.linalg.norm(np.diff(line, axis=0), axis=1).sum())
+    run = float(_Run(line, closed).length.sum()) if len(line) >= 2 else 0.0
     return hedge_parts(core, shell, height_cm, seed_of(record), tinted=True,
                        run_length_cm=run, wanted=hedge_leaf_share(record.params))
 

@@ -107,6 +107,17 @@ def test_an_example_ships_its_stored_tours_and_every_one_of_them_loads(slug, lan
                 k: v for k, v in theirs.items() if k != "name"}
     else:
         assert english["camera_tours"][0]["name"] == ORBIT
+        # #966: every half-turn orbit on a house-backed plan must sweep the garden side
+        # opposite the house (eye_y < target_y when the house sits on the north edge).
+        from open_garden_planner.core.camera_path import TourSpec, tour_frames
+
+        for tour in tours:
+            if tour.motion == "orbit" and tour.orbit is not None and tour.orbit.turns < 1.0:
+                frames = list(tour_frames(TourSpec(tour.orbit, tour.duration_s, fps=30)))
+                mid = frames[len(frames) // 2].key
+                south_share = sum(1 for f in frames if f.key.eye[1] < f.key.target[1]) / len(frames)
+                assert mid.eye[1] < mid.target[1], (slug, tour.name, mid)
+                assert south_share > 0.75, (slug, tour.name, south_share)
 
 
 @pytest.mark.parametrize("slug", EVERY)

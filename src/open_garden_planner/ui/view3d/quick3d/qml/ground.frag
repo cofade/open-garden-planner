@@ -140,7 +140,13 @@ void MAIN()
     // control flow: a derivative inside a branch is undefined)
     vec2 reach = fwidth(VAR_WORLD_POSITION.xz);
     vec4 tile = uHasTile > 0.5 ? texture(uBaseMap, uv) : vec4(uMeadow, 0.0);
-    vec3 albedo = groundLinear(tile.rgb);
+    // #943: the meadow and the plan's OPEN ground take the season's grass colour in
+    // sRGB before linearisation - the same space snapshot._seasonal_fill scales a
+    // painted LAWN in - and across every surface mode (Low, flat, compat, openGroundGrass=false).
+    // Covered tiles keep their own colour; a path or terrace does not brown in winter.
+    float uncovered = 1.0 - tile.a;
+    vec3 seasonSrgb = mix(vec3(1.0), uMeadowSeason, uncovered);
+    vec3 albedo = groundLinear(min(tile.rgb * seasonSrgb, vec3(1.0)));
     vec2 slope = vec2(0.0);
     if (uHasTile > 0.5 && uDetail > 0.0) {
         vec2 texel = 1.0 / vec2(textureSize(uBaseMap, 0));
@@ -153,14 +159,11 @@ void MAIN()
     if (uSurface > 0.5) {
         // what of this point is open meadow: all of the meadow, and on the plan the
         // ground no item covers - if the plan's open ground takes the grass (uGrassShare)
-        float open = (1.0 - tile.a) * uGrassShare;
+        float open = uncovered * uGrassShare;
         vec2 grassSlope;
         vec3 grass = meadowGrass(VAR_WORLD_POSITION.xz, max(reach.x, reach.y), grassSlope);
-        albedo += open * groundLinear(uMeadow) * (grass - 1.0);
-        // #943: the meadow and the plan's OPEN ground take the season's grass colour.
-        // Covered tiles keep their own material - a path does not turn brown in winter;
-        // a LAWN's painted tile and its blades take the same factor in the snapshot.
-        albedo *= mix(vec3(1.0), uMeadowSeason, open);
+        vec3 seasonalMeadow = groundLinear(min(uMeadow * uMeadowSeason, vec3(1.0)));
+        albedo += open * seasonalMeadow * (grass - 1.0);
         slope += open * grassSlope;
     }
     albedo *= groundLinear(uGroundTint);

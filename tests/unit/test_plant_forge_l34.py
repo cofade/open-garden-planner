@@ -205,26 +205,37 @@ class TestL34ClimberSupportResolution:
         assert sup["kind"] == SUPPORT_PERGOLA
 
     def test_a_climber_on_a_pergola_is_trained_along_a_rafter(self) -> None:
-        """#956: the support is the pergola's own layout, not the outline round its posts."""
+        """#956: a pergola climber climbs to the rafters and spreads overhead along and
+        across them (including on a non-centred pergola footprint)."""
         ref = SpriteRef("species", "grape_vine")
+        # Offset footprint (not centred on (0, 0)) to verify pergola_layout recentering.
+        offset_ring = ((100.0, 200.0), (400.0, 200.0), (400.0, 400.0), (100.0, 400.0))
         pergola = Record(
             item_id="pergola-1", kind="PERGOLA", name="Pergola", shape="rectangle",
-            footprints=(_rect_ring(300.0, 200.0),), height_cm=240.0,
+            footprints=(offset_ring,), height_cm=240.0,
             transform=Transform(), material=Material(key="pergola"),
         )
-        climber = _climber_record(ref, radius_cm=90.0, east_cm=100.0, north_cm=0.0,
+        climber = _climber_record(ref, radius_cm=90.0, east_cm=120.0, north_cm=220.0,
                                   parent_id="pergola-1")
         sup = resolve_climber_support(climber, [pergola, climber])
         assert sup["kind"] == SUPPORT_PERGOLA
+        assert "pergola_center_cm" in sup
         segment = np.asarray(sup["segment_cm"], dtype=float).reshape(2, 2)
         assert abs(segment[1, 1] - segment[0, 1]) > 150.0, "a rafter runs the pergola's depth"
         assert abs(segment[1, 0] - segment[0, 0]) < 1e-6
-        parts = build_forged_climber(traits_for(ref), 220.0, 90.0, seed=41,
+        # Rafter sits inside the offset pergola footprint [100..400], not around (0, 0)
+        assert -20.0 <= segment[0, 0] <= 280.0
+        parts = build_forged_climber(traits_for(ref), 240.0, 90.0, seed=41,
                                      support=sup, lod=LOD0)
+        wood = next(part for part in parts if part.name == PART_WOOD)
         foliage = next(part for part in parts if part.name == PART_FOLIAGE)
-        high = foliage.mesh.positions[:, 2] >= 0.80 * 220.0
-        top = foliage.mesh.positions[high]
-        assert top.size and float(np.ptp(top[:, 1])) > 40.0, "the top spreads along the rafter"
+        assert float(wood.mesh.positions[:, 2].min()) == pytest.approx(0.0, abs=1e-3)
+        top_wood = wood.mesh.positions[wood.mesh.positions[:, 2] >= 0.80 * 240.0]
+        top_foliage = foliage.mesh.positions[foliage.mesh.positions[:, 2] >= 0.80 * 240.0]
+        assert top_wood.size and float(np.ptp(top_wood[:, 0])) > 45.0, "wood fans inward across rafters"
+        assert float(np.ptp(top_wood[:, 1])) > 45.0, "wood spreads along the rafter"
+        assert top_foliage.size and float(np.ptp(top_foliage[:, 0])) > 60.0
+        assert float(np.ptp(top_foliage[:, 1])) > 60.0
 
     def test_forge_worker_enriches_climber_support_from_snapshot(self) -> None:
         sink = RecordingSink()
