@@ -14,12 +14,12 @@ from open_garden_planner.core.scene3d.record import (
 )
 
 
-def rock_record(*, pattern: str = "STONE", height: float = 60.0,
+def rock_record(*, item_id: str = "rock", pattern: str = "STONE", height: float = 60.0,
                 points: tuple[tuple[float, float], ...] = (
                     (-90.0, -35.0), (-55.0, -60.0), (20.0, -55.0), (75.0, -25.0),
                     (90.0, 20.0), (45.0, 55.0), (-25.0, 60.0), (-80.0, 30.0))) -> Record:
     return Record(
-        item_id="rock", kind="GENERIC_POLYGON", shape=SHAPE_POLYGON,
+        item_id=item_id, kind="GENERIC_POLYGON", shape=SHAPE_POLYGON,
         footprints=(points,), transform=Transform(), height_cm=height,
         material=Material("GENERIC_POLYGON"),
         params=Params({PARAM_SEED: "rock", PARAM_SURFACE_PATTERN: pattern}),
@@ -63,3 +63,20 @@ def test_a_concave_stone_polygon_falls_back_to_its_honest_prism() -> None:
     record = rock_record(points=concave)
     assert [part.name for part in production_registry().build(record)] == [
         "prism_sides", "prism"]
+
+
+def test_two_rocks_are_not_clones_and_their_widest_ring_is_at_the_ground() -> None:
+    """#960 review round 2: the example's three rocks were one bollard profile at
+    three sizes. A per-record ring-scale jitter makes their domes differ while the
+    base ring stays on the footprint, and the widest ring is the one at the ground."""
+    ring = np.asarray(rock_record().footprints[0], dtype=np.float64)
+    first = next(part for part in production_registry().build(rock_record(item_id="rock-a"))
+                 if part.name == "rock")
+    second = next(part for part in production_registry().build(rock_record(item_id="rock-b"))
+                  if part.name == "rock")
+    assert first.mesh.positions.shape == second.mesh.positions.shape
+    assert not np.allclose(first.mesh.positions, second.mesh.positions), "two clones"
+    ground = first.mesh.positions[np.isclose(first.mesh.positions[:, 2], 0.0)]
+    assert ground.size
+    assert np.ptp(ground[:, 0]) >= 0.95 * np.ptp(ring[:, 0])
+    assert np.ptp(ground[:, 1]) >= 0.95 * np.ptp(ring[:, 1])

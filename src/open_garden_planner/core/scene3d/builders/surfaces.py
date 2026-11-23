@@ -241,8 +241,10 @@ RELIEF_SURFACES: Final = {"stones": "stone", "boardwalk": "wood", "kerb": "concr
 
 #: #960: a raked sand court's ridges: a narrow raised line every ``SPACING`` cm.
 RAKED_SAND_SPACING_CM: Final = 13.0
-RAKED_SAND_WIDTH_CM: Final = 0.8
-RAKED_SAND_HEIGHT_CM: Final = 0.45
+#: #960 review round 2: the first rake (0.8 x 0.45 cm) vanished at the product's
+#: default framing; a 2.4 cm ridge 1.5 cm high reads as a raked court.
+RAKED_SAND_WIDTH_CM: Final = 2.4
+RAKED_SAND_HEIGHT_CM: Final = 1.5
 MAX_RAKED_ROWS: Final = 1_000
 #: Total ridge segments across all rows, matching ``MAX_DECK_BOARDS`` so a comb-shaped
 #: polygon cannot emit millions of triangles on the GUI thread.
@@ -605,7 +607,7 @@ def _raked_sand(record: Record) -> list[Mesh]:
         beam((x0 + 0.5, y, RAKED_SAND_HEIGHT_CM / 2.0),
              (x1 - 0.5, y, RAKED_SAND_HEIGHT_CM / 2.0),
              RAKED_SAND_WIDTH_CM, RAKED_SAND_HEIGHT_CM,
-             _shade(1.0 if row % 2 else 0.86), across=(0.0, 1.0, 0.0))
+             _shade(1.0 if row % 2 else 0.78), across=(0.0, 1.0, 0.0))
         for x0, x1, y, row in runs
     ]
 
@@ -839,12 +841,14 @@ def _pond(record: Record) -> tuple[MeshPart, ...]:
 
 # ── rocks (#955) ─────────────────────────────────────────────────────────────
 
-#: A GENERIC_POLYGON in this fill is a rock: its sides stand upright for the first
-#: share of its height, then a domed, faceted top carries the canvas's stone picture.
+#: A GENERIC_POLYGON in this fill is a rock: a low upright base, then a domed,
+#: faceted top carrying the canvas's stone picture. #960 review round 2: a tall
+#: vertical base (0.55) made every rock a pale concrete bollard; the widest ring
+#: now sits at the ground and the dome starts almost at once.
 ROCK_PATTERN: Final = "STONE"
-ROCK_BASE_SHARE: Final = 0.55
+ROCK_BASE_SHARE: Final = 0.15
 #: The reference outline's scales and heights: base, shoulder, crown, one exact peak.
-ROCK_RINGS: Final = ((1.0, ROCK_BASE_SHARE), (0.72, 0.82), (0.40, 0.95))
+ROCK_RINGS: Final = ((1.0, 0.0), (0.90, 0.42), (0.58, 0.78))
 #: A hostile outline of more vertices keeps the honest prism rather than a huge dome.
 MAX_ROCK_VERTICES: Final = 512
 
@@ -877,9 +881,16 @@ def rock_parts(record: Record, height_cm: float) -> tuple[MeshPart, ...]:
     uvs: list[tuple[float, float]] = []
     indices: list[int] = []
     rings = len(ROCK_RINGS)
-    for scale, level in ROCK_RINGS:
+    # #960 review round 2: the three example rocks were one profile at three sizes.
+    # A per-record ring scale (never above 1.0, so every ring stays inside the convex
+    # footprint) makes the dome's profile differ between rocks.
+    rng = np.random.Generator(np.random.PCG64(item_seed(record.item_id, "rock")))
+    ring_scales = rng.uniform(0.92, 1.0, size=rings)
+    ring_scales[0] = 1.0
+    for index, (scale, level) in enumerate(ROCK_RINGS):
+        scaled = scale * float(ring_scales[index])
         for point in ring:
-            x, y = centre + (point - centre) * scale
+            x, y = centre + (point - centre) * scaled
             z = height_cm * level
             positions.append((float(x), float(y), float(z)))
             uvs.append(((float(x) + origin[0]) / PATTERN_TILE_CM,

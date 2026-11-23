@@ -775,7 +775,7 @@ The 3D view on Qt Quick 3D. Package L1 (#385) opens this bucket; each story appe
 - **FR-3D-PLANT-03** (L1.7, *issue #557*): A plant the plan gives no height — no species data, no measured size, no typed height — is shown at an **illustrative category fallback height** from one canonical table (`core/plant_height_estimate.py`: tree 400 cm, shrub 150 cm, perennial 60 cm, vegetable 50 cm; category group first, then kind), rendered as the matching plant form instead of the former neutral low marker (at most 25 cm, no shadow). The fallback is explicitly **estimated**: the plan keeps height unknown (nothing is written to species data, measurements or the saved file), the transient record carries it separately (`estimated_height_cm`), viewing 3D adds no undo step, and the UI labels the dimension as estimated. Estimated geometry may cast a decorative 3D shadow, but the analytical 2D sun/shade model keeps treating the height as unknown. Typing a height or assigning a species replaces the estimate immediately.
 - **FR-3D-PLANT-04** (L1.7): v0 makes no seasonal claim: no fruit, flowers or flower heads, and no bare crowns. Each plant has at most 2,000 triangles, and two plants of the same species and size are not identical.
 - **FR-3D-PLANT-05** (#949): A **palm**'s trunk is as tall as the plant needs. A palm at or below 160 cm, or one whose canopy diameter is at least 1.5 times its height, is a **dwarf or clumping** form: its ascending fronds rise almost from the ground (trunk share 0.08 of the height, half the trunk rings, three more fronds, gentler lean, and grounded base at `z = 0` across all LODs). A taller palm keeps the measured tall-trunk form (trunk share at least 0.64). The same builder serves both; the species' height and spread choose the form.
-- **FR-3D-PLANT-06** (#960): A **Scots pine** is an umbrella, not a spruce cone: its crown starts above half its height (trunk share 0.55), stays broad through the lower two thirds of the crown and flattens at the top (taper 0.30, droop 0.15). The rule is the named crown shape `umbrella` (`core/plant_art/traits3d.py`), built by `plant_forge/woody.py`; every other conifer keeps its tiered or conical crown.
+- **FR-3D-PLANT-06** (#960): A **Scots pine** is an umbrella, not a spruce cone: its crown starts above half its height (trunk share 0.55), stays broad to 80 % of the crown and flattens at the top (taper 0.30, droop 0.15). Its needles are short and narrow (6 cm, width ratio 0.18) and the spray covers each branch to its tip while the wooden branch stops at 85 %, so no bare brown spoke shows outside the spray. The rule is the named crown shape `umbrella` (`core/plant_art/traits3d.py`), built by `plant_forge/woody.py`; every other conifer keeps its tiered or conical crown.
 - **FR-3D-PLANT-07** (#941): The autumn tint of a crown is a **two-anchor ramp**, not one multiplier per channel. `PhenologyState` carries the summer palette's dark (`b0`) and light (`t1`) anchors and the autumn palette's, all linear (`luma(dark) < luma(light)` for every palette); the foliage shaders map each leaf's position on the summer ramp onto the autumn ramp (`uAutumn`, `uSummerDark/Light`, `uAutumnDark/Light`), so dark and light leaves both arrive cleanly on the autumn palette instead of olive and salmon. Falling leaves (`scene3d/particles.py`) apply the same two-anchor ramp via `phenology.map_autumn_leaves` (#941, #895), and the shader's `uTint` carries the snow dust only (`foliage_snow_tint_linear`). The two-anchor ramp is pinned by `tests/unit/test_phenology.py` (`test_the_autumn_ramp_uses_the_palette_s_own_two_anchors`, `test_the_autumn_multiplier_is_not_applied_twice`), `tests/unit/test_scene3d_particles.py`, and `tests/ui/test_quick3d_host.py::test_the_plant_season_payload_keeps_the_autumn_hue_out_of_the_multiplier`.
 - **FR-3D-PLANT-08** (#960): A **Japanese maple**'s 2D and 3D leaves are small: its baked leaf scale is 0.45 (was 0.65). The change is in `core/plant_art/recipes.py` and the regenerated sprite; the 3D build reads the same recipe. The canopy's tip weight stays #994's green-sprite constant 0.43 (`FOLIAGE_TIP_WEIGHT`); the red-leaved maple is excluded from that sample, so this smaller-leaf change does not move it.
 
@@ -1066,9 +1066,11 @@ The built world complete (L4, #388, ADR-065).
   update and a removed object leaves no picture behind. Not shown while X-ray fades
   an object: a faded solid is a screen door of its colour.
 - **FR-3D-BUILT-10** (#955): A **GENERIC_POLYGON with the STONE fill and a height** is a
-  **rock**: upright base walls for the first 55 % of its height, then a domed, faceted
-  top carrying the canvas's stone picture (three rings narrowing to one exact peak, a
-  smooth normal per vertex). Its top is still the plan's height and it stays on its
+  **rock**: a low upright base (15 % of its height), then a domed, faceted top carrying
+  the canvas's stone picture (three rings at 0, 42 and 78 % of the height, the widest at
+  the ground, narrowing to one exact peak with a smooth normal per vertex). A per-record
+  ring-scale jitter of 0.92–1.0 keeps the rocks from being clones while every ring stays
+  inside the convex footprint. Its top is still the plan's height and it stays on its
   footprint. A convex outline of at most 512 vertices is a rock; a concave or hostile
   one keeps its honest prism; every other fill is the plain prism. In 2D the plan keeps
   its stone picture. Pinned by `tests/unit/test_scene3d_rock.py`,
@@ -1086,8 +1088,9 @@ The built world complete (L4, #388, ADR-065).
   2.2 cm tall at 1,800 a square metre (`MOSS_BLADES_PER_M2`, wired through `context._blade_shares`),
   dense and low, instead of the lawn's grass; its 2D fill is the hedge texture in the plan's own
   moss colour. Every **terrace, path or other ground surface whose fill is SAND** (including
-  existing plans that use `FillPattern.SAND`) is raked in 3D: parallel 13 cm ridges 0.8 cm wide and
-  0.45 cm high follow the court's own outline, lie on the ground (no shadow, not clickable), and are
+  existing plans that use `FillPattern.SAND`) is raked in 3D: parallel 13 cm ridges 2.4 cm wide and
+  1.5 cm high with alternating 1.0/0.78 shade bands follow the court's own outline, lie on the
+  ground (no shadow, not clickable), and are
   bounded per surface by both rows (`MAX_RAKED_ROWS = 1,000`) and total ridges
   (`MAX_RAKED_RIDGES = 2,000`). Both are additive reads of the fill pattern (no `FILE_VERSION`
   change); plans without `MOSS` or `SAND` fills are unchanged. Pinned by

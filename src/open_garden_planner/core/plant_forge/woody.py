@@ -110,11 +110,11 @@ def build_forged_conifer(
     for ti, frac in enumerate(tier_t):
         z_tier = height_cm * (trunk_share + (0.95 - trunk_share) * frac)
         if traits.crown.shape == "umbrella":
-            # #960: broad through the crown's lower two thirds, a flattened head - the
-            # Scots pine's silhouette, never a spruce's tapering cone.
-            shoulder = min(frac / 0.65, 1.0)
-            env = (0.68 + 0.32 * math.sin(shoulder * math.pi / 2.0)) * (
-                1.0 - 0.58 * max(frac - 0.65, 0.0) / 0.35)
+            # #960: broad through the crown, a flat-topped head - the Scots pine's
+            # silhouette, never a spruce's tapering cone.
+            shoulder = min(frac / 0.80, 1.0)
+            env = (0.75 + 0.25 * math.sin(shoulder * math.pi / 2.0)) * (
+                1.0 - 0.30 * max(frac - 0.80, 0.0) / 0.20)
         elif traits.crown.shape == "columnar":
             env = (0.55 + 0.45 * math.sin(frac * math.pi * 0.88)) * (1.0 - 0.35 * frac)
         elif traits.crown.shape in ("spreading", "flat"):
@@ -145,13 +145,16 @@ def build_forged_conifer(
                 dtype=np.float64,
             )
             br0 = max(trunk_r0 * 0.28 * (1.0 - 0.6 * frac), 0.35)
+            # #960 review: the needle spray covers the branch to its tip; the wooden
+            # branch stops at 85 % so no bare brown spoke shows outside the spray.
+            wood_end = start + (end - start) * 0.85
             p0_list.append(start)
-            p1_list.append(end)
+            p1_list.append(wood_end)
             r0_list.append(br0)
             r1_list.append(br0 * 0.28)
 
-            # Distribute needle spray centres along the outer 75% of each tier branch
-            s_steps = np.linspace(0.25, 1.0, needles_per_branch)[:, None]
+            # Distribute needle spray centres from near the trunk to the branch tip.
+            s_steps = np.linspace(0.05, 1.0, needles_per_branch)[:, None]
             pts = start[None, :] * (1.0 - s_steps) + end[None, :] * s_steps
             jitter = rng.normal(0.0, b_len * 0.12, size=(needles_per_branch, 3))
             jitter[:, 2] = rng.normal(
@@ -188,8 +191,14 @@ def build_forged_conifer(
 
     budget_leaves = max((triangle_budget_for_lod(lod) - wood.triangle_count - accent_geo.triangle_count - 16) // 2, 32)
     lod_scale = 1.0 if lod == LOD0 else (1.5 if lod == LOD1 else 2.4)
-    base_length = max(min(height_cm, radius_cm * 2.2) * 0.075 * lod_scale, 2.5)
-    width_ratio = max(traits.leaf.width_ratio, 0.32)
+    if traits.crown.shape == "umbrella":
+        # #960 review: the pine's own short, narrow needle, not the generic crown-area
+        # budget's broad blade. `crown_leaf_budget` still keeps the crown covered.
+        base_length = max(traits.leaf.length_cm * lod_scale, 2.5)
+        width_ratio = max(traits.leaf.width_ratio, 0.18)
+    else:
+        base_length = max(min(height_cm, radius_cm * 2.2) * 0.075 * lod_scale, 2.5)
+        width_ratio = max(traits.leaf.width_ratio, 0.32)
     leaf_count, base_length = crown_leaf_budget(
         height_cm, radius_cm, trunk_share, base_length, width_ratio, budget_leaves,
     )

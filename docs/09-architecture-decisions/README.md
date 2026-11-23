@@ -8424,13 +8424,17 @@ sun, a shadow, a footprint or a saved file's version.
    lawns on a hemisphere flip, and `offscreen.render_records` wires `set_meadow_season`
    alongside `forge_scene_plants`.
 3. **A rock is a stone polygon's 3D form** (`surfaces.rock_parts`, `FR-3D-BUILT-10`):
-   upright base walls and a domed top for convex stone polygons with a height; concave or
+   a low upright base (15 % of the height) and a domed top for convex stone polygons with
+   a height; the widest ring sits at the ground, and a per-record ring-scale jitter
+   (0.92–1.0) keeps the rocks distinct while staying inside the footprint. Concave or
    hostile outlines keep the prism. `GENERIC_POLYGON` joins the surfaces family so the
    builder is registered once.
 4. **Materials with a look of their own.** `PathFenceStyle.BOARD_FENCE` (`FR-3D-BUILT-11`,
    exposed dynamically in `PropertiesPanel` from `PATH_FENCE_STYLES`), evergreen MOSS
-   cushions and raked SAND surfaces (`FR-3D-BUILT-12`), Japanese maple / Scots pine /
-   dwarf palm refinements (`FR-3D-PLANT-05/-06/-08`), and pergola-rafter climber training
+   cushions and raked SAND surfaces (`FR-3D-BUILT-12`; 2.4 cm ridges 1.5 cm high on the
+   13 cm pitch), Japanese maple / Scots pine / dwarf palm refinements
+   (`FR-3D-PLANT-05/-06/-08`; the pine's 6 cm needles cover each branch to its tip, the
+   wood stopping at 85 %), and pergola-rafter climber training
    (`FR-3D-BUILT-13`, capping overhead vine height at the pergola deck).
 5. **A window pane at Ultra** gets `vcGlass` (`built_snow.vert` + `glass.frag`, warmed in
    `shaderWarmer`): `MAIN()` sets `ROUGHNESS = uSsrRough` (`0.38` only while `ssrVisible`,
@@ -10173,8 +10177,10 @@ resolver only knew a rectangle's edge.
    `max(crown.trunk_share, 0.64)`. One builder (`plant_forge/woody.build_forged_palm`),
    chosen from the recorded size.
 2. **The Scots pine is an `umbrella`.** `traits3d` gains the named crown shape;
-   `build_forged_conifer` (`plant_forge/woody.py`) gives it a broad lower crown and a
-   flattened head. Other conifers are unchanged.
+   `build_forged_conifer` (`plant_forge/woody.py`) gives it a broad lower crown, a
+   flat-topped head (broad to 80 % of the crown), a short narrow needle (6 cm, width
+   ratio 0.18), and a needle spray that covers each branch to its tip while the wooden
+   branch stops at 85 %, so no bare spokes show. Other conifers are unchanged.
 3. **A pergola climber follows the rafters.** `climbers._support_segments` asks
    `core/pergola.layout` for the pergola's own rafters centred on the footprint bounding
    box, `_concrete_support` records the pergola centre in the plant's local frame, and

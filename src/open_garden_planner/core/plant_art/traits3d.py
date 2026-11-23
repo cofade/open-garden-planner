@@ -873,7 +873,9 @@ def _build_traits(group: str, stem: str, recipe: Recipe) -> Traits3D:
             aspect_xy=1.0,
         )
         branching = BranchingTraits(220, 2.4, 0.020, 0.25, 0.05, BARK_PINE, 1.0)
-        leaf = LeafTraits("needle", round(14.0 * leaf_scale, 2), 0.35, leaf_scale, frilly, narrow)
+        # #960 review: pine needles are short and narrow, not the broad blades a
+        # generic conifer leaf gets; the umbrella builder keeps this scale.
+        leaf = LeafTraits("needle", round(6.0 * leaf_scale, 2), 0.18, leaf_scale, frilly, narrow)
         return Traits3D(
             ref, archetype, pal, crown, branching, leaf, False,
             bloom_months, blossom_spec, fruit_months, harvest_weeks, pal,
