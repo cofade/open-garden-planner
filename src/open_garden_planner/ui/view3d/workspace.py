@@ -931,7 +931,7 @@ class Workspace(QWidget):
         look.set_southern(self._southern())  # L5: where the place's noon stands
         if self._playback_active:
             look.hold_preset(True)
-        self._living.wire(look)  # L5: the session's weather, the life switch
+        self._living.wire(look)  # L5: the plan's weather, the life switch
         if self.engine_factory is quick3d_engine:
             from ...core.plant_forge import ForgeCache
             from .forge_worker import ForgeWorker

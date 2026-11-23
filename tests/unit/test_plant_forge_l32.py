@@ -136,6 +136,16 @@ class TestL32ConifersPalmsShrubsHedges:
             band = foliage.mesh.positions[(z >= low * 480.0) & (z < high * 480.0)]
             bands.append(float(np.ptp(band[:, 0])) if len(band) else 0.0)
         assert bands[1] >= 0.8 * bands[0], "the head stays broad instead of tapering at once"
+        wood = next(part for part in parts if part.name == PART_WOOD).mesh.positions
+        for low, high in ((0.5, 0.7), (0.7, 0.9)):
+            branch = wood[(wood[:, 2] >= low * 480.0) & (wood[:, 2] < high * 480.0)]
+            needles = foliage.mesh.positions[
+                (foliage.mesh.positions[:, 2] >= low * 480.0)
+                & (foliage.mesh.positions[:, 2] < high * 480.0)]
+            assert len(branch) and len(needles)
+            assert (np.hypot(branch[:, 0], branch[:, 1]).max()
+                    <= np.hypot(needles[:, 0], needles[:, 1]).max()), (
+                "the branch wood stays inside the needle spray, not outside it")
 
     def test_a_dwarf_palm_is_trunkless_and_a_tall_palm_is_not(self) -> None:
         """#949: the trunk height follows the plant, not one 0.64-trunk-height look,

@@ -8433,8 +8433,9 @@ sun, a shadow, a footprint or a saved file's version.
    exposed dynamically in `PropertiesPanel` from `PATH_FENCE_STYLES`), evergreen MOSS
    cushions and raked SAND surfaces (`FR-3D-BUILT-12`; 2.4 cm ridges 1.5 cm high on the
    13 cm pitch), Japanese maple / Scots pine / dwarf palm refinements
-   (`FR-3D-PLANT-05/-06/-08`; the pine's 6 cm needles cover each branch to its tip, the
-   wood stopping at 85 %), and pergola-rafter climber training
+   (`FR-3D-PLANT-05/-06/-08`; the pine's recorded 6 cm needles cover each branch to its
+   tip — the crown-area budget may lengthen them, not widen them — and the wood stops at
+   85 %), and pergola-rafter climber training
    (`FR-3D-BUILT-13`, capping overhead vine height at the pergola deck).
 5. **A window pane at Ultra** gets `vcGlass` (`built_snow.vert` + `glass.frag`, warmed in
    `shaderWarmer`): `MAIN()` sets `ROUGHNESS = uSsrRough` (`0.38` only while `ssrVisible`,
@@ -8443,7 +8444,8 @@ sun, a shadow, a footprint or a saved file's version.
    0. Translucent greenhouse glass (`glassPart`, `NeverDepthDraw`) stays excluded from SSR.
 6. **Hedges keep their density** (#954): a hedge's leaves are capped at 600 a metre of
    run (including the closing edge of a closed `HEDGE_FENCE` loop, and half-perimeter run
-   length for polygon hedges), with a 30,000-leaf plan-wide budget shared by demand. The
+   length for polygon hedges — a strip polygon counts both sides), with a 30,000-leaf
+   plan-wide budget shared by demand. The
    two bench plans grow 30,606 and 71,614 triangles; their build medians remain under
    40/60 ms, and the plan triangle tripwires are raised to 35,000/80,000 with those
    measurements.
@@ -8470,7 +8472,7 @@ Pinned by `tests/unit/test_phenology.py`, `tests/ui/test_quick3d_host.py`,
 `tests/unit/test_scene3d_materials_and_built_polish.py`, `tests/unit/test_quick3d_qml.py`,
 `tests/unit/test_quick3d_packaging.py`, and the Japanese garden's example gate.
 
-**Round 2 (independent 3D review, 2026-11-23, `13ad5544`)**: the first build's Japanese
+**Round 2 (independent 3D review, 2026-11-23, PR #998)**: the first build's Japanese
 garden still read as a willow with bare brown spokes, plain paving and pale concrete
 bollards. Three P1s were fixed at the source: the pine's needle spray now covers each
 branch to its tip (the wood stops at 85 %, the needle is recorded at 6 cm with width

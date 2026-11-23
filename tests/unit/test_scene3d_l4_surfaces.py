@@ -105,6 +105,28 @@ def test_moss_is_a_low_dense_cushion_and_sand_is_raked() -> None:
     assert REGISTRY.build(hostile) == ()
 
 
+def test_a_raked_court_does_not_draw_a_ridge_across_an_island_above_it() -> None:
+    """#960 review round 2: the SAND court's cut-outs split the ridge rows, so no beam
+    crosses a moss island painted above it (the board's tan bands)."""
+    court = polygon_record("TERRACE_PATIO", rectangle(600.0, 420.0), None,
+                           params={"surface_pattern": "SAND"}, item_id="court")
+    island = dataclasses.replace(
+        polygon_record("LAWN", rectangle(100.0, 100.0), None,
+                       params={"surface_pattern": "MOSS"}, item_id="island"),
+        material=Material("LAWN", (200, 180, 140, 255), paint=Paint()))
+    records = {court.item_id: court, island.item_id: island}
+    with_context(records)
+    assert records[court.item_id].params.get("lawn_cutouts")
+    beams = surfaces._raked_sand(records[court.item_id])
+    assert beams
+    for beam in beams:
+        x0, x1 = float(beam.positions[:, 0].min()), float(beam.positions[:, 0].max())
+        y0, y1 = float(beam.positions[:, 1].min()), float(beam.positions[:, 1].max())
+        # The island is x/y in [-50, 50]; a beam may be beside it, never through it.
+        assert not (y0 < 50.0 and y1 > -50.0 and x0 < 50.0 and x1 > -50.0), (
+            x0, x1, y0, y1)
+
+
 def test_batched_lawn_mask_matches_even_odd_at_edges_holes_and_self_crossings() -> None:
     rng = np.random.default_rng(607)
     points = np.concatenate([rng.uniform(-200, 200, (2000, 2)),

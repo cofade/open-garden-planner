@@ -80,3 +80,8 @@ def test_two_rocks_are_not_clones_and_their_widest_ring_is_at_the_ground() -> No
     assert ground.size
     assert np.ptp(ground[:, 0]) >= 0.95 * np.ptp(ring[:, 0])
     assert np.ptp(ground[:, 1]) >= 0.95 * np.ptp(ring[:, 1])
+    for level, limit in ((0.42, 0.95), (0.78, 0.65)):
+        upper = first.mesh.positions[np.isclose(first.mesh.positions[:, 2], 60.0 * level)]
+        assert upper.size
+        assert np.ptp(upper[:, 0]) <= limit * np.ptp(ground[:, 0]), (
+            f"the ring at {level:.0%} of the height is not narrower than the base")
