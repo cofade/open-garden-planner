@@ -8412,15 +8412,16 @@ sun, a shadow, a footprint or a saved file's version.
    apply the same two-anchor ramp (#941, #895) while the shader multiplier carries snow
    dust only (`foliage_snow_tint_linear`).
 2. **The grass through the year.** `phenology.seasonal_ground_tint(date, latitude)` is the
-   one sRGB lawn/meadow multiplier (`FR-3D-GROUND-09`). A grass lawn's fill is scaled in
-   the snapshot (`snapshot._seasonal_fill`, quantised on 14-day seasonal steps so year
-   playback avoids daily tile re-bakes while summer stays exact), while MOSS lawns stay
-   evergreen; the open ground reads
-   `meadowSeason` in `ground.frag` in sRGB before `groundLinear()` across every surface
-   mode, eliminating any lawn-to-meadow colour-space seam. Covered surfaces stay untouched.
-   `snapshot_records(..., latitude_deg=)` is additive, `Scene3DController` supplies
-   `plan_latitude`, `Workspace.location_changed` dirties baked lawns on a hemisphere flip,
-   and `offscreen.render_records` wires `set_meadow_season` alongside `forge_scene_plants`.
+   one sRGB lawn/meadow multiplier (`FR-3D-GROUND-09`), quantised by default on a shared
+   14-day seasonal grid (`LAWN_TINT_STEP_DAYS`) so year playback avoids daily tile re-bakes
+   while keeping baked lawns and the open-ground meadow bit-identical and summer exact. A
+   grass lawn's fill is scaled in the snapshot (`snapshot._seasonal_fill`), while MOSS lawns
+   stay evergreen; the open ground reads `meadowSeason` in `ground.frag` in sRGB before
+   `groundLinear()` across every surface mode, eliminating any lawn-to-meadow colour-space
+   seam. Covered surfaces stay untouched. `snapshot_records(..., latitude_deg=)` is additive,
+   `Scene3DController` supplies `plan_latitude`, `Workspace.location_changed` dirties baked
+   lawns on a hemisphere flip, and `offscreen.render_records` wires `set_meadow_season`
+   alongside `forge_scene_plants`.
 3. **A rock is a stone polygon's 3D form** (`surfaces.rock_parts`, `FR-3D-BUILT-10`):
    upright base walls and a domed top for convex stone polygons with a height; concave or
    hostile outlines keep the prism. `GENERIC_POLYGON` joins the surfaces family so the
@@ -8428,7 +8429,7 @@ sun, a shadow, a footprint or a saved file's version.
 4. **Materials with a look of their own.** `PathFenceStyle.BOARD_FENCE` (`FR-3D-BUILT-11`,
    exposed dynamically in `PropertiesPanel` from `PATH_FENCE_STYLES`), evergreen MOSS
    cushions and raked SAND surfaces (`FR-3D-BUILT-12`), Japanese maple / Scots pine /
-   dwarf palm refinements (`FR-3D-PLANT-05`), and pergola-rafter climber training
+   dwarf palm refinements (`FR-3D-PLANT-05/-06/-08`), and pergola-rafter climber training
    (`FR-3D-BUILT-13`, capping overhead vine height at the pergola deck).
 5. **A window pane at Ultra** gets `vcGlass` (`built_snow.vert` + `glass.frag`, warmed in
    `shaderWarmer`): `MAIN()` sets `ROUGHNESS = uSsrRough` (`0.38` only while `ssrVisible`,

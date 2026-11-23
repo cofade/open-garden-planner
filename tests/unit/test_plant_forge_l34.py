@@ -238,11 +238,17 @@ class TestL34ClimberSupportResolution:
         assert float(np.ptp(top_foliage[:, 1])) > 60.0
 
         # Concrete pergola climber stays valid under verify_builder across LOD0-LOD2
+        # (built through enrich_climber_record so the concrete pergola branch is exercised)
         # and a young vine far below the rafters stays vertical instead of fanning in mid-air.
+        enriched_lod = enrich_climber_records([
+            pergola,
+            _climber_record(ref, height_cm=240.0, radius_cm=90.0, seed=41,
+                            east_cm=120.0, north_cm=220.0, parent_id="pergola-1"),
+        ])[1]
+        assert len(enriched_lod.params[PARAM_CLIMBER_SUPPORT]) >= 12
         for lod in (LOD0, LOD1, LOD2):
-            rec_lod = _climber_record(ref, height_cm=240.0, radius_cm=90.0, seed=41, support=sup)
             verify_builder(lambda r, _lod=lod: forge_record(r, lod=_lod, cache=None),
-                           rec_lod, height_tolerance=0.03)
+                           enriched_lod, height_tolerance=0.03)
         young = build_forged_climber(traits_for(ref), 80.0, 90.0, seed=41, support=sup, lod=LOD0)
         young_wood = next(part for part in young if part.name == PART_WOOD).mesh.positions
         young_top = young_wood[young_wood[:, 2] >= 0.80 * 80.0]

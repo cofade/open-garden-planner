@@ -827,25 +827,18 @@ def _material(key: str, fill: Rgba | None, stroke: Rgba | None, pattern: str | N
     return Material(key, fill, stroke, pattern, paint)
 
 
-#: Quantisation grid (in seasonal days) for the baked LAWN tint (#943 / PF-L3D-38):
-#: fortnightly steps move all three RGB channels together (<= 20 transitions across a full
-#: 365-day year, so >94 % of daily steps trigger zero ground tile re-bakes or blade rebuilds),
-#: while summer holds exact (1.0, 1.0, 1.0).
-_LAWN_TINT_STEP_DAYS: Final[float] = 14.0
-
-
 def _seasonal_fill(kind: str, fill: Rgba | None, at_date: date | None,
                    latitude_deg: float, pattern: str | None = None) -> Rgba | None:
     """A lawn's fill through the year (#943); moss (#960) and every other fill stay untouched.
 
     The ground bake paints LAWN tiles with the item's fill colour and the 3D lawn's blades
     take the same tint, so one factor changes both — while moss stays evergreen and a path
-    or terrace beside it keeps its own colour. The seasonal day is quantised to
-    ``_LAWN_TINT_STEP_DAYS`` so year playback only re-bakes tiles on fortnightly steps.
+    or terrace beside it keeps its own colour. Uses ``seasonal_ground_tint`` directly so
+    baked lawns and the open-ground meadow share the exact same fortnightly seasonal grid.
     """
     if kind != "LAWN" or pattern == MOSS_PATTERN or fill is None or at_date is None:
         return fill
-    tint = seasonal_ground_tint(at_date, latitude_deg, step_days=_LAWN_TINT_STEP_DAYS)
+    tint = seasonal_ground_tint(at_date, latitude_deg)
     # The late-summer keyframe reaches 1.03: a near-white lawn may not exceed the
     # 0..255 contract of a colour.
     return (min(255, max(0, int(round(fill[0] * tint[0])))),

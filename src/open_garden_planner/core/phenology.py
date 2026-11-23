@@ -115,6 +115,13 @@ LAWN_SEASON_TINTS: Final = (
 )
 
 
+#: Quantisation grid (in seasonal days) shared by lawn and meadow (#943 / PF-L3D-38):
+#: fortnightly steps move all three RGB channels together (<= 20 transitions across a full
+#: 365-day year, so >94 % of daily steps trigger zero ground tile re-bakes or meadow
+#: uniform churn), while summer holds exact (1.0, 1.0, 1.0) and lawn/meadow stay identical.
+LAWN_TINT_STEP_DAYS: Final[float] = 14.0
+
+
 def _tint_at_seasonal_day(day: float) -> tuple[float, float, float]:
     points = LAWN_SEASON_TINTS
     for index, (start, first) in enumerate(points):
@@ -132,13 +139,14 @@ def _tint_at_seasonal_day(day: float) -> tuple[float, float, float]:
 def seasonal_ground_tint(plan_date: datetime.date,
                          latitude_deg: float = DEFAULT_LATITUDE_DEG,
                          *,
-                         step_days: float = 0.0) -> tuple[float, float, float]:
+                         step_days: float = LAWN_TINT_STEP_DAYS) -> tuple[float, float, float]:
     """The lawn and meadow colour multiplier on ``plan_date`` (#943).
 
     Linear in the seasonal day between the keyframes above, wrapping across New Year;
     the Southern Hemisphere uses the same broadleaf seasons six months later.
-    When ``step_days > 0``, non-summer days snap to that seasonal-day grid so baked lawn
-    tiles do not re-paint on every day step of year playback while summer stays exact.
+    By default (``step_days=LAWN_TINT_STEP_DAYS``), non-summer days snap to one shared
+    fortnightly grid so both baked lawns and the open-ground meadow stay bit-identical
+    while year playback avoids daily tile re-bakes; summer stays exact ``(1, 1, 1)``.
     """
     day = seasonal_day_of_year(plan_date, latitude_deg)
     exact = _tint_at_seasonal_day(day)
@@ -685,6 +693,7 @@ __all__ = [
     "BULB_LEAF_RAMP_DAYS",
     "DEFAULT_LATITUDE_DEG",
     "LAWN_SEASON_TINTS",
+    "LAWN_TINT_STEP_DAYS",
     "RIPENESS_PROGRESS_FROM",
     "map_autumn_leaves",
     "plan_latitude",

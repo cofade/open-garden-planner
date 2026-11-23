@@ -1782,11 +1782,17 @@ def test_hemisphere_location_change_updates_lawns_and_meadow_together(
 
 
 def test_lawn_seasonal_fill_is_quantised_so_year_playback_avoids_daily_rebakes(
-        canvas: CanvasView, qtbot) -> None:
+        canvas: CanvasView, qtbot, tmp_path: Path) -> None:
     """#943 / PF-L3D-38: day-by-day year stepping must keep LAWN Record.material stable
-    on >93 % of days so GroundBaker does not re-paint tiles and rebuild blades every day."""
+    on >93 % of days while baked lawns and the open-ground meadow share the exact same
+    quantised multiplier on every date (including off-grid transition dates like Sep 17)."""
     from datetime import date, timedelta
 
+    from PyQt6.QtCore import QPointF
+    from PyQt6.QtGui import QColor, QPolygonF
+
+    from open_garden_planner.core.object_types import ObjectType
+    from open_garden_planner.ui.canvas.items import PolygonItem
     from open_garden_planner.ui.view3d.snapshot import _seasonal_fill
 
     base = (100, 160, 80, 255)
@@ -1796,3 +1802,25 @@ def test_lawn_seasonal_fill_is_quantised_so_year_playback_avoids_daily_rebakes(
     assert transitions <= 25, f"expected coarse seasonal transitions, got {transitions}/364"
     assert _seasonal_fill("LAWN", base, date(2026, 6, 21), 52.0) == base
     assert _seasonal_fill("LAWN", base, date(2026, 1, 15), 52.0)[1] < 120
+
+    # End-to-end: on a non-grid autumn transition date (2026-09-17), lawn and meadow
+    # receive the exact same multiplier so no seam opens between them.
+    lawn = PolygonItem(
+        QPolygonF([QPointF(0, 0), QPointF(400, 0), QPointF(400, 300), QPointF(0, 300)]),
+        object_type=ObjectType.LAWN,
+        name="Lawn",
+    )
+    recolour_fill(lawn, QColor(*base)).execute()
+    canvas.scene().addItem(lawn)
+    lawn_id = str(lawn.item_id)
+
+    bench = Bench(canvas, qtbot, tmp_path, location={"latitude": 52.0, "longitude": 10.0})
+    bench.clock.set_date(date(2026, 9, 17))
+    bench.workspace.set_mode(VIEW3D)
+    bench.settle()
+
+    lawn_rgba = bench.workspace.controller.sync.records[lawn_id].material.fill_rgba
+    meadow = bench.hosts[-1].meadow_seasons[-1]
+    expected = tuple(min(255, max(0, int(round(c * m)))) for c, m in zip(base[:3], meadow, strict=True))
+    assert lawn_rgba[:3] == expected
+    bench.workspace.shutdown()
