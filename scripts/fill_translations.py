@@ -3,7 +3,7 @@
 This script:
 1. Reads the source-generated .ts files
 2. Fills in all German translations (including missing contexts)
-3. Invokes Spanish translation populator (fill_spanish_translations)
+3. Invokes Spanish and French translation populators
 4. Writes the completed .ts files
 """
 
@@ -27,7 +27,9 @@ from scripts.translations_l4 import DE as _L4_TRANSLATIONS
 from scripts.translations_l5 import DE as _L5_TRANSLATIONS
 from scripts.translations_l6 import DE as _L6_TRANSLATIONS
 from scripts.translations_l7 import DE as _L7_TRANSLATIONS
+from scripts.translations_showcase import DE as _SHOWCASE_TRANSLATIONS
 from scripts.translations_sun_map import DE as _SUN_MAP_TRANSLATIONS
+from scripts.translations_units_prefs import DE as _UNITS_PREFS_TRANSLATIONS
 
 if sys.stdout is not None and hasattr(sys.stdout, "reconfigure"):
     sys.stdout.reconfigure(encoding="utf-8", errors="replace")
@@ -149,6 +151,8 @@ TRANSLATIONS: dict[str, dict[str, str]] = {
         "Distribute vertically": "Vertikal verteilen",
         "Distribute items": "Objekte verteilen",
         "Apply species data": "Artdaten anwenden",
+        "Reference point": "Referenzpunkt",
+        "reference point": "Referenzpunkt",
     },
 
     # ── BackgroundImageItem ──
@@ -2688,6 +2692,36 @@ TRANSLATIONS: dict[str, dict[str, str]] = {
 
     },
 
+    # ── Reference point (#666, ADR-080) ──
+    "ReferencePoints": {
+        " cm": " cm",
+        " px": " px",
+        "Attached to": "Angehängt an",
+        "Attached to: {name}": "Angehängt an: {name}",
+        "Choose a visible, unlocked layer to place a reference point.":
+            "Wähle eine sichtbare, entsperrte Ebene, um einen Referenzpunkt zu setzen.",
+        "Color": "Farbe",
+        "Constant on screen": "Konstant auf dem Bildschirm",
+        "Edit reference point…": "Referenzpunkt bearbeiten…",
+        "Fixed in plan (scales with zoom)": "Im Plan fest (zoomt mit)",
+        "Independent point": "Unabhängiger Punkt",
+        "Keep on the parent outline": "Auf der Kontur des Elternteils bleiben",
+        "Name": "Name",
+        "On outline of: {name}": "Auf der Kontur von: {name}",
+        "Place a survey stake or measurement datum":
+            "Setzt einen Messpunkt oder ein Bezugsmaß",
+        "Reference point": "Referenzpunkt",
+        "Size mode": "Größenmodus",
+        "Stroke width": "Linienbreite",
+        "Symbol size": "Symbolgröße",
+        "Unlock the layer to edit this reference point.":
+            "Entsperre die Ebene, um diesen Referenzpunkt zu bearbeiten.",
+        "cm": "cm",
+        "px": "px",
+        "{name}\n{status}\nSymbol: {size} {unit}; stroke: {width} px":
+            "{name}\n{status}\nSymbol: {size} {unit}; Linie: {width} px",
+    },
+
 }
 
 
@@ -3605,6 +3639,14 @@ for _ctx, _strings in _EXAMPLES_TRANSLATIONS.items():
 for _ctx, _strings in _SUN_MAP_TRANSLATIONS.items():
     TRANSLATIONS.setdefault(_ctx, {}).update(_strings)
 
+# ── Tabbed Preferences and per-quantity units (#986, #907) ──
+for _ctx, _strings in _UNITS_PREFS_TRANSLATIONS.items():
+    TRANSLATIONS.setdefault(_ctx, {}).update(_strings)
+
+# ── The 3D showcase follow-ups: board fence, moss, part-turn tooltip (#960, #966) ──
+for _ctx, _strings in _SHOWCASE_TRANSLATIONS.items():
+    TRANSLATIONS.setdefault(_ctx, {}).update(_strings)
+
 
 # ── 2D drawing tools package (#674 group menus, #665 fill transform) ──
 _DRAWING_TOOLS_TRANSLATIONS: dict[str, dict[str, str]] = {
@@ -3862,6 +3904,11 @@ def fill_translations() -> None:
     from scripts.fill_spanish_translations import fill_spanish_translations
 
     fill_spanish_translations()
+
+    # And French translations
+    from scripts.fill_french_translations import fill_french_translations
+
+    fill_french_translations()
 
 
 if __name__ == "__main__":

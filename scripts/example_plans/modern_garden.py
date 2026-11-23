@@ -19,6 +19,10 @@ SLUG = "modern-garden"
 #: The stored orbit looks down more steeply than the dialog's 18 degrees: from there
 #: the wall hid the garden behind it (3D review of #940).
 ORBIT_PITCH_DEG = 30.0
+#: The bungalow fills the north side: half a turn stays over the garden (#966).
+#: Counter-clockwise from the WSW start sweeps south across the garden instead of north behind the bungalow.
+ORBIT_TURNS = 0.5
+ORBIT_CLOCKWISE = False
 CORTEN = "#8b4a2a"
 DUSK = text("Evening into night", "Vom Abend in die Nacht", "Del atardecer a la noche")
 
@@ -26,10 +30,12 @@ META = {
     "name_en": "Modern garden - 15 x 12 m", "name_de": "Designgarten - 15 x 12 m",
     "name_es": "Jardín moderno - 15 x 12 m",
     "name_ru": "Современный сад - 15 x 12 м",
+    "name_fr": "Jardin moderne - 15 x 12 m",
     "description_en": "Straight lines and few materials: a flat-roofed bungalow, a slate terrace with hot tub, loungers and fire pit, a reflecting pool in the lawn, corten-steel beds with miscanthus and lavender, a bamboo screen and a red Japanese maple. Guide lines carry the grid. Lanterns and a string of lights: play the stored tour from evening into night and they come on. Munich reference; opens at golden hour on 15 August 2026. Illustrative layout.",
     "description_de": "Klare Linien und wenige Materialien: Flachdach-Bungalow, Schieferterrasse mit Whirlpool, Liegen und Feuerstelle, ein Wasserbecken im Rasen, Cortenstahl-Beete mit Chinaschilf und Lavendel, ein Bambus-Sichtschutz und ein roter Fächerahorn. Hilfslinien tragen das Raster. Laternen und Lichterkette: die gespeicherte Fahrt vom Abend in die Nacht abspielen, dann gehen sie an. Referenz München; öffnet zur goldenen Stunde am 15. August 2026. Beispielentwurf.",
     "description_es": "Líneas rectas y pocos materiales: un bungaló de cubierta plana, una terraza de pizarra con bañera de hidromasaje, tumbonas y hoguera, un estanque espejo en el césped, bancales de acero corten con eulalia y lavanda, una pantalla de bambú y un arce japonés rojo. Las guías marcan la retícula. Faroles y guirnalda: reproduzca el recorrido del atardecer a la noche y se encienden. Referencia Múnich; se abre a la hora dorada del 15 de agosto de 2026. Diseño ilustrativo.",
     "description_ru": "Прямые линии и немного материалов: бунгало с плоской крышей, сланцевая терраса с джакузи, шезлонгами и очагом, зеркальный бассейн на газоне, грядки из кортеновской стали с мискантусом и лавандой, ширма из бамбука и красный японский клён. Направляющие задают сетку. Фонари и гирлянда: запустите сохранённый облёт от вечера к ночи, и они зажгутся. Ориентир: Мюнхен; открывается в золотой час 15 августа 2026 года. Примерный проект.",
+    "description_fr": "Lignes droites et peu de matériaux : un bungalow à toit plat, une terrasse d’ardoise avec bain à remous, chaises longues et foyer, un bassin réfléchissant dans la pelouse, des massifs en acier corten avec miscanthus et lavande, un écran de bambou et un érable du Japon rouge. Des lignes de guide portent la grille. Lanternes et guirlande lumineuse : lancez la visite enregistrée du soir à la nuit et elles s’allument. Référence : Munich ; s’ouvre à l’heure dorée le 15 août 2026. Disposition illustrative.",
     "order": 5,
     "tags": ["modern", "lights", "dusk"],
     "showcase_date": "2026-08-15", "showcase_utc_time": "17:40",
@@ -41,7 +47,9 @@ def more_tours(framing):
     summer clock. The sun sets at about 20:30 in Munich in mid August, and the lamps are
     fully on when it stands three degrees under the horizon. It ends in twilight, six
     degrees under: later, the faces turned away from the moon are black (#953)."""
-    return [orbit_tour(framing.orbit(), DUSK, time_range=(time(19, 15), time(21, 0)))]
+    return [orbit_tour(framing.orbit(), DUSK, turns=ORBIT_TURNS,
+                       clockwise=ORBIT_CLOCKWISE,
+                       time_range=(time(19, 15), time(21, 0)))]
 
 
 def build():
@@ -80,13 +88,13 @@ def build():
     plan.line([(900, 670), (1010, 670), (1010, 1100), (940, 1160)], T.PATH,
               text("Stepping stones", "Trittsteine", "Pasaderas"), style=PathFenceStyle.STEPPING_STONES, wide=55)
     corten = text("Corten bed", "Cortenbeet", "Bancal de corten")
-    # a metal container, not a raised bed: a raised bed's frame is always timber in 3D
-    steel = {"container_material": "metal"}
-    beds = [plan.rect(1090, y, 330, 95, T.CONTAINER, corten, tall=50, fill=FillPattern.CORTEN,
-                      color=CORTEN, meta=steel) for y in (600, 790, 980)]
+    # #957: real RAISED_BED items whose CORTEN fill drives the 3D weathered-steel frame
+    beds = [plan.rect(1090, y, 330, 95, T.RAISED_BED, corten, tall=50, fill=FillPattern.CORTEN,
+                      color=CORTEN) for y in (600, 790, 980)]
     plan.row("miscanthus sinensis", (1140, 647), (1370, 647), 3, parent=beds[0], size=(150, 90))
     plan.row("lavandula angustifolia", (1130, 837), (1380, 837), 5, parent=beds[1], size=(45, 50))
     plan.row("miscanthus sinensis", (1140, 1027), (1370, 1027), 3, parent=beds[2], size=(150, 90))
+    steel = {"container_material": "metal"}
     screen = plan.rect(1405, 70, 70, 400, T.CONTAINER, text("Bamboo trough", "Bambustrog", "Jardinera de bambú"),
                        tall=50, fill=FillPattern.CORTEN, color=CORTEN, meta=steel)
     plan.row("fargesia murielae", (1440, 110), (1440, 430), 5, parent=screen, size=(320, 75))

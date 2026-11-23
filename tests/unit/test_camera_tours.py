@@ -189,11 +189,11 @@ def test_only_a_true_ease_eases_and_the_tour_is_kept(value: Any) -> None:
 
 
 @pytest.mark.parametrize(("motion", "turns", "clock", "seconds"), [
-    ("orbit", 1, "none", 30.0), ("orbit", 4, "none", 120.0),
+    ("orbit", 1, "none", 30.0), ("orbit", 0.5, "none", 15.0), ("orbit", 4, "none", 120.0),
     ("orbit", 1, "day", DEFAULT_DURATION_S), ("orbit", 2, "year", DEFAULT_DURATION_S),
     ("path", 1, "none", DEFAULT_DURATION_S), ("hold", 3, "year", DEFAULT_DURATION_S),
 ])
-def test_a_new_tour_lasts_thirty_seconds_a_turn_when_it_only_orbits(motion: str, turns: int,
+def test_a_new_tour_lasts_thirty_seconds_a_turn_when_it_only_orbits(motion: str, turns: float,
                                                                       clock: str, seconds: float) -> None:
     """#807: 12 s a turn is 1 degree a frame at 30 fps, and the horizon a lower tilt brings
     into view crossed the frame in 2.2 s. A time-lapse keeps 12 s: a year's regrowths cost
@@ -241,8 +241,8 @@ def test_a_saved_tour_can_always_be_rendered() -> None:
         flight(keys=list(KEYS))  # a list is no snapshot: the tour must stay what it was
     with pytest.raises(ValueError):
         flight(size=[1920, 1080])
-    for turns in (0.5, 2.5, 5.0, -1.0):   # what the file could not say again
-        with pytest.raises(ValueError, match="whole turns"):
+    for turns in (0.1, 4.5, 5.0, -1.0):   # what the dialog cannot offer
+        with pytest.raises(ValueError, match="turns"):
             orbit(orbit=replace(ORBIT, turns=turns))
 
 
@@ -321,11 +321,19 @@ def test_a_duration_that_is_not_finite_is_the_default() -> None:
             DEFAULT_DURATION_S)
 
 
-@pytest.mark.parametrize(("turns", "read"), [(0, 1.0), (-3, 1.0), (2.4, 2.0), (99, 4.0)])
-def test_an_orbits_turns_are_the_whole_turns_the_dialog_offers(turns: Any, read: float) -> None:
+@pytest.mark.parametrize(("turns", "read"), [
+    (0, 0.25), (-3, 0.25), (0.1, 0.25), (0.5, 0.5), (2.4, 2.4), (99, 4.0)])
+def test_an_orbits_turns_are_the_part_or_whole_turns_the_dialog_offers(
+        turns: Any, read: float) -> None:
     raw = orbit().to_dict()
     raw["orbit"]["turns"] = turns
     assert SavedTour.from_dict(raw).orbit.turns == read  # type: ignore[union-attr]
+
+
+def test_a_half_turn_is_written_and_read_back_as_a_half_turn() -> None:
+    half = orbit(orbit=replace(ORBIT, turns=0.5))
+    assert half.to_dict()["orbit"]["turns"] == 0.5
+    assert SavedTour.from_dict(through_json(half.to_dict())) == half
 
 
 # ── the trust boundary ───────────────────────────────────────────────────────

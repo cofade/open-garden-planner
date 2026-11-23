@@ -110,8 +110,11 @@ def example_content(slug):
                       pitch_deg=getattr(module, "ORBIT_PITCH_DEG", DEFAULT_ORBIT_PITCH_DEG),
                       sun_offset_deg=getattr(module, "ORBIT_SUN_OFFSET_DEG", SUN_BEHIND_DEG),
                       closer=getattr(module, "ORBIT_CLOSER", 1.0))
-    manager.set_camera_tours([orbit_tour(framing.orbit()),
-                              *getattr(module, "more_tours", lambda _framing: [])(framing)])
+    manager.set_camera_tours([
+        orbit_tour(framing.orbit(), turns=getattr(module, "ORBIT_TURNS", 1.0),
+                   clockwise=getattr(module, "ORBIT_CLOCKWISE", True)),
+        *getattr(module, "more_tours", lambda _framing: [])(framing)])
+    manager.set_plan_weather(getattr(module, "SHOWCASE_WEATHER", "clear"))
     raw = manager._build_project_data(scene).to_dict()
     raw["metadata"] = {"modified": "2026-10-26T00:00:00+00:00"}
     scene.clear()

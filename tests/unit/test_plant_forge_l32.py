@@ -16,6 +16,7 @@ from open_garden_planner.core.plant_art import (
     SpriteRef,
     palette_key,
     recipe_for,
+    traits_for,
 )
 from open_garden_planner.core.plant_forge import (
     LOD0,
@@ -26,6 +27,7 @@ from open_garden_planner.core.plant_forge import (
     LOD2_TRIANGLE_BUDGET,
     PART_FOLIAGE,
     PART_WOOD,
+    build_forged_palm,
     forge_plant,
     forge_record,
     silhouette_iou,
@@ -118,6 +120,57 @@ class TestL32ConifersPalmsShrubsHedges:
         assert z_min == pytest.approx(0.0, abs=1e-4)
         assert abs(z_max - h) <= 0.03 * h
         assert abs(max_span - 2.0 * r) <= 0.10 * (2.0 * r)
+
+    def test_a_scots_pine_is_an_umbrella_not_a_spruce_cone(self) -> None:
+        """#960: a long bare trunk carrying a broad, flat-topped head."""
+        traits = traits_for(SpriteRef("species", "pine"))
+        assert traits.crown.shape == "umbrella"
+        assert traits.crown.trunk_share > 0.5
+        parts = forge_plant(SpriteRef("species", "pine"), 480.0, 160.0, seed=101,
+                            lod=LOD0, cache=None)
+        foliage = next(part for part in parts if part.name == PART_FOLIAGE)
+        z = foliage.mesh.positions[:, 2]
+        assert float(z.min()) > 0.35 * 480.0, "the crown begins above a long bare trunk"
+        bands = []
+        for low, high in ((0.4, 0.6), (0.6, 0.8), (0.8, 0.95)):
+            band = foliage.mesh.positions[(z >= low * 480.0) & (z < high * 480.0)]
+            bands.append(float(np.ptp(band[:, 0])) if len(band) else 0.0)
+        assert bands[1] >= 0.8 * bands[0], "the head stays broad instead of tapering at once"
+        wood = next(part for part in parts if part.name == PART_WOOD).mesh.positions
+        for low, high in ((0.5, 0.7), (0.7, 0.9)):
+            branch = wood[(wood[:, 2] >= low * 480.0) & (wood[:, 2] < high * 480.0)]
+            needles = foliage.mesh.positions[
+                (foliage.mesh.positions[:, 2] >= low * 480.0)
+                & (foliage.mesh.positions[:, 2] < high * 480.0)]
+            assert len(branch) and len(needles)
+            assert (np.hypot(branch[:, 0], branch[:, 1]).max()
+                    <= np.hypot(needles[:, 0], needles[:, 1]).max()), (
+                "the branch wood stays inside the needle spray, not outside it")
+
+    def test_a_dwarf_palm_is_trunkless_and_a_tall_palm_is_not(self) -> None:
+        """#949: the trunk height follows the plant, not one 0.64-trunk-height look,
+        and the trunk base always stays grounded at z = 0 across all LODs."""
+        palm = SpriteRef("categories", "palm")
+        traits = traits_for(palm)
+        tall = build_forged_palm(traits, 480.0, 160.0, seed=101, lod=LOD0)
+        dwarf = build_forged_palm(traits, 90.0, 85.0, seed=101, lod=LOD0)
+
+        def foliage_height(parts: tuple) -> tuple[float, float]:
+            foliage = next(part for part in parts if part.name == PART_FOLIAGE)
+            z = foliage.mesh.positions[:, 2]
+            return float(z.min()), float(z.max())
+
+        tall_low, tall_high = foliage_height(tall)
+        dwarf_low, dwarf_high = foliage_height(dwarf)
+        assert tall_low > 0.45 * 480.0, "the tall windmill palm keeps its bare trunk"
+        assert dwarf_low < 0.25 * 90.0, "the dwarf's fronds begin near the ground"
+        assert dwarf_high <= 90.0 + 1e-3 and tall_high <= 480.0 + 1e-3
+        for height, radius in ((90.0, 85.0), (150.0, 120.0), (480.0, 160.0)):
+            for lod in (LOD0, LOD1, LOD2):
+                parts = build_forged_palm(traits, height, radius, seed=101, lod=lod)
+                wood = next(part for part in parts if part.name == PART_WOOD)
+                assert float(wood.mesh.positions[:, 2].min()) == pytest.approx(0.0, abs=1e-3), (
+                    height, radius, lod)
 
     @pytest.mark.parametrize("sprite", L32_SPRITES, ids=lambda s: f"{s.group}/{s.name}")
     def test_lod_triangle_caps_and_ordering(self, sprite: SpriteRef) -> None:

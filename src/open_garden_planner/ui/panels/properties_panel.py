@@ -3,7 +3,7 @@
 import contextlib
 from collections.abc import Callable
 from pathlib import Path
-from typing import Any
+from typing import TYPE_CHECKING, Any, cast
 
 from PyQt6.QtCore import QCoreApplication, QSize, Qt, QTimer, pyqtSignal
 from PyQt6.QtGui import QColor, QFocusEvent, QIcon
@@ -44,6 +44,7 @@ from open_garden_planner.core.item_look import (
 )
 from open_garden_planner.core.measurement_display import volume_text
 from open_garden_planner.core.object_types import (
+    PATH_FENCE_STYLES,
     ObjectType,
     PathFenceStyle,
     StrokeStyle,
@@ -52,7 +53,8 @@ from open_garden_planner.core.object_types import (
     is_bed_type,
 )
 from open_garden_planner.core.plant_renderer import is_plant_type
-from open_garden_planner.core.units import LengthStyle, UnitSystem
+from open_garden_planner.core.unit_preference import UnitProfile
+from open_garden_planner.core.units import LengthStyle
 from open_garden_planner.ui.canvas.items import (
     CircleItem,
     EllipseItem,
@@ -119,6 +121,11 @@ _EXTRA_SVG_FILES: dict[ObjectType, Path] = {
 }
 
 FIELD_WIDTH = 120
+
+if TYPE_CHECKING:
+    from open_garden_planner.ui.canvas.items.reference_point_item import (
+        ReferencePointItem,
+    )
 
 
 def _style_numeric_field(field: QAbstractSpinBox) -> None:
@@ -289,7 +296,10 @@ class PropertiesPanel(QWidget):
         # edit is not destroyed with its widget and lost from undo (#210).
         self._pending_text_commits: list[Callable[[], None]] = []
         self._setup_ui()
-        units_notifier().changed.connect(self._on_unit_system_changed)
+        # ``profile_changed`` covers every quantity; the legacy length-only
+        # signal would leave the volume label stale when only Volume moved
+        # (#907). It fires once for a length change too, so nothing replays.
+        units_notifier().profile_changed.connect(self._on_unit_system_changed)
         # Wire history_navigated at construction: the application hands the
         # manager to the constructor and never calls set_command_manager(), so
         # connecting only there left the #560 history refresh dead in production.
@@ -371,7 +381,7 @@ class PropertiesPanel(QWidget):
         """
         QTimer.singleShot(0, self._rebuild_for_theme)
 
-    def _on_unit_system_changed(self, _system: UnitSystem) -> None:
+    def _on_unit_system_changed(self, _profile: UnitProfile) -> None:
         # Unit fields reformat themselves. Reuse the normal in-place refresh
         # for derived labels: it protects the focused editor and never has to
         # destroy a form whose focus was just restored by Preferences.
@@ -752,6 +762,56 @@ class PropertiesPanel(QWidget):
                     layer_combo,
                     lambda c=layer_combo, it=item: self._refresh_layer_combo(c, it),
                 )
+            self._add_arrange_section([item])
+            self._updating = False
+            return
+
+        # Reference point — ONE editor (ADR-080 decision 7). The generic Type,
+        # name and styling controls are second write paths (a Type change would
+        # turn the datum into a tree), so the panel stops here (#666 review).
+        from open_garden_planner.core import reference_points as ref
+
+        if ref.is_reference_point(getattr(item, "metadata", None)):
+            from open_garden_planner.ui.reference_points import (
+                edit_reference_point,
+                reference_summary,
+            )
+
+            reference = cast("ReferencePointItem", item)
+            summary = QLabel(reference_summary(reference))
+            summary.setWordWrap(True)
+            summary.setTextInteractionFlags(Qt.TextInteractionFlag.TextSelectableByMouse)
+            self._form_layout.addRow(summary)
+            edit_button = QPushButton(
+                QCoreApplication.translate("ReferencePoints", "Edit reference point…")
+            )
+            edit_button.clicked.connect(lambda: edit_reference_point(reference))
+            self._form_layout.addRow(edit_button)
+            if hasattr(item, "layer_id"):
+                layer_combo = QComboBox()
+                _style_combo(layer_combo)
+                self._populate_layer_combo(layer_combo, item)
+                if item.parentItem() is not None:
+                    layer_combo.setEnabled(False)
+                    layer_combo.setToolTip(
+                        self.tr("A group member stays on its group's layer")
+                    )
+                def _change_layer(
+                    _index: int,
+                    target: QGraphicsItem = item,
+                    combo: QComboBox = layer_combo,
+                ) -> None:
+                    self._on_property_changed(target, "layer_id", combo.currentData())
+
+                layer_combo.currentIndexChanged.connect(_change_layer)
+                self._form_layout.addRow(self.tr("Layer:"), layer_combo)
+
+                def _refresh_layer(
+                    combo: QComboBox = layer_combo, target: QGraphicsItem = item
+                ) -> None:
+                    self._refresh_layer_combo(combo, target)
+
+                self._register_refresh(layer_combo, _refresh_layer)
             self._add_arrange_section([item])
             self._updating = False
             return
@@ -2386,11 +2446,7 @@ class PropertiesPanel(QWidget):
                 model.item(idx).setEnabled(False)
             for pfs in [
                 PathFenceStyle.NONE,
-                PathFenceStyle.GRAVEL_PATH,
-                PathFenceStyle.STEPPING_STONES,
-                PathFenceStyle.PAVED_PATH,
-                PathFenceStyle.WOODEN_BOARDWALK,
-                PathFenceStyle.DIRT_PATH,
+                *(style for style, info in PATH_FENCE_STYLES.items() if info.category == "path"),
             ]:
                 style_combo.addItem(get_translated_path_fence_style_name(pfs), pfs)
             # Add "Fences" group
@@ -2399,11 +2455,7 @@ class PropertiesPanel(QWidget):
             if model:
                 model.item(idx).setEnabled(False)
             for pfs in [
-                PathFenceStyle.WOODEN_FENCE,
-                PathFenceStyle.METAL_FENCE,
-                PathFenceStyle.CHAIN_LINK,
-                PathFenceStyle.HEDGE_FENCE,
-                PathFenceStyle.STONE_WALL,
+                style for style, info in PATH_FENCE_STYLES.items() if info.category == "fence"
             ]:
                 style_combo.addItem(get_translated_path_fence_style_name(pfs), pfs)
 
@@ -2476,6 +2528,7 @@ class PropertiesPanel(QWidget):
                 FillPattern.CLAY: self.tr("Clay"),
                 FillPattern.DECKING: self.tr("Decking"),
                 FillPattern.CORTEN: self.tr("Corten steel"),
+                FillPattern.MOSS: self.tr("Moss"),
             }
             for pattern in FillPattern:
                 pattern_combo.addItem(_pattern_names.get(pattern, pattern.name), pattern)

@@ -116,6 +116,10 @@ _LABEL_TEXT_COLOR = QColor(18, 22, 42)
 # not reinstate it.
 _LABEL_SPACING_CM = 500.0
 _LABEL_MIN_DIST_CM = 160.0
+#: #852: a label keeps this much more clear of an object than its own box. The
+#: place is chosen for a 1100 px plan; zoomed out up to 1.3x the fixed-pixel
+#: label covers more of the plan, and this margin keeps it off an object's edge.
+_LABEL_SAFETY = 1.3
 
 #: The width (pixels) of the window a plan is taken to be shown in when a label's
 #: place is chosen. A label has its size in pixels and its place in the plan, so
@@ -132,7 +136,8 @@ _MASK_CELLS_PER_MAP_CELL = 4
 _MASK_MAX_CELLS = 4_000_000
 
 # Cool→warm sun ramp LUT (single source of truth, core/heatmap_render). ARGB32
-# is B,G,R,A on little-endian, so keep a reordered copy for direct pixel packing.
+# is B,G,R,A on little-endian, so keep a reordered copy for direct pixel packing
+# (lossless RGBA in QImage; QPixmap.fromImage premultiplies once on upload).
 _SUN_LUT_BGRA = build_sun_lut()[:, [2, 1, 0, 3]].copy()
 
 
@@ -171,17 +176,57 @@ def rasterize_polygons_qimage(
     return (raw > 127).copy()
 
 
+#: #852: the fill is interpolated this many sub-cells per grid cell. A 10 cm
+#: cell drawn at 400 % is otherwise one large flat blob; two sub-cells per axis
+#: keep the colour transition smooth without turning the overlay into a texture.
+HEATMAP_UPSAMPLE = 2
+
+
+def _bilinear_fraction(fraction: np.ndarray, factor: int) -> np.ndarray:
+    """``fraction`` resampled to ``factor`` sub-cells per axis, covering the grid.
+
+    The output has exactly ``rows * factor`` by ``cols * factor`` samples, each
+    at the CENTRE of its own sub-cell, so the caller places it at the grid's
+    origin with a scale of one sub-cell (the controller does). Including the
+    outer half-cell matters: an image of cell centres alone left the outer
+    quarter cell of the map unpainted. Edge rows/columns are extended, never
+    filled with zero, which also covers a single-row or single-column grid.
+    """
+    rows, cols = fraction.shape
+    if factor <= 1 or rows == 0 or cols == 0:
+        return fraction
+    out_rows = rows * factor
+    out_cols = cols * factor
+    # Sub-cell centre k sits at (k + 0.5) / factor - 0.5 in cell-index space.
+    y = (np.arange(out_rows, dtype=float) + 0.5) / factor - 0.5
+    x = (np.arange(out_cols, dtype=float) + 0.5) / factor - 0.5
+    y = np.clip(y, 0.0, rows - 1.0)
+    x = np.clip(x, 0.0, cols - 1.0)
+    y0 = np.floor(y).astype(np.intp)
+    x0 = np.floor(x).astype(np.intp)
+    y1 = np.minimum(y0 + 1, rows - 1)
+    x1 = np.minimum(x0 + 1, cols - 1)
+    wy = (y - y0)[:, None]
+    wx = (x - x0)[None, :]
+    top = fraction[y0][:, x0] * (1.0 - wx) + fraction[y0][:, x1] * wx
+    bottom = fraction[y1][:, x0] * (1.0 - wx) + fraction[y1][:, x1] * wx
+    return np.asarray(top * (1.0 - wy) + bottom * wy, dtype=np.float32)
+
+
 def build_heatmap_image(
     sun_minutes: np.ndarray, daylight_minutes: float
 ) -> QImage:
-    """Continuous cool→warm ARGB image, one pixel per grid cell (GUI thread).
+    """Continuous cool→warm ARGB image, interpolated inside each grid cell (#852).
 
     Each cell's sun-minutes are normalized against the day's daylight duration
     and mapped through the shared sun ramp LUT (single source of truth for the
-    tints). The overlay draws this with SmoothTransformation, so the coarse grid
-    renders as a smooth surface rather than hard blocks.
+    tints). ``HEATMAP_UPSAMPLE`` sub-cells per axis make a 10 cm cell read as a
+    smooth colour field at 400 % instead of a flat blotch.
     """
-    fraction = sun_fraction(sun_minutes, daylight_minutes)
+    fraction = np.asarray(
+        _bilinear_fraction(sun_fraction(sun_minutes, daylight_minutes), HEATMAP_UPSAMPLE),
+        dtype=np.float32,
+    )
     bgra = _SUN_LUT_BGRA[ramp_index(fraction, _SUN_LUT_BGRA.shape[0])]  # (rows, cols, 4) B,G,R,A
     rows, cols = fraction.shape
     image = QImage(
@@ -353,6 +398,12 @@ class SunHeatmapOverlayItem(QGraphicsPixmapItem):
         super().__init__()
         self.setZValue(_HEATMAP_Z)
         self.setAcceptedMouseButtons(Qt.MouseButton.NoButton)
+        # #852: bilinear upsampling inside each 10 cm cell plus smooth scaling of
+        # the QPixmap (stored premultiplied by Qt on upload) keeps 400 % zoom
+        # free of 10 cm blotches and nearest-neighbor stair-step blocks. The
+        # overlay bitmap's own draw adds ~0.5 ms on family-garden at fit zoom
+        # (rebuilding the image when the map changes is separate); contour and
+        # label repaint overhead stays tracked on #852.
         self.setTransformationMode(Qt.TransformationMode.SmoothTransformation)
 
 
@@ -665,7 +716,10 @@ class SunHeatmapController(QObject):
         image = build_heatmap_image(minutes, self._daylight_minutes)
         overlay = self._ensure_overlay()
         overlay.setPixmap(QPixmap.fromImage(image))
-        overlay.setScale(grid.cell_cm)
+        # #852: the image is interpolated HEATMAP_UPSAMPLE sub-cells per axis,
+        # each sample at its own sub-cell's centre, so the image covers the
+        # whole grid from its origin.
+        overlay.setScale(grid.cell_cm / HEATMAP_UPSAMPLE)
         overlay.setPos(grid.x0_cm, grid.y0_cm)
         overlay.setVisible(True)
         self._rebuild_contours(minutes, grid)
@@ -847,7 +901,8 @@ class SunHeatmapController(QObject):
         longer_side = max(grid.cols, grid.rows) * grid.cell_cm
         cm_per_px = max(longer_side, 1.0) / _NOMINAL_VIEW_PX
         box = SunMapLabelItem(text).boundingRect()
-        half_w, half_h = box.width() / 2.0 * cm_per_px, box.height() / 2.0 * cm_per_px
+        half_w = box.width() / 2.0 * cm_per_px * _LABEL_SAFETY
+        half_h = box.height() / 2.0 * cm_per_px * _LABEL_SAFETY
         spacing = _LABEL_SPACING_CM / grid.cell_cm  # contour is in grid units
         step = max(half_w, grid.cell_cm) / grid.cell_cm
         edge = _EDGE_MARGIN_PX * cm_per_px

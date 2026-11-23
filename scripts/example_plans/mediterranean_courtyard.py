@@ -17,15 +17,21 @@ SLUG = "mediterranean-courtyard"
 #: The stored orbit looks down more steeply than the dialog's 18 degrees: from there
 #: the wall hid the garden behind it (3D review of #940).
 ORBIT_PITCH_DEG = 34.0
+#: The house closes the north side: half a turn stays over the courtyard (#966).
+#: Counter-clockwise from the WSW start sweeps south across the courtyard instead of north behind the house.
+ORBIT_TURNS = 0.5
+ORBIT_CLOCKWISE = False
 
 META = {
     "name_en": "Mediterranean courtyard - 12 x 10 m", "name_de": "Mediterraner Innenhof - 12 x 10 m",
     "name_es": "Patio mediterráneo - 12 x 10 m",
     "name_ru": "Средиземноморский дворик - 12 x 10 м",
+    "name_fr": "Cour méditerranéenne - 12 x 10 m",
     "description_en": "A walled patio at golden hour: an olive and a fig in the ground, lemon and orange in tubs, a windmill palm by the plunge pool, a grape vine on the pergola over the dining table, lavender and rosemary along the walls. Flagstone and terracotta, two loungers and a string of lights. Valencia reference, 39 degrees north: compare its sun with a northern plan. Opens on the evening of 21 June 2026. Illustrative layout.",
     "description_de": "Ein ummauerter Patio zur goldenen Stunde: Olive und Feige im Boden, Zitrone und Orange im Kübel, eine Hanfpalme am Tauchbecken, Wein an der Pergola über dem Esstisch, Lavendel und Rosmarin an den Mauern. Natursteinplatten und Terrakotta, zwei Liegen und eine Lichterkette. Referenz Valencia, 39 Grad Nord: den Sonnenstand mit einem nördlichen Plan vergleichen. Öffnet am Abend des 21. Juni 2026. Beispielentwurf.",
     "description_es": "Un patio entre muros a la hora dorada: un olivo y una higuera en tierra, limonero y naranjo en macetones, una palmera junto a la alberca, una vid en la pérgola sobre la mesa, lavanda y romero junto a los muros. Losas de piedra y terracota, dos tumbonas y una guirnalda de luces. Referencia Valencia, 39 grados norte: compare su sol con el de un plan del norte. Se abre la tarde del 21 de junio de 2026. Diseño ilustrativo.",
     "description_ru": "Дворик за стенами в золотой час: олива и инжир в грунте, лимон и апельсин в кадках, пальма у бассейна, виноград на перголе над обеденным столом, лаванда и розмарин вдоль стен. Каменные плиты и терракота, два шезлонга и гирлянда. Ориентир: Валенсия, 39 градусов северной широты: сравните солнце с северным планом. Открывается вечером 21 июня 2026 года. Примерный проект.",
+    "description_fr": "Un patio clos à l’heure dorée : un olivier et un figuier en pleine terre, citronnier et oranger en bacs, un palmier de Chine près du bassin, une vigne sur la pergola au-dessus de la table. Lavande et romarin le long des murs. Dalles de pierre et terre cuite, deux chaises longues et une guirlande lumineuse. Référence : Valence, 39 degrés nord : comparez son soleil à celui d’un plan plus au nord. S’ouvre le soir du 21 juin 2026. Disposition illustrative.",
     "order": 2,
     "tags": ["mediterranean", "patio", "golden-hour"],
     "showcase_date": "2026-06-21", "showcase_utc_time": "18:25",

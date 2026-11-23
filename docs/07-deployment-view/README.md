@@ -20,7 +20,7 @@ flowchart TD
     Src([Source Code])
     PI["PyInstaller<br/>(--onedir, installer/ogp.spec)<br/>bundles Python 3.11 + locked deps + resources,<br/>windowed mode, app icon"]
     Bundle["dist/OpenGardenPlanner/<br/>~611 MiB (local v1.29.6 measurement)"]
-    NSIS["NSIS Installer Script<br/>(installer/ogp_installer.nsi)<br/>wizard, Start Menu + desktop shortcut,<br/>file association, upgrade detection,<br/>EN+DE languages"]
+    NSIS["NSIS Installer Script<br/>(installer/ogp_installer.nsi)<br/>wizard, Start Menu + desktop shortcut,<br/>file association, upgrade detection,<br/>five installer languages"]
     Out["OpenGardenPlanner-v1.29.6-Setup.exe<br/>~171 MiB download (LZMA solid)"]
 
     Src --> PI --> Bundle --> NSIS --> Out
@@ -132,7 +132,7 @@ build.
 | **Uninstaller** | Clean removal via Add/Remove Programs |
 | **User-Data Preservation** | Before wiping `$INSTDIR`, the uninstaller copies any `*.ogp` plans found there to `Documents\Open Garden Planner\Recovered Plans` (issue #199) |
 | **Installer Size** | v1.29.6 download: 178,834,358 bytes (~171 MiB), measured from release metadata on 2026-10-09. Local frozen folder: ~611 MiB. Allow at least 1 GiB for the application plus temporary/download and user-data storage. These are dated measurements, not fixed limits. |
-| **Languages** | English, German |
+| **Languages** | The interactive wizard offers English, German, Spanish, Russian and French at startup. |
 
 > **Why user-data preservation matters (issue #199):** The uninstall section runs
 > `RMDir /r "$INSTDIR"`, and the upgrade path silently invokes the *old* uninstaller
@@ -663,8 +663,8 @@ midnight are not knowable from counters. The original CSVs remain exact window r
 downloads (`new_total > 0 and normal_total == 0`).
 
 The Qt-free report uses only the Python standard library and local HTML/CSS/JavaScript,
-with no CDN, browser API calls or app telemetry. Website text uses complete English/German/Spanish
-catalogs (`messages.json`, checked by report tests), independent of desktop Qt catalogs.
+with no CDN, browser API calls or app telemetry. Website text uses complete
+catalogs (`messages.json`, checked by report tests; `en`/`de`/`es`/`fr`/`ru`), independent of desktop Qt catalogs.
 Language follows the browser; appearance follows the system with light/dark overrides.
 Bars have accessible `role="img"` + `aria-label` descriptions, Left/Right, Home/End and Escape
 navigation, and a single HTML `#tooltip` overlay (no duplicate SVG `<title>`) showing observation

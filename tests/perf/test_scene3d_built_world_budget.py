@@ -4,19 +4,22 @@ Every built-world item of the two bench plans — buildings, fences, walls, beds
 containers, hedges — through ``SceneSync`` (production registry) into a
 ``RecordingSink``: how long the builders take and how many triangles they make.
 
-Measured on the dev box (Windows 11, Python 3.12.9, 2026-10-11, 30 runs each;
-INFORMATION, not assertions — the look pass will move the triangle counts):
+Measured on the dev box (Windows 11, Python 3.11.9, 2026-11-23, 30 runs each;
+INFORMATION, not assertions — a look pass moves the triangle counts):
 
 ==================  =====  =========  ======================  ===========
 plan                items  triangles  median build (ms)       budget (ms)
 ==================  =====  =========  ======================  ===========
-bench_small.ogp     15     16,874     9.8 idle / 18.4 loaded  40
-bench_large.ogp     28     22,482     18.7 idle / 23.6 loaded  60
+bench_small.ogp     15     30,606     20.6 idle               40
+bench_large.ogp     28     71,614     48.8 idle               60
 ==================  =====  =========  ======================  ===========
 
-("loaded": a second test run and a renderer sharing the machine.) Where the time
-goes: a hedge at its 6,000-leaf cap (12,010 triangles) ~4 ms, a 24 m picket
-fence ~1.5 ms, a raised bed ~0.4 ms (24 of them on bench_large), a house ~1 ms.
+(#954 raised the hedge's leaf budget from 6,000 a plan to 600 a metre with a
+30,000-leaf plan cap: the two bench hedges are 21.9 m and 60.3 m. The triangles are
+what a long hedge needs to read as a hedge rather than a painted wall; the median
+build time stays under its budget.) Where the time goes: the bench_large hedge at
+the 30,000-leaf plan cap (60,010 triangles) ~30 ms, a 24 m picket fence ~1.5 ms, a
+raised bed ~0.4 ms (24 of them on bench_large), a house ~1 ms.
 
 Three tripwires, each for a different failure:
 
@@ -68,7 +71,7 @@ WARMUP = 3
 #: plan → median build budget in ms (gate G7)
 BUILD_BUDGET_MS: dict[str, float] = {"bench_small.ogp": 40.0, "bench_large.ogp": 60.0}
 #: plan → the most triangles its whole built world may have
-PLAN_TRIANGLE_BUDGET: dict[str, int] = {"bench_small.ogp": 25_000, "bench_large.ogp": 35_000}
+PLAN_TRIANGLE_BUDGET: dict[str, int] = {"bench_small.ogp": 35_000, "bench_large.ogp": 80_000}
 #: plan → kind → how many items of it the plan holds (the fixtures' own content)
 ITEMS: dict[str, dict[str, int]] = {
     "bench_small.ogp": {"CONTAINER_ROUND": 3, "FENCE": 2, "GARAGE_SHED": 1, "GARDEN_BED": 3,

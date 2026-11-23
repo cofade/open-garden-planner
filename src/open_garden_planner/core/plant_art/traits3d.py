@@ -56,6 +56,7 @@ CROWN_SHAPES: Final[frozenset[str]] = frozenset({
     "weeping",
     "conical",
     "tiered",
+    "umbrella",
     "fan",
     "mound",
     "flat",
@@ -206,11 +207,17 @@ class Traits3D:
     #: ``core/phenology.py`` holds its leaves at this share until the last quarter of the
     #: bloom window, when they unfold. 1.0: flowering does not change its leaves.
     bloom_leaf_density: float = 1.0
+    #: Northern-Hemisphere months in which the plant has leaves, for a plant whose
+    #: foliage follows a season of its own rather than ``deciduous`` (#963): a spring
+    #: bulb is up from late winter to early summer and gone after. Empty: the
+    #: deciduous/evergreen rule decides.
+    leaf_months: tuple[int, ...] = ()
 
     @property
     def evergreen(self) -> bool:
-        """True when the plant retains its foliage through winter."""
-        return not self.deciduous
+        """True when the plant retains its foliage through winter. A spring bulb that
+        dies back in summer (#963) is dormant, not evergreen."""
+        return not self.deciduous and not self.leaf_months
 
 
 def fruit_months_from_harvest_window(
@@ -308,6 +315,16 @@ _PERENNIAL_FRUIT_MONTHS: Final[dict[str, tuple[int, ...]]] = {
     "currant": (6, 7, 8),
     "grape_vine": (9, 10),
     "fruit_tree": (8, 9, 10),
+}
+
+#: Spring bulbs that die back (#963): their leaves follow a window of their own, not
+#: the deciduous rule (they would be bare in December-February and leafed all summer).
+#: Crocus and daffodil are up from late winter; a tulip follows in March; all are gone
+#: by July. Illustrative like the bloom months, and read on the same seasonal month.
+_BULB_LEAF_MONTHS: Final[dict[str, tuple[int, ...]]] = {
+    "crocus": (2, 3, 4, 5, 6),
+    "daffodil": (2, 3, 4, 5, 6),
+    "tulip": (3, 4, 5, 6),
 }
 
 #: Curated Northern-Hemisphere illustrative bloom months ``(1..12)`` per recipe stem.
@@ -847,14 +864,18 @@ def _build_traits(group: str, stem: str, recipe: Recipe) -> Traits3D:
         is_pine = stem == "pine"
         is_juniper = stem == "juniper"
         crown = CrownTraits(
-            shape="tiered" if not is_juniper else "conical",
-            trunk_share=0.22 if is_pine else (0.08 if is_juniper else 0.12),
-            taper=0.65 if is_pine else 0.82,
-            droop=0.28 if is_pine else 0.48,
+            # #960: a Scots pine is an umbrella, not a spruce cone: a long bare trunk
+            # (its crown starts above half its height) and a broad, flat-topped head.
+            shape="umbrella" if is_pine else ("conical" if is_juniper else "tiered"),
+            trunk_share=0.55 if is_pine else (0.08 if is_juniper else 0.12),
+            taper=0.30 if is_pine else 0.82,
+            droop=0.15 if is_pine else 0.48,
             aspect_xy=1.0,
         )
         branching = BranchingTraits(220, 2.4, 0.020, 0.25, 0.05, BARK_PINE, 1.0)
-        leaf = LeafTraits("needle", round(14.0 * leaf_scale, 2), 0.35, leaf_scale, frilly, narrow)
+        # #960 review: pine needles are short and narrow, not the broad blades a
+        # generic conifer leaf gets; the umbrella builder keeps this scale.
+        leaf = LeafTraits("needle", round(6.0 * leaf_scale, 2), 0.18, leaf_scale, frilly, narrow)
         return Traits3D(
             ref, archetype, pal, crown, branching, leaf, False,
             bloom_months, blossom_spec, fruit_months, harvest_weeks, pal,
@@ -919,6 +940,7 @@ def _build_traits(group: str, stem: str, recipe: Recipe) -> Traits3D:
         return Traits3D(
             ref, archetype, pal, crown, branching, leaf, False,
             bloom_months, blossom_spec, fruit_months, harvest_weeks, pal,
+            leaf_months=_BULB_LEAF_MONTHS.get(stem, ()),
         )
 
     if archetype == "feathery":

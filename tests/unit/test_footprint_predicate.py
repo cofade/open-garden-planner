@@ -43,7 +43,7 @@ KINDS = (
     "rectangle", "circle", "ellipse", "polygon", "polyline",
     "text", "group", "callout", "arc", "bezier", "journal pin",
     "smart symbol", "construction line", "construction circle", "soil badge",
-    "background image",
+    "background image", "reference point",
 )
 
 
@@ -84,6 +84,12 @@ def _item(kind: str) -> Any:
         return SoilBadgeItem(RectangleItem(0.0, 0.0, 100.0, 60.0), "bed-1")
     if kind == "background image":
         return BackgroundImageItem("missing.png", _placeholder=True)
+    if kind == "reference point":
+        from open_garden_planner.ui.canvas.items.reference_point_item import (
+            ReferencePointItem,
+        )
+
+        return ReferencePointItem(50.0, 50.0, 3.0)
     raise AssertionError(kind)
 
 

@@ -106,9 +106,10 @@ from PyQt6.QtWidgets import (
 )
 
 from open_garden_planner.core.measurement_display import length_text
-from open_garden_planner.core.phenology import plan_latitude
+from open_garden_planner.core.phenology import plan_latitude, seasonal_ground_tint
 from open_garden_planner.core.plain_text import clip_text, log_text
 from open_garden_planner.core.scene3d.camera import FOV_DEG, OrbitCamera
+from open_garden_planner.ui.sim_clock_subscription import connect_qobject
 from open_garden_planner.ui.units_notifier import units_notifier
 
 from .analysis_modes import DrapeMode
@@ -151,6 +152,10 @@ _LOG: Final = logging.getLogger(__name__)
 MIN_PANE_WIDTH: Final = 220
 #: The camera is stepped at this interval while it moves.
 CAMERA_STEP_MS: Final = 16
+#: How long the live 3D camera must rest before fitting its shadow map to the casters
+#: (#894): while moving, the view keeps the stable texel-locked map so shadow edges do not
+#: crawl; once resting, it switches to the sharper fitted map so preview matches saved photo.
+SHADOW_FIT_DELAY_MS: Final = 250
 #: The health poll: fast until the first frame was presented, then slow.
 HEALTH_FAST_MS: Final = 200
 HEALTH_SLOW_MS: Final = 2000
@@ -445,6 +450,7 @@ class Workspace(QWidget):
         self._scene: QGraphicsScene | None = None
         self._clock: SimClock | None = None
         self._location: LocationProvider = lambda: None
+        self._ground_season: tuple[float, float, float] | None = None
         self._north: Callable[[], float] = lambda: 0.0
         self._ui_state: Any = None
         self._pane: _Pane3D | None = None
@@ -460,6 +466,7 @@ class Workspace(QWidget):
         #: The (yaw, pitch) the open document is first framed from; None: the default side.
         self._opening_side: tuple[float, float] | None = None
         self._camera_stepped_at = 0.0
+        self._shadows_fitted = False
         self._first_frame_seen = False
         self._qml_warnings_seen = 0
         self._split_sizes: list[int] | None = None
@@ -467,6 +474,7 @@ class Workspace(QWidget):
         self._build_pending = False   # a first pass waits for its notice to be painted
         self._retired = 0             # items that lost their Models since the last release
         self._applied_at = 0.0        # when the pipeline last worked (``_now``)
+        self._playback_active = False  # toolbar time/date animation running (#996)
         #: What the status line has to say, by kind (``_NOTICE_ORDER``); the first kind
         #: that has a text is shown. A notice stays until what it says is over.
         self._notices: dict[str, str] = {}
@@ -483,6 +491,10 @@ class Workspace(QWidget):
         self._camera_timer = QTimer(self)
         self._camera_timer.setInterval(CAMERA_STEP_MS)
         self._camera_timer.timeout.connect(self._step_camera)
+        # #894: fit the live view's shadow map once the camera rests for SHADOW_FIT_DELAY_MS
+        self._shadow_fit_timer = QTimer(self)
+        self._shadow_fit_timer.setSingleShot(True)
+        self._shadow_fit_timer.timeout.connect(self._fit_resting_shadows)
         self._health_timer = QTimer(self)
         self._health_timer.timeout.connect(self._poll_health)
         # one single-shot timer for both ways a held first pass is let go: 0 ms after
@@ -534,6 +546,7 @@ class Workspace(QWidget):
         self._north = north or (lambda: 0.0)
         self._ui_state = ui_state
         self._living.connect_clock(clock)  # L5: a new plan date may change today's weather
+        connect_qobject(clock.date_changed, self._on_clock_date_changed)
         replaced = getattr(scene, "document_replaced", None)  # a CanvasScene has it
         if replaced is not None:
             replaced.connect(self.document_changed)
@@ -913,20 +926,23 @@ class Workspace(QWidget):
             self._update_compat_notice()
             return
         self._host, self._controller, self._input = host, controller, orbit
+        self._ground_season = None
         self._look = look
         look.set_southern(self._southern())  # L5: where the place's noon stands
-        self._living.wire(look)  # L5: the session's weather, the life switch
+        if self._playback_active:
+            look.hold_preset(True)
+        self._living.wire(look)  # L5: the plan's weather, the life switch
         if self.engine_factory is quick3d_engine:
             from ...core.plant_forge import ForgeCache
             from .forge_worker import ForgeWorker
 
-            # Render gates use the production path too. The private cache belongs
-            # exclusively to this worker's synthesis thread.
+            # Render gates use the production path too.
             self._forge_worker = ForgeWorker(
                 sink, cache=ForgeCache(max_entries=256), background=True,
                 # the plants' seasons, and from them the garden's life (L5)
                 season_sink=self._living.season_sink(host),
             )
+            controller.set_plant_preparer(self._forge_worker.prepare_for_sync)
         else:
             self._forge_worker = None
         orbit.moved.connect(self._start_camera)
@@ -969,6 +985,7 @@ class Workspace(QWidget):
         if controller is None or self._host is None:
             self._health_timer.stop()
             self._camera_timer.stop()
+            self._shadow_fit_timer.stop()
             self._drop_held_build()
             return
         if not showing:
@@ -980,6 +997,8 @@ class Workspace(QWidget):
             controller.set_active(False)
             self._health_timer.stop()
             self._camera_timer.stop()
+            self._shadow_fit_timer.stop()
+            self._set_shadows_fitted(False)
             if not self._first_frame_seen:
                 # The poll that confirms the first frame has just stopped. A start
                 # marker left on disk now would be read as a death by a second
@@ -1132,6 +1151,7 @@ class Workspace(QWidget):
         except Exception:  # noqa: BLE001 - the health poll reports a host that died
             _LOG.debug("3D workspace: the camera could not be set", exc_info=True)
         self._schedule_xray()  # L2.4: the occluders follow the camera once it rests
+        self._schedule_shadow_fit()  # #894: fit shadows once the camera rests
         self._living.camera_moved(target)  # L5: the lamps that light are the nearest
         worker = self._forge_worker
         if worker is not None:
@@ -1140,18 +1160,48 @@ class Workspace(QWidget):
             if worker.pending_count and self._pane_is_showing():
                 self._forge_timer.start(10)
 
+    def _set_shadows_fitted(self, fitted: bool) -> None:
+        """Switch the live host's shadow-map fit only when the state actually changes (#894)."""
+        host = self._host
+        if host is None:
+            self._shadows_fitted = False
+            return
+        if self._shadows_fitted == fitted:
+            return
+        try:
+            host.set_fitted_shadows(fitted)
+            self._shadows_fitted = fitted
+        except Exception:  # noqa: BLE001 - the health poll reports a host that died
+            _LOG.debug("3D workspace: shadow-map fit could not be updated", exc_info=True)
+
+    def _schedule_shadow_fit(self) -> None:
+        """Unlock the shadow map during camera motion and schedule a sharp fit at rest (#894)."""
+        self._set_shadows_fitted(False)
+        self._shadow_fit_timer.stop()
+        if (self._host is not None and self._pane_is_showing()
+                and not self._camera.moving and not self._camera_timer.isActive()):
+            self._shadow_fit_timer.start(SHADOW_FIT_DELAY_MS)
+
+    def _fit_resting_shadows(self) -> None:
+        if (self._host is not None and self._pane_is_showing()
+                and not self._camera.moving and not self._camera_timer.isActive()):
+            self._set_shadows_fitted(True)
+
     def _start_camera(self) -> None:
-        if self._camera.moving and self._pane_is_showing() and not self._camera_timer.isActive():
-            self._camera_stepped_at = time.perf_counter()
-            self._camera_timer.start()
+        if self._camera.moving and self._pane_is_showing():
+            self._set_shadows_fitted(False)
+            self._shadow_fit_timer.stop()
+            if not self._camera_timer.isActive():
+                self._camera_stepped_at = time.perf_counter()
+                self._camera_timer.start()
 
     def _step_camera(self) -> None:
         now = time.perf_counter()
         moving = self._camera.step(now - self._camera_stepped_at)
         self._camera_stepped_at = now
-        self._apply_camera()
         if not moving or not self._pane_is_showing():
             self._camera_timer.stop()  # at rest: no idle wake-ups
+        self._apply_camera()
 
     def _on_document_shown(self) -> None:
         """The first pass of a document is in the engine: frame it, at once."""
@@ -1215,6 +1265,13 @@ class Workspace(QWidget):
             self._look.set_southern(self._southern())  # L5: and so was its noon
         if self._controller is not None:
             self._controller.refresh_sun()
+            # #943: a hemisphere switch changes seasonal_ground_tint, so baked LAWN
+            # tiles and 3D blades must re-snapshot alongside the meadow shader uniform.
+            if (self._controller.pass_date is not None
+                    and seasonal_ground_tint(
+                        self._controller.pass_date, plan_latitude(self._location()),
+                    ) != self._ground_season):
+                self._controller.mark_dirty()
         if self._analysis is not None:
             self._analysis.location_changed()  # L2: the sun path is the place's
             self._update_legend()
@@ -1228,6 +1285,30 @@ class Workspace(QWidget):
         if self._analysis is not None:
             self._analysis.north_changed()
             self._update_legend()
+
+    def set_playback_active(self, active: bool) -> None:
+        """Hold automatic quality changes and defer RHI cache drops during toolbar playback (#996)."""
+        flag = bool(active)
+        if flag == self._playback_active:
+            return
+        self._playback_active = flag
+        if self._look is not None:
+            self._look.hold_preset(flag)
+        if not flag and self._retired >= RELEASE_NOW_RETIRED and self._pane_is_showing():
+            self._release_engine_caches()
+
+    def _on_clock_date_changed(self, day: Any) -> None:
+        """Evaluate seasonal plant shader uniforms on every date step (#995)."""
+        worker = self._forge_worker
+        if worker is None or not self._pane_is_showing():
+            return
+        loc = self._location()
+        frost = loc.get("frost_dates") if isinstance(loc, Mapping) else None
+        worker.scrub_date(
+            day,
+            latitude_deg=plan_latitude(loc),
+            frost_dates=frost if isinstance(frost, Mapping) else None,
+        )
 
     def _on_applied(self, report: TickReport) -> None:
         # A pass went through: the build is over, and so is a failed update. What the
@@ -1245,10 +1326,12 @@ class Workspace(QWidget):
             return
         # the look follows the sun the PIPELINE sent — the same pass, the same sun
         if self._look is not None and self._controller is not None:
+            self._look.pause_auto_sample()
             self._look.set_sun(self._controller.sync.sun)
+        self._show_ground_season()
         self._applied_at = _now()
         self._retired += report.retired
-        if self._retired >= RELEASE_NOW_RETIRED:
+        if self._retired >= RELEASE_NOW_RETIRED and not self._playback_active:
             self._release_engine_caches()  # a flood: not worth waiting for quiet
         if report.snapshot and self._forge_worker is not None:
             worker = self._forge_worker
@@ -1262,6 +1345,20 @@ class Workspace(QWidget):
         """The plan's place lies south of the equator (no location: the phenology's
         default, a northern one)."""
         return plan_latitude(self._location()) < 0.0
+
+    def _show_ground_season(self) -> None:
+        """Give the ground the plan date's grass colour (#943), when it changed."""
+        host, controller = self._host, self._controller
+        if host is None or controller is None or controller.pass_date is None:
+            return
+        tint = seasonal_ground_tint(controller.pass_date, plan_latitude(self._location()))
+        if tint == self._ground_season:
+            return
+        self._ground_season = tint
+        try:
+            host.set_meadow_season(tint)
+        except Exception as error:  # noqa: BLE001 - the look never takes the view down
+            _LOG.debug("3D workspace: the seasonal meadow tint could not be set", exc_info=error)
 
     def _refresh_forge(self) -> None:
         worker, controller = self._forge_worker, self._controller
@@ -1292,16 +1389,18 @@ class Workspace(QWidget):
         if worker is None or not self._pane_is_showing() or self._controller is None:
             return
         try:
-            upgraded = worker.step(max_items=1)
+            upgraded = worker.step(max_items=16)
         except Exception as error:  # recover through SceneSync's one reset path
             _log_failure("Plant Forge could not update the 3D view", error)
             worker.clear()
             self._controller.reset()
             return
         if upgraded:
+            if self._look is not None:
+                self._look.pause_auto_sample()
             self._applied_at = _now()
             self._retired += len(upgraded)
-            if self._retired >= RELEASE_NOW_RETIRED:
+            if self._retired >= RELEASE_NOW_RETIRED and not self._playback_active:
                 self._release_engine_caches()
         if worker.pending_count > 0 and self._pane_is_showing():
             self._forge_timer.start(10)
@@ -1440,6 +1539,8 @@ class Workspace(QWidget):
             self._say(_NOTICE_ENGINE, self.tr(
                 "The 3D view reported a problem. Details are in the log file."))
         if (self._retired >= RELEASE_AFTER_RETIRED and self._pane_is_showing()
+                and not self._playback_active
+                and (self._forge_worker is None or self._forge_worker.pending_count == 0)
                 and _now() - self._applied_at >= RELEASE_IDLE_S):
             self._release_engine_caches()
 
@@ -1550,6 +1651,8 @@ class Workspace(QWidget):
         self._unwire_selection()  # L1.8: walk mode ends, the canvas is let go
         self._unwire_analysis()   # L2: its timers and its sources
         self._camera_timer.stop()
+        self._shadow_fit_timer.stop()
+        self._shadows_fitted = False
         self._health_timer.stop()
         self._forge_timer.stop()
         if self._forge_worker is not None:

@@ -213,7 +213,7 @@
         {
           "path": ".agents/skills/debug-verbose/references/041-case-study-qgraphicspolygonitem-shape-is-the-stroke-envelope-not-the-outline-us-12-10.md",
           "sha256": "4f1309b3e67b335784ad7de100484d54fab5f135c079e5b271d3370c00c58c6e",
-          "current_sha256": "f41d53d598a70f0b5af03f336ebb9d783729b547abe3dbf9af25d2aaff243137"
+          "current_sha256": "1449cc2ea883adc6dd67382590be3d465cd121353085374571c46b4fb4c6ae7a"
         },
         {
           "path": ".agents/skills/debug-verbose/references/042-case-study-early-return-inside-a-paint-branch-silently-bypasses-later-draws-us-12-10-.md",
@@ -1058,7 +1058,7 @@
         {
           "path": ".agents/skills/ogp-architecture-contract/references/003-1-invariants-the-heart-of-this-skill.md",
           "sha256": "e465ebd6f8c9ad9470cff566901ec5795418fac90aeac5373e7d72d6034c8944",
-          "current_sha256": "d1d28f04e0883456c157a21e13af8ea17449f6a0777d842d7181efb2718ed933"
+          "current_sha256": "ed6554657b1fc344e5564f9381436ecf49e7d143994abe1c111753e70a1ccaa8"
         },
         {
           "path": ".agents/skills/ogp-architecture-contract/references/004-2-module-map-and-dependency-rules.md",
@@ -1613,7 +1613,7 @@
         {
           "path": ".claude/skills/debug-verbose/references/041-case-study-qgraphicspolygonitem-shape-is-the-stroke-envelope-not-the-outline-us-12-10.md",
           "sha256": "4f1309b3e67b335784ad7de100484d54fab5f135c079e5b271d3370c00c58c6e",
-          "current_sha256": "f41d53d598a70f0b5af03f336ebb9d783729b547abe3dbf9af25d2aaff243137"
+          "current_sha256": "1449cc2ea883adc6dd67382590be3d465cd121353085374571c46b4fb4c6ae7a"
         },
         {
           "path": ".claude/skills/debug-verbose/references/042-case-study-early-return-inside-a-paint-branch-silently-bypasses-later-draws-us-12-10-.md",
@@ -2458,7 +2458,7 @@
         {
           "path": ".claude/skills/ogp-architecture-contract/references/003-1-invariants-the-heart-of-this-skill.md",
           "sha256": "e465ebd6f8c9ad9470cff566901ec5795418fac90aeac5373e7d72d6034c8944",
-          "current_sha256": "d1d28f04e0883456c157a21e13af8ea17449f6a0777d842d7181efb2718ed933"
+          "current_sha256": "ed6554657b1fc344e5564f9381436ecf49e7d143994abe1c111753e70a1ccaa8"
         },
         {
           "path": ".claude/skills/ogp-architecture-contract/references/004-2-module-map-and-dependency-rules.md",
@@ -3049,7 +3049,7 @@
     },
     {
       "pr": 902,
-      "reason": "PR #902 (#827) adds the sanctioned one-way OFF the stack to invariant 3: CommandManager.discard, plus the CreateItemCommand hand-back from CanvasView.add_item. Master in the same window refreshed the execute/register_applied citations in the same row, so the merged row carries both edits; current_sha256 is recomputed from the merged fragment and the original migration hashes are preserved. The same branch adds 6 lines to CanvasView.add_item, which pushed the debug-verbose case study 049 soil citation past the +/-20 window (1426 -> 1448) in both libraries; current_sha256 refreshed for those two twins, original migration hashes preserved. The same PR adds debug-verbose case study 234 (a ghost undo entry that outlived its annotation, #827) and its case-index row in both libraries \u2014 a new file, not a migrated fragment, so no extra hash is tracked.",
+      "reason": "PR #902 (#827) adds the sanctioned one-way OFF the stack to invariant 3: CommandManager.discard, plus the CreateItemCommand hand-back from CanvasView.add_item. Master in the same window refreshed the execute/register_applied citations in the same row, so the merged row carries both edits; current_sha256 is recomputed from the merged fragment and the original migration hashes are preserved. The same branch adds 6 lines to CanvasView.add_item, which pushed the debug-verbose case study 049 soil citation past the +/-20 window (1426 -> 1448) in both libraries; current_sha256 refreshed for those two twins, original migration hashes preserved. The same PR adds debug-verbose case study 234 (a ghost undo entry that outlived its annotation, #827) and its case-index row in both libraries — a new file, not a migrated fragment, so no extra hash is tracked.",
       "fragments": [
         ".agents/skills/ogp-architecture-contract/references/003-1-invariants-the-heart-of-this-skill.md",
         ".claude/skills/ogp-architecture-contract/references/003-1-invariants-the-heart-of-this-skill.md",

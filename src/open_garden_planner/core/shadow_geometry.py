@@ -569,12 +569,45 @@ def _frame_shadow_area_cm2(
 
 
 @lru_cache(maxsize=4096)
+def open_frame_effective_length(
+    frame: OpenFrame, height_cm: float, elevation_deg: float, azimuth_deg: float
+) -> float:
+    """The prism length an open frame really shades (#855).
+
+    The full ``height / tan a`` prism reaches past the frame's own topmost
+    member along the sun ray - a swing's top beam is mid-frame, so its prism's
+    far tip stands 71 cm past the beam's shadow. The frame's far tip is the
+    largest ``x*dx + y*dy + z/tan a`` of its members; the prism is trimmed to
+    that reach, minus the footprint's own reach, so its far edge lands on the
+    real shadow's tip. Nothing else about the weighted model changes.
+    """
+    length = shadow_length_cm(height_cm, elevation_deg)
+    if length is None or not frame.triangles:
+        return 0.0
+    import numpy as np
+
+    direction = shadow_direction_scene(azimuth_deg + frame.rotation_deg)
+    corners = np.asarray(frame.triangles, dtype=np.float64).reshape(-1, 3, 3)
+    along = corners[:, :, 0] * direction[0] + corners[:, :, 1] * direction[1]
+    reach = along + np.maximum(corners[:, :, 2], 0.0) / math.tan(math.radians(elevation_deg))
+    frame_far = float(reach.max())
+    footprint = np.asarray(frame.footprint, dtype=np.float64)
+    if footprint.size:
+        footprint_far = float(
+            (footprint[:, 0] * direction[0] + footprint[:, 1] * direction[1]).max()
+        )
+    else:
+        footprint_far = 0.0
+    return float(max(0.0, min(length, frame_far - footprint_far)))
+
+
+@lru_cache(maxsize=4096)
 def _open_frame_transmittance(
     frame: OpenFrame, height_cm: float, elevation_deg: float, azimuth_deg: float
 ) -> float:
-    length = shadow_length_cm(height_cm, elevation_deg)
-    if length is None:
-        return 1.0
+    if shadow_length_cm(height_cm, elevation_deg) is None:
+        return 1.0  # no height: no shadow at all
+    length = open_frame_effective_length(frame, height_cm, elevation_deg, azimuth_deg)
     # in the frame's own coordinates: the item turned counter-clockwise by t sees the
     # sun at the bearing it has in the scene plus t (a bearing runs clockwise)
     direction = shadow_direction_scene(azimuth_deg + frame.rotation_deg)
@@ -591,13 +624,14 @@ def open_frame_transmittance(
     """The share of the sun an open frame lets through, in ``[0.0, 1.0]`` (#698).
 
     ``1 - A(frame) / A(prism)``: ``A(prism)`` is the ground shadow of the caster the
-    2D model casts — the frame's footprint, ``height_cm`` high — and ``A(frame)`` the
-    ground shadow of the frame's own solid members, both for this sun. The prism
-    keeps its shape — it is where the shade can fall — and this number is how dark
-    it is there: the frame's shade, spread evenly over the prism's. So the shade
-    the 2D model reports, area times depth, is the frame's real shadow area, at
-    every elevation and azimuth and for every size and turn of the item — nothing
-    is tabulated.
+    2D model casts — the frame's footprint swept to its own far member tip
+    (``open_frame_effective_length``, #855) — and ``A(frame)`` the ground shadow of
+    the frame's own solid members, both for this sun. The trimmed prism keeps its
+    shape — it is where the shade can fall — and this number is how dark it is
+    there: the frame's shade, spread evenly over the prism's. So the shade the 2D
+    model reports, area times depth, is the frame's real shadow area, at every
+    elevation and azimuth and for every size and turn of the item — nothing is
+    tabulated.
 
     ``azimuth_deg`` is the sun's bearing in the SCENE; the frame's turn is the
     frame's own (``OpenFrame.rotation_deg``). A base under the caster moves the
@@ -645,6 +679,54 @@ def caster_transmittance(
     return 0.0
 
 
+def slice_open_frame_for_elevation(
+    frame: OpenFrame | None,
+    base_cm: float,
+    elev_cm: float,
+) -> OpenFrame | None:
+    """Slice an open frame's members above ``elev_cm``, with ``z`` measured from the slice's base.
+
+    Shared by ``compute_weighted_shadows(..., receiver_elev_cm=...)`` and
+    ``shade_aggregation._slice_frame_for_elevation`` so every elevated open-frame
+    projection and transmittance query evaluates the exact same sliced geometry (#855).
+    """
+    if frame is None or elev_cm <= 0.0 or base_cm >= elev_cm:
+        return frame
+    sliced: list[Triangle3D] = []
+    for tri in frame.triangles:
+        clipped = _clip_triangle_above_z(tri, base_cm, elev_cm)
+        if len(clipped) < 3:
+            continue
+        shifted = [(x, y, max(0.0, z - elev_cm)) for x, y, z in clipped]
+        sliced.append((shifted[0], shifted[1], shifted[2]))
+        if len(shifted) == 4:
+            sliced.append((shifted[0], shifted[2], shifted[3]))
+    return frame.with_triangles(tuple(sliced))
+
+
+def _caster_shadow_length(
+    height_cm: float,
+    elevation_deg: float,
+    azimuth_deg: float,
+    frame: OpenFrame | None = None,
+) -> float | None:
+    """Swept prism length for one caster, trimming open frames to their far tip (#855).
+
+    Shared by ``compute_grouped_shadows`` and ``compute_weighted_shadows`` so
+    ground-level and elevated receivers always sweep identical open-frame geometry.
+    An open frame with no members (for instance after slicing above a raised bed)
+    casts no shadow and returns ``None``.
+    """
+    length = shadow_length_cm(height_cm, elevation_deg)
+    if length is None:
+        return None
+    if frame is not None:
+        if not frame.triangles:
+            return None
+        return open_frame_effective_length(frame, height_cm, elevation_deg, azimuth_deg)
+    return length
+
+
 def compute_grouped_shadows(
     casters: Iterable[GroupedCaster | tuple[Sequence[Sequence[Point]], float]],
     elevation_deg: float,
@@ -660,6 +742,9 @@ def compute_grouped_shadows(
     ``(footprints, height_cm)`` pair stands on the ground. By TYPE, never by
     length (``caster_fields``). When ``roof_triangles`` is present on a
     ``GroupedCaster``, its 3D structural triangles are projected directly (#440).
+    When ``frame`` is present, its swept length is trimmed via
+    ``open_frame_effective_length`` (#855) so elevated receivers match
+    ``compute_weighted_shadows``.
     """
     direction = shadow_direction_scene(azimuth_deg)
     all_paths: list[list[tuple[int, int]]] = []
@@ -672,13 +757,14 @@ def compute_grouped_shadows(
             height = caster.height_cm
             base = caster.base_cm
             roof_tris = caster.roof_triangles
+            frame = caster.frame
         elif type(caster) is tuple and len(caster) == 2:
-            footprints, height, base, roof_tris = caster[0], caster[1], 0.0, ()
+            footprints, height, base, roof_tris, frame = caster[0], caster[1], 0.0, (), None
         else:
             raise TypeError(
                 "a grouped caster is a GroupedCaster or a (footprints, height_cm) tuple, "
                 f"not {type(caster).__name__}")
-        length = shadow_length_cm(height, elevation_deg)
+        length = _caster_shadow_length(height, elevation_deg, azimuth_deg, frame)
         paths: list[list[tuple[int, int]]] = []
         if length is not None:
             if roof_tris:
@@ -727,15 +813,15 @@ def compute_weighted_shadows(
             height = caster.height_cm
             base = float(getattr(caster, "base_cm", 0.0) or 0.0)
             roof_tris = getattr(caster, "roof_triangles", ()) or ()
+            frame = getattr(caster, "frame", None)
         elif type(caster) is tuple and len(caster) == 2:
-            footprints, height, base, roof_tris = caster[0], caster[1], 0.0, ()
+            footprints, height, base, roof_tris, frame = caster[0], caster[1], 0.0, (), None
         else:
             raise TypeError(
                 "a weighted caster must provide footprints and height_cm, "
                 f"not {type(caster).__name__}"
             )
-        trans = caster_transmittance(caster, elevation_deg, azimuth_deg)
-        if trans >= 1.0 or height is None or height <= 0.0:
+        if height is None or height <= 0.0:
             owner_int_paths.append([])
             owner_transmittances.append(1.0)
             owned_shadows.append(([], 1.0))
@@ -743,9 +829,34 @@ def compute_weighted_shadows(
 
         top = base + height
         if top <= receiver_elev_cm:
+            trans = caster_transmittance(caster, elevation_deg, azimuth_deg)
             owner_int_paths.append([])
             owner_transmittances.append(trans)
             owned_shadows.append(([], trans))
+            continue
+
+        eff_base = max(base, receiver_elev_cm) - receiver_elev_cm
+        eff_height = top - max(base, receiver_elev_cm)
+        sliced_frame = (
+            slice_open_frame_for_elevation(frame, base, receiver_elev_cm)
+            if frame is not None and receiver_elev_cm > 0.0
+            else frame
+        )
+        if sliced_frame is not None and receiver_elev_cm > 0.0:
+            explicit = getattr(caster, "transmittance", None)
+            trans = (
+                float(min(1.0, max(0.0, float(explicit))))
+                if explicit is not None
+                else open_frame_transmittance(
+                    sliced_frame, eff_height, elevation_deg, azimuth_deg
+                )
+            )
+        else:
+            trans = caster_transmittance(caster, elevation_deg, azimuth_deg)
+        if trans >= 1.0:
+            owner_int_paths.append([])
+            owner_transmittances.append(1.0)
+            owned_shadows.append(([], 1.0))
             continue
 
         paths: list[list[tuple[int, int]]] = []
@@ -758,9 +869,9 @@ def compute_weighted_shadows(
                 receiver_elev_cm=receiver_elev_cm,
             )
         else:
-            eff_base = max(base, receiver_elev_cm) - receiver_elev_cm
-            eff_height = top - max(base, receiver_elev_cm)
-            length = shadow_length_cm(eff_height, elevation_deg)
+            # #855: an open frame's prism ends at its own topmost member's shadow,
+            # not at height/tan a (a swing's beam is mid-frame).
+            length = _caster_shadow_length(eff_height, elevation_deg, azimuth_deg, sliced_frame)
             if length is not None:
                 start = base_offset_cm(eff_base, elevation_deg)
                 for footprint in footprints:

@@ -46,7 +46,11 @@ from open_garden_planner.core.scene3d.context import (
     with_context,
 )
 from open_garden_planner.core.scene3d.pick_oracle import pick_scene
-from open_garden_planner.core.scene3d.polygon import RegionTooLargeError, group_rings
+from open_garden_planner.core.scene3d.polygon import (
+    RegionTooLargeError,
+    group_rings,
+    point_in_ring,
+)
 from open_garden_planner.core.scene3d.record import BUILD_ONLY_PARAMS, Params
 from open_garden_planner.core.shadow_geometry import polyline_round_outline
 from tests.unit.scene3d_builder_cases import (
@@ -72,6 +76,117 @@ def test_tiny_raised_ponds_are_valid_prisms(size_cm, height_cm) -> None:
     parts = verify_builder(REGISTRY.builder_for("POND_POOL"), record, plan_margin_cm=10.0)
     assert parts
     assert max(float(part.mesh.positions[:, 2].max()) for part in parts) == pytest.approx(height_cm)
+
+
+def test_moss_is_a_low_dense_cushion_and_sand_is_raked() -> None:
+    """#960: the Japanese garden's moss and raked-sand court have looks of their own,
+    moss gets MOSS_BLADES_PER_M2 through with_context, and hostile comb sand is capped."""
+    lawn = polygon_record("LAWN", rectangle(400.0, 300.0), None,
+                          params={"surface_pattern": "MOSS"})
+    records = {lawn.item_id: lawn}
+    with_context(records)
+    # 12 m² at 1800/m² = 21,600 (clamped by MAX_BLADES), well above regular 220/m² (2,640)
+    assert records[lawn.item_id].params["lawn_blades"] > int(surfaces.BLADES_PER_M2 * 12.0) * 3
+    blades = REGISTRY.build(records[lawn.item_id])
+    assert len(blades) == 1 and blades[0].name == surfaces.LAWN_BLADES
+    assert float(blades[0].mesh.positions[:, 2].max()) <= surfaces.MOSS_BLADE_CM * 1.3 + 0.31
+
+    zen = polygon_record("TERRACE_PATIO", rectangle(600.0, 420.0), None,
+                         params={"surface_pattern": "SAND"})
+    parts = REGISTRY.build(zen)
+    ridges = [part for part in parts if part.name == "raked_sand"]
+    assert ridges and ridges[0].ground_detail and ridges[0].casts_shadow is False
+    assert float(ridges[0].mesh.positions[:, 2].max()) <= surfaces.RAKED_SAND_HEIGHT_CM + 1e-4
+    assert len(ridges[0].mesh.positions) > 200
+
+    # Hostile comb polygon: stays under MAX_RELIEF_VERTICES but exceeds MAX_RAKED_RIDGES.
+    teeth = 60
+    comb = [(0.0, 0.0), (teeth * 20.0, 0.0)]
+    for i in range(teeth - 1, -1, -1):
+        x = i * 20.0
+        comb.extend([(x + 15.0, 1200.0), (x + 5.0, 1200.0), (x + 5.0, 20.0), (x, 20.0)])
+    hostile = polygon_record("TERRACE_PATIO", tuple(comb), None, params={"surface_pattern": "SAND"})
+    assert REGISTRY.build(hostile) == ()
+
+
+def test_a_raked_court_does_not_draw_a_ridge_across_an_island_above_it() -> None:
+    """#960 review round 2: the SAND court's cut-outs split the ridge rows, so no beam
+    crosses a moss island painted above it (the board's tan bands)."""
+    court = polygon_record("TERRACE_PATIO", rectangle(600.0, 420.0), None,
+                           params={"surface_pattern": "SAND"}, item_id="court")
+    island = dataclasses.replace(
+        polygon_record("LAWN", rectangle(100.0, 100.0), None,
+                       params={"surface_pattern": "MOSS"}, item_id="island"),
+        material=Material("LAWN", (200, 180, 140, 255), paint=Paint()))
+    records = {court.item_id: court, island.item_id: island}
+    with_context(records)
+    assert records[court.item_id].params.get("lawn_cutouts")
+    beams = surfaces._raked_sand(records[court.item_id])
+    assert beams
+    for beam in beams:
+        x0, x1 = float(beam.positions[:, 0].min()), float(beam.positions[:, 0].max())
+        y0, y1 = float(beam.positions[:, 1].min()), float(beam.positions[:, 1].max())
+        # The island is x/y in [-50, 50]; a beam may be beside it, never through it.
+        assert not (y0 < 50.0 and y1 > -50.0 and x0 < 50.0 and x1 > -50.0), (
+            x0, x1, y0, y1)
+
+
+def test_a_stepping_stone_paths_painted_stone_is_cut_out_of_the_rake() -> None:
+    """#998: the canvas paints a stepping stone centred on the path's end, so its
+    picture reaches 0.4 widths (22 cm at 55 cm) beyond the footprint. The court's
+    cut-out covers that painted stone, so no ridge is drawn across it."""
+    width = 55.0
+    court = polygon_record("TERRACE_PATIO", rectangle(600.0, 420.0), None,
+                           params={"surface_pattern": "SAND"}, item_id="court")
+    path = dataclasses.replace(
+        line_record("PATH", ((0.0, 0.0), (250.0, 0.0)), None, width=width,
+                    style="STEPPING_STONES", item_id="steps"),
+        material=Material("PATH", (200, 180, 140, 255), paint=Paint()))
+    records = {court.item_id: court, path.item_id: path}
+    with_context(records)
+    rings = records[court.item_id].params.get("lawn_cutouts", ())
+    half_along = 0.4 * width   # a stone is 0.8 widths long, centred on the walk
+    half_across = 0.3 * width  # and 0.6 widths across
+    walked = surfaces.walk_path(np.asarray(path.path, dtype=float), width * 1.8)[0]
+    # One cut-out per painted stone, not one corridor through the court.
+    assert len(rings) == len(walked)
+    assert any(point_in_ring(-half_along, 0.0, ring) for ring in rings), (
+        "the cut-out stops at the path footprint, not at the painted stone")
+    beams = surfaces._raked_sand(records[court.item_id])
+    assert beams
+    # The painted stone is a rounded rectangle (radius 2 cm): compare against its
+    # straight-sided core, not the corner the ridge's own 2.4 cm width may graze.
+    core_along, core_across = half_along - 2.0, half_across - 2.0
+    for beam in beams:
+        x0, x1 = float(beam.positions[:, 0].min()), float(beam.positions[:, 0].max())
+        y0, y1 = float(beam.positions[:, 1].min()), float(beam.positions[:, 1].max())
+        assert not (y0 < core_across and y1 > -core_across
+                    and x0 < core_along and x1 > -core_along), (
+            "a ridge crosses the painted stone", x0, x1, y0, y1)
+    # And the rake still runs between two stones: the corridor is not cut out.
+    assert any(x0 > 0.0 and x1 < 80.0 for x0, x1, *_ in (
+        (float(beam.positions[:, 0].min()), float(beam.positions[:, 0].max()))
+        for beam in beams)), "the whole stepping-stone corridor is cut out"
+
+
+def test_a_closed_stepping_stone_loop_cuts_its_stones_not_its_ring() -> None:
+    """#998: a closed stepping-stone loop is not a continuous surface either. Each
+    painted stone is cut out; the ground between stones stays raked and grassed."""
+    court = polygon_record("TERRACE_PATIO", rectangle(1000.0, 800.0), None,
+                           params={"surface_pattern": "SAND"}, item_id="court")
+    path = dataclasses.replace(
+        line_record("PATH", CLOSED_PATH, None, width=55.0, style="STEPPING_STONES",
+                    item_id="loop"),
+        material=Material("PATH", (200, 180, 140, 255), paint=Paint()))
+    records = {court.item_id: court, path.item_id: path}
+    with_context(records)
+    rings = records[court.item_id].params.get("lawn_cutouts", ())
+    line = np.asarray(CLOSED_PATH[:-1], dtype=float)
+    walked = surfaces.walk_path(np.concatenate([line, line[:1]]), 55.0 * 1.8)[0]
+    assert len(rings) == len(walked)
+    between = (walked[0] + walked[1]) / 2.0
+    assert not any(point_in_ring(float(between[0]), float(between[1]), ring) for ring in rings), (
+        "the loop's whole stroke is cut out, not its stones")
 
 
 def test_batched_lawn_mask_matches_even_odd_at_edges_holes_and_self_crossings() -> None:
@@ -113,7 +228,8 @@ PATH_STYLES = ["STEPPING_STONES", "WOODEN_BOARDWALK", "PAVED_PATH", "GRAVEL_PATH
 
 
 def test_the_surface_kinds() -> None:
-    assert {"PATH", "TERRACE_PATIO", "DRIVEWAY", "POND_POOL", "LAWN"} == SURFACE_KINDS
+    assert {"PATH", "TERRACE_PATIO", "DRIVEWAY", "POND_POOL", "LAWN",
+            "GENERIC_POLYGON"} == SURFACE_KINDS
 
 
 # ── paths ────────────────────────────────────────────────────────────────────
@@ -125,7 +241,10 @@ def test_the_surface_kinds() -> None:
 @pytest.mark.parametrize("width", [60.0, 100.0, 8.0])
 def test_a_path_s_relief_is_ground_detail_on_its_footprint(style, path, width) -> None:
     record = line_record("PATH", path, None, width=width, style=style)
-    parts = verify_builder(REGISTRY.builder_for("PATH"), record, plan_margin_cm=10.0)
+    # A stepping stone is centred on the 2D painter's walk, so an end stone stands
+    # 0.4 widths beyond the stroke; every other relief stays within 10 cm (#998).
+    margin = 0.5 * width + 1.0 if style == "STEPPING_STONES" else 10.0
+    parts = verify_builder(REGISTRY.builder_for("PATH"), record, plan_margin_cm=margin)
     assert all(part.ground_detail and not part.casts_shadow and part.tinted for part in parts)
     if style in (None, "DIRT_PATH") or width < surfaces.MIN_RELIEF_WIDTH_CM:
         assert parts == ()  # flat, or a 2D pattern rather than a path one walks on
@@ -176,7 +295,11 @@ def reach_outside(record) -> float:
 @pytest.mark.parametrize("width", [40.0, 90.0, 150.0])
 def test_no_relief_vertex_lies_more_than_10_cm_past_the_path(style, path, width) -> None:
     record = line_record("PATH", path, None, width=width, style=style)
-    assert reach_outside(record) <= (0.05 if style == "GRAVEL_PATH" else 10.0)
+    # A stepping stone is centred on the painter's walk, so a corner of an end stone
+    # is at most half a width (its half-diagonal) past the stroke (#998).
+    allowed = 0.05 if style == "GRAVEL_PATH" else (
+        0.5 * width + 1.0 if style == "STEPPING_STONES" else 10.0)
+    assert reach_outside(record) <= allowed
 
 
 @pytest.mark.parametrize("kind,params", [("TERRACE_PATIO", {}), ("TERRACE_PATIO", {"surface_pattern": "DECKING"}),
@@ -201,23 +324,27 @@ def test_the_stones_lie_where_the_2d_painter_draws_them() -> None:
     assert stones.mesh.triangle_count == per_stone * len(walked)  # every stone the 2D plan draws
 
 
-def test_the_end_stone_is_slid_onto_the_path_not_dropped() -> None:
-    """2D centres the first stone ON the path's end, half of it beyond; 3D slides it
-    half a stone along the path, onto the footprint."""
-    record = line_record("PATH", ((-500.0, 0.0), (500.0, 0.0)), None, width=60.0, style="STEPPING_STONES")
+def test_an_open_end_stone_is_where_the_2d_painter_draws_it() -> None:
+    """#998: the 3D stone mirrors the painter's walk, including the first stone centred
+    on an open end, half of it beyond the footprint (22 cm at 55 cm wide)."""
+    record = line_record("PATH", ((-500.0, 0.0), (500.0, 0.0)), None, width=60.0,
+                         style="STEPPING_STONES")
     (stones,) = REGISTRY.build(record)
     east = stones.mesh.positions[:, 0]
-    assert float(east.min()) == pytest.approx(-500.0, abs=0.5)
+    assert float(east.min()) == pytest.approx(-500.0 - 0.4 * 60.0, abs=0.5)
     assert float(east.max()) <= 500.0 + 0.5
 
 
-def test_a_stone_that_would_hang_off_a_tight_bend_is_slid_or_left_out() -> None:
+def test_every_stone_the_2d_painter_draws_on_a_tight_bend_is_built() -> None:
     one = line_record("PATH", ((0.0, 0.0), (100.0, 0.0)), None, width=100.0, style="STEPPING_STONES")
     per_stone = REGISTRY.build(one)[0].mesh.triangle_count
     record = line_record("PATH", HAIRPIN_PATH, None, width=100.0, style="STEPPING_STONES")
     walked = len(surfaces.walk_path(np.array(record.path), 180.0)[0])
-    (stones,) = verify_builder(REGISTRY.builder_for("PATH"), record, plan_margin_cm=10.0)
-    assert 0 < stones.mesh.triangle_count <= per_stone * walked
+    # The painted stone may stand beyond the stroke at an end or a bend; the cut-out
+    # that keeps grass and rake off it is the same walk (context._cutout_rings).
+    (stones,) = verify_builder(REGISTRY.builder_for("PATH"), record,
+                               plan_margin_cm=0.5 * 100.0 + 1.0)
+    assert stones.mesh.triangle_count == per_stone * walked
 
 
 def test_a_path_kilometres_long_gets_no_relief() -> None:
@@ -891,8 +1018,8 @@ def test_too_many_cutouts_keep_the_largest() -> None:
 
 
 def test_the_context_params_are_build_only() -> None:
-    assert {"door_wall", "lawn_cutouts", "lawn_blades", "roof_style", "roof_pitch_deg",
-            "roof_overhang_cm", "surface_pattern"} == BUILD_ONLY_PARAMS
+    assert {"door_wall", "hedge_leaves", "lawn_cutouts", "lawn_blades", "roof_style",
+            "roof_pitch_deg", "roof_overhang_cm", "surface_pattern"} == BUILD_ONLY_PARAMS
     lawn_record = polygon_record("LAWN", rectangle(800.0, 600.0), None)
     cut = dataclasses.replace(lawn_record, params=lawn_record.params.merged({"lawn_cutouts": ()}))
     assert not lawn_record.same_geometry(cut) and lawn_record.same_ground_geometry(cut)

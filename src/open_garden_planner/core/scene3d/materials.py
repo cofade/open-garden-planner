@@ -74,18 +74,21 @@ class SurfaceDetail:
 
 @dataclass(frozen=True, slots=True)
 class Surface:
-    """What a built part is made of: its roughness and specular amount (PBR, 0-1) and
-    its optional detail picture."""
+    """What a built part is made of: its roughness, specular amount (PBR, 0-1),
+    optional detail picture and linear albedo scale (1.0 = unscaled; < 1.0
+    compensates for matte diffuse lift so bright noon tiles/walls stay unclipped)."""
 
     name: str
     roughness: float
     specular: float
     detail: SurfaceDetail | None = None
+    albedo_scale: float = 1.0
 
 
 def _surface(name: str, roughness: float, specular: float,
-             detail: SurfaceDetail | None = None) -> tuple[str, Surface]:
-    return name, Surface(name, roughness, specular, detail)
+             detail: SurfaceDetail | None = None,
+             albedo_scale: float = 1.0) -> tuple[str, Surface]:
+    return name, Surface(name, roughness, specular, detail, albedo_scale)
 
 
 #: The surface a metal container's walls and a steel frame are made of.
@@ -96,32 +99,50 @@ STEEL_SURFACE: Final = "steel"
 #: plant's wood. ``Garden.qml``'s part components default to exactly these numbers.
 DEFAULT_SURFACE: Final = "default"
 
-#: Every surface (#803). The values sit in ``ogp-lush-cinematic`` §4's ranges; where §4
-#: has none, the issue's measured proposal (rubber / canvas, plastic, steel).
+#: Every surface (#803, #883, #884, #887, #957, #965). The values sit in
+#: ``ogp-lush-cinematic`` §4's ranges; glossy metals and glass panes sit at 0.70 so
+#: Ultra SSR does not shimmer (#883), concrete keeps specular off so flat roofs do not
+#: take a lilac sky-Fresnel cast at golden hour (#965), and bright matte mineral/tile
+#: surfaces carry a linear ``albedo_scale`` so noon roofs and walls stay unclipped (#884).
 SURFACES: Final = MappingProxyType(dict((
     _surface(DEFAULT_SURFACE, 0.78, 0.35),
-    _surface("wood", 0.75, 0.25),          # §4 wood 0.60-0.80
+    _surface("wood", 0.75, 0.25, albedo_scale=0.80),          # §4 wood 0.60-0.80 (#884: noon deck)
     _surface("wood_cladding", 0.80, 0.20,  # a shed's boarded walls (#801)
-             SurfaceDetail("WOOD", DETAIL_PLANAR, 128.0, 1.5, 3000.0)),
-    _surface("steel", 0.45, 0.50),         # §4 aluminium frames 0.30-0.50
-    _surface("iron", 0.60, 0.35),
-    _surface("enamel", 0.60, 0.15),
+             SurfaceDetail("WOOD", DETAIL_PLANAR, 128.0, 1.5, 3000.0),
+             albedo_scale=0.86),
+    _surface("steel", 0.70, 0.50),         # #883: >= 0.70 suppresses Ultra SSR noise
+    _surface("iron", 0.70, 0.35),          # #883: >= 0.70 suppresses Ultra SSR noise
+    _surface("enamel", 0.70, 0.15),        # #883: >= 0.70 suppresses Ultra SSR noise
+    _surface("corten", 0.82, 0.20,         # #957: weathered steel raised-bed frames
+             SurfaceDetail("CORTEN", DETAIL_PLANAR, 128.0, 0.7, 2500.0, 0.8),
+             albedo_scale=0.88),
     _surface("plastic", 1.0, 0.20),       # a pad facing a low sun: 8.0 degrees off its blue
     _surface("rubber", 0.95, 0.0),         # specular off (SPECULAR_OFF_AT): no grazing sheen
     _surface("canvas", 0.95, 0.0),
     _surface("terracotta", 0.85, 0.20),    # §4 terracotta pots 0.80-0.90
-    _surface("stone", 0.90, 0.15),
-    _surface("masonry", 0.90, 0.15,        # a garden wall's courses (#801)
-             SurfaceDetail("STONE", DETAIL_PLANAR, 256.0, 2.0, 4000.0, 0.8)),
-    _surface("plaster", 0.90, 0.15,        # §4 plaster walls 0.85-0.95 (#801)
-             SurfaceDetail("CONCRETE", DETAIL_PLANAR, 128.0, 1.0, 2000.0, 0.85)),
-    _surface("concrete", 0.90, 0.15),
+    _surface("stone", 0.90, 0.15, albedo_scale=0.85),
+    _surface("masonry", 0.90, 0.15,        # #801, #884, #887: ~21 cm courses (128 cm / 6)
+             SurfaceDetail("STONE", DETAIL_PLANAR, 128.0, 1.8, 3000.0, 0.75),
+             albedo_scale=0.82),
+    _surface("plaster", 0.90, 0.15,        # #801, #884: §4 plaster walls 0.85-0.95
+             SurfaceDetail("CONCRETE", DETAIL_PLANAR, 128.0, 1.0, 2000.0, 0.85),
+             albedo_scale=0.80),
+    _surface("concrete", 0.95, 0.0,        # #965: matte, no grazing sky Fresnel
+             albedo_scale=0.85),
+    _surface("concrete_wall", 0.92, 0.08,  # #957: textured architectural concrete raised beds
+             SurfaceDetail("CONCRETE", DETAIL_PLANAR, 128.0, 1.0, 2000.0, 0.85),
+             albedo_scale=0.85),
+    _surface("flat_roof", 0.95, 0.0,       # #965: dark matte EPDM/gravel roof, no golden-hour lilac
+             albedo_scale=0.45),
     _surface("soil", 0.95, 0.10),          # §4 bark, soil, mulch 0.85-0.95
-    _surface("roof_tile", 0.80, 0.15,      # §4 roof tiles 0.70-0.85 (roofMat's values)
-             SurfaceDetail("ROOF_TILES", DETAIL_UV, 256.0, 1.5, 4000.0, 0.6)),
-    _surface("shingle", 0.80, 0.15,
-             SurfaceDetail("SLATE", DETAIL_UV, 100.0, 1.5, 3000.0)),
-    _surface("glass_pane", 0.40, 0.40),    # an opaque window pane in a facade
+    _surface("roof_tile", 0.80, 0.15,      # #801, #884: §4 roof tiles 0.70-0.85
+             SurfaceDetail("ROOF_TILES", DETAIL_UV, 256.0, 1.5, 4000.0, 0.6),
+             albedo_scale=0.76),
+    _surface("roof_cap", 0.80, 0.15,       # #887: plain ridge cap so it stands out from tiles
+             albedo_scale=0.76),
+    _surface("shingle", 0.80, 0.15,        # #887: natural shingle scale & soft contrast (no patchwork)
+             SurfaceDetail("SLATE", DETAIL_UV, 128.0, 1.2, 3000.0, 0.35)),
+    _surface("glass_pane", 0.70, 0.40),    # #883: >= 0.70 suppresses Ultra SSR window flicker
     _surface("water", 0.30, 0.50),
     _surface("leaf", 0.82, 0.25),          # the foliage shaders' own values
     _surface("ember", 0.90, 0.10),

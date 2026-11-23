@@ -144,9 +144,10 @@ def test_the_badge_is_upright_and_where_it_was(qtbot) -> None:
 
 
 def test_a_new_theme_gives_the_badge_its_colours(qtbot) -> None:
-    from open_garden_planner.ui.theme import ThemeMode, apply_theme
+    from open_garden_planner.ui.theme import ThemeMode, apply_theme, is_dark_theme
 
     app = QApplication.instance()
+    previous = ThemeMode.DARK if is_dark_theme() else ThemeMode.LIGHT
     scene = CanvasScene(1200, 800)
     plant = _plant(scene)
     try:
@@ -158,7 +159,7 @@ def test_a_new_theme_gives_the_badge_its_colours(qtbot) -> None:
             plant, SunMismatch("plant", SunRequirement.FULL_SUN, 1.5, date(2026, 6, 21), "too_little"), "Tomato")
         dark = _painted_alone(plant._sun_badge, 240)
     finally:
-        apply_theme(app, ThemeMode.LIGHT)
+        apply_theme(app, previous)
     assert np.abs(light - dark).max() > 60
 
 

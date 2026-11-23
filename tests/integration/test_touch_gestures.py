@@ -35,6 +35,12 @@ def view(qtbot: object) -> CanvasView:
     return view
 
 
+def test_late_viewport_event_can_run_without_the_touch_flag(view: CanvasView, monkeypatch) -> None:
+    """Qt can call the filter while Python is clearing the view's attributes."""
+    monkeypatch.delattr(view, "_touch_gestures_enabled")
+    assert view.eventFilter(view.viewport(), QEvent(QEvent.Type.User)) is False
+
+
 class _Pinch(QPinchGesture):
     """A pinch gesture whose state a test can set (QGesture.state is read-only)."""
 

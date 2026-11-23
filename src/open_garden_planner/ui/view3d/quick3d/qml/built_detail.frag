@@ -31,7 +31,7 @@ vec3 engineLinear(vec3 c)
 void MAIN()
 {
     vec4 detail = texture(uDetailMap, vDetailUV);
-    vec3 albedo = vColor.rgb * engineLinear(uTintSrgb) * mix(1.0, detail.r * 2.5, uDetailContrast);
+    vec3 albedo = vColor.rgb * engineLinear(uTintSrgb) * uAlbedo * mix(1.0, detail.r * 2.5, uDetailContrast);
     albedo *= engineLinear(uWetTint);
     vec3 n = normalize(NORMAL);
     float lying = uSnowCover * smoothstep(0.35, 0.75, n.y);

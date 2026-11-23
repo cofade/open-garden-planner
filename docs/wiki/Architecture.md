@@ -7,7 +7,7 @@ Its detailed architecture follows [arc42](https://arc42.org/).
 
 | Subsystem | Responsibility |
 |---|---|
-| Application | Main window, document lifecycle, settings, UI state and the global Metric / Imperial (US) display preference. Geometry and Agent API lengths stay centimetres ([ADR-078](https://github.com/cofade/open-garden-planner/blob/master/docs/09-architecture-decisions/README.md#adr-078-a-unit-preference-over-the-centimetre-model-issue-673)). |
+| Application | Main window, document lifecycle, settings, UI state and per-quantity Metric / Imperial / Canada (mixed) / Custom display units (lengths, areas, volumes, temperature, precipitation, harvest mass). Geometry, saved files and Agent API units stay metric ([ADR-078](https://github.com/cofade/open-garden-planner/blob/master/docs/09-architecture-decisions/README.md#adr-078-a-unit-preference-over-the-centimetre-model-issue-673), [ADR-081](https://github.com/cofade/open-garden-planner/blob/master/docs/09-architecture-decisions/README.md#adr-081-per-quantity-unit-systems-and-the-canada-mixed-preset-issue-907)). |
 | Canvas and tools | Drawing, selection, snapping, constraints, annotations, layers, and item rendering. |
 | Commands and project data | Undo/redo, snapshots, shared complete-plan serialization for Save and crash recovery, discovery of saved-plan backups, document-owned cleanup, clipboard data, and atomic plan loading. |
 | Garden models and services | Plant data, companion planting, crop rotation, succession, soil, weather, tasks, harvest, and journal records. |
@@ -20,12 +20,14 @@ shadows. Its Analyze menu shows the 2D side's own shadow polygons and hours-of-s
 on the 3D ground; it never computes a second analysis. Buildings, paths and all 24
 placeable object kinds are procedurally built, with real roofs, path surfaces and
 grass-blade lawns. Day and year playback write through the shared simulation clock;
-weather is only a look that never moves the sun. Flat terrain (no elevation or slope)
-remains a current limitation. The 2D analytic shadow and sun-hours calculations are
-separate from the 3D renderer's lighting. Unknown plant heights can use labelled
+weather is only a look that never moves the sun; a plan stores the concrete weather it
+opens in (#944), while Today's Weather stays a live forecast. Flat terrain (no elevation
+or slope) remains a current limitation. The 2D analytic shadow and sun-hours calculations
+are separate from the 3D renderer's lighting. Unknown plant heights can use labelled
 illustrative category heights in 3D; analytical heights remain unknown.
 
-Camera tours are stored with the plan. Video delivery validates MP4 sample tables before
+Camera tours are stored with the plan; a drone orbit may be a part turn or a whole turn
+(0.25–4, #966). Video delivery validates MP4 sample tables before
 replacing the destination; an invalid render stays under its part name and the failure
 message identifies it. The delivery decisions are recorded in
 [ADR-072](https://github.com/cofade/open-garden-planner/blob/master/docs/09-architecture-decisions/README.md#adr-072-addendum-tour-and-video-reliability-889-890-891-896).
@@ -89,7 +91,11 @@ FR-SUN-14 and the ADR-037 addendum.
 
 Plant Forge adds shared sprite traits, procedural species meshes, camera LOD and
 background upgrades. Its seasonal material state uses the same recorded frost-relative
-harvest calendar as tasks; flower and fruit parts are independent. See the
+harvest calendar as tasks; flower and fruit parts are independent. A spring bulb's leaves
+follow their own late-winter-to-early-summer window and its scapes go with its flowers; a
+crop ripens fruit by fruit; a far crown keeps a sparse patch of its crop beyond 45 m; and
+the cache forges one shape per 2% size bucket and stretches it to the day's exact height
+and spread. See the
 [Plant Forge decision](https://github.com/cofade/open-garden-planner/blob/master/docs/09-architecture-decisions/README.md#adr-064-plant-forge--procedural-3d-species-models-from-the-2d-sprite-recipes-lods-and-phenology-387).
 
 ## CI coverage scheduling

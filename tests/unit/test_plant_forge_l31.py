@@ -288,21 +288,69 @@ class TestForgeCacheAndWorker:
     """Verify ForgeCache LRU behaviour and ForgeWorker visible-first + latest-wins ordering."""
 
     def test_forge_cache_lru_eviction(self) -> None:
+        from open_garden_planner.core.plant_forge import make_cache_key
+
         cache = ForgeCache(max_entries=2)
         ref = SpriteRef("species", "oak")
-        p1 = forge_plant(ref, 400.0, 180.0, seed=1, lod=LOD2, cache=cache)
-        p2 = forge_plant(ref, 400.0, 180.0, seed=2, lod=LOD2, cache=cache)
+        forge_plant(ref, 400.0, 180.0, seed=1, lod=LOD2, cache=cache)
+        forge_plant(ref, 400.0, 180.0, seed=2, lod=LOD2, cache=cache)
         assert len(cache) == 2
         assert cache.misses == 2
         # Hit seed=1 so seed=2 becomes LRU
-        assert forge_plant(ref, 400.0, 180.0, seed=1, lod=LOD2, cache=cache) == p1
+        forge_plant(ref, 400.0, 180.0, seed=1, lod=LOD2, cache=cache)
         assert cache.hits == 1
         # Adding seed=3 evicts seed=2
         forge_plant(ref, 400.0, 180.0, seed=3, lod=LOD2, cache=cache)
         assert len(cache) == 2
-        assert cache.get(("species", "oak", 2, LOD2, 40000, 18000, "")) is None
-        assert cache.get(("species", "oak", 1, LOD2, 40000, 18000, "")) == p1
-        _ = p2
+        assert cache.get(make_cache_key("species", "oak", 2, LOD2, 400.0, 180.0)) is None
+        assert cache.get(make_cache_key("species", "oak", 1, LOD2, 400.0, 180.0)) is not None
+
+    def test_a_growing_tree_is_forged_per_size_bucket_not_per_day(self) -> None:
+        """#973: a year time-lapse moves a tree's height by centimetres a day. The cache
+        keeps one forged shape for a 2 % size bucket and stretches it to the day's exact
+        height, so 365 days need a few dozen builds, and every day still shows its own
+        size (height and scale exact; spread within the pin's 1.04 of the diameter)."""
+        cache = ForgeCache(max_entries=128)
+        ref = SpriteRef("species", "cherry_tree")
+        truth_missed = 0
+        for day in range(365):
+            t = day / 364.0
+            height = 300.0 * (1.0 + 0.9 * t)
+            radius = height * 0.4
+            parts = forge_plant(ref, height, radius, seed=7, lod=LOD2, cache=cache)
+            top = max(float(p.mesh.positions[:, 2].max()) for p in parts if p.mesh.vertex_count)
+            if abs(top - height) > 0.5:
+                truth_missed += 1
+            xy = np.concatenate([p.mesh.positions[:, :2] for p in parts if p.mesh.vertex_count])
+            span = max(np.ptp(xy[:, 0]), np.ptp(xy[:, 1]))
+            assert abs(span - 2.0 * radius) <= 0.10 * 2.0 * radius, day
+        assert truth_missed == 0
+        # h and r bucket independently, so the pair changes about twice per dimension
+        # step: ~65 shapes for a 90 % season, against 365 reforges before #973.
+        assert cache.misses <= 70, f"{cache.misses} reforges for a season of daily growth"
+        assert cache.hits >= 295
+
+    def test_a_growing_fence_climber_keeps_one_cache_entry(self) -> None:
+        """#973 review: the support signature carried `distance_cm`, derived from the exact
+        canopy radius, so a growing fence-trained climber was reforged every day. The key
+        and the built support now use the same 2 %-of-radius bucket; the support's geometry
+        still keys it, and the contact error is at most half a bucket step."""
+        support = {
+            "kind": "fence", "azimuth_deg": 0.0, "distance_cm": 10.0,
+            "segment_cm": (-100.0, 90.0, 100.0, 90.0),
+            "width_cm": 10.0, "height_cm": 180.0, "base_cm": 0.0,
+        }
+        cache = ForgeCache(max_entries=8)
+        ref = SpriteRef("species", "jasmine")
+        forge_plant(ref, 180.0, 180.0, seed=7, lod=LOD2, cache=cache, support=support)
+        assert cache.misses == 1
+        # 12.5 cm is near the far edge of the same 2 % bucket (step 3.58 cm at r=180.5).
+        forge_plant(ref, 180.0, 180.5, seed=7, lod=LOD2, cache=cache,
+                    support={**support, "distance_cm": 12.5})
+        assert cache.misses == 1, "a 2.5 cm support-distance change rebuilt the climber"
+        forge_plant(ref, 180.0, 180.5, seed=7, lod=LOD2, cache=cache,
+                    support={**support, "segment_cm": (-100.0, 90.0, 100.0, 95.0)})
+        assert cache.misses == 2, "a different support geometry must rebuild"
 
     def test_a_flown_path_decides_a_plants_detail_until_the_camera_takes_over_again(self) -> None:
         """A recording's frames show the detail the view would from there (L6, 3D review)."""
@@ -429,3 +477,50 @@ class TestForgeCacheAndWorker:
         assert len(applied_parts) > 0
         top_z = max(float(p.mesh.positions[:, 2].max()) for p in applied_parts)
         assert top_z == pytest.approx(480.0, rel=0.01)
+
+    def test_prepare_for_sync_never_downgrades_forged_tree_on_warm_or_cold_growth(self) -> None:
+        """#995: once a plant is forged, growth updates prepared for SceneSync keep a forged
+        mesh on screen — from the warm 2 % bucket in ForgeCache when inside the bucket, or by
+        stretching the last forged mesh when crossing into a cold bucket while queueing the
+        background refinement."""
+        cache = ForgeCache(max_entries=16)
+        sink = RecordingSink()
+        worker = ForgeWorker(sink, cache=cache)
+        ref = SpriteRef("species", "cherry_tree")
+
+        r0 = _tree_record(ref, height_cm=300.0, radius_cm=120.0, item_id="cherry-1", seed=17)
+        sink.begin()
+        sink.add("cherry-1", (), r0.transform, r0.material)
+        sink.commit()
+
+        worker.submit_snapshot([r0], force_lod=LOD2)
+        assert worker.drain() == ["cherry-1"]
+        initial_wood = next(p.mesh for p in sink.item("cherry-1").parts if p.name == PART_WOOD)
+        assert initial_wood.vertex_count > 100
+
+        # 1. Growth within the same 2 % bucket: warm cache hit, no background queue churn.
+        r_same_bucket = _tree_record(ref, height_cm=300.8, radius_cm=120.3, item_id="cherry-1", seed=17)
+        prepared_same = worker.prepare_for_sync({"cherry-1": r_same_bucket}, ("cherry-1",))
+        assert "cherry-1" in prepared_same
+        wood_same = next(p.mesh for p in prepared_same["cherry-1"] if p.name == PART_WOOD)
+        assert wood_same.vertex_count == initial_wood.vertex_count
+        top_same = max(float(p.mesh.positions[:, 2].max()) for p in prepared_same["cherry-1"])
+        assert top_same == pytest.approx(300.8, abs=0.5)
+        worker.invalidate(["cherry-1"])
+        worker.submit_snapshot([r_same_bucket], force_lod=LOD2)
+        assert worker.pending_count == 0, "warm bucket hit prepared in sync must not re-queue"
+
+        # 2. Growth into a cold 2 % bucket: stretches the last forged mesh immediately and
+        # queues the new bucket for background synthesis (never drops to v0 silhouette).
+        r_cold_bucket = _tree_record(ref, height_cm=360.0, radius_cm=144.0, item_id="cherry-1", seed=17)
+        prepared_cold = worker.prepare_for_sync({"cherry-1": r_cold_bucket}, ("cherry-1",))
+        assert "cherry-1" in prepared_cold
+        wood_cold = next(p.mesh for p in prepared_cold["cherry-1"] if p.name == PART_WOOD)
+        assert wood_cold.vertex_count == initial_wood.vertex_count
+        top_cold = max(float(p.mesh.positions[:, 2].max()) for p in prepared_cold["cherry-1"])
+        assert top_cold == pytest.approx(360.0, abs=0.5)
+        worker.invalidate(["cherry-1"])
+        worker.submit_snapshot([r_cold_bucket], force_lod=LOD2)
+        assert worker.pending_count == 1, "cold bucket miss still queues background refinement"
+        assert worker.drain() == ["cherry-1"]
+        assert worker.pending_count == 0

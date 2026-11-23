@@ -41,10 +41,13 @@ class MoveObjectCommand(Command):
 ## 8.3 Internationalization (i18n)
 
 Qt Linguist remains the runtime format (ADR-008). English is the source language;
-English, German, Spanish, and Russian are currently shipped. Registration in `SUPPORTED_LANGUAGES` makes
+English, German, Spanish, Russian, and French are currently shipped. Registration in `SUPPORTED_LANGUAGES` makes
 the full source inventory mandatory for that locale. New UI keys require translations
 in every registered target locale in the same PR. The required `Test` CI check enforces
 this through `scripts/check_translations.py` and the normal pytest suite (#496).
+The bundled example plans' **content** is translated for German and Spanish; for
+Russian and French the gallery name/description is localized and the plan content
+remains English, as the generator's `LANGUAGES` table defines.
 
 The canonical inventory comes from fresh PyQt6 extraction plus audited AST/helper/table
 sources in `scripts/i18n_bindings.json`. Qt context, source and disambiguation identify a
@@ -1313,21 +1316,29 @@ Pin: `tests/integration/test_sun_map_legend.py`,
 `tests/unit/test_heatmap_render.py` and, through the real window,
 `tests/integration/test_sun_map_workflow.py`. PF-CAN-57, PF-CAN-58.
 
-### 8.9.19 Unit-aware measurement fields (ADR-078, #673)
+### 8.9.19 Unit-aware measurement fields (ADR-078 / ADR-081, #673 / #907)
 
-Use `LengthSpinBox` for physical lengths and `VolumeSpinBox` for real litres. Their
-value, ranges, setValue and valueChanged retain the caller's metric unit. A field
-whose existing value is metres supplies `value_unit_cm=100`; all others use cm.
+Use `LengthSpinBox` for physical lengths, `VolumeSpinBox` for real litres, and
+`TemperatureSpinBox` for temperatures in Celsius. Their value, ranges, `setValue`
+and `valueChanged` retain the caller's metric unit (cm, litres, Celsius). A length
+field whose existing value is metres supplies `value_unit_cm=100`; all others use cm.
 Keep the existing metric decimals, suffix and singleStep calls. Style specifies
 layout, plant size, depth or elevation. Leave angles, percentages, pixels and DXF
 scale factors as ordinary numeric fields.
 
-Read-only text uses `core/measurement_display.length_text`, `area_text` and
-`volume_text`, which supply the active preference and UI decimal mark to the pure
-`core/units.py` formatters. Never append a physical unit after formatting a number.
-Qt surfaces subscribe through `units_notifier().changed`; the scene refreshes retained
-vertex/circle labels and handle tooltips, the Constraints panel rebuilds its rows while
-keeping the selected constraint, and the view refreshes the active measurement readout.
+Read-only text uses `core/measurement_display.length_text`, `area_text`,
+`volume_text`, `temperature_text`, and `precipitation_text`, which supply the active
+per-quantity `UnitProfile` and UI decimal mark to the pure `core/units.py` formatters.
+Harvest records keep their explicitly entered unit without mass conversion: new entries
+default via `core/harvest_units.default_mass_unit()`, and saved rows format quantities
+with `core/i18n.format_trimmed` plus `core/harvest_units.harvest_unit_label`.
+Never append a physical unit after formatting a number. Qt surfaces subscribe through
+`units_notifier().profile_changed` (reserve `.changed` for length-only legacy callers,
+because `UnitPreference.set_profile` emits `.changed` only when `Quantity.LENGTH` moves).
+The scene refreshes retained vertex/circle labels, area readouts and handle tooltips,
+the Constraints panel rebuilds its rows while keeping the selected constraint, the
+weather panel, Tasks tab, Calendar dashboard, status bar and 3D info card refresh in
+place, and the view refreshes the active measurement readout.
 The plain tools and graphics-item mixins never subscribe to an application-wide Qt
 signal themselves: the owning view/scene supplies their lifetime. Other transient
 overlays read the preference on their next redraw. A preference switch must not emit a value edit
@@ -1351,6 +1362,30 @@ save/reopen.
 foreign decimal marks, special text and silent switches. A whole-window test that
 edits a plan must handle the unsaved-changes prompt during pytest-qt cleanup; the
 unit surface fixture explicitly discards its own test document.
+
+### 8.9.20 Reference points - a datum with one coordinate (ADR-080, #666)
+
+A reference point is the ordinary `GENERIC_CIRCLE` record plus
+`metadata.reference_point`; do not add a serializer of its own or a new `ObjectType`.
+`ReferencePointItem` changes only paint, bounds and interaction. Its `rect()` is centred
+on `(0, 0)` and its `pos()` is the datum, so `mapToScene(rect().center())` is exact in
+both size modes. `core.measure_snapper.get_anchor_points` returns only
+`AnchorType.CENTER` for it - the halo arms are decoration, never snap targets.
+
+A bound point stores its parent in `reference_point_parent_id`, never in
+`parent_bed_id`, so plant/bed membership keeps its old meaning. `ItemPositionChange`
+projects the proposed position onto the parent's straight edges; an off-contour move is
+refused and the dialog's Independent point is the explicit detach. Parent rotation or
+vertex edits do not move an existing point (the documented limitation); parent
+translation does.
+
+Move commands expand with attached points in
+`core.commands.expand_with_bed_children`, carrying the parent's delta, and the live
+drag propagation moves them like bed children and resets them before the command
+re-applies the delta. A parent move and its point are therefore one undo step on every
+path, with no scene watcher. `ItemIgnoresTransformations` is set only for `screen_px`
+size mode. A generic shape has no height, so nothing is added to the 3D scene.
+The tool is armed from **Garden > Reference point**; it has no main-toolbar button.
 
 ## 8.10 Integration Test Policy
 
@@ -4862,7 +4897,20 @@ map has a key — over the viewport on the canvas, a scene item in a picture —
 its hour labels are labels of the plan; while a map is shown the time-of-day
 shadows are solved but not painted (`SunShadowController.set_map_shown`: the map
 is translucent, and a shadow of one instant under it reads as fewer hours); the
-shadow's soft edge is a blurred field, not strokes.
+shadow's soft edge is a blurred field, not strokes. The map's fill is bilinearly
+interpolated inside each 10 cm cell (`HEATMAP_UPSAMPLE`, #852), uploaded to a
+`QPixmap` (stored premultiplied by Qt) and drawn with smooth scaling
+(`SmoothTransformation`): at 400 % a cell is a smooth field without blotches or
+stair-step blocks (the overlay bitmap's own draw adds ~0.5 ms on the family garden
+at fit zoom; rebuilding the image when the map changes is separate, and contour and
+label repaint overhead stays tracked on #852).
+An hour label keeps a 1.3× clearance when its place is chosen, so a fixed-pixel
+label stays off an object's edge when the plan is zoomed out up to 1.3× the
+nominal fit. The sun-mismatch
+badge paints a theme-contrasting backing (`core.legibility.halo_for` of the
+active theme's accent) under its warning triangle (#852): the icon asset stays
+on the theme's accent sentinel, the sun's middle stays transparent, and the
+backing keeps the warning readable on a green crown in both light and dark themes.
 
 **Threaded canvas-scale computation** (US-E4 heatmap; the pattern for any
 seconds-scale analysis): snapshot plain data on the GUI thread
@@ -6776,18 +6824,20 @@ saturation 1.06 -> 0.6, the sky draws no sun, and the key light is the moon fadi
 the fraction: no key and no shadow just under 0.5°). Below −6°, night. The key light is never brighter than at noon; a low sun is
 warmer and more exposed, not stronger; the light never rises as the sun sinks.
 
-**The garden never brightens as night falls (#802).** The night rig is "day for night" (a 0.32
+**The garden never brightens as night falls (#802, #953).** The night rig is "day for night" (a 0.32
 moon 38° high, exposure 2.4), so a garden lit by a 0.5° sun's sky alone lay about 0.95 EV under
 the night it ends in, and twilight sank further before the moon rose to it. Neither anchor
 moves: the twilight fill (`look.twilight_fill`, `LookSpec.twilight_fill_linear`) is a flat
 ambient in the sky top's colour that `Garden.qml`'s fill light carries where a sky lights the
 view — it lights the garden, never the skybox. It lifts a model of the light on open ground
 (`look.ground_light`) to a target in units of the same weather's night: in twilight a line
-from 1.07 at sunset through 1.05 at −3° to 1 at −6°; by day the ground keeps 40 % of its own
-fall down to that sunset level. Black from 6° up (the sunset shot keeps the rig's own light)
-and at night; an overcast, rain and snow need none. The compatibility mode and the top-down
-truth view keep their flat fill without it. ADR-059 addendum "a recorded frame's own sky and
-the twilight fill".
+from 1.035 at sunset through 1.02 at −3° to 1 at −6°; by day the ground keeps 40 % of its own
+fall down to that sunset level (`TWILIGHT_FILL_DAY_SHARE = 0.4`). At night, `look.night_fill_linear`
+(`NIGHT_FILL_SKY_SHARE = 0.75`, radiance-capped at `NIGHT.sky_top` and attenuated by cloud)
+supplies a cool, dim ambient floor so faces turned away from the fixed moon retain faint blue
+detail instead of crushing to pure black (#953). Black from 6° up (the sunset shot keeps the
+rig's own light); the compatibility mode and the top-down truth view keep their flat fill
+without it. ADR-059 addenda "a recorded frame's own sky and the twilight fill" and "#883–#965".
 
 **Presets are cost, never mood.** `low` / `medium` / `high` / `ultra` (`PRESET_SPECS`) differ in
 the shadow map, cascades, filtering and bias, anti-aliasing, ambient occlusion, glow and (ultra)
@@ -6802,13 +6852,17 @@ change applies one `set_look` call without moving the camera or rebuilding sky.
 Crossing the Medium/High boundary also updates lawn-blade admission through the
 existing scene diff (#607).
 
-**Shadows at a low sun (#734).** A low sun stretches two things: every centimetre of a
+**Shadows at a low sun (#734, #894).** A low sun stretches two things: every centimetre of a
 caster's height into `1 / tan(elevation)` of shadow (3.7 at 15°, 9.7 at 6°), and a shadow
 map's texel into `texel / sin(elevation)` on the ground. A frame whose camera does not move
 — a picture, the agent's picture, a held camera's time-lapse — fits its cascades to what
 CASTS: those paths pass `Quick3DHost.capture(fitted_shadows=True)` by name (the QML
-`fittedShadows`, for that frame only), and a capture that does not ask keeps the view's fit
-and is the view to the level (the self-test checks it). Qt spans each
+`fittedShadows`, restoring the prior state on exit), while `fitted_shadows=None` (the default)
+keeps the view's current fit so a capture at the view's size matches the view pixel for pixel. In the live 3D view (#894),
+`Workspace` unlocks to the texel-locked sphere (`fittedShadows = false`) immediately on any
+camera motion so orbits and walks stay shimmer-free, and locks to `fittedShadows = true` once
+the camera has rested for `SHADOW_FIT_DELAY_MS` (`250 ms`) so the resting preview matches a
+saved photo. Qt spans each
 cascade by the casters' box in its slice, the plan's own items, about 1 cm texels on a 24 m
 plan at every preset, instead of the bounding sphere of the whole slice (8.3 cm on High at the
 board's golden hour: long edges stepped, the foot of every caster showed lit teeth, and a
@@ -6903,10 +6957,10 @@ principled look to the level; the shadow pass runs the same sway, so a crown's s
 with it. Every frequency is a whole number of cycles an hour: the clock's wrap is seamless.
 ADR-059 addendum "the wind that shows, and the leaves' stripes"; PF-L3D-32.
 
-**Ambient occlusion has a floor under its bias (#805).** Qt's SSAO normal faces the camera, so a
-flat surface seen at a slant occludes itself — on the ground (#687) and in diagonal bands across
-every micro-leaf from Medium up, which the survey took for shadow acne (the shadow bias and the
-map's fit do not change them). `look.AO_FLAT_BIAS_CM` = 1 cm is the floor of every look's AO
+**Ambient occlusion has a floor under its bias (#805, #887).** Qt's SSAO normal faces the camera, so a
+flat surface seen at a slant occludes itself — on the ground (#687), in diagonal bands across
+every micro-leaf from Medium up (#805), and in concentric close-up rings on grazing flat fascia
+and plaster (#887). `look.AO_FLAT_BIAS_CM` = 1.4 cm is the floor of every look's AO
 bias; a weather's own bias is larger. PF-L3D-33.
 
 **Wiring.** The workspace hands the look controller the sun the pipeline last sent
@@ -7436,7 +7490,7 @@ takes a raised bed and two real plants through both).
 | `GARAGE_SHED`, `TOOL_SHED` | `buildings`, `roofs` | `walls`: vc · `roof`: roof | walls tinted, roof = shingle |
 | `FENCE` | `lines` → `fences` / `walls` | `fence`: vc — or `hedge`: foliage (hedge style), `wall`: vc (stone style) | tinted (the item's stroke) |
 | `WALL` | `lines` → `walls` / `fences` | `wall`: vc — or the fence of its style | tinted |
-| `RAISED_BED` | `beds` | `bed`: vc | baked: oak planks, soil |
+| `RAISED_BED` | `beds` | `bed`: vc (default/wood) · `walls` + `soil`: vc (architectural fill, #957) | baked oak planks + soil by default; tinted frame (`corten`/`masonry`/`concrete_wall`/`terracotta`) + baked soil for architectural 2D fills |
 | `CONTAINER`, `WALL_PLANTER`, `CONTAINER_ROUND` | `beds` | `walls`: vc · `soil`: vc | walls tinted, soil baked (the palette's soil) |
 | a `GARDEN_BED` with a height | `beds` | `walls`: vc · `soil`: vc | walls tinted, soil = the item's own fill (`fill_texture`: its "Boden-Substrat") |
 | `HEDGE_SECTION`, `HEDGE_POLYGON` | `hedges` | `hedge`: foliage (the dark core and the leaf shell in one mesh) | baked: the hedge texture's greens |
@@ -7684,14 +7738,14 @@ far, −, the 3D shadow extends along the shadow direction: where its tip is), e
 | house, sun along the ridge | 1.00 / 1.00 / 1.00 | 1.00 / 1.00 / 1.00 | 0.0 / 0.0 / 0.0 | gable roof (#440: shared roof+wall triangles; was +30.0 vs flat prism) |
 | wall | 1.04 / 1.10 / 1.24 | 0.96 / 0.91 / 0.81 | +15.0 / +15.0 / +15.8 | nominal section: WIDER in 3D |
 | stone-wall fence, hedge fence | 1.04–1.06 / 1.13–1.15 / 1.31–1.37 | 0.94–0.96 / 0.87–0.89 / 0.73–0.76 | +14.5 … +15.3, +19.5 … +19.6 | nominal section |
-| picket fence | 1.00 / 1.00 / 1.00 | 0.65 / 0.66 / 0.68 | +2.0 / +2.0 / +2.4 | porosity (#440 weighted 2D area; unweighted IoU vs full strip) |
+| picket fence | 1.01 / 1.01 / 1.00 | 0.66 / 0.67 / 0.68 | +2.0 / +2.0 / +2.4 | porosity (#440 weighted 2D area; unweighted IoU vs full strip) |
 | metal fence | 0.99 / 0.99 / 0.98 | 0.19 / 0.20 / 0.24 | +0.8 / +0.8 / +0.8 | porosity (#440 weighted 2D area; unweighted IoU vs full strip) |
 | chain-link fence | 1.09 / 1.03 / 1.08 | 0.12 / 0.13 / 0.19 | +1.5 / +1.5 / +1.5 | porosity (#440 weighted 2D area; unweighted IoU vs full strip) |
-| pergola | 0.99 / 0.99 / 0.99 | 0.28 / 0.32 / 0.36 | −16.7 / −7.5 / −3.8 | open frame (#698 weighted 2D area; unweighted IoU vs solid prism) |
-| trellis | 1.00 / 1.00 / 1.00 | 0.32 / 0.34 / 0.39 | −7.0 / −7.0 / −6.8 | open frame (#698 weighted 2D area; unweighted IoU vs solid prism) |
-| swing | 1.00 / 1.00 / 1.00 | 0.17 / 0.16 / 0.15 | −71.0 / −71.0 / −70.6 | open frame (#698 weighted 2D area; unweighted IoU vs solid prism) |
-| hammock | 1.00 / 1.00 / 1.00 | 0.21 / 0.26 / 0.30 | −56.3 / −56.3 / −56.0 | open frame (#698 weighted 2D area; unweighted IoU vs solid prism) |
-| garden light | 1.00 / 1.00 / 1.00 | 0.21 / 0.28 / 0.37 | −18.4 / −12.0 / −9.6 | open frame (#698 weighted 2D area; unweighted IoU vs solid prism) |
+| pergola | 0.99 / 0.99 / 0.99 | 0.29 / 0.32 / 0.36 | −0.8 / −0.8 / −0.5 | open frame (#698 weighted, #855 reach-trimmed 2D area; IoU vs trimmed prism) |
+| trellis | 1.00 / 1.00 / 1.00 | 0.33 / 0.35 / 0.41 | 0.0 / 0.0 / 0.0 | open frame (#698 weighted, #855 reach-trimmed 2D area; IoU vs trimmed prism) |
+| swing | 1.00 / 1.00 / 1.00 | 0.18 / 0.19 / 0.21 | 0.0 / 0.0 / 0.0 | open frame (#698 weighted, #855 reach-trimmed 2D area; IoU vs trimmed prism) |
+| hammock | 1.00 / 1.00 / 1.00 | 0.23 / 0.33 / 0.43 | 0.0 / 0.0 / 0.0 | open frame (#698 weighted, #855 reach-trimmed 2D area; IoU vs trimmed prism) |
+| garden light | 1.00 / 1.00 / 1.00 | 0.21 / 0.29 / 0.39 | 0.0 / 0.0 / 0.0 | open frame (#698 weighted, #855 reach-trimmed 2D area; IoU vs trimmed prism) |
 
 So: a solid line item casts a wider shadow in 3D than the 2D model, more at a high sun; a porous
 fence casts a fraction of its solid strip — and since #440 the 2D analysis weights a styled
@@ -7716,6 +7770,13 @@ rule a new object kind has to be placed under:
   `core/pergola.layout`). To make a kind an open frame, add its name and nothing else — its
   production builder is read. Do not add a table of shares: the members' sizes are capped, so
   a share that is right for one footprint is wrong for the next.
+- **The prism is trimmed to the frame's own far member tip (#855).** `height ÷ tan a` reaches
+  past a swing's top beam, which is mid-frame, and left the 2D shade 4-71 cm beyond the real
+  one. `open_frame_effective_length` shortens the swept prism to the largest
+  `x·dx + y·dy + z ÷ tan a` of the frame's members, minus the footprint's own reach; the
+  transmittance is measured against that trimmed prism, so its tip is the frame's while
+  the frame's own shadow is spread over the smaller prism. The table's reach column is
+  0.0 cm for the four frames whose top is their far member and -0.8 cm for the pergola.
 - **One hook**: the caster walk sets `IdentifiedCaster.frame` (an `OpenFrame`: the members in
   the item's OWN coordinates, its turn beside them); the overlay, the 3D drape, the
   hours-of-sun grid and the plant estimates read `caster_transmittance`. A consumer that asks
@@ -8567,19 +8628,34 @@ climber. It uses no external model assets. Object sprite colours likewise live
 in one stdlib-only material table; the SVG byte-conformance gate preserves them.
 
 `lod.py` caps total triangles at 25,000 / 6,000 / 800. Camera distances up to
-18 m use LOD0, up to 45 m use LOD1, beyond that LOD2. `ForgeCache` holds fully
-sized/seeded meshes at most 256 entries and 64 MiB of array data. No disk cache:
+18 m use LOD0, up to 45 m use LOD1, beyond that LOD2. `ForgeCache` holds seeded
+meshes at most 256 entries and 64 MiB of array data, keyed by 2 % geometric size
+buckets (`cache.QUANT_STEP`); a hit is scaled to the requested height and spread
+(`Mesh.scaled`, inverse-transpose normals), so a tree that grows a little every
+day keeps one shape for a bucket and a 90 % growing season costs about 65 builds,
+not 365 (#973). A climber's support distance is bucketed by the same 2 % of its
+quantised radius, so a fence-trained climber is not rebuilt every day. Without a cache
+the exact size is built. No disk cache:
 a local Python 3.11 run over all 123 recipes at height 420 cm, radius 180 cm,
 seed 303 (median of three builds per recipe) measured cold median 3.69 ms,
-p90 13.07 ms, maximum 23.01 ms and warm median 0.0012 ms. These describe synthesis,
+p90 13.07 ms, maximum 23.01 ms and warm median 0.0012 ms - a hit before #973. A hit
+now also scales the bucket mesh (0.107 ms for a 1,324-vertex cherry), still far below
+a cold build. These describe synthesis,
 not first-frame or presentation latency. The acceptance budget is median 150 ms.
 
 Foliage area follows crown surface area (target 1.6); lower counts receive larger
-leaves within the same triangle cap. Structural wood independently keeps its
-base at zero and top at the resolved height when seasonal leaves disappear.
-Normal fitting uses the same axis scale as positions. Climber support prefers
-an explicit trellis parent, then a nearby fence/wall/pergola/trellis within
-50 cm of the canopy edge, then a bamboo tripod.
+leaves within the same triangle cap. The foliage tip weight that keeps the 3D hue
+within 10° of the sprite is measured per archetype; the canopy's is measured over
+its GREEN-leaved sprites only (`GREEN_LEAF_PALETTES`), so a red- or purple-leaved
+canopy sprite cannot re-tint every green crown (#969). Structural wood independently
+keeps its base at zero and top at the resolved height when seasonal leaves disappear.
+Normal fitting uses the same axis scale as positions. A sparse LOD2 crown's four
+outermost leaves are turned onto the plan's axes AFTER the fit
+(`assemble.pin_foliage_spread`): the fit scales the box to the canopy and pulls
+diagonal tips onto `REACH_MAX`, which took some climbers to 0.87-0.89 of their
+diameter. Before the fit the larger box would scale every leaf down and cost foliage
+coverage. Climber support prefers an explicit trellis parent, then a nearby
+fence/wall/pergola/trellis within 50 cm of the canopy edge, then a bamboo tripod.
 
 Flower, fruit/pod and tuber parts have independent seasonal controls. Recorded
 harvest windows use `core/calendar_windows.py` and the plan's local frost dates,
@@ -8628,6 +8704,71 @@ flowered; its leaves unfold over the last quarter of the bloom window
 (`phenology.BLOOM_LEAF_UNFOLD_FROM`), and after it nothing changes. A perennial's recorded
 harvest window ripens only inside its curated fruit months. Pinned by
 `tests/unit/test_plant_forge_bloom.py`.
+
+**Dormancy, ripening and distance (#948, #963, #973).** A spring bulb - crocus and
+daffodil from February, tulip from March, to early summer - carries its own leaf
+window (`Traits3D.leaf_months`, faded over `phenology.BULB_LEAF_RAMP_DAYS` = 14) and
+is gone after it: a dormant bulb is not `evergreen`, and at LOD2 its scapes live in
+the flowers part, so July shows neither leaves nor bare stalks. Each fruit has its
+own phase (`accents.with_phase`, UV.y) and the fruit part's season opacity is the
+ripeness progress `(ripeness - 0.55) / 0.45`, so a crop appears fruit by fruit across
+its harvest window rather than all at once on its first day. Beyond 45 m LOD2 builds
+no individual flowers or fruit; instead `accents.build_far_accents` lays up to 64
+single-sided colour patches per family (flower 0.16, fruit 0.10 of the canopy radius)
+on the crown's outer shell, coloured from the recipe's own `flowers`/`clusters`/
+`puffs`/`umbels`/`fruit` table and clamped inside the plant's height and `REACH_MAX`.
+The LOD2 foliage reserves 64 triangles for them only when a far family exists; a
+leaf-only canopy keeps the old 16 and its full foliage (birch, willow and Japanese maple
+lose 24 leaves otherwise). A far flower leans its normal about 30 degrees to the sky and
+its colour is lifted by up to ×1.35 with a hue-preserving peak clamp at 0.9 linear, because
+a flat vertical patch on the shade side read mauve at golden hour (34 % of its pixels; the
+tilt and lift bring it to 27 %). A bulb's far flower is a small double-sided patch at its
+scape tip, capped by its
+canopy radius - a bed cue at distance, not a single-plant read. A sunflower's head, placed
+by its builder, gets the same far patch on each stem tip; pods and root crowns have no far
+cue (their green or underground colour does not read at 45 m), and pods ripen by phase like
+fruit. A crown tint was rejected
+as a second season channel through the host and QML. Pinned by `tests/unit/test_plant_forge_bloom.py`
+(`test_a_far_crown_keeps_its_crop_as_patches`, `test_a_far_crop_takes_the_recipe_s_own_colour`,
+`test_the_lod2_far_reserve_is_paid_only_by_a_cropping_canopy`),
+`tests/unit/test_phenology.py`
+(`test_a_spring_bulb_is_gone_after_early_summer`, `test_every_fruit_carries_its_own_phase`),
+`tests/unit/test_plant_forge_l31.py` (the year-growth bucket test),
+`tests/unit/test_quick3d_qml.py` (the fruit progress in `Garden.qml`) and on the engine
+`tests/integration/test_plant_forge_workspace.py::test_a_far_crop_and_a_dormant_bulb_render`
+(driver `plant_forge_far_driver.py`: 704 crop pixels in bloom, 147 at ripeness; a tulip
+3,458 -> 54 pixels from April to July).
+
+**Live regrowth without v0 silhouette flashes or playback freezes (#995, #996).**
+Before #995, a 500 ms `Scene3DController` regrowth pass called `SceneSync.apply(records)`
+with `prepared=None`, which built a v0 `build_silhouette` mesh for every growing plant
+on the GUI thread, deleted its forged `PhenologyState` in `ForgeWorker.invalidate()`
+(leaving winter trees with stale `leaf_density == 0` as bare conical `_trunk` stumps),
+and re-queued all growing plants one future per 10 ms timer tick, starving distant trees.
+`Scene3DController` now calls `ForgeWorker.prepare_for_sync(records, build_ids)` before
+`SceneSync.apply`: (1) a warm 2 % bucket hit in `ForgeCache` is stretched and handed to
+`SceneSync.apply` immediately and recorded in `_sync_forged` so `invalidate()` keeps its
+`_applied_state` and does not re-queue it; (2) a cold 2 % bucket miss for an already-forged
+plant stretches its last forged parts (`_applied_parts`) to the new height and radius for
+the immediate frame while `submit_snapshot` queues the new bucket in the background; and
+(3) a newly appearing dated plant entering an already-forged scene is forged directly.
+`Workspace` connects `SimClock.date_changed` to `ForgeWorker.scrub_date` so seasonal
+uniforms update on every 200 ms date step, and batches up to 16 plants per `_step_forge`
+turn. While `SunSimToolbar` playback runs (`animation_toggled`), `Workspace.set_playback_active`
+holds `LookController.hold_preset` and defers `_release_engine_caches()`, `LookController`
+also resets its sample window during pipeline passes and `ForgeWorker` uploads
+(`pause_auto_sample`), `CanvasScene.refresh_timeline` invalidates only plants whose canopy
+radius actually changed, `SunShadowController` skips 2D shadow polygon solves in pure
+`VIEW3D` mode unless `DrapeMode.SHADOWS` is active, and `GardenPlannerApp` defers heavy 2D
+date diagnostic sweeps until playback stops (#996; PF-L3D-38). Measured on
+`spring-garden.ogp` over a 6 s year playback in `VIEW3D`: `v0_build_plant` calls `132 -> 0`,
+`SunShadowController._recompute` calls `26 (1,143 ms) -> 0`, `releaseResources` calls during
+playback `2 (10.1 s) -> 0`, preset `high -> high` (no 4.3-5.5 s shader-recompile stalls),
+presented frames `69 -> 242 (~40.3 FPS)`, and maximum `processEvents` turn `6,060.6 ms -> 137.2 ms`.
+Pinned by `tests/unit/test_plant_forge_l31.py::TestForgeCache::test_prepare_for_sync_never_downgrades_forged_tree_on_warm_or_cold_growth`
+and `tests/integration/test_plant_forge_workspace.py`
+(`test_live_regrowth_never_downgrades_forged_tree_to_v0_silhouette`,
+`test_toolbar_playback_holds_preset_defers_cache_release_and_skips_hidden_2d_shadows`).
 
 Tests exercise actual workspace scheduling and render flags, asynchronous stale
 results, camera-only LOD, recovery invalidation, shader-only seasonal updates,
@@ -8869,19 +9010,24 @@ local pitched-roof triangles (64 entries, keyed by the complete geometry), so 15
 identical sheds build one roof; the per-owner pyclipper union stays, because removing it
 made the global union of unmerged triangle paths slower (3.25 s against 1.48 s).
 
-**Materials (#801, #803; ADR-059 addendum "what built parts are made of").** A built
+**Materials (#801, #803, #883, #884, #887, #957, #958, #965; ADR-059 addenda).** A built
 part reflects by what it is MADE of: `core/scene3d/materials.SURFACES` names each surface's
-roughness and specular amount and, for roofs and walls, a detail picture. ONE path carries
+roughness, specular amount, optional linear `albedo_scale` (#884, curbing noon red-channel
+clipping on tiles/plaster/masonry/wood and keeping `flat_roof` charcoal neutral) and, for roofs
+and walls, a detail picture. Every built surface stays at roughness `>= 0.70` so Ultra SSR does
+not shimmer (#883). ONE path carries
 it: a palette entry names its surface (`builders/palette.py`, `SURFACE_BY_COLOUR`), a tinted
 part names its own in its builder (a house's walls `plaster`, a shed's `wood_cladding`, a
-garden wall `masonry`, a fence by its style, a container by its material, a deck `wood`),
+garden wall `masonry`, a flat roof `flat_roof`, a ridge cap `roof_cap`, a raised bed frame by
+its 2D `FillPattern` such as `corten`/`masonry`/`concrete_wall`/`terracotta`, a fence by its style,
+a container by its material, a deck `wood`),
 `builders.common.with_surfaces` writes a part's `surface` or — a trampoline is a rubber mat,
 a plastic pad and a steel frame — its `surface_runs` (its triangles grouped run by run; it
 stays one part for everything that reads parts), the sink creates one Model per run
 (`mesh.surface_pieces`) with the surface in its `PartSpec`, and the host writes
 `quick3d.materials.surface_look` on the Model. `Garden.qml`'s `vcPart` / `roofPart` hold no
-table: every material reads `surfaceRough` / `surfaceSpecular`, whose defaults are
-`DEFAULT_SURFACE` (0.78 / 0.35, the look every part had before). Qt switches a principled
+table: every material reads `surfaceRough` / `surfaceSpecular` / `surfaceAlbedo` / `surfaceAlbedoSrgb`,
+whose defaults are `DEFAULT_SURFACE` (0.78 / 0.35 / 1.0). Qt switches a principled
 material's specular off at 0.01 or less and barely scales a grazing highlight above it
 (PF-E3D-32): a dull dark surface is specular 0. The detail picture is the canvas's own
 texture (`core.scene3d.surface_detail`: a linear albedo multiplier of mean 1 and height
@@ -8893,7 +9039,8 @@ the item's frame; the detail normal fades with distance, the albedo by its mipma
 `Texture` has no anisotropy). The detail material takes the ground's rain tint and the rain's
 roughness / specular shift (`wetRoughShift`, `wetSpecularShift`) and the living garden's
 snow (`builtSnow`, the same rule as `built_snow.frag`). The pond's glint is GGX soft-capped in
-`water.frag` (`SPECULAR_LIGHT`, `uGlintCap`). How to add a surface: an entry in `SURFACES`
+`water.frag` (`SPECULAR_LIGHT`, `uGlintCap`), while `MAIN()` sets `ROUGHNESS = uSsrRough` (`0.40`)
+so Ultra SSR renders soft, realistic water reflections instead of sharp building mirrors (#958). How to add a surface: an entry in `SURFACES`
 (§4 of `ogp-lush-cinematic` for its range), the palette entries or the builder that name it,
 and — with a picture — a pattern the canvas ships; the drift guard is
 `test_scene3d_surfaces.py`, the look gate `test_built_materials_render.py` (judged against the
@@ -10141,10 +10288,13 @@ on the stroke outline costs 22–180 ms and is wrong (even-odd holes).
 - A sprite the device shows more than 1024 px of is drawn from the vector at
   every zoom step, at a cost that grows with the window (10–16 ms per
   megapixel shown): a canopy filling a 4K window is the worst case, not measured.
-- A **timeline/Animate** step is no longer uncached (#846, #928): `_on_clock_changed`
+- A **timeline/Animate** step is no longer uncached (#846, #928, #996): `_on_clock_changed`
   reuses the `(paint_revision, plan_date)` caster snapshot
   (`SunShadowController._caster_cache`) on every matching clock tick regardless of
-  interval, and rapid consecutive steps (within `_SCRUB_WINDOW_NS = 500 ms`,
+  interval and throttles caster re-walks across date steps to `_SCRUB_WINDOW_NS = 500 ms`
+  while scrubbing (catching up on `_on_scrub_settled`), and in pure `VIEW3D` mode without
+  the 2D shadow drape (`set_canvas_shown(False)`, `set_drape_wanted(False)`) skips 2D
+  polygon solving altogether until 2D is shown or the drape is requested; rapid consecutive steps (within `_SCRUB_WINDOW_NS = 500 ms`,
   covering slider drags and 200 ms `Animate` ticks) also defer `paint_feather`
   + `_paint_and_keep` pixmap allocation (`SunShadowOverlayItem.set_feather_deferred`)
   until `_scrub_settle` (`260 ms`) fires. Measured on `family-garden.ogp` at fit

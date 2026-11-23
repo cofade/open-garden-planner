@@ -293,6 +293,9 @@ def render_records(
             while sync.ground_pending:  # a baker with a time budget: a still picture
                 sync.continue_ground()  # shows the FINISHED ground, however many passes
             if plant_date is not None:
+                from open_garden_planner.core.phenology import seasonal_ground_tint
+
+                host.set_meadow_season(seasonal_ground_tint(plant_date, latitude_deg))
                 forge_scene_plants(sink, host, records, plant_date=plant_date,
                                    latitude_deg=latitude_deg, frost_dates=frost_dates)
             for layer, mesh in (overlays or {}).items():  # the analysis overlays (L2)

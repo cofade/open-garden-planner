@@ -804,6 +804,11 @@
     "state": "CLOSED",
     "title": "Vertex editing a dense polygon creates four scene items per vertex - 1,000+ items for a 255-vertex shape"
   },
+  "553": {
+    "is_pr": false,
+    "state": "CLOSED",
+    "title": "Add a French (fr) translation"
+  },
   "556": {
     "is_pr": true,
     "state": "MERGED",
@@ -1053,6 +1058,11 @@
     "is_pr": false,
     "state": "CLOSED",
     "title": "Fill patterns: angle, scale and X/Y offset controls"
+  },
+  "666": {
+    "is_pr": false,
+    "state": "CLOSED",
+    "title": "Reference-point object for survey stakes and measurement datums"
   },
   "670": {
     "is_pr": false,
@@ -1321,12 +1331,12 @@
   },
   "828": {
     "is_pr": false,
-    "state": "OPEN",
+    "state": "CLOSED",
     "title": "Split pieces of a raised bed lose the wooden frame in 2D"
   },
   "829": {
     "is_pr": false,
-    "state": "OPEN",
+    "state": "CLOSED",
     "title": "CAD editing follow-ups from the PR #783 review (Esc plumbing, overlay typing, minimap)"
   },
   "831": {
@@ -1394,6 +1404,11 @@
     "state": "CLOSED",
     "title": "Sun shadow: a faint lighter hairline runs along a shade's outline"
   },
+  "855": {
+    "is_pr": false,
+    "state": "OPEN",
+    "title": "2D shade of an open frame ends where its prism ends, 4-71 cm past the real shadow; many small frames cost 2.5x at a grazing sun"
+  },
   "861": {
     "is_pr": false,
     "state": "CLOSED",
@@ -1424,11 +1439,6 @@
     "state": "CLOSED",
     "title": "Text-note letter spacing is pinned only by the font's hinting setting, not by a pixel test"
   },
-  "875": {
-    "is_pr": false,
-    "state": "OPEN",
-    "title": "One unexplained xdist worker crash in test_agent_task_soil_tools"
-  },
   "877": {
     "is_pr": false,
     "state": "CLOSED",
@@ -1444,6 +1454,16 @@
     "state": "CLOSED",
     "title": "Partial and full repaint differ by a few pixels at a selected item's handles"
   },
+  "883": {
+    "is_pr": false,
+    "state": "CLOSED",
+    "title": "3D Ultra: screen-space reflections flicker on the glossier built surfaces (windows, railing, grill)"
+  },
+  "884": {
+    "is_pr": false,
+    "state": "CLOSED",
+    "title": "3D: the tiled roof and matte walls clip red at noon"
+  },
   "885": {
     "is_pr": false,
     "state": "CLOSED",
@@ -1453,6 +1473,11 @@
     "is_pr": false,
     "state": "CLOSED",
     "title": "Beauty Board never ends with status ok: the set-sun sky dip check fails on master too"
+  },
+  "887": {
+    "is_pr": false,
+    "state": "CLOSED",
+    "title": "3D: shed slate roof reads as a patchwork, and the ridge cap no longer stands out"
   },
   "889": {
     "is_pr": false,
@@ -1473,6 +1498,11 @@
     "is_pr": false,
     "state": "CLOSED",
     "title": "Intermittent access violation at exit of a 3D render driver after a clean run"
+  },
+  "894": {
+    "is_pr": false,
+    "state": "CLOSED",
+    "title": "3D: fit the live view's shadow map while the camera rests"
   },
   "896": {
     "is_pr": false,
@@ -1498,6 +1528,11 @@
     "is_pr": false,
     "state": "CLOSED",
     "title": "Plant details header occupies too much space"
+  },
+  "907": {
+    "is_pr": false,
+    "state": "CLOSED",
+    "title": "Unit-system follow-up: temperature, precipitation, harvest mass and Canadian mixed preset"
   },
   "909": {
     "is_pr": false,
@@ -1569,10 +1604,35 @@
     "state": "CLOSED",
     "title": "Ship 13 bundled example plans as showcase material (nine new, food forest enlarged)"
   },
-  "945": {
+  "941": {
     "is_pr": false,
     "state": "OPEN",
+    "title": "3D: the autumn tint turns green crowns olive and salmon instead of a clean autumn colour"
+  },
+  "943": {
+    "is_pr": false,
+    "state": "OPEN",
+    "title": "3D: lawn and meadow keep one colour all year"
+  },
+  "944": {
+    "is_pr": false,
+    "state": "OPEN",
+    "title": "Weather cannot be stored in a plan, so an example or a tour cannot open in snow or rain"
+  },
+  "945": {
+    "is_pr": false,
+    "state": "CLOSED",
     "title": "The plan's time zone is never read: the clock and a tour's time range use the computer's time zone"
+  },
+  "948": {
+    "is_pr": false,
+    "state": "CLOSED",
+    "title": "3D: flowers and fruit vanish beyond 45 m from the camera"
+  },
+  "949": {
+    "is_pr": false,
+    "state": "OPEN",
+    "title": "3D: the palm look has only a tall-trunk form"
   },
   "950": {
     "is_pr": false,
@@ -1584,9 +1644,84 @@
     "state": "CLOSED",
     "title": "Selecting plants - View changes and unable to find and use desired plant."
   },
-  "976": {
+  "953": {
+    "is_pr": false,
+    "state": "CLOSED",
+    "title": "3D: at night, faces turned away from the moon are pure black"
+  },
+  "954": {
     "is_pr": false,
     "state": "OPEN",
+    "title": "3D: a long hedge renders as a flat painted wall (one leaf budget per item)"
+  },
+  "955": {
+    "is_pr": false,
+    "state": "OPEN",
+    "title": "3D: no rock - a stone-filled polygon is a flat-topped prism"
+  },
+  "956": {
+    "is_pr": false,
+    "state": "OPEN",
+    "title": "3D: a climber on a pergola stays a column at the post and never covers the top"
+  },
+  "957": {
+    "is_pr": false,
+    "state": "CLOSED",
+    "title": "3D: a raised bed's frame is always timber, whatever its fill"
+  },
+  "958": {
+    "is_pr": false,
+    "state": "CLOSED",
+    "title": "3D Ultra: pool water mirrors the house like a perfect mirror"
+  },
+  "959": {
+    "is_pr": false,
+    "state": "CLOSED",
+    "title": "3D: pebble and compost surfaces read as bubble wrap from close by"
+  },
+  "960": {
+    "is_pr": false,
+    "state": "OPEN",
+    "title": "3D: moss, raked sand, Scots pine and a tall timber fence have no look of their own"
+  },
+  "961": {
+    "is_pr": false,
+    "state": "CLOSED",
+    "title": "3D: a pond reads as a plastic pool (grey rim, cobalt water)"
+  },
+  "963": {
+    "is_pr": false,
+    "state": "CLOSED",
+    "title": "3D: bulb leaves are up in January and still standing in July"
+  },
+  "965": {
+    "is_pr": false,
+    "state": "CLOSED",
+    "title": "3D: a flat-roofed house gets cottage windows and a lilac roof"
+  },
+  "966": {
+    "is_pr": false,
+    "state": "OPEN",
+    "title": "Camera tours: an orbit of less than a full turn"
+  },
+  "969": {
+    "is_pr": false,
+    "state": "CLOSED",
+    "title": "3D: the canopy tip weight is a median over all canopy sprites, so one new sprite re-tints every tree"
+  },
+  "970": {
+    "is_pr": false,
+    "state": "CLOSED",
+    "title": "3D: some far-distance (LOD2) trees and climbers come out at 0.87-0.89 of their spread"
+  },
+  "973": {
+    "is_pr": false,
+    "state": "CLOSED",
+    "title": "3D: a growing tree is forged anew every day, so a year time-lapse flickers; fruit appears all at once"
+  },
+  "976": {
+    "is_pr": false,
+    "state": "CLOSED",
     "title": "docs: bring the documentation, user-facing parts first, up to date before the tool is advertised"
   },
   "978": {
@@ -1596,7 +1731,32 @@
   },
   "981": {
     "is_pr": true,
-    "state": "OPEN",
+    "state": "MERGED",
     "title": "feat(#828, #829, #945, #875, #976): plan time zone, split frames and documentation truth"
+  },
+  "992": {
+    "is_pr": false,
+    "state": "OPEN",
+    "title": "3D Ultra: house windows show no garden or sky reflections"
+  },
+  "994": {
+    "is_pr": true,
+    "state": "MERGED",
+    "title": "feat(3d): plant seasonal truth and forge stability (#948, #963, #969, #970, #973, #995, #996)"
+  },
+  "995": {
+    "is_pr": false,
+    "state": "CLOSED",
+    "title": "3D: live year animation replaces forged trees with v0 silhouettes (or bare trunk stumps) every 500 ms and starves distant trees"
+  },
+  "996": {
+    "is_pr": false,
+    "state": "CLOSED",
+    "title": "3D: year playback triggers 4-5 s QQuickView freezes (releaseResources, AutoPreset shader recompiles) and redundant 2D recomputes on every tick"
+  },
+  "998": {
+    "is_pr": true,
+    "state": "OPEN",
+    "title": "feat(3d): showcase follow-ups - autumn, seasons, rocks, weather and part turns"
   }
 }

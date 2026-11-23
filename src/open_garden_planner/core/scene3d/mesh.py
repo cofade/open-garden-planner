@@ -166,6 +166,24 @@ class Mesh:
         return Mesh.from_arrays(self.positions + offset, self.normals, self.colors, self.uvs,
                                 self.indices)
 
+    def scaled(self, sx: float, sy: float, sz: float) -> Mesh:
+        """A copy scaled about the item-local origin (#973): a forged mesh made at the
+        cache's 2 % bucket is stretched to the exact height and spread. Normals take
+        the inverse transpose (a non-uniform scale would otherwise tilt them); colours,
+        uvs and indices are shared unchanged. The identity returns ``self``."""
+        if (sx, sy, sz) == (1.0, 1.0, 1.0):
+            return self
+        positions = self.positions.astype(np.float64) * np.array([sx, sy, sz])
+        normals = self.normals.astype(np.float64) / np.array([sx, sy, sz])
+        normals /= np.maximum(np.linalg.norm(normals, axis=1, keepdims=True), 1e-12)
+        data = np.ascontiguousarray(positions, dtype=np.float32).tobytes()
+        nrm = np.ascontiguousarray(normals, dtype=np.float32).tobytes()
+        return Mesh(
+            np.frombuffer(data, dtype=np.float32).reshape(-1, 3),
+            np.frombuffer(nrm, dtype=np.float32).reshape(-1, 3),
+            self.colors, self.uvs, self.indices,
+        ).require_finite()
+
     def __eq__(self, other: object) -> bool:
         if not isinstance(other, Mesh):
             return NotImplemented

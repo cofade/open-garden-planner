@@ -43,6 +43,7 @@ from open_garden_planner.core.plan_north import (
     normalize_north_angle,
     north_angle_from_plan,
 )
+from open_garden_planner.core.scene3d.weather import WEATHERS, normalise_weather
 from open_garden_planner.models.layer import Layer, create_default_layers
 from open_garden_planner.models.task import TASK_BED_ID_SEGMENTS
 
@@ -79,6 +80,16 @@ def _is_newer_file_version(file_version: str, supported_version: str) -> bool:
     if a is None or b is None:
         return False
     return a > b
+
+
+def _plan_weather(value: object) -> str:
+    """A stored plan weather as one of the concrete ``WEATHERS``, else clear (#944).
+
+    ``normalise_weather`` also accepts the UI's "today" choice; a plan may not store a
+    forecast, so that one reads as clear.
+    """
+    weather = normalise_weather(value, "clear")
+    return weather if weather in WEATHERS else "clear"
 
 
 @dataclass
@@ -154,6 +165,10 @@ class ProjectData:
     # ``core/camera_tours.load_tours`` is the one reader (ADR-072 addendum).
     camera_tours: list[dict[str, Any]] = field(default_factory=list)
 
+    # #944: the weather this plan opens in, one of ``weather.WEATHERS``. Additive:
+    # absent means clear (the session's old default), and old apps ignore the key.
+    weather: str = "clear"
+
     def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary for JSON serialization."""
         data: dict[str, Any] = {
@@ -215,6 +230,8 @@ class ProjectData:
             data["harvest_logs"] = self.harvest_logs
         if self.camera_tours:
             data[plan_tours.PLAN_KEY] = self.camera_tours
+        if self.weather != "clear":
+            data["weather"] = self.weather
         return data
 
     @classmethod
@@ -250,6 +267,7 @@ class ProjectData:
             task_states=data.get("task_states", {}),
             harvest_logs=data.get("harvest_logs", {}),
             camera_tours=data.get(plan_tours.PLAN_KEY) or [],  # of any type: load_tours decides
+            weather=_plan_weather(data.get("weather")),
             # Note: `data.get("paper_layouts", ...)` is intentionally
             # not consumed here — the Paper Space feature was dropped
             # before PR #191 merged but earlier draft builds may have
@@ -325,6 +343,7 @@ class ProjectManager(QObject):
         self._task_states: dict[str, Any] = {}
         self._harvest_logs: dict[str, Any] = {}
         self._camera_tours: tuple[plan_tours.SavedTour, ...] = ()
+        self._plan_weather = "clear"
         self._last_load_skipped_items_count: int = 0
         self._last_load_skipped_tours_count: int = 0
 
@@ -918,6 +937,26 @@ class ProjectManager(QObject):
         """Reset a task to open (remove any stored state)."""
         self.set_task_status(task_id, "open")
 
+    # ── The plan's showcase weather (#944) ───────────────────────────────────
+    @property
+    def plan_weather(self) -> str:
+        """The weather this plan opens in: one of ``WEATHERS``, clear by default."""
+        return self._plan_weather
+
+    def set_plan_weather(self, weather: str) -> None:
+        """Store a showcase weather in the plan; a change dirties the project.
+
+        This is the plan's property, not a 3D view preference: a bundled example can ship
+        snow or rain and a reader opening it sees the same sky. ``today`` (a forecast
+        choice) is not a plan weather and is refused here.
+        """
+        if weather not in WEATHERS:
+            raise ValueError(f"a plan's weather is one of {WEATHERS}, got {weather!r}")
+        if weather == self._plan_weather:
+            return
+        self._plan_weather = weather
+        self.mark_dirty()
+
     # ── Camera tours (#737, ADR-072 addendum) ────────────────────────────────
     @property
     def camera_tours(self) -> tuple[plan_tours.SavedTour, ...]:
@@ -1045,6 +1084,7 @@ class ProjectManager(QObject):
         self._harvest_logs = {}
         self._camera_tours = ()
         self._last_load_skipped_tours_count = 0
+        self._plan_weather = "clear"
         self.project_changed.emit(None)
         self.dirty_changed.emit(False)
         self.location_changed.emit(None)
@@ -1135,6 +1175,7 @@ class ProjectManager(QObject):
         data.task_states = dict(self._task_states)
         data.harvest_logs = dict(self._harvest_logs)
         data.camera_tours = plan_tours.dump_tours(self._camera_tours)
+        data.weather = self._plan_weather
         return data
 
     def recovery_dict(self, scene: QGraphicsScene) -> dict[str, Any]:
@@ -1358,6 +1399,7 @@ class ProjectManager(QObject):
         """Restore non-scene project metadata and emit change signals."""
         self._location = data.location
         self.location_changed.emit(self._location)
+        self._plan_weather = _plan_weather(data.weather)
         self._north_angle_deg = normalize_north_angle(data.north_angle_deg)
         self.north_angle_changed.emit(self._north_angle_deg)
         self._task_completions = set(data.task_completions)
@@ -1430,6 +1472,7 @@ class ProjectManager(QObject):
         current_data = self._serialize_scene(scene)
         current_data.auto_assign_permaculture_layers = self.auto_assign_permaculture_layers
         current_data.location = self._location
+        current_data.weather = self._plan_weather
         current_data.north_angle_deg = self._north_angle_deg
         current_data.task_completions = []
         current_data.seed_inventory = list(self._seed_inventory)
@@ -2512,6 +2555,7 @@ class ProjectManager(QObject):
             PolygonItem,
             PolylineItem,
             RectangleItem,
+            ReferencePointItem,
         )
         from open_garden_planner.ui.canvas.items.construction_item import (
             ConstructionCircleItem,
@@ -2704,7 +2748,10 @@ class ProjectManager(QObject):
                 item.area_label_visible = True
             return item
         elif obj_type == "circle":
-            item = CircleItem(
+            from open_garden_planner.core.reference_points import is_reference_point
+
+            circle_class = ReferencePointItem if is_reference_point(metadata) else CircleItem
+            item = circle_class(
                 obj["center_x"],
                 obj["center_y"],
                 obj["radius"],
@@ -2735,7 +2782,7 @@ class ProjectManager(QObject):
             if not label_visible:
                 item.label_visible = False
             # Restore rotation angle
-            if "rotation_angle" in obj:
+            if "rotation_angle" in obj and not is_reference_point(metadata):
                 item._apply_rotation(obj["rotation_angle"])
             # Restore plant category and species
             if "plant_category" in obj:

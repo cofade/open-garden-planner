@@ -57,8 +57,9 @@ TOUR_SIZES: Final = ((1280, 720), (1920, 1080), (2560, 1440), (3840, 2160))
 DEFAULT_SIZE: Final = (1920, 1080)
 #: A tour's length until the user sets one, and what a file that names none gets.
 DEFAULT_DURATION_S: Final = 12.0
-#: The whole turns a drone orbit offers.
-ORBIT_TURNS: Final = (1, 4)
+#: The part or whole turns a drone orbit offers. A garden with a house on one side can
+#: store a half turn on its garden side (#966); a quarter turn is the least useful orbit.
+ORBIT_TURNS: Final = (0.25, 4.0)
 #: How long a new drone orbit takes for a turn, until the user sets a duration (#807): 0.4
 #: degrees a frame at 30 fps, where 12 s a turn moved the horizon 26 px a frame across a
 #: 1080p picture. Not for a time-lapse: a year's regrowths cost about a second and 2 MB each
@@ -71,12 +72,12 @@ ORBIT_SECONDS_PER_TURN: Final = 30.0
 DEFAULT_ORBIT_PITCH_DEG: Final = 18.0
 
 
-def default_duration_s(motion: str, turns: int, clock: str) -> float:
+def default_duration_s(motion: str, turns: float, clock: str) -> float:
     """A new tour's length while the user has set none: ``ORBIT_SECONDS_PER_TURN`` a turn
     for an orbit that leaves the clock alone (``clock`` ``"none"``), else
-    ``DEFAULT_DURATION_S``."""
+    ``DEFAULT_DURATION_S``. A part turn is that share of the turn."""
     if motion == "orbit" and clock == "none":
-        return ORBIT_SECONDS_PER_TURN * turns
+        return ORBIT_SECONDS_PER_TURN * float(turns)
     return DEFAULT_DURATION_S
 #: The most tours a plan keeps, and the most keyframes one tour has. Far above what a
 #: person sets up by hand; a file that asks for more is not asking for a video.
@@ -136,9 +137,10 @@ def _orbit_from(raw: Any) -> DroneOrbit:
                       _number(raw.get("distance_cm"), "orbit.distance_cm", 0.0),
                       _number(raw.get("yaw_deg"), "orbit.yaw_deg"),
                       _number(raw.get("pitch_deg"), "orbit.pitch_deg", -90.0, 90.0))
-    turns = round(_number(raw.get("turns", 1), "orbit.turns"))
+    turns = _number(raw.get("turns", 1), "orbit.turns")
+    turns = round(min(max(turns, ORBIT_TURNS[0]), ORBIT_TURNS[1]), 2)
     return DroneOrbit(pose, _number(raw.get("fov_deg", FOV_DEG), "orbit.fov_deg", 0.0, 180.0),
-                      float(min(max(turns, ORBIT_TURNS[0]), ORBIT_TURNS[1])),
+                      turns,
                       raw.get("clockwise", True) is not False,
                       # #807, additive: an orbit saved before easing existed has no "ease",
                       # and flies the even loop it always flew
@@ -147,9 +149,11 @@ def _orbit_from(raw: Any) -> DroneOrbit:
 
 def _orbit_dict(orbit: DroneOrbit) -> dict[str, Any]:
     pose = orbit.pose
+    turns: int | float = (int(orbit.turns) if float(orbit.turns).is_integer()
+                          else float(orbit.turns))
     data: dict[str, Any] = {"target": list(pose.target), "distance_cm": pose.distance_cm,
                             "yaw_deg": pose.yaw_deg, "pitch_deg": pose.pitch_deg,
-                            "fov_deg": orbit.fov_deg, "turns": int(orbit.turns),
+                            "fov_deg": orbit.fov_deg, "turns": turns,
                             "clockwise": orbit.clockwise}
     if orbit.ease:   # only when set: an even orbit is written as every older build wrote it
         data["ease"] = True
@@ -219,9 +223,8 @@ class SavedTour:
         if self.motion == "orbit" and self.orbit is None:
             raise ValueError("An orbit tour needs its orbit")
         if self.orbit is not None and not (
-                float(self.orbit.turns).is_integer()
-                and ORBIT_TURNS[0] <= self.orbit.turns <= ORBIT_TURNS[1]):
-            raise ValueError(f"An orbit makes {ORBIT_TURNS[0]} to {ORBIT_TURNS[1]} whole turns, "
+                ORBIT_TURNS[0] <= self.orbit.turns <= ORBIT_TURNS[1]):
+            raise ValueError(f"An orbit makes {ORBIT_TURNS[0]} to {ORBIT_TURNS[1]} turns, "
                              f"got {self.orbit.turns!r}")
         if self.orbit is not None:
             # Use the motion's own CameraKey validation: even a programmatically built

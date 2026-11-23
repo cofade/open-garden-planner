@@ -271,11 +271,18 @@ def test_bulb_flowers_stand_on_scapes_above_their_leaves(
     assert float(_part(parts, PART_WOOD).positions[:, 2].max()) <= BULB_NECK * height * 1.05  # the fit
 
 
-def test_a_bulb_at_lod2_keeps_its_scapes_to_the_top() -> None:
+def test_a_bulb_at_lod2_carries_its_scapes_with_its_flowers() -> None:
+    """#971/#948: at LOD2 a bulb's scapes were its wood: a bunch of bare stalks ten months
+    a year. They are the flowers' stalks, so they live in the flowers part, whose far
+    patches carry the petal colour; out of bloom the part hides and the leaves remain."""
     parts = forge_plant(SpriteRef("species", "tulip"), 70.0, 10.0, seed=7, lod=LOD2, cache=None)
-    assert FLOWER_PART not in {p.name for p in parts}
-    top = max(float(p.mesh.positions[:, 2].max()) for p in parts)
-    assert top == pytest.approx(70.0, abs=1e-3)
+    assert FLOWER_PART in {p.name for p in parts}
+    flowers = _part(parts, FLOWER_PART)
+    assert float(flowers.positions[:, 2].max()) == pytest.approx(70.0, abs=1e-3)
+    leaves = _part(parts, PART_FOLIAGE)
+    assert float(leaves.positions[:, 2].max()) <= 0.61 * 70.0
+    wood = _part(parts, PART_WOOD)
+    assert float(wood.positions[:, 2].max()) <= 0.10 * 70.0
 
 
 @pytest.mark.parametrize("species", ["tulip", "magnolia", "rose", "cherry_tree", "sunflower"])
@@ -400,6 +407,185 @@ def test_a_clump_of_blades_keeps_its_spread_on_every_seed(species: str) -> None:
                 pos = np.concatenate([p.mesh.positions for p in parts]).astype(np.float64)
                 span = max(np.ptp(pos[:, 0]), np.ptp(pos[:, 1]))
                 assert abs(span - 2.0 * radius) <= 0.10 * 2.0 * radius, (height, lod, seed, span)
+
+
+@pytest.mark.parametrize(
+    "sprite",
+    [SpriteRef("species", name) for name in
+     ("pear_tree", "plum_tree", "cherry_tree", "jasmine", "clematis", "wisteria",
+      "cucumber", "pea", "sunflower")]
+    + [SpriteRef("categories", "climbing_plant")],
+    ids=lambda s: f"{s.group}/{s.name}",
+)
+def test_a_sparse_far_crown_keeps_its_spread_on_every_seed(sprite: SpriteRef) -> None:
+    """#970: at LOD2 a sparse crown's box sits on diagonals, and the fit's pull onto
+    REACH_MAX took it to 0.865-0.893 of its diameter on some seeds (a jasmine seed 50,
+    a cucumber seed 50, a sunflower seed 23). Four leaves on the plan's axes hold it."""
+    for height, radius in ((150.0, 40.0), (420.0, 180.0), (800.0, 300.0)):
+        for seed in range(64):
+            parts = forge_plant(sprite, height, radius, seed=seed, lod=LOD2, cache=None)
+            pos = np.concatenate([p.mesh.positions for p in parts]).astype(np.float64)
+            span = max(np.ptp(pos[:, 0]), np.ptp(pos[:, 1]))
+            assert abs(span - 2.0 * radius) <= 0.10 * 2.0 * radius, (
+                height, radius, seed, span / (2.0 * radius))
+
+
+@pytest.mark.parametrize(("species", "families"), [
+    ("cherry_tree", {"flowers", "fruits"}),
+    ("apple_tree", {"flowers", "fruits"}),
+    ("blueberry", {"flowers", "fruits"}),
+    ("rose", {"flowers"}),
+    ("lavender", {"flowers"}),
+    ("jasmine", {"flowers"}),
+])
+def test_a_far_crown_keeps_its_crop_as_patches(species: str, families: set[str]) -> None:
+    """#948: beyond 45 m LOD2 built no accent at all, so a blossoming orchard or a
+    ripening berry row lost its crop. A few large patches per family carry the colour,
+    inside the LOD2 budget and the plant's own height and reach."""
+    height, radius = 420.0, 180.0
+    parts = forge_plant(SpriteRef("species", species), height, radius, seed=7,
+                        lod=LOD2, cache=None)
+    names = {p.name for p in parts}
+    assert families <= names, names
+    assert sum(p.mesh.triangle_count for p in parts) <= triangle_budget_for_lod(LOD2)
+    for family in families:
+        mesh = _part(parts, family)
+        pos = mesh.positions.astype(np.float64)
+        assert pos[:, 2].max() <= height + 1e-3
+        assert float(np.hypot(pos[:, 0], pos[:, 1]).max()) <= radius * 1.04 + 1e-3
+        # the far representation is a patch cloud, not a substitute LOD0 crop
+        assert mesh.triangle_count <= 64
+
+
+@pytest.mark.parametrize(("species", "colour"), [
+    ("rhododendron", "#eeb3d3"),   # its clusters' own light pink, not FLOWERS["pink"]
+    ("lilac", "#d0c0f0"),
+    ("cherry_tree", "#e88aa8"),    # its flowers recipe's outer pink
+])
+def test_a_far_crop_takes_the_recipe_s_own_colour(species: str, colour: str) -> None:
+    """#948: the far patch is the plant's own flower colour - a clusters plant's recipe
+    entry, not the generic `blossom_spec` fallback - lifted ×1.35 (capped 0.9) for a low
+    sun, because the cue is not a lit blossom and its shade side read mauve."""
+    from open_garden_planner.core.plant_forge.accents import _hex_to_linear_rgb, build_far_accents
+
+    geo = build_far_accents(
+        traits_for(SpriteRef("species", species)), 150.0, 60.0,
+        np.random.default_rng(3), family="flowers", max_tris=4,
+    )
+    raw = _hex_to_linear_rgb(colour)
+    expected = raw * min(1.35, 0.90 / max(float(raw.max()), 1e-6))
+    np.testing.assert_allclose(geo.col[0, :3], expected, atol=1e-5)
+
+
+@pytest.mark.parametrize("species", ["oak", "birch", "boxwood"])
+def test_a_leaf_only_far_crown_gets_no_crop(species: str) -> None:
+    parts = forge_plant(SpriteRef("species", species), 420.0, 180.0, seed=7,
+                        lod=LOD2, cache=None)
+    assert not ({FLOWER_PART, "fruits"} & {p.name for p in parts})
+
+
+@pytest.mark.parametrize("species", ["tulip", "daffodil", "crocus"])
+def test_a_far_bulb_keeps_its_flowers_on_its_scapes(species: str) -> None:
+    """#963/#948: a bulb at LOD2 no longer loses its flower colour, and its scapes live
+    in the flowers part (they are hidden out of bloom, unlike wood)."""
+    parts = forge_plant(SpriteRef("species", species), 30.0, 5.0, seed=7,
+                        lod=LOD2, cache=None)
+    assert FLOWER_PART in {p.name for p in parts}
+    flowers = _part(parts, FLOWER_PART)
+    assert flowers.triangle_count > 0
+    assert float(flowers.positions[:, 2].max()) == pytest.approx(30.0, abs=0.02)
+    # out of bloom the part hides: the leaves are the visible top
+    assert float(_part(parts, PART_FOLIAGE).positions[:, 2].max()) <= 0.61 * 30.0
+
+
+@pytest.mark.parametrize(("species", "foliage_triangles"), [
+    ("birch", 536),          # no crop: the full LOD2 leaf budget
+    ("willow", 536),
+    ("japanese_maple", 536),
+    ("oak", 356),            # its crown's own surface cap, unchanged
+    ("cherry_tree", 488),    # a crop: 64 triangles reserved (32 per family)
+    ("apple_tree", 488),
+    ("magnolia", 488),
+])
+def test_the_lod2_far_reserve_is_paid_only_by_a_cropping_canopy(
+        species: str, foliage_triangles: int) -> None:
+    """#948 review: a 64-triangle far-crop reserve paid by every canopy took 24 leaves off
+    birch, willow and Japanese maple, which have no crop. A leaf-only far canopy keeps the
+    old 16 (536 triangles); only a cropping one spends 64 (488)."""
+    parts = forge_plant(SpriteRef("species", species), 420.0, 180.0, seed=7,
+                        lod=LOD2, cache=None)
+    assert _part(parts, PART_FOLIAGE).triangle_count == foliage_triangles
+    cropping = any(part.name in (FLOWER_PART, "fruits") for part in parts)
+    assert cropping == (foliage_triangles == 488)
+
+
+CANOPY_SPRITES: tuple[SpriteRef, ...] = tuple(
+    [SpriteRef("species", name) for name, traits in SPECIES_TRAITS.items()
+     if traits.archetype == "canopy"]
+    + [SpriteRef("categories", name) for name, traits in CATEGORY_TRAITS.items()
+       if traits.archetype == "canopy"]
+)
+
+
+@pytest.mark.parametrize("sprite", CANOPY_SPRITES, ids=lambda s: f"{s.group}/{s.name}")
+def test_every_canopy_with_a_crop_key_gets_a_far_crop(sprite: SpriteRef) -> None:
+    """The LOD2 reserve's `has_far_crop` predicate and the far-colour rule are two
+    hand-kept pieces; this sweep calls the predicate and compares it to the forged parts."""
+    from open_garden_planner.core.plant_forge.trees import has_far_crop
+
+    parts = forge_plant(sprite, 420.0, 180.0, seed=7, lod=LOD2, cache=None)
+    has_parts = bool({"flowers", "fruits"} & {part.name for part in parts})
+    assert has_far_crop(traits_for(sprite)) == has_parts, (
+        sprite.name, [part.name for part in parts])
+
+
+def test_a_far_sunflower_keeps_its_head() -> None:
+    """#948 review: a sunflower's head is a `head`-habit flower, and the LOD2 builder
+    returned before placing it, so it vanished beyond 45 m."""
+    height, radius = 200.0, 60.0
+    parts = forge_plant(SpriteRef("species", "sunflower"), height, radius, seed=7,
+                        lod=LOD2, cache=None)
+    assert FLOWER_PART in {part.name for part in parts}
+    heads = _part(parts, FLOWER_PART)
+    assert heads.triangle_count >= 2
+    assert float(heads.positions[:, 2].max()) <= height + 1e-3
+    assert float(np.hypot(heads.positions[:, 0], heads.positions[:, 1]).max()) <= radius * 1.04 + 1e-3
+
+
+def test_pods_carry_a_phase_for_their_ripening() -> None:
+    """#948 review: pods are fruit-like, but their part had no phase, so every pod
+    appeared on the harvest window's first day. Each pod's two tube segments must share
+    ONE phase - a split would make the pod appear in halves."""
+    parts = forge_plant(SpriteRef("species", "pea"), 60.0, 30.0, seed=7, lod=LOD0, cache=None)
+    pods = _part(parts, "fruits")
+    phases, counts = np.unique(pods.uvs[:, 1], return_counts=True)
+    assert phases.size > 1
+    assert np.all(counts == counts[0]), counts          # every phase the same block size
+    assert counts[0] > 5, counts                        # two tubes, not one
+
+
+def test_the_lod2_pin_moves_no_climber_wood() -> None:
+    """#970/#948 review: a concrete-supported climber's training frame is its wood; the
+    post-fit pin turns only the decorative foliage's four leaves, so the support plane and
+    the wood's height must be untouched."""
+    from open_garden_planner.core.plant_forge.assemble import pin_foliage_spread
+
+    support = {
+        "kind": "fence", "azimuth_deg": 0.0, "distance_cm": 10.0,
+        "segment_cm": (-100.0, 90.0, 100.0, 90.0),
+        "width_cm": 10.0, "height_cm": 180.0, "base_cm": 0.0,
+    }
+    parts = forge_plant(SpriteRef("species", "jasmine"), 210.0, 45.0, seed=7,
+                        lod=LOD2, cache=None, support=support)
+    pinned = pin_foliage_spread(parts)
+    assert len(parts) == len(pinned)
+    for before, after in zip(parts, pinned, strict=True):
+        assert before.name == after.name
+        if before.name == PART_WOOD:
+            np.testing.assert_array_equal(before.mesh.positions, after.mesh.positions)
+        assert before.mesh.triangle_count == after.mesh.triangle_count
+        np.testing.assert_allclose(before.mesh.positions[:, 2].max(),
+                                   after.mesh.positions[:, 2].max(), atol=1e-4)
 
 
 @pytest.mark.parametrize("sprite", FLOWERING, ids=lambda s: f"{s.group}/{s.name}")

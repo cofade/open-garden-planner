@@ -36,7 +36,7 @@ from PyQt6.QtCore import QCoreApplication
 
 from open_garden_planner.core.calendar_windows import calendar_windows as calendar_windows
 from open_garden_planner.core.frost_dates import parse_frost
-from open_garden_planner.core.i18n import format_decimal
+from open_garden_planner.core.measurement_display import temperature_text
 from open_garden_planner.core.plan_timeline import instance_date, plant_present
 from open_garden_planner.models.propagation import PropagationPlan, compute_propagation_plan
 from open_garden_planner.models.succession import SuccessionPlan
@@ -392,9 +392,11 @@ def generate_frost_tasks(state: PlanState) -> list[Task]:
         task_type = (
             "frost_alert_red" if alert.severity == "red" else "frost_alert_orange"
         )
-        title = QCoreApplication.translate(
-            "Tasks", "Frost {temp}°C"
-        ).format(temp=format_decimal(alert.min_temp, 1))
+        # Generated on every refresh, so the title follows a live unit switch
+        # (#907): the alert keeps Celsius, the reader sees their own scale.
+        title = QCoreApplication.translate("Tasks", "Frost {temp}").format(
+            temp=temperature_text(alert.min_temp, decimals=1)
+        )
         tasks.append(Task(
             task_id=f"frost:{alert.date}:{alert.severity}",
             source="frost",

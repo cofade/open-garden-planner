@@ -60,6 +60,7 @@ from PyQt6.QtWidgets import QGraphicsScene
 from open_garden_planner.core.container_model import container_material
 from open_garden_planner.core.object_height import effective_height_cm
 from open_garden_planner.core.object_types import PathFenceStyle, is_container_type
+from open_garden_planner.core.phenology import DEFAULT_LATITUDE_DEG, seasonal_ground_tint
 from open_garden_planner.core.plant_art import PLANT_KINDS
 from open_garden_planner.core.plant_height_estimate import (
     ESTIMATED_HEIGHT_PARAM,
@@ -97,7 +98,7 @@ from open_garden_planner.core.scene3d import (
     quantize_cm,
     ring_area,
 )
-from open_garden_planner.core.scene3d.builders.surfaces import MEADOW_PATTERN
+from open_garden_planner.core.scene3d.builders.surfaces import MEADOW_PATTERN, MOSS_PATTERN
 from open_garden_planner.core.scene3d.context import with_context
 from open_garden_planner.core.scene3d.polygon import (
     MAX_ITEM_VERTICES,
@@ -160,7 +161,7 @@ _log = logging.getLogger(__name__)
 #: would be false for the one item a house owns.
 _NO_RECORD_KINDS = frozenset({"ROOF_RIDGE"})
 #: Surfaces whose 3D relief depends on their fill pattern (L4.2: a deck has boards).
-_PATTERNED_SURFACES: Final = frozenset({"TERRACE_PATIO", "DRIVEWAY"})
+_PATTERNED_SURFACES: Final = frozenset({"TERRACE_PATIO", "DRIVEWAY", "GENERIC_POLYGON"})
 
 
 class SkipReason(StrEnum):
@@ -826,6 +827,26 @@ def _material(key: str, fill: Rgba | None, stroke: Rgba | None, pattern: str | N
     return Material(key, fill, stroke, pattern, paint)
 
 
+def _seasonal_fill(kind: str, fill: Rgba | None, at_date: date | None,
+                   latitude_deg: float, pattern: str | None = None) -> Rgba | None:
+    """A lawn's fill through the year (#943); moss (#960) and every other fill stay untouched.
+
+    The ground bake paints LAWN tiles with the item's fill colour and the 3D lawn's blades
+    take the same tint, so one factor changes both — while moss stays evergreen and a path
+    or terrace beside it keeps its own colour. Uses ``seasonal_ground_tint`` directly so
+    baked lawns and the open-ground meadow share the exact same 4-day seasonal grid.
+    """
+    if kind != "LAWN" or pattern == MOSS_PATTERN or fill is None or at_date is None:
+        return fill
+    tint = seasonal_ground_tint(at_date, latitude_deg)
+    # The late-summer keyframe reaches 1.03: a near-white lawn may not exceed the
+    # 0..255 contract of a colour.
+    return (min(255, max(0, int(round(fill[0] * tint[0])))),
+            min(255, max(0, int(round(fill[1] * tint[1])))),
+            min(255, max(0, int(round(fill[2] * tint[2])))),
+            fill[3])
+
+
 #: Kinds that are never painted on the ground, height or no height: a plant is a
 #: plant — without a height it is the plant builder's placeholder, never its 2D
 #: sprite laid flat on the lawn.
@@ -997,7 +1018,7 @@ def _regions_of(outline: ItemOutline, frame: LocalFrame, made: list[Ring] | None
 
 
 def _record_of(item: Any, object_type: Any, item_id: str, at_date: date | None,
-               lookup: ItemLookup) -> Record | None:
+               lookup: ItemLookup, latitude_deg: float = DEFAULT_LATITUDE_DEG) -> Record | None:
     """One item → its record; None when it covers no ground (not an error).
     Anything it raises is contained by ``snapshot_records``. ``lookup`` finds
     another item by id (a HOUSE's ridge)."""
@@ -1122,7 +1143,8 @@ def _record_of(item: Any, object_type: Any, item_id: str, at_date: date | None,
         raise refused  # a solid needs regions: left out and reported, as before
     pattern = getattr(item, "fill_pattern", None)
     if pattern is not None and (kind in _PATTERNED_SURFACES  # a deck's boards are geometry (L4.2)
-                                or (kind == "LAWN" and pattern.name == MEADOW_PATTERN)):  # a meadow (#940)
+                                or (kind == "LAWN" and pattern.name in (MEADOW_PATTERN, MOSS_PATTERN))
+                                or (kind == "RAISED_BED" and pattern.name != "SOLID")):  # frame material (#957)
         params[PARAM_SURFACE_PATTERN] = pattern.name
     parent = getattr(item, "parent_bed_id", None)
     base = item_base_cm(item, lookup, at_date) if parent is not None else 0.0
@@ -1133,7 +1155,10 @@ def _record_of(item: Any, object_type: Any, item_id: str, at_date: date | None,
         shape=shape,
         footprints=tuple(outer for outer, _holes in regions),
         transform=frame.transform(quantize_cm(base)),
-        material=_material(kind, _rgba(getattr(item, "fill_color", None)), _rgba(stroke),
+        material=_material(kind, _seasonal_fill(
+                               kind, _rgba(getattr(item, "fill_color", None)), at_date, latitude_deg,
+                               pattern.name if pattern is not None else None),
+                           _rgba(stroke),
                            pattern.name if pattern is not None else None, paint),
         height_cm=height,
         path=path,
@@ -1150,11 +1175,12 @@ def snapshot_records(
     scene: QGraphicsScene,
     at_date: date | None = None,
     *,
+    latitude_deg: float = DEFAULT_LATITUDE_DEG,
     skipped: list[SkippedItem] | None = None,
 ) -> dict[str, Record]:
     """``snapshot_steps`` run to the end in one go — the synchronous API (exports,
     tests, the offscreen renderer). Same records, same ``skipped``."""
-    steps = snapshot_steps(scene, at_date, skipped=skipped)
+    steps = snapshot_steps(scene, at_date, latitude_deg=latitude_deg, skipped=skipped)
     while True:
         try:
             next(steps)
@@ -1166,6 +1192,7 @@ def snapshot_steps(
     scene: QGraphicsScene,
     at_date: date | None = None,
     *,
+    latitude_deg: float = DEFAULT_LATITUDE_DEG,
     skipped: list[SkippedItem] | None = None,
 ) -> Generator[int, None, dict[str, Record]]:
     """Every visible item with a footprint → one contract-v2 ``Record``, ONE ITEM PER STEP.
@@ -1263,7 +1290,8 @@ def snapshot_steps(
                 continue
             item_id = str(item_uuid)
             try:
-                record = _record_of(item, object_type, item_id, at_date, lookup)
+                record = _record_of(item, object_type, item_id, at_date, lookup,
+                                    latitude_deg)
             except RecordRangeError as error:  # a length beyond what a plan can hold
                 _report(SkippedItem(item_id, kind, SkipReason.OUT_OF_RANGE,
                                     type(error).__name__, str(error)), skipped)

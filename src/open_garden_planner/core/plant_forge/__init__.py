@@ -12,6 +12,7 @@ from __future__ import annotations
 import json
 import math
 from collections.abc import Mapping
+from dataclasses import replace
 from typing import Any
 
 from ..plant_art import (
@@ -52,7 +53,15 @@ from .accents import (
     build_umbel_accents,
 )
 from .assemble import PART_ACCENTS, PART_FOLIAGE, PART_WOOD, fit_forged_parts, silhouette_iou
-from .cache import DEFAULT_FORGE_CACHE, CacheKey, ForgeCache, make_cache_key
+from .cache import (
+    DEFAULT_FORGE_CACHE,
+    QUANT_STEP,
+    CacheKey,
+    ForgeCache,
+    make_cache_key,
+    quantised_size_cm,
+    size_bucket,
+)
 from .climbers import (
     CLIMBER_SUPPORT_MAX_DISTANCE_CM,
     PARAM_CLIMBER_SUPPORT,
@@ -105,12 +114,52 @@ from .woody import (
 )
 
 
-def _support_signature(support: Mapping[str, Any] | tuple[Any, ...] | None) -> str:
+def _bucketed_support(
+    support: Mapping[str, Any] | None, step_cm: float,
+) -> Mapping[str, Any] | None:
+    """A climber's support with its distance at the bucket centre (#973), so every shape
+    inside one cache bucket is built at the same distance and the contact error is at most
+    half a step."""
+    if not support or step_cm <= 0.0:
+        return support
+    data = dict(support)
+    distance = data.get("distance_cm")
+    if isinstance(distance, (int, float)) and not isinstance(distance, bool):
+        data["distance_cm"] = round(float(distance) / step_cm) * step_cm
+    return data
+
+
+def _support_signature(
+    support: Mapping[str, Any] | tuple[Any, ...] | None,
+    *,
+    distance_step_cm: float | None = None,
+) -> str:
+    """The cache part of a climber's support: its GEOMETRY, not the plant's own size.
+
+    ``distance_cm`` is derived from the plant's exact canopy radius
+    (``climbers.resolve_climber_support``), so a growing fence-trained climber changed the
+    key every day (#973 review). It is bucketed to the same relative step as the plant's
+    own size (2 % of its radius), so the shape and its support training stay together
+    across a season; the support contact may be off by that half step, well inside the
+    50 cm support search.
+    """
     if not support:
         return ""
+
+    def _distance(value: object) -> object:
+        if isinstance(value, (int, float)) and not isinstance(value, bool):
+            step = distance_step_cm if distance_step_cm and distance_step_cm > 0 else 1.0
+            return round(float(value) / step) * step
+        return value
+
     if isinstance(support, Mapping):
-        return json.dumps(dict(support), sort_keys=True, separators=(",", ":"))
-    return json.dumps(list(support), separators=(",", ":"))
+        data = dict(support)
+        data["distance_cm"] = _distance(data.get("distance_cm"))
+        return json.dumps(data, sort_keys=True, separators=(",", ":"))
+    values = list(support)
+    if len(values) >= 3:
+        values[2] = _distance(values[2])
+    return json.dumps(values, separators=(",", ":"))
 
 
 def forge_plant(
@@ -124,56 +173,74 @@ def forge_plant(
     support: Mapping[str, Any] | None = None,
     include_accents: bool = True,
 ) -> tuple[MeshPart, ...]:
-    """Forge a 3D plant mesh for ``sprite`` at ``(height_cm, radius_cm, seed, lod)``."""
+    """Forge a 3D plant mesh for ``sprite`` at ``(height_cm, radius_cm, seed, lod)``.
+
+    With a cache, the mesh is built at the 2 % size bucket and stretched to the exact
+    height and spread (#973); without one, the exact size is built."""
     validate_lod(lod)
     h = float(height_cm)
     r = float(radius_cm)
     if not (math.isfinite(h) and math.isfinite(r)) or h <= 0.0 or r <= 0.0:
         raise ValueError(f"height_cm and radius_cm must be finite positive floats, got ({h!r}, {r!r})")
 
-    extra_sig = _support_signature(support)
+    # #973: with a cache, forge one shape per 2 % size bucket and stretch it to the exact
+    # size, so a tree that grows a little each day keeps its form instead of being
+    # re-randomised. Without a cache there is nothing to reuse: build the exact size.
+    h_bucket = h if cache is None else quantised_size_cm(h)
+    r_bucket = r if cache is None else quantised_size_cm(r)
+    # The climber's support distance is bucketed by the SAME relative step as the size, and
+    # the builder uses the bucket centre, so a growing climber's key and its support
+    # contact are stable inside one size bucket (error at most half a step).
+    distance_step = 0.02 * r_bucket
+    build_support = _bucketed_support(support, distance_step)
+    extra_sig = _support_signature(build_support, distance_step_cm=distance_step)
     if not include_accents:
         extra_sig = f"{extra_sig}|no_accents"
-    key = make_cache_key(sprite.group, sprite.name, seed, lod, h, r, extra_sig)
+    key = make_cache_key(sprite.group, sprite.name, seed, lod, h_bucket, r_bucket, extra_sig)
 
     def _build() -> tuple[MeshPart, ...]:
         traits = traits_for(sprite)
         if traits.archetype == "canopy":
-            parts = build_forged_tree(traits, h, r, seed, lod=lod)
+            parts = build_forged_tree(traits, h_bucket, r_bucket, seed, lod=lod)
         elif traits.archetype == "conifer":
-            parts = build_forged_conifer(traits, h, r, seed, lod=lod)
+            parts = build_forged_conifer(traits, h_bucket, r_bucket, seed, lod=lod)
         elif traits.archetype == "palm":
-            parts = build_forged_palm(traits, h, r, seed, lod=lod)
+            parts = build_forged_palm(traits, h_bucket, r_bucket, seed, lod=lod)
         elif traits.archetype == "mound":
-            parts = build_forged_shrub(traits, h, r, seed, lod=lod)
+            parts = build_forged_shrub(traits, h_bucket, r_bucket, seed, lod=lod)
         elif traits.archetype == "hedge":
-            parts = build_forged_hedge(traits, h, r, seed, lod=lod)
+            parts = build_forged_hedge(traits, h_bucket, r_bucket, seed, lod=lod)
         elif traits.archetype == "rosette":
-            parts = build_forged_rosette(traits, h, r, seed, lod=lod)
+            parts = build_forged_rosette(traits, h_bucket, r_bucket, seed, lod=lod)
         elif traits.archetype == "grass":
-            parts = build_forged_grass(traits, h, r, seed, lod=lod)
+            parts = build_forged_grass(traits, h_bucket, r_bucket, seed, lod=lod)
         elif traits.archetype == "feathery":
-            parts = build_forged_feathery(traits, h, r, seed, lod=lod)
+            parts = build_forged_feathery(traits, h_bucket, r_bucket, seed, lod=lod)
         elif traits.archetype == "allium":
-            parts = build_forged_allium(traits, h, r, seed, lod=lod)
+            parts = build_forged_allium(traits, h_bucket, r_bucket, seed, lod=lod)
         elif traits.archetype == "head":
-            parts = build_forged_head(traits, h, r, seed, lod=lod)
+            parts = build_forged_head(traits, h_bucket, r_bucket, seed, lod=lod)
         elif traits.archetype == "ground":
-            parts = build_forged_ground(traits, h, r, seed, lod=lod)
+            parts = build_forged_ground(traits, h_bucket, r_bucket, seed, lod=lod)
         elif traits.archetype == "flower":
-            parts = build_forged_flower(traits, h, r, seed, lod=lod)
+            parts = build_forged_flower(traits, h_bucket, r_bucket, seed, lod=lod)
         elif traits.archetype == "climber":
-            parts = build_forged_climber(traits, h, r, seed, lod=lod, support=support)
+            parts = build_forged_climber(traits, h_bucket, r_bucket, seed, lod=lod,
+                                         support=build_support)
         else:
-            return build_silhouette(recipe_for(sprite), int(seed), h, r)
+            return build_silhouette(recipe_for(sprite), int(seed), h_bucket, r_bucket)
         if include_accents:
-            return attach_accents(parts, traits, h, r, seed, lod=lod)
+            return attach_accents(parts, traits, h_bucket, r_bucket, seed, lod=lod)
         # a bulb's or a stemmed flower's builder placed its own flowers (#940)
         return tuple(p for p in parts if p.name not in SEASONAL_PARTS)
 
-    if cache is None:
-        return _build()
-    return cache.get_or_build(key, _build)
+    built = _build() if cache is None else cache.get_or_build(key, _build)
+    if h_bucket == h and r_bucket == r:
+        return built
+    return tuple(
+        replace(part, mesh=part.mesh.scaled(r / r_bucket, r / r_bucket, h / h_bucket))
+        for part in built
+    )
 
 
 def forge_species_plant(
@@ -223,6 +290,74 @@ def _estimated_fallback_cm(record: Record) -> float | None:
         return None
 
 
+def record_forge_spec(
+    record: Record,
+    *,
+    lod: int = LOD0,
+    cache: ForgeCache | None = DEFAULT_FORGE_CACHE,
+    include_accents: bool = True,
+) -> tuple[SpriteRef, float, float, int, Mapping[str, Any] | None, CacheKey] | None:
+    """Return ``(sprite, height_cm, radius_cm, seed, support_map, cache_key)`` for a plant
+    record that ``forge_record`` forges as a 3D plant, or ``None`` when ``record`` falls
+    back to ``default_builder`` or ``placeholder_parts`` (#995)."""
+    validate_lod(lod)
+    if record.kind not in PLANT_KINDS:
+        return None
+    sprite = plant_sprite(record)
+    raw_radius = record.params.get(PARAM_RADIUS_CM)
+    if (
+        sprite is None
+        or isinstance(raw_radius, bool)
+        or not isinstance(raw_radius, (int, float))
+        or not math.isfinite(raw_radius)
+        or float(raw_radius) <= 0.0
+    ):
+        return None
+    radius = float(raw_radius)
+    height = record.height_cm
+    if height is None:
+        height = _estimated_fallback_cm(record)
+        if height is None or height > MAX_LENGTH_CM or radius > MAX_LENGTH_CM:
+            return None
+    h = float(height)
+    if not math.isfinite(h) or h <= 0.0:
+        return None
+    raw_seed = record.params.get(PARAM_SEED)
+    seed = item_seed(str(raw_seed) if raw_seed is not None else "", "plant")
+    support = record.params.get("climber_support")
+    if isinstance(support, Mapping):
+        support_map: Mapping[str, Any] | None = support
+    elif isinstance(support, tuple) and len(support) >= 2:
+        s1 = support[1]
+        s2 = support[2] if len(support) >= 3 else 0.0
+        support_map = {
+            "kind": str(support[0]),
+            "azimuth_deg": float(s1) if isinstance(s1, (int, float, str)) else 0.0,
+            "distance_cm": float(s2) if isinstance(s2, (int, float, str)) else 0.0,
+        }
+        if len(support) >= 10:
+            support_map = dict(
+                support_map,
+                segment_cm=support[3:7],
+                width_cm=support[7],
+                height_cm=support[8],
+                base_cm=support[9],
+            )
+            if len(support) >= 12:
+                support_map["pergola_center_cm"] = support[10:12]
+    else:
+        support_map = None
+    h_bucket = h if cache is None else quantised_size_cm(h)
+    r_bucket = radius if cache is None else quantised_size_cm(radius)
+    distance_step = 0.02 * r_bucket
+    build_support = _bucketed_support(support_map, distance_step)
+    extra_sig = _support_signature(build_support, distance_step_cm=distance_step)
+    if not include_accents:
+        extra_sig = f"{extra_sig}|no_accents"
+    key = make_cache_key(sprite.group, sprite.name, seed, lod, h_bucket, r_bucket, extra_sig)
+    return sprite, h, radius, seed, support_map, key
+
+
 def forge_record(
     record: Record,
     *,
@@ -249,28 +384,13 @@ def forge_record(
         height = _estimated_fallback_cm(record)
         if height is None or height > MAX_LENGTH_CM or radius > MAX_LENGTH_CM:
             return placeholder_parts(radius)
-
-    raw_seed = record.params.get(PARAM_SEED)
-    seed = item_seed(str(raw_seed) if raw_seed is not None else "", "plant")
-    support = record.params.get("climber_support")
-    if isinstance(support, Mapping):
-        support_map: Mapping[str, Any] | None = support
-    elif isinstance(support, tuple) and len(support) >= 2:
-        s1 = support[1]
-        s2 = support[2] if len(support) >= 3 else 0.0
-        support_map = {
-            "kind": str(support[0]),
-            "azimuth_deg": float(s1) if isinstance(s1, (int, float, str)) else 0.0,
-            "distance_cm": float(s2) if isinstance(s2, (int, float, str)) else 0.0,
-        }
-        if len(support) >= 10:
-            support_map = dict(support_map, segment_cm=support[3:7],
-                               width_cm=support[7], height_cm=support[8], base_cm=support[9])
-    else:
-        support_map = None
+    spec = record_forge_spec(record, lod=lod, cache=cache)
+    if spec is None:
+        return default_builder(record)
+    sprite, h, radius, seed, support_map, _key = spec
     return forge_plant(
         sprite,
-        float(height),
+        h,
         radius,
         seed=seed,
         lod=lod,
@@ -320,6 +440,7 @@ __all__ = [
     "PART_ACCENTS",
     "PART_FOLIAGE",
     "PART_WOOD",
+    "QUANT_STEP",
     "RawGeo",
     "SUPPORT_BEAN_POLES",
     "SUPPORT_FENCE",
@@ -366,10 +487,13 @@ __all__ = [
     "make_cache_key",
     "micro_leaves",
     "palette_leaf_colors",
+    "quantised_size_cm",
+    "record_forge_spec",
     "register_forged_plants",
     "resolve_climber_support",
     "select_lod",
     "silhouette_iou",
+    "size_bucket",
     "triangle_budget_for_lod",
     "validate_lod",
 ]

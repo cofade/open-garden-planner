@@ -8,6 +8,8 @@ meets first and fails when one of those statements comes back.
 
 from __future__ import annotations
 
+import json
+import re
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -65,3 +67,56 @@ def test_the_readme_points_at_the_issue_trace_and_its_claim_label() -> None:
     text = _text("README.md")
     assert "`claimed`" in text, "README explains the claim label"
     assert "not labelled `claimed`" in text
+
+
+def _backticked_codes(text: str) -> set[str]:
+    """The two-letter locale codes written as ``code`` in a sentence."""
+    return set(re.findall(r"`([a-z]{2})`", text))
+
+
+def _sentence_around(text: str, needle: str) -> str:
+    """The line carrying *needle*, plus the one before it for a wrapped sentence."""
+    lines = text.splitlines()
+    index = next(i for i, line in enumerate(lines) if needle in line)
+    return "\n".join(lines[max(0, index - 1) : index + 1])
+
+
+_LOCALE_NAMES = {
+    "en": "English",
+    "de": "German",
+    "es": "Spanish",
+    "fr": "French",
+    "ru": "Russian",
+}
+
+
+def test_the_accessibility_statement_names_every_shipped_ui_locale() -> None:
+    """#987: the public statement a newcomer reads must not lag behind the app."""
+    from open_garden_planner.core.i18n import SUPPORTED_LANGUAGES
+
+    sentence = _sentence_around(_text("ACCESSIBILITY.md"), "Application text")
+    for code in SUPPORTED_LANGUAGES:
+        assert _LOCALE_NAMES[code] in sentence, code
+
+
+def test_the_quality_tree_names_every_shipped_ui_locale() -> None:
+    """#987: the tree must not lag behind SUPPORTED_LANGUAGES."""
+    from open_garden_planner.core.i18n import SUPPORTED_LANGUAGES
+
+    line = _sentence_around(_text("docs/10-quality-requirements/README.md"), "Multilingual")
+    assert _backticked_codes(line) == set(SUPPORTED_LANGUAGES)
+
+
+def test_the_website_catalog_docs_name_every_shipped_site_locale() -> None:
+    """#987: §5 and §7 describe the download-stats site's own catalogs."""
+    catalogs = json.loads(
+        (ROOT / "scripts" / "download_stats_web" / "messages.json").read_text(
+            encoding="utf-8"
+        )
+    )
+    for document, needle in (
+        ("docs/05-building-block-view/README.md", "website controls"),
+        ("docs/07-deployment-view/README.md", "messages.json"),
+    ):
+        sentence = _sentence_around(_text(document), needle)
+        assert _backticked_codes(sentence) == set(catalogs), document

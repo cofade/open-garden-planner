@@ -57,6 +57,7 @@ from ..build import (
     item_seed,
     raised_surface,
     uv_origin_of,
+    walls_mesh,
 )
 from ..color import srgb_to_linear
 from ..mesh import Mesh, MeshPart
@@ -69,17 +70,19 @@ from ..record import (
     PARAM_SURFACE_PATTERN,
     PATTERN_TILE_CM,
     SHAPE_CIRCLE,
+    SHAPE_POLYGON,
     Record,
     Ring,
     lawn_blade_share,
 )
 from . import palette
-from .common import centre_line, surfaced
+from .common import centre_line, footprint_of, has_one_plain_ring, nominal_height_cm, surfaced
 from .kit import MIN_DETAIL_DIMENSION_CM, beam
-from .primitives import F64, bevelled_boxes, flat_mesh, signed_area, sweep
+from .primitives import F64, bevelled_boxes, ccw_ring, flat_mesh, signed_area, sweep
 
 #: The kinds this module builds.
-KINDS: Final[tuple[str, ...]] = ("PATH", "TERRACE_PATIO", "DRIVEWAY", "POND_POOL", "LAWN")
+KINDS: Final[tuple[str, ...]] = (
+    "PATH", "TERRACE_PATIO", "DRIVEWAY", "POND_POOL", "LAWN", "GENERIC_POLYGON")
 #: The part name of a lawn's blades — the engine shows it at the presets whose look
 #: says ``lawn_blades`` (High, Ultra).
 LAWN_BLADES: Final = "lawn_blades"
@@ -89,18 +92,35 @@ DECK_PATTERNS: Final[frozenset[str]] = frozenset({"DECKING", "WOOD"})
 #: A path narrower than this (cm) gets no relief: a line that thin is a 2D pattern, not
 #: a path one walks on (plans from before L4 drew paths 5 to 10 cm wide).
 MIN_RELIEF_WIDTH_CM: Final = 20.0
-#: Relief heights (cm): a stone, a kerb, a board's top, the water's surface.
+#: Relief heights (cm): a stone, a kerb, a gravel rim, a board's top, the water's surface.
 STONE_CM: Final = 4.0
 KERB_CM: Final = 3.0
+#: A gravel path's 3D rim sits below ``DECK_TOP_CM`` (2.5 cm) so a round end cap that
+#: meets a wooden terrace stays cleanly underneath the deck boards instead of cutting
+#: through them.
+GRAVEL_RIM_CM: Final = 1.8
 BOARD_TOP_CM: Final = 6.0
 #: A terrace's deck boards: low, because the furniture on a deck stands on the plan's
 #: ground (z 0) — at 6 cm a chair's legs sank into the boards (3D review of #388).
 DECK_TOP_CM: Final = 2.5
 WATER_CM: Final = 1.0
-#: A pond's coping: how far it reaches over the water, out over the bank, and up (cm).
+#: A formal pond/pool's coping: how far it reaches over the water, out over the bank, and up (cm).
 COPING_IN_CM: Final = 13.0
 COPING_OUT_CM: Final = 7.0
 COPING_UP_CM: Final = 7.0
+#: #961: a natural pond's low flush earth shore (organic multi-vertex polygons):
+#: stays strictly below ``DECK_TOP_CM`` (2.5 cm) so overhanging pond decks and boardwalks
+#: clear the shore cleanly with no raised grey-brown curb cutting through the timber.
+BANK_IN_CM: Final = 14.0
+BANK_OUT_CM: Final = 7.0
+BANK_UP_CM: Final = 1.35
+#: #961: linear tint multiplier on a natural pond's water (earthy olive-green, darker than a formal pool's 0.9).
+NATURAL_POND_WATER_WEIGHT: Final[tuple[float, float, float, float]] = (0.46, 0.58, 0.28, 1.0)
+#: Subdivisions per convex corner when filleting a natural pond's outline (#961).
+NATURAL_POND_CORNER_STEPS: Final = 4
+#: Maximum inward corner cut (cm) so the ``BANK_OUT_CM`` sloped bank completely covers the
+#: original 2D polygon corner underneath (no cobalt triangle peeking out, #961).
+NATURAL_POND_MAX_CUT_CM: Final = BANK_OUT_CM - 1.5
 #: A gravel path's edging: at most this wide (cm) and this share of the path's width,
 #: in the line's colour times this — the rim the 2D painter draws
 #: (``ui/canvas/items/path_style_paint.py`` holds the same three, a test both).
@@ -143,6 +163,13 @@ MAX_DECK_ROWS: Final = 1_000
 MAX_RELIEF_VERTICES: Final = 4_096
 #: A blade's height (cm), before its ±30 % variation.
 BLADE_CM: Final = 7.0
+
+#: #960: a moss lawn is a tight LOW cushion, not bright lawn blades: many more, much
+#: shorter blades, and the fill's own dark moss colour.
+MOSS_PATTERN: Final = "MOSS"
+SAND_PATTERN: Final = "SAND"
+MOSS_BLADE_CM: Final = 2.2
+MOSS_BLADES_PER_M2: Final = 1800.0
 
 #: #940: the fill pattern that makes a LAWN a flower meadow.
 MEADOW_PATTERN: Final = "WILDFLOWER"
@@ -211,7 +238,18 @@ def _shade(weight: float) -> Color:
 #: What a tinted relief part is made of (#803), by its name; an untinted one (a pond's
 #: coping) takes its palette entries' surfaces.
 RELIEF_SURFACES: Final = {"stones": "stone", "boardwalk": "wood", "kerb": "concrete",
-                          "gravel": "stone", "deck": "wood"}
+                          "gravel": "stone", "deck": "wood", "raked_sand": "stone"}
+
+#: #960: a raked sand court's ridges: a narrow raised line every ``SPACING`` cm.
+RAKED_SAND_SPACING_CM: Final = 13.0
+#: #960 review round 2: the first rake (0.8 x 0.45 cm) vanished at the product's
+#: default framing; a 2.4 cm ridge 1.5 cm high reads as a raked court.
+RAKED_SAND_WIDTH_CM: Final = 2.4
+RAKED_SAND_HEIGHT_CM: Final = 1.5
+MAX_RAKED_ROWS: Final = 1_000
+#: Total ridge segments across all rows, matching ``MAX_DECK_BOARDS`` so a comb-shaped
+#: polygon cannot emit millions of triangles on the GUI thread.
+MAX_RAKED_RIDGES: Final = 2_000
 
 
 def _relief(meshes: list[Mesh], name: str, kind: str = "vc", *, tinted: bool = True) -> tuple[MeshPart, ...]:
@@ -332,32 +370,6 @@ def _trimmed(line: F64, distance: float) -> F64:
     return np.asarray([at(distance), *inner, at(total - distance)])
 
 
-def _on_ground(points: F64, record: Record, margin: float) -> np.ndarray:
-    """Which ``points`` lie on the record's ground — inside a region, or within
-    ``margin`` cm of one's outline."""
-    on = np.zeros(len(points), dtype=bool)
-    for outer, holes in record.regions:
-        inside = _inside(points, np.asarray(outer, dtype=np.float64))
-        for hole in holes:
-            inside &= ~_inside(points, np.asarray(hole, dtype=np.float64))
-        on |= inside
-    if on.all():
-        return on
-    for outer, holes in record.regions:
-        for ring in (outer, *holes):
-            closed = np.asarray((*ring, ring[0]), dtype=np.float64)
-            start, end = closed[:-1], closed[1:]
-            edge = end - start
-            length2 = np.maximum((edge * edge).sum(axis=1), 1e-12)
-            rest = points[~on]
-            t = np.clip(((rest[:, None, :] - start[None]) * edge[None]).sum(axis=2) / length2, 0.0, 1.0)
-            gap = np.linalg.norm(rest[:, None, :] - (start[None] + t[:, :, None] * edge[None]), axis=2)
-            near = np.zeros(len(points), dtype=bool)
-            near[np.flatnonzero(~on)] = gap.min(axis=1) <= margin
-            on |= near
-    return on
-
-
 @surfaced
 def _path(record: Record) -> tuple[MeshPart, ...]:
     if record.height_cm is not None:  # a path the user gave a height: the plain prism, as before L4
@@ -378,32 +390,13 @@ def _path(record: Record) -> tuple[MeshPart, ...]:
         if not len(points) or len(points) > MAX_PATH_ELEMENTS:
             return ()
         jitter = 0.88 + 0.12 * ((np.arange(len(points)) * 7919) % 13) / 12.0
-        # the 2D painter draws a stone wherever its walk lands, also half over a
-        # path's end or over the outside of a tight bend; in 3D a stone stays on the
-        # path (the truth gate: nothing beyond the footprint plus 10 cm) — slid by
-        # half its length along the path where that puts it there, else left out
-        across = np.stack([-along[:, 1], along[:, 0]], axis=1)
-
-        def fits(centres: F64) -> np.ndarray:
-            corners = [centres + along * (sx * 0.4 * width) + across * (sy * 0.3 * width)
-                       for sx in (-1.0, 1.0) for sy in (-1.0, 1.0)]
-            return np.asarray(np.all([_on_ground(corner, record, 9.0) for corner in corners], axis=0),
-                              dtype=bool)
-
-        points = points.copy()
-        keep = fits(points)
-        for shift in (0.4 * width, -0.4 * width):
-            if keep.all():
-                break
-            moved = points + along * shift
-            slid = ~keep & fits(moved)
-            points[slid] = moved[slid]
-            keep |= slid
-        if not keep.any():
-            return ()
-        angles = np.degrees(np.arctan2(along[keep, 1], along[keep, 0]))
-        colors = np.stack([jitter[keep], jitter[keep], jitter[keep], np.ones(int(keep.sum()))], axis=1)
-        stones = bevelled_boxes(points[keep], (0.8 * width, 0.6 * width), 0.0,
+        # #998: the 3D stone is where the 2D painter draws it, including the first
+        # stone centred on an open end (half of it beyond the footprint). Sliding it
+        # onto the path exposed the flat painted stone and cut a corridor-shaped notch
+        # in a raked court; the stones are the path's painted surface, not its stroke.
+        angles = np.degrees(np.arctan2(along[:, 1], along[:, 0]))
+        colors = np.stack([jitter, jitter, jitter, np.ones(len(points))], axis=1)
+        stones = bevelled_boxes(points, (0.8 * width, 0.6 * width), 0.0,
                                 min(STONE_CM, 0.08 * width), min(2.0, 0.1 * width), angles, colors)
         return _relief([stones], "stones")
     if style == "WOODEN_BOARDWALK":
@@ -430,9 +423,10 @@ def _path(record: Record) -> tuple[MeshPart, ...]:
         return _relief(_rails(walked, False, (-width / 2.0 + kerb / 2.0, width / 2.0 - kerb / 2.0), kerb,
                               min(KERB_CM, 0.05 * width), _shade(0.74)), "kerb")
     if style == "GRAVEL_PATH":
-        # the 2D rim's width and place (``path_style_paint.GRAVEL_EDGE_*``)
+        # the 2D rim's width and place (``path_style_paint.GRAVEL_EDGE_*``); height stays
+        # below DECK_TOP_CM so a round cap abutting a wooden deck never pokes through it
         edge = min(GRAVEL_EDGE_CM, GRAVEL_EDGE_SHARE * width)
-        return _relief(_gravel_rim(walked, width, edge, min(KERB_CM, 0.05 * width)), "gravel")
+        return _relief(_gravel_rim(walked, width, edge, min(GRAVEL_RIM_CM, 0.05 * width)), "gravel")
     return ()
 
 
@@ -495,6 +489,24 @@ def _overlap(first: list[tuple[float, float]], second: list[tuple[float, float]]
     return out
 
 
+def _subtract_runs(run: tuple[float, float],
+                   holes: list[tuple[float, float]]) -> list[tuple[float, float]]:
+    """``run`` with every ``holes`` interval removed (the pieces left, in order)."""
+    pieces = [run]
+    for lo, hi in holes:
+        kept: list[tuple[float, float]] = []
+        for a, b in pieces:
+            if hi <= a or lo >= b:
+                kept.append((a, b))
+                continue
+            if lo > a:
+                kept.append((a, lo))
+            if hi < b:
+                kept.append((hi, b))
+        pieces = kept
+    return pieces
+
+
 def _board_runs(edges: F64, y: float, half: float) -> list[tuple[float, float]]:
     """Where a board centred on ``y`` (``half`` its half width) lies inside the region
     whose ``_region_edges`` are ``edges``: the x intervals inside along its centre line
@@ -542,6 +554,45 @@ def _deck(record: Record, top: float, solid: bool) -> list[Mesh] | None:
     return meshes
 
 
+def _raked_sand(record: Record) -> list[Mesh]:
+    """Parallel raised ridges in a sand court's own ground (#960), bounded by rows and total ridges."""
+    if _outline_vertices(record.regions) > MAX_RELIEF_VERTICES:
+        return []
+    # #960 review round 2: a flat item painted above the court (a moss island, a path,
+    # a bed) cuts the rake. The cut-out rings are in this record's own frame.
+    cut_edges = [_region_edges(tuple((float(x), float(y)) for x, y in ring), ())
+                 for ring in _cutouts(record)]
+    runs: list[tuple[float, float, float, int]] = []
+    rows = 0
+    for outer, holes in record.regions:
+        xs, ys = [x for x, _y in outer], [y for _x, y in outer]
+        if not xs or max(xs) - min(xs) < RAKED_SAND_WIDTH_CM:
+            continue
+        edges = _region_edges(outer, holes)
+        y = min(ys) + RAKED_SAND_SPACING_CM / 2.0
+        while y <= max(ys) - RAKED_SAND_SPACING_CM / 2.0:
+            rows += 1
+            if rows > MAX_RAKED_ROWS:
+                return []
+            cut = [interval for cut_edge in cut_edges for interval in _inside_at(cut_edge, y)]
+            for x0, x1 in _inside_at(edges, y):
+                for a, b in _subtract_runs((x0, x1), cut):
+                    # A ridge wider than its run would overhang the court's own outline.
+                    if b - a <= RAKED_SAND_WIDTH_CM:
+                        continue
+                    runs.append((a, b, y, rows))
+                    if len(runs) > MAX_RAKED_RIDGES:
+                        return []
+            y += RAKED_SAND_SPACING_CM
+    return [
+        beam((x0 + 0.5, y, RAKED_SAND_HEIGHT_CM / 2.0),
+             (x1 - 0.5, y, RAKED_SAND_HEIGHT_CM / 2.0),
+             RAKED_SAND_WIDTH_CM, RAKED_SAND_HEIGHT_CM,
+             _shade(1.0 if row % 2 else 0.78), across=(0.0, 1.0, 0.0))
+        for x0, x1, y, row in runs
+    ]
+
+
 @surfaced
 def _surface(record: Record) -> tuple[MeshPart, ...]:
     pattern = record.params.get(PARAM_SURFACE_PATTERN)
@@ -560,6 +611,8 @@ def _surface(record: Record) -> tuple[MeshPart, ...]:
     boarded = _deck(record, DECK_TOP_CM, solid=False) if deck else None
     if boarded is not None:
         return _relief(boarded, "deck")
+    if pattern == SAND_PATTERN:
+        return _relief(_raked_sand(record), "raked_sand")
     return _relief(_kerbs(record, KERB_CM, 8.0, _shade(0.72)), "kerb")
 
 
@@ -584,10 +637,91 @@ def pond_regions(record: Record) -> tuple[tuple[Ring, tuple[Ring, ...]], ...]:
     return tuple(regions)
 
 
-def _water_plan(record: Record) -> F64 | None:
+def is_natural_pond(record: Record) -> bool:
+    """True when a ``POND_POOL`` is an organic multi-vertex ground pond rather than a
+    formal rectangular, circular or raised pool (#961)."""
+    return (record.height_cm is None
+            and record.shape == SHAPE_POLYGON
+            and bool(record.footprints)
+            and all(len(ring) >= 5 for ring in record.footprints))
+
+
+def _smooth_pond_ring(points: F64, steps: int = NATURAL_POND_CORNER_STEPS) -> F64:
+    """Round each convex corner of a natural pond polygon with a quadratic Bézier fillet
+    whose inward displacement stays within ``NATURAL_POND_MAX_CUT_CM`` (#961).
+
+    Cutting only convex corners keeps the smoothed ring strictly inside the original
+    footprint (never cutting across a concave reflex corner outside the plan), while
+    clamping the inward cut below ``BANK_OUT_CM`` ensures the sloped bank completely
+    covers the painted 2D polygon corner underneath with no blue triangles peeking out."""
+    n = len(points)
+    if n < 3 or steps < 1:
+        return points
+    ccw = signed_area(points) >= 0.0
+    prev = np.roll(points, 1, axis=0)
+    nxt = np.roll(points, -1, axis=0)
+    e_in = points - prev
+    e_out = nxt - points
+    len_in = np.linalg.norm(e_in, axis=1)
+    len_out = np.linalg.norm(e_out, axis=1)
+    u_in = e_in / np.maximum(len_in, 1e-12)[:, None]
+    u_out = e_out / np.maximum(len_out, 1e-12)[:, None]
+    turn = u_in[:, 0] * u_out[:, 1] - u_in[:, 1] * u_out[:, 0]
+    convex = turn > 1e-4 if ccw else turn < -1e-4
+    # Exterior turn angle theta in (0, pi); midpoint inward cut of quadratic Bezier is
+    # 0.5 * d * sin(theta / 2) = 0.5 * d * sqrt((1 - dot(u_in, u_out)) / 2).
+    dots = np.clip((u_in * u_out).sum(axis=1), -1.0, 1.0)
+    sin_half = np.sqrt(np.maximum(0.5 * (1.0 - dots), 0.0))
+    ts = np.linspace(0.0, 1.0, steps + 1)
+    out: list[F64] = []
+    for i in range(n):
+        if not convex[i] or len_in[i] < 1.0 or len_out[i] < 1.0 or sin_half[i] < 1e-3:
+            out.append(points[i])
+            continue
+        max_d = min(0.42 * float(len_in[i]), 0.42 * float(len_out[i]),
+                    2.0 * NATURAL_POND_MAX_CUT_CM / float(sin_half[i]))
+        a = points[i] - max_d * u_in[i]
+        b = points[i] + max_d * u_out[i]
+        for t in ts:
+            s = 1.0 - t
+            out.append(s * s * a + 2.0 * s * t * points[i] + t * t * b)
+    return np.asarray(out, dtype=np.float64)
+
+
+def _natural_pond_regions(record: Record) -> tuple[tuple[Ring, tuple[Ring, ...]], ...]:
+    """The regions of a natural pond smoothed within ``MAX_RELIEF_VERTICES``."""
+    regions = pond_regions(record)
+    total = _outline_vertices(regions)
+    steps = 0
+    for candidate in range(NATURAL_POND_CORNER_STEPS, 0, -1):
+        if total * (candidate + 1) <= MAX_RELIEF_VERTICES:
+            steps = candidate
+            break
+    if steps == 0:
+        return regions
+
+    def smooth(ring: Ring) -> Ring:
+        pts = _smooth_pond_ring(np.asarray(ring, dtype=np.float64), steps)
+        return tuple((float(x), float(y)) for x, y in pts)
+
+    validated: list[tuple[Ring, tuple[Ring, ...]]] = []
+    for outer, holes in regions:
+        smoothed = (smooth(outer), tuple(smooth(h) for h in holes))
+        try:
+            cut_region(smoothed[0], smoothed[1])
+        except ValueError:
+            # #961: a pinched concave outline whose fillet crosses a reflex corner or hole
+            # falls back to its original valid ring rather than silently dropping the pond.
+            validated.append((outer, holes))
+        else:
+            validated.append(smoothed)
+    return tuple(validated)
+
+
+def _water_plan(regions: tuple[tuple[Ring, tuple[Ring, ...]], ...]) -> F64 | None:
     """The pond's regions (holes cut out) as plan triangles (t, 3, 2), or None."""
     triangles: list[F64] = []
-    for outer, holes in pond_regions(record):
+    for outer, holes in regions:
         try:
             vertices, faces = cut_region(tuple(outer), tuple(holes))
         except ValueError:
@@ -598,13 +732,15 @@ def _water_plan(record: Record) -> F64 | None:
     return np.stack(triangles) if triangles else None
 
 
-def _water(plan: F64, level: float, uv_origin: tuple[float, float] = (0.0, 0.0)) -> Mesh:
+def _water(plan: F64, level: float, uv_origin: tuple[float, float] = (0.0, 0.0),
+           color: Color | None = None) -> Mesh:
     """The water surface at ``level``, with the plan's UVs (a raised pool shows its
     own water picture: one texel per vertex would sample a single texel, #627)."""
     triangles = np.concatenate([plan, np.full((len(plan), 3, 1), level)], axis=2)
     normalised = np.asarray(uv_origin, dtype=np.float64)
     uvs = (triangles[:, :, :2] + normalised) / PATTERN_TILE_CM
-    return flat_mesh(triangles, _shade(0.9), outward=(0.0, 0.0, 1.0), vertex_uvs=uvs)
+    return flat_mesh(triangles, _shade(0.9) if color is None else color,
+                     outward=(0.0, 0.0, 1.0), vertex_uvs=uvs)
 
 
 def _raised_pool(record: Record, height: float, plan: F64) -> tuple[MeshPart, ...]:
@@ -646,28 +782,140 @@ def _pond(record: Record) -> tuple[MeshPart, ...]:
     if len(points) and ((np.ptp(points, axis=0) < MIN_DETAIL_DIMENSION_CM).any()
                        or (record.height_cm is not None and record.height_cm < MIN_DETAIL_DIMENSION_CM)):
         return default_builder(record)
-    plan = _water_plan(record)
+    natural = is_natural_pond(record)
+    regions = _natural_pond_regions(record) if natural else pond_regions(record)
+    plan = _water_plan(regions)
     if plan is None:
         return ()
     if record.height_cm is not None:
         return _raised_pool(record, record.height_cm, plan)
-    water = _water(plan, WATER_CM)
+    water = _water(plan, WATER_CM, color=NATURAL_POND_WATER_WEIGHT if natural else None)
     coping = []
     # the water's work bound holds per region: this total cap is what bounds the coping
     # of a pond of many regions
-    regions = pond_regions(record)
     for outer, holes in regions if _outline_vertices(regions) <= MAX_RELIEF_VERTICES else ():
         for ring in (outer, *holes):
-            points = np.asarray(ring, dtype=np.float64)
-            if len(points) < 3:
+            pts = np.asarray(ring, dtype=np.float64)
+            if len(pts) < 3:
                 continue
-            up = COPING_UP_CM
-            profile = [(COPING_IN_CM, 0.0), (COPING_IN_CM, 0.55 * up), (0.75 * COPING_IN_CM, 0.9 * up),
-                       (0.3 * COPING_IN_CM, up), (-0.3 * COPING_OUT_CM, up), (-0.8 * COPING_OUT_CM, 0.8 * up),
-                       (-COPING_OUT_CM, 0.4 * up), (-COPING_OUT_CM, 0.0)]
-            coping.append(sweep(profile, points, palette.STONE.linear, closed=True))
+            if natural:
+                # #961: flush, low organic earth shore strictly below DECK_TOP_CM (2.5 cm)
+                # so overhanging pond decks clear it and there is no raised stone curb.
+                up = BANK_UP_CM
+                profile = [
+                    (BANK_IN_CM, 0.2),
+                    (0.5 * BANK_IN_CM, WATER_CM + 0.12),
+                    (0.0, up),
+                    (-0.45 * BANK_OUT_CM, 0.55 * up),
+                    (-BANK_OUT_CM, 0.0),
+                ]
+                coping.append(sweep(profile, pts, palette.SOIL.linear, closed=True, profile_closed=False))
+            else:
+                up = COPING_UP_CM
+                profile = [(COPING_IN_CM, 0.0), (COPING_IN_CM, 0.55 * up), (0.75 * COPING_IN_CM, 0.9 * up),
+                           (0.3 * COPING_IN_CM, up), (-0.3 * COPING_OUT_CM, up), (-0.8 * COPING_OUT_CM, 0.8 * up),
+                           (-COPING_OUT_CM, 0.4 * up), (-COPING_OUT_CM, 0.0)]
+                coping.append(sweep(profile, pts, palette.STONE.linear, closed=True))
     return (*_relief([water], "water", "water"),
             *_relief(coping, "coping", tinted=False))
+
+
+# ── rocks (#955) ─────────────────────────────────────────────────────────────
+
+#: A GENERIC_POLYGON in this fill is a rock: a low upright base, then a domed,
+#: faceted top carrying the canvas's stone picture. #960 review round 2: a tall
+#: vertical base (0.55) made every rock a pale concrete bollard; the widest ring
+#: now sits at the ground and the dome starts almost at once.
+ROCK_PATTERN: Final = "STONE"
+ROCK_BASE_SHARE: Final = 0.15
+#: The reference outline's scales and heights: base, shoulder, crown, one exact peak.
+ROCK_RINGS: Final = ((1.0, 0.0), (0.90, 0.42), (0.58, 0.78))
+#: A hostile outline of more vertices keeps the honest prism rather than a huge dome.
+MAX_ROCK_VERTICES: Final = 512
+
+
+def _convex(ring: F64) -> bool:
+    """True for a counter-clockwise ring whose every turn is left (a centre fan is inside)."""
+    if len(ring) < 3:
+        return False
+    step = np.roll(ring, -1, axis=0) - ring
+    following = np.roll(step, -1, axis=0)
+    return bool(np.all(step[:, 0] * following[:, 1] - step[:, 1] * following[:, 0] >= -1e-7))
+
+
+def rock_parts(record: Record, height_cm: float) -> tuple[MeshPart, ...]:
+    """A stone polygon as a faceted rock: upright base walls and a domed fill top."""
+    if not has_one_plain_ring(record):
+        return default_builder(record)
+    ring = ccw_ring(footprint_of(record))
+    if len(ring) < 3 or len(ring) > MAX_ROCK_VERTICES or not _convex(ring):
+        return default_builder(record)
+    base = height_cm * ROCK_BASE_SHARE
+    sides = walls_mesh((tuple((float(x), float(y)) for x, y in ring),), base)
+    parts: list[MeshPart] = []
+    if sides.vertex_count:
+        parts.append(MeshPart(sides, "vc", casts_shadow=True, tinted=True,
+                              name="rock_sides", surface="stone"))
+    centre = ring.mean(axis=0)
+    origin = np.asarray(uv_origin_of(record), dtype=np.float64)
+    positions: list[tuple[float, float, float]] = []
+    uvs: list[tuple[float, float]] = []
+    indices: list[int] = []
+    rings = len(ROCK_RINGS)
+    # #960 review round 2: the three example rocks were one profile at three sizes.
+    # A per-record ring scale (never above 1.0, so every ring stays inside the convex
+    # footprint) makes the dome's profile differ between rocks.
+    rng = np.random.Generator(np.random.PCG64(item_seed(record.item_id, "rock")))
+    ring_scales = rng.uniform(0.92, 1.0, size=rings)
+    ring_scales[0] = 1.0
+    for index, (scale, level) in enumerate(ROCK_RINGS):
+        scaled = scale * float(ring_scales[index])
+        for point in ring:
+            x, y = centre + (point - centre) * scaled
+            z = height_cm * level
+            positions.append((float(x), float(y), float(z)))
+            uvs.append(((float(x) + origin[0]) / PATTERN_TILE_CM,
+                        (float(y) + origin[1]) / PATTERN_TILE_CM))
+    peak = len(positions)
+    positions.append((float(centre[0]), float(centre[1]), float(height_cm)))
+    uvs.append(((float(centre[0]) + origin[0]) / PATTERN_TILE_CM,
+                (float(centre[1]) + origin[1]) / PATTERN_TILE_CM))
+    for row in range(rings - 1):
+        for i in range(len(ring)):
+            j = (i + 1) % len(ring)
+            outer, inner = row * len(ring), (row + 1) * len(ring)
+            a, b = outer + i, outer + j
+            c, d = inner + j, inner + i
+            indices.extend((a, b, c, a, c, d))
+    last = (rings - 1) * len(ring)
+    for i in range(len(ring)):
+        indices.extend((last + i, last + (i + 1) % len(ring), peak))
+    points = np.asarray(positions, dtype=np.float64)
+    # Smooth normals: outward from the rock's axis and tilted up by the dome's rise.
+    # One row per vertex (the mesh contract); the peak points straight up.
+    normals = np.column_stack([
+        points[:, 0] - float(centre[0]), points[:, 1] - float(centre[1]),
+        np.maximum(points[:, 2] - base, 0.0) + 1.0,
+    ])
+    normals[peak] = (0.0, 0.0, 1.0)
+    normals /= np.maximum(np.linalg.norm(normals, axis=1, keepdims=True), 1e-12)
+    top = Mesh.from_arrays(
+        points, normals, np.ones((len(points), 4), dtype=np.float64),
+        np.asarray(uvs, dtype=np.float64), np.asarray(indices),
+    )
+    parts.append(MeshPart(top, "vc", casts_shadow=True, tinted=False, fill_texture=True,
+                          name="rock", surface="stone"))
+    return tuple(parts)
+
+
+@surfaced
+def _generic_polygon(record: Record) -> tuple[MeshPart, ...]:
+    """A STONE-filled generic polygon is a rock (#955); every other fill is its prism."""
+    height = record.height_cm if record.height_cm is not None else nominal_height_cm(record.kind)
+    if (record.params.get(PARAM_SURFACE_PATTERN) != ROCK_PATTERN
+            or height is None):
+        return default_builder(record)
+    return rock_parts(record, float(height))
 
 
 # ── lawns ────────────────────────────────────────────────────────────────────
@@ -713,26 +961,28 @@ def _inside(points: F64, ring: F64) -> np.ndarray:
 
 
 def _blades(footprints: tuple[Ring, ...], holes: tuple[tuple[Ring, ...], ...], seed: str,
-            wanted: int | None) -> tuple[F64, ...]:
+            wanted: int | None, blade_cm: float = BLADE_CM,
+            density: float = BLADES_PER_M2) -> tuple[F64, ...]:
     """The blades of a lawn before any cut-out: roots on a jittered grid inside its
     regions, and each blade's height, heading, lean, width, shade and phase."""
-    roots, rng = _rooted(footprints, holes, seed, wanted)
+    roots, rng = _rooted(footprints, holes, seed, wanted, density)
     if rng is None:
         return (np.zeros((0, 2)),) + (np.zeros(0),) * 6
     n = len(roots)
-    return (roots, BLADE_CM * rng.uniform(0.7, 1.3, n), rng.uniform(0.0, 2.0 * math.pi, n),
+    return (roots, blade_cm * rng.uniform(0.7, 1.3, n), rng.uniform(0.0, 2.0 * math.pi, n),
             rng.uniform(0.1, 0.45, n), rng.uniform(0.8, 1.3, n), rng.uniform(0.92, 1.0, n), rng.random(n))
 
 
 def _rooted(footprints: tuple[Ring, ...], holes: tuple[tuple[Ring, ...], ...], seed: str,
-            wanted: int | None) -> tuple[F64, np.random.Generator | None]:
+            wanted: int | None, density: float = BLADES_PER_M2
+            ) -> tuple[F64, np.random.Generator | None]:
     """A sward's roots — a jittered grid inside its regions, the lawn's own count or the
     plan's share of it — and the generator each blade's own draws continue from (None:
     no blade)."""
     rings = [np.asarray(ring, dtype=np.float64) for ring in footprints]
     area = sum(abs(signed_area(ring)) for ring in rings)
     area -= sum(abs(signed_area(hole)) for group in holes for hole in group)
-    count = int(min(MAX_BLADES, BLADES_PER_M2 * area / 10_000.0))
+    count = int(min(MAX_BLADES, density * area / 10_000.0))
     if wanted is not None:  # the plan's share (``context``)
         count = min(count, max(0, wanted))
     if count < 1:
@@ -957,10 +1207,10 @@ _SWARD_LOCK = threading.Lock()
 
 
 def _sward(footprints: tuple[Ring, ...], holes: tuple[tuple[Ring, ...], ...], seed: str,
-           wanted: int | None, meadow: bool = False) -> _Sward:
-    """The lawn's blades before any cut-out — a meadow's with its flower heads —
-    remembered (``SWARD_CACHE_BYTES``)."""
-    key = (footprints, holes, seed, wanted, meadow)
+           wanted: int | None, meadow: bool = False, moss: bool = False) -> _Sward:
+    """The lawn's blades before any cut-out — a meadow's with its flower heads, a moss
+    lawn's as a low dense cushion — remembered (``SWARD_CACHE_BYTES``)."""
+    key = (footprints, holes, seed, wanted, meadow, moss)
     with _SWARD_LOCK:
         held = _SWARDS.get(key)
         if held is not None:
@@ -971,6 +1221,9 @@ def _sward(footprints: tuple[Ring, ...], holes: tuple[tuple[Ring, ...], ...], se
     roots, rng = _rooted(footprints, holes, seed, wanted) if meadow else (None, None)
     if roots is not None and rng is not None:   # outside the lock: it is slow
         grown = _meadow(roots, rng)
+    elif moss:
+        grown = _grow(*_blades(footprints, holes, seed, wanted, MOSS_BLADE_CM,
+                              MOSS_BLADES_PER_M2))
     else:
         grown = _grow(*_blades(footprints, holes, seed, wanted))
     with _SWARD_LOCK:
@@ -1015,7 +1268,7 @@ def _lawn(record: Record) -> tuple[MeshPart, ...]:
         return solid  # Low/Medium: do not synthesize or cache even an empty sward
     seed = str(record.params.get(PARAM_SEED, ""))
     sward = _sward(record.footprints, record.holes, seed, lawn_blade_share(record.params),
-                   is_meadow(record))
+                   is_meadow(record), is_moss(record))
     roots = sward.roots
     if not len(roots):
         return solid
@@ -1044,6 +1297,16 @@ def _lawn(record: Record) -> tuple[MeshPart, ...]:
 def is_meadow(record: Record) -> bool:
     """A LAWN that is a flower meadow (#940): its fill pattern is ``MEADOW_PATTERN``."""
     return record.kind == "LAWN" and bool(record.params.get(PARAM_SURFACE_PATTERN) == MEADOW_PATTERN)
+
+
+def is_moss(record: Record) -> bool:
+    """A LAWN that is a moss cushion (#960): its fill pattern is ``MOSS_PATTERN``."""
+    return record.kind == "LAWN" and bool(record.params.get(PARAM_SURFACE_PATTERN) == MOSS_PATTERN)
+
+
+def is_sand(record: Record) -> bool:
+    """A ground surface whose fill is SAND: its court is raked (#960)."""
+    return bool(record.params.get(PARAM_SURFACE_PATTERN) == SAND_PATTERN)
 
 
 def _kept(arrays: tuple[NDArray[np.float32], ...], keep: NDArray[np.bool_]) -> tuple[NDArray[np.float32], ...]:
@@ -1077,6 +1340,7 @@ BUILDERS: Final = {
     "DRIVEWAY": _surface,
     "POND_POOL": _pond,
     "LAWN": _lawn,
+    "GENERIC_POLYGON": _generic_polygon,
 }
 
 
@@ -1085,5 +1349,8 @@ def register(registry: BuilderRegistry) -> None:
         registry.register(kind, builder)
 
 
-__all__ = ["BUILDERS", "DECK_PATTERNS", "KINDS", "LAWN_BLADES", "MEADOW_PATTERN", "clear_lawn_cache",
-           "flower_colours", "is_meadow", "pond_regions", "register", "sward_cache_info", "walk_path"]
+__all__ = ["BUILDERS", "DECK_PATTERNS", "KINDS", "LAWN_BLADES", "MEADOW_PATTERN",
+           "MOSS_BLADE_CM", "MOSS_BLADES_PER_M2", "MOSS_PATTERN", "ROCK_PATTERN",
+           "SAND_PATTERN", "clear_lawn_cache", "flower_colours", "is_meadow", "is_moss",
+           "is_sand", "pond_regions", "register", "rock_parts", "sward_cache_info",
+           "walk_path"]

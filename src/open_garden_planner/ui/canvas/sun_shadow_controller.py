@@ -981,6 +981,9 @@ class SunShadowController(QObject):
         #: picture of a solve that is current all the same (``set_map_shown``).
         self._overlay_wanted = False
         self._map_shown = False
+        self._canvas_shown = True
+        self._drape_wanted = False
+        self._solve_deferred = False
         self._state = STATE_DISABLED
         self._last_key: tuple[Any, ...] | None = None
         #: What the overlay paints, as plain polygons (scene cm): the shadows' union,
@@ -1001,6 +1004,7 @@ class SunShadowController(QObject):
         self._settle.timeout.connect(self.settle_overlay)
         # After rapid timeline scrubbing stops, rasterise the soft edge (#846).
         self._last_clock_tick_ns = 0
+        self._last_caster_walk_ns = 0
         self._last_solved_paint_revision: int | None = None
         self._caster_cache: (
             tuple[
@@ -1059,16 +1063,50 @@ class SunShadowController(QObject):
         if overlay is not None:
             overlay.setVisible(self._overlay_wanted and not shown)
 
+    def _needs_live_solve(self) -> bool:
+        """True when the 2D canvas is visible or the 3D ground shows the 2D shadow drape (#996)."""
+        return self._canvas_shown or self._drape_wanted
+
+    def set_canvas_shown(self, shown: bool) -> None:
+        """Tell the controller whether the 2D canvas is visible (#996).
+
+        In pure 3D mode without the 2D shadow drape, polygon solves on clock/scene ticks
+        are deferred until the canvas shows again or ``drape_polygons()`` is asked.
+        """
+        flag = bool(shown)
+        if flag == self._canvas_shown:
+            return
+        self._canvas_shown = flag
+        if self._needs_live_solve() and self._solve_deferred and self._enabled:
+            self._solve_deferred = False
+            self.recompute_now()
+
+    def set_drape_wanted(self, wanted: bool) -> None:
+        """Tell the controller whether the 3D view's 2D-shadow drape is active (#996)."""
+        flag = bool(wanted)
+        if flag == self._drape_wanted:
+            return
+        self._drape_wanted = flag
+        if self._needs_live_solve() and self._solve_deferred and self._enabled:
+            self._solve_deferred = False
+            self.recompute_now()
+
     def drape_polygons(self) -> tuple[tuple[tuple[float, float], ...], ...]:
         """The polygons the overlay paints right now (scene cm; even-odd: outers CCW,
         holes CW) — the union of every caster's shadow, the whole canvas at night,
         nothing while the overlay shows nothing. NOT yet cut at the canvas: the
         overlay clips when it paints, and so does the 3D drape that lays these on the
         ground (Phase 17 L2.1, ``core.scene3d.drape.shadow_drape``)."""
+        if self._solve_deferred and self._enabled:
+            self._solve_deferred = False
+            self.recompute_now()
         return self._polygons
 
     def drape_regions(self) -> tuple[WeightedShadowRegion, ...]:
         """The weighted shadow regions the overlay paints right now (#440)."""
+        if self._solve_deferred and self._enabled:
+            self._solve_deferred = False
+            self.recompute_now()
         return self._regions
 
     def _publish(
@@ -1120,10 +1158,31 @@ class SunShadowController(QObject):
             with contextlib.suppress(RuntimeError):  # #230 teardown guard
                 self._debounce.start()
             return
+        if not self._needs_live_solve():
+            self._solve_deferred = True
+            self._update_solar_state_only()
+            return
         self.recompute_now()
+
+    def _update_solar_state_only(self) -> None:
+        """Keep ``state_changed`` current while polygon solving is deferred in pure 3D mode (#996)."""
+        if not self._enabled:
+            return
+        location = self._location_provider()
+        latitude = location.get("latitude") if isinstance(location, dict) else None
+        longitude = location.get("longitude") if isinstance(location, dict) else None
+        if latitude is None or longitude is None:
+            self._set_state(STATE_NO_LOCATION)
+            return
+        position = solar_position(latitude, longitude, self._clock.utc)
+        if position.elevation_deg < MIN_SUN_ELEVATION_DEG:
+            self._set_state(STATE_NIGHT)
+        else:
+            self._set_state(STATE_ACTIVE)
 
     def recompute_now(self) -> None:
         """Recompute the overlay immediately (empty states short-circuit)."""
+        self._solve_deferred = False
         self._recompute(from_clock=False, scrubbing=False)
 
     def _recompute(self, *, from_clock: bool, scrubbing: bool) -> None:
@@ -1158,17 +1217,22 @@ class SunShadowController(QObject):
         raw_rev = getattr(self._scene, "paint_revision", None)
         paint_rev = raw_rev if isinstance(raw_rev, int) else None
         cached = self._caster_cache
+        now_ns = time.monotonic_ns()
         if (
             from_clock
             and paint_rev is not None
             and cached is not None
             and cached[0] == paint_rev
-            and cached[1] == plan_date
+            and (
+                cached[1] == plan_date
+                or (scrubbing and (now_ns - self._last_caster_walk_ns) < _SCRUB_WINDOW_NS)
+            )
         ):
             _rev, _dt, identified, casters, caster_key_part, has_enriched = cached
         else:
             _last_identified = None
             casters = collect_shadow_casters(self._scene, at_date=plan_date)
+            self._last_caster_walk_ns = now_ns
             identified = (
                 _last_identified[2]
                 if _last_identified is not None
@@ -1275,6 +1339,10 @@ class SunShadowController(QObject):
         """Any new sim instant (date or time) moves the sun: re-solve now."""
         if not self._enabled:
             return
+        if not self._needs_live_solve():
+            self._solve_deferred = True
+            self._update_solar_state_only()
+            return
         now = time.monotonic_ns()
         scrubbing = (now - self._last_clock_tick_ns) <= _SCRUB_WINDOW_NS
         self._last_clock_tick_ns = now
@@ -1287,7 +1355,12 @@ class SunShadowController(QObject):
                 self._scrub_settle.stop()
 
     def _on_scrub_settled(self) -> None:
-        """Timeline scrubbing paused: rasterise the soft edge once (#846)."""
+        """Timeline scrubbing paused: refresh any throttled caster growth and rasterise soft edge (#846, #996)."""
+        if self._enabled and self._needs_live_solve():
+            cached = self._caster_cache
+            if cached is not None and cached[1] != self._clock.plan_date:
+                self._recompute(from_clock=True, scrubbing=False)
+                return
         overlay = self._alive_overlay()
         if overlay is not None:
             overlay.set_feather_deferred(False)

@@ -473,8 +473,9 @@ def _slice_frame_for_elevation(
     """
     if frame is None or elev_cm <= 0.0 or base_cm >= elev_cm:
         return frame
-    return frame.with_triangles(
-        _slice_roof_triangles_for_elevation(frame.triangles, base_cm, elev_cm))
+    from open_garden_planner.core.shadow_geometry import slice_open_frame_for_elevation
+
+    return slice_open_frame_for_elevation(frame, base_cm, elev_cm)
 
 
 def _aggregate_day(

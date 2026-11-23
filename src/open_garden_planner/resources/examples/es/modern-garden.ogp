@@ -740,22 +740,21 @@
     },
     {
       "type": "rectangle",
-      "item_id": "389937c1-c2de-502e-827e-1f24b8a5bfce",
+      "item_id": "3821b8c1-56d9-5eec-870d-0ec087cd09e0",
       "x": 1090.0,
       "y": 600.0,
       "width": 330.0,
       "height": 95.0,
-      "object_type": "CONTAINER",
+      "object_type": "RAISED_BED",
       "name": "Bancal de corten",
       "metadata": {
-        "object_height_cm": 50.0,
-        "container_material": "metal"
+        "object_height_cm": 50.0
       },
       "layer_id": "b397a8a3-d81a-51ad-b146-2ba6e788a7d7",
       "label_visible": false,
       "fill_color": "#ff8b4a2a",
-      "stroke_color": "#ff784623",
-      "stroke_width": 2.0,
+      "stroke_color": "#ff000000",
+      "stroke_width": 1.0,
       "fill_pattern": "CORTEN",
       "stroke_style": "SOLID",
       "child_item_ids": [
@@ -820,7 +819,7 @@
       "plant_category": "SPREADING_SHRUB",
       "plant_species": "Miscanthus",
       "spacing_radius_cm": 44.0,
-      "parent_bed_id": "389937c1-c2de-502e-827e-1f24b8a5bfce",
+      "parent_bed_id": "3821b8c1-56d9-5eec-870d-0ec087cd09e0",
       "stack_order": 24576
     },
     {
@@ -878,7 +877,7 @@
       "plant_category": "SPREADING_SHRUB",
       "plant_species": "Miscanthus",
       "spacing_radius_cm": 44.0,
-      "parent_bed_id": "389937c1-c2de-502e-827e-1f24b8a5bfce",
+      "parent_bed_id": "3821b8c1-56d9-5eec-870d-0ec087cd09e0",
       "stack_order": 25600
     },
     {
@@ -936,27 +935,26 @@
       "plant_category": "SPREADING_SHRUB",
       "plant_species": "Miscanthus",
       "spacing_radius_cm": 44.0,
-      "parent_bed_id": "389937c1-c2de-502e-827e-1f24b8a5bfce",
+      "parent_bed_id": "3821b8c1-56d9-5eec-870d-0ec087cd09e0",
       "stack_order": 26624
     },
     {
       "type": "rectangle",
-      "item_id": "3058ac7b-d96f-5097-8b1c-143c35df46ab",
+      "item_id": "a6565c7a-90e7-5d68-bdef-23319bdb0d4b",
       "x": 1090.0,
       "y": 790.0,
       "width": 330.0,
       "height": 95.0,
-      "object_type": "CONTAINER",
+      "object_type": "RAISED_BED",
       "name": "Bancal de corten",
       "metadata": {
-        "object_height_cm": 50.0,
-        "container_material": "metal"
+        "object_height_cm": 50.0
       },
       "layer_id": "b397a8a3-d81a-51ad-b146-2ba6e788a7d7",
       "label_visible": false,
       "fill_color": "#ff8b4a2a",
-      "stroke_color": "#ff784623",
-      "stroke_width": 2.0,
+      "stroke_color": "#ff000000",
+      "stroke_width": 1.0,
       "fill_pattern": "CORTEN",
       "stroke_style": "SOLID",
       "child_item_ids": [
@@ -1038,7 +1036,7 @@
       "plant_category": "FLOWERING_PERENNIAL",
       "plant_species": "Lavender",
       "spacing_radius_cm": 24.0,
-      "parent_bed_id": "3058ac7b-d96f-5097-8b1c-143c35df46ab",
+      "parent_bed_id": "a6565c7a-90e7-5d68-bdef-23319bdb0d4b",
       "stack_order": 27648
     },
     {
@@ -1111,7 +1109,7 @@
       "plant_category": "FLOWERING_PERENNIAL",
       "plant_species": "Lavender",
       "spacing_radius_cm": 24.0,
-      "parent_bed_id": "3058ac7b-d96f-5097-8b1c-143c35df46ab",
+      "parent_bed_id": "a6565c7a-90e7-5d68-bdef-23319bdb0d4b",
       "stack_order": 28672
     },
     {
@@ -1184,7 +1182,7 @@
       "plant_category": "FLOWERING_PERENNIAL",
       "plant_species": "Lavender",
       "spacing_radius_cm": 24.0,
-      "parent_bed_id": "3058ac7b-d96f-5097-8b1c-143c35df46ab",
+      "parent_bed_id": "a6565c7a-90e7-5d68-bdef-23319bdb0d4b",
       "stack_order": 29696
     },
     {
@@ -1257,7 +1255,7 @@
       "plant_category": "FLOWERING_PERENNIAL",
       "plant_species": "Lavender",
       "spacing_radius_cm": 24.0,
-      "parent_bed_id": "3058ac7b-d96f-5097-8b1c-143c35df46ab",
+      "parent_bed_id": "a6565c7a-90e7-5d68-bdef-23319bdb0d4b",
       "stack_order": 30720
     },
     {
@@ -1330,27 +1328,26 @@
       "plant_category": "FLOWERING_PERENNIAL",
       "plant_species": "Lavender",
       "spacing_radius_cm": 24.0,
-      "parent_bed_id": "3058ac7b-d96f-5097-8b1c-143c35df46ab",
+      "parent_bed_id": "a6565c7a-90e7-5d68-bdef-23319bdb0d4b",
       "stack_order": 31744
     },
     {
       "type": "rectangle",
-      "item_id": "8b061c3f-0f5f-55c5-a018-69d6ac460bb0",
+      "item_id": "cbe1d4f6-dde5-5d6a-9e9e-c01479f22807",
       "x": 1090.0,
       "y": 980.0,
       "width": 330.0,
       "height": 95.0,
-      "object_type": "CONTAINER",
+      "object_type": "RAISED_BED",
       "name": "Bancal de corten",
       "metadata": {
-        "object_height_cm": 50.0,
-        "container_material": "metal"
+        "object_height_cm": 50.0
       },
       "layer_id": "b397a8a3-d81a-51ad-b146-2ba6e788a7d7",
       "label_visible": false,
       "fill_color": "#ff8b4a2a",
-      "stroke_color": "#ff784623",
-      "stroke_width": 2.0,
+      "stroke_color": "#ff000000",
+      "stroke_width": 1.0,
       "fill_pattern": "CORTEN",
       "stroke_style": "SOLID",
       "child_item_ids": [
@@ -1415,7 +1412,7 @@
       "plant_category": "SPREADING_SHRUB",
       "plant_species": "Miscanthus",
       "spacing_radius_cm": 44.0,
-      "parent_bed_id": "8b061c3f-0f5f-55c5-a018-69d6ac460bb0",
+      "parent_bed_id": "cbe1d4f6-dde5-5d6a-9e9e-c01479f22807",
       "stack_order": 32768
     },
     {
@@ -1473,7 +1470,7 @@
       "plant_category": "SPREADING_SHRUB",
       "plant_species": "Miscanthus",
       "spacing_radius_cm": 44.0,
-      "parent_bed_id": "8b061c3f-0f5f-55c5-a018-69d6ac460bb0",
+      "parent_bed_id": "cbe1d4f6-dde5-5d6a-9e9e-c01479f22807",
       "stack_order": 33792
     },
     {
@@ -1531,7 +1528,7 @@
       "plant_category": "SPREADING_SHRUB",
       "plant_species": "Miscanthus",
       "spacing_radius_cm": 44.0,
-      "parent_bed_id": "8b061c3f-0f5f-55c5-a018-69d6ac460bb0",
+      "parent_bed_id": "cbe1d4f6-dde5-5d6a-9e9e-c01479f22807",
       "stack_order": 34816
     },
     {
@@ -2079,11 +2076,11 @@
         "yaw_deg": 63.3,
         "pitch_deg": 30.0,
         "fov_deg": 40.0,
-        "turns": 1,
-        "clockwise": true,
+        "turns": 0.5,
+        "clockwise": false,
         "ease": true
       },
-      "duration_s": 30.0,
+      "duration_s": 15.0,
       "fps": 30,
       "size": [
         1920,
@@ -2102,8 +2099,8 @@
         "yaw_deg": 63.3,
         "pitch_deg": 30.0,
         "fov_deg": 40.0,
-        "turns": 1,
-        "clockwise": true,
+        "turns": 0.5,
+        "clockwise": false,
         "ease": true
       },
       "time_range": [

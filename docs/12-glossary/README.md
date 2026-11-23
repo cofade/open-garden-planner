@@ -4,7 +4,9 @@
 
 | Term | Definition |
 |------|-----------|
-| **Unit system** | Global display/input preference: Metric or Imperial (US). Stored scene geometry and Agent API lengths remain centimetres (ADR-078). |
+| **Unit system** | The display/input system of one quantity (length, area, volume, temperature, precipitation or mass); the profile holds one per quantity, and a preset names a set of them. Stored scene geometry and Agent API values remain centimetres/kilograms/Celsius/millimetres (ADR-078, ADR-081). |
+| **Unit profile** | The six per-quantity display systems held by `UnitPreference` and `AppSettings`; a preset names a set, and Custom may mix any rows. A plan never stores it (ADR-081). |
+| **Canada (mixed)** | The provisional unit preset with imperial length and area and metric volume, weather and harvest mass; changing any row makes the profile Custom (ADR-081). |
 | **Length style** | The formatting role of a length: layout, coordinate, ruler, scale bar, plant size or seed depth. It controls precision and notation without changing the value unit (ADR-078). |
 | **Receiver sun estimate** | Direct sun accumulated at a plant footprint's heatmap cell centre at ground level, excluding only its own solid shadow; 15-minute sampling, no leaf-height or translucent-canopy model (ADR-056). |
 | **Sun evaluation** | Cached hours for a runtime document/date/geometry snapshot, or an explicit unavailable reason. An absent mismatch is not evidence of completed evaluation. |
@@ -269,7 +271,8 @@
 | **Urgency** | A render-time bucket for a task window, computed from its dates and "today" rather than stored: `today`, `overdue` (1–14 days past), `this_week` (starts in 1–7 days), `upcoming`, or null when not actionable. Computed by `task_generator.classify_urgency`, which the Tasks tab and the agent both call — never re-implemented. |
 | **Coverage marker** | The field that says what an answer is *based on*, so a thin result is never mistaken for a clean one: `no_frost_dates` (no geo-location, so calendar and propagation tasks could not be generated), `no_soil_test` (**untested**, never "healthy"), `no_beds`, `full`. Present even when the task or recommendation list is empty — an empty list alone would read as "nothing to do". See §8.19 |
 | **Rapitest scale** | The categorical soil-test scale: nitrogen and phosphorus `0–4`, potassium **`1–4`** (the kit has no zero for K), and the Ca/Mg/S secondaries `0–2`. Distinct from the optional lab `*_ppm` floats, which nothing in `services/` reads and for which no conversion exists (US-12.10c) — which is why the agent's `record_soil_test` takes the kit scale only. See ADR-036 addendum |
-| **Effective soil record** | The test that applies to a bed, resolved by a documented hierarchy: the bed's own latest, else the plan-wide default's latest, else none. `SoilService.get_effective_record` returns the record alone, so the Agent API also reports **`record_source`** (`bed` / `global` / `none`) — without it a plan-wide assumption reads as a measurement of that bed. See §8.19 |
+| **Effective soil record** | The test that applies to a bed, resolved by a documented hierarchy: the bed's own latest, else the plan-wide default's latest, else none. `SoilService.get_effective_record` returns the record alone, so the Agent API also reports **`record_source`** (`bed` / `global` / `none`) - without it a plan-wide assumption reads as a measurement of that bed. See §8.19 |
+| **Reference point** | A named survey stake, fence post or measurement datum (`metadata.reference_point`) stored as a `GENERIC_CIRCLE` record. Its exact centre is the only snap/measure anchor; it is independent or bound to a parent's outline, follows the parent's translation in the same undo step, and has no 3D form. See ADR-080, FR-REF-01..06, §8.9.20 |
 
 ## 12.2 Keyboard Shortcuts
 

@@ -83,10 +83,10 @@ def _texture(name: str, srgb: tuple[int, int, int], generator: str, what: str,
 # ── roofs ────────────────────────────────────────────────────────────────────
 #: Clay roof tiles — the 2D HOUSE fill pattern (``FillPattern.ROOF_TILES``).
 ROOF_TILE: Final = _texture("ROOF_TILE", (178, 90, 62), "generate_roof_tiles", "reds[1]", "roof_tile")
-ROOF_TILE_CAP: Final = _texture("ROOF_TILE_CAP", (170, 86, 58), "generate_roof_tiles", "reds[3]", "roof_tile")
+ROOF_TILE_CAP: Final = _texture("ROOF_TILE_CAP", (170, 86, 58), "generate_roof_tiles", "reds[3]", "roof_cap")
 #: Shingles — the roof of the 2D tool-shed sprite (``build_tool_shed``).
 SHINGLE: Final = _sprite("SHINGLE", "#78695a", "shingle", "mid", "shingle")
-SHINGLE_CAP: Final = _sprite("SHINGLE_CAP", "#4b4037", "shingle", "dark", "shingle")
+SHINGLE_CAP: Final = _sprite("SHINGLE_CAP", "#4b4037", "shingle", "dark", "roof_cap")
 #: Roof timber: the underside of the slab and its fascia.
 TIMBER: Final = _sprite("TIMBER", "#66432c", "walnut", "mid", "wood")
 

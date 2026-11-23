@@ -40,7 +40,6 @@ from open_garden_planner.core.object_types import ObjectType, is_plant_type
 from open_garden_planner.core.plan_timeline import plant_present
 from open_garden_planner.core.sim_clock import SimClock
 from open_garden_planner.core.sprite_raster import clear_sprite_cache
-from open_garden_planner.core.units import UnitSystem
 from open_garden_planner.models.layer import Layer, create_default_layers
 from open_garden_planner.ui.units_notifier import units_notifier
 
@@ -259,7 +258,7 @@ class CanvasScene(QGraphicsScene):
     active_layer_changed = pyqtSignal(object)  # Layer or None
     layer_auto_unhidden = pyqtSignal(UUID)  # emitted when a draw auto-reveals a hidden layer
 
-    def _on_unit_system_changed(self, _system: UnitSystem) -> None:
+    def _on_unit_system_changed(self, _profile: object) -> None:
         for item in self.items():
             if hasattr(item, "refresh_measurement_text"):
                 item.refresh_measurement_text()
@@ -286,6 +285,7 @@ class CanvasScene(QGraphicsScene):
         ensure_item_cache_budget()
         self._plan_clock: SimClock | None = None
         self._painted_plan_date: date | None = None
+        self.is_animating_timeline = False
 
         self._width_cm = width_cm
         self._height_cm = height_cm
@@ -375,7 +375,7 @@ class CanvasScene(QGraphicsScene):
         from open_garden_planner.ui.canvas.dimension_lines import DimensionLineManager
 
         self._dimension_line_manager = DimensionLineManager(self)
-        units_notifier().changed.connect(self._on_unit_system_changed)
+        units_notifier().profile_changed.connect(self._on_unit_system_changed)
 
         # Guide lines (persistent horizontal/vertical reference lines)
         self._guide_lines: list[GuideLine] = []
@@ -2112,17 +2112,34 @@ class CanvasScene(QGraphicsScene):
 
     def refresh_timeline(self) -> None:
         """Apply the current date after edits/undo/load without changing history."""
+        from open_garden_planner.ui.canvas.footprints import plant_canopy_radius_cm
+
         day = self.plan_date
-        if day != self._painted_plan_date:
+        prev_day = self._painted_plan_date
+        if day != prev_day:
             plants = [item for item in self.items()
                       if is_plant_type(getattr(item, "object_type", None))]
+            if prev_day is None or not self.is_animating_timeline:
+                changed_plants = plants
+                unchanged_plants: list[Any] = []
+            else:
+                changed_plants = []
+                unchanged_plants = []
+                for item in plants:
+                    if plant_canopy_radius_cm(item, prev_day) != plant_canopy_radius_cm(item, day):
+                        changed_plants.append(item)
+                    else:
+                        unchanged_plants.append(item)
             # Before the rects move: Qt's index takes an item out of the leaves of the rect it has
             # NOW, and any leaf left behind dangles once the item is gone (PF-CAN-43)
-            for item in plants:
+            for item in changed_plants:
                 item.prepareGeometryChange()
             self._painted_plan_date = day
-            for item in plants:
-                item.update()  # only a new date invalidates every canopy cache
+            for item in unchanged_plants:
+                if getattr(item, "_cached_bounding_rect", None) is not None:
+                    item._cached_bounding_rect_date = day
+            for item in changed_plants:
+                item.update()  # only plants whose date-grown spread changed invalidate their cache
         # Presence is a view of the clock, not a plan edit. In particular its
         # ItemVisibleHasChanged notices must not bypass the 3D controller's
         # throttled date-regrowth path. Other item changes keep announcing edits.

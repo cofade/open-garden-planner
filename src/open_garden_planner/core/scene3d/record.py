@@ -151,13 +151,18 @@ PARAM_DOOR_WALL: Final = "door_wall"
 #: carries it only when it is WILDFLOWER (#940: a flower meadow's taller blades and
 #: flowers), so every other lawn's record stays as it was.
 PARAM_SURFACE_PATTERN: Final = "surface_pattern"
-#: ``((x, y), …)`` rings — a LAWN's (L4.5): the outlines, in the lawn's local frame,
-#: of the flat items painted ABOVE it (paths, terraces, beds, ponds …). Its blades
-#: grow nowhere under them.
+#: ``((x, y), …)`` rings — a LAWN's or a SAND court's (L4.5, #960): the outlines, in
+#: the record's local frame, of the flat items painted ABOVE it (paths, stepping
+#: stones, terraces, beds, ponds, a moss island …). A lawn's blades grow nowhere
+#: under them, and a raked sand court's ridges stop at them.
 PARAM_LAWN_CUTOUTS: Final = "lawn_cutouts"
 #: int — how many blades a LAWN grows (L4.5): its share of the plan's blade budget
 #: (``context.MAX_PLAN_BLADES``). Absent: the lawn's own count (a record made by hand).
 PARAM_LAWN_BLADES: Final = "lawn_blades"
+#: int — how many leaf quads a HEDGE or HEDGE_FENCE grows (#954): its share of the
+#: plan's hedge budget (``context.MAX_PLAN_HEDGE_LEAVES``). Absent: the hedge's own
+#: count from its shell area and run length (a record made by hand).
+PARAM_HEDGE_LEAVES: Final = "hedge_leaves"
 
 #: Tint of a part whose item has neither a fill nor a stroke colour (the legacy
 #: collector's fallback, ``ui/view3d/snapshot._FALLBACK_COLOR``).
@@ -169,6 +174,13 @@ def lawn_blade_share(params: Mapping[str, ParamValue]) -> int | None:
     None (absent or not an int: the lawn's own count). The one reading — the 3D
     controller's budget check holds only while it reads what the builder builds."""
     share = params.get(PARAM_LAWN_BLADES)
+    return share if isinstance(share, int) and not isinstance(share, bool) else None
+
+
+def hedge_leaf_share(params: Mapping[str, ParamValue]) -> int | None:
+    """The ``PARAM_HEDGE_LEAVES`` of ``params`` as a hedge builder reads it: an int, or
+    None (absent or not an int: the hedge's own count from its area and run)."""
+    share = params.get(PARAM_HEDGE_LEAVES)
     return share if isinstance(share, int) and not isinstance(share, bool) else None
 
 
@@ -476,7 +488,7 @@ EMPTY_PARAMS: Final = Params()
 #: of them alone rebuilds a mesh and re-paints no tile (``Record.same_ground_geometry``).
 BUILD_ONLY_PARAMS: Final[frozenset[str]] = frozenset({
     PARAM_ROOF_STYLE, PARAM_ROOF_PITCH, PARAM_ROOF_OVERHANG, PARAM_DOOR_WALL,
-    PARAM_SURFACE_PATTERN, PARAM_LAWN_CUTOUTS, PARAM_LAWN_BLADES,
+    PARAM_SURFACE_PATTERN, PARAM_LAWN_CUTOUTS, PARAM_LAWN_BLADES, PARAM_HEDGE_LEAVES,
 })
 
 

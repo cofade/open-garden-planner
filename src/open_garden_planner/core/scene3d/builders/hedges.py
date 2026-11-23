@@ -29,6 +29,7 @@ number per hedge.
 
 from __future__ import annotations
 
+import math
 from typing import Final
 
 import numpy as np
@@ -36,9 +37,16 @@ from numpy.typing import ArrayLike
 
 from ..build import BuilderRegistry, item_seed
 from ..mesh import Mesh, MeshPart
-from ..record import PARAM_SEED, Record
+from ..record import PARAM_PATH_STYLE, PARAM_SEED, Record, hedge_leaf_share
 from . import palette
-from .common import BuiltBuilder, corner_count, footprint_of
+from .common import (
+    BuiltBuilder,
+    centre_line,
+    corner_count,
+    footprint_of,
+    has_one_plain_ring,
+    nominal_height_cm,
+)
 from .primitives import (
     F64,
     ccw_ring,
@@ -54,7 +62,18 @@ LEAF_WIDTH_CM: Final = 6.0
 #: Shell area per leaf (cm²).
 LEAF_AREA_CM2: Final = 30.0
 MIN_LEAVES: Final = 200
+#: A hedge's own count is capped per METRE of run (#954): 600 leaves a metre keeps a
+#: 10 m hedge at the L0 board's 6,000, and lets a 45 m hedge keep that same density.
+MAX_LEAVES_PER_M: Final = 600
+#: ... and the whole plan shares this many, so a hundred long hedges stay bounded.
+#: 30,000 leaves is 60,000 triangles: a 45 m hedge still reaches the 600-a-metre
+#: density the short one has, and a plan of long runs stops at this instead of
+#: growing without bound (#954).
+MAX_PLAN_HEDGE_LEAVES: Final = 30_000
+#: A record made by hand (no run context) keeps the old per-item cap.
 MAX_LEAVES: Final = 6000
+#: Default hedge-fence thickness (cm), shared with ``builders/fences.py``.
+HEDGE_THICKNESS_CM: Final = 40.0
 #: The core is the footprint drawn in by this much; leaves are rooted on it.
 CORE_INSET_CM: Final = 4.0
 #: The core's top lies this far under the clipped top; top leaves root halfway.
@@ -65,9 +84,23 @@ SIDE_LEAF_MIN_Z_CM: Final = 9.5
 Shell = tuple[F64, F64]  # triangles (t, 3, 3) and their outward normals (t, 3)
 
 
-def leaf_count(shell_area_cm2: float) -> int:
-    """Leaves for a shell of that area: coverage, clamped to a budget."""
-    return int(np.clip(shell_area_cm2 / LEAF_AREA_CM2, MIN_LEAVES, MAX_LEAVES))
+def leaf_cap_for_run(run_length_cm: float) -> int:
+    """A hedge's own cap: at least ``MAX_LEAVES`` (matching short/tall hedges before
+    #954), scaling at ``MAX_LEAVES_PER_M`` per metre for runs longer than 10 m."""
+    return max(MAX_LEAVES, int(math.ceil(MAX_LEAVES_PER_M * max(run_length_cm, 0.0) / 100.0)))
+
+
+def leaf_count(shell_area_cm2: float, *, run_length_cm: float | None = None,
+               wanted: int | None = None) -> int:
+    """Leaves for a shell of that area: its density, the hatch's cap, and the plan's share.
+
+    A hand-made record without a run keeps the old 6,000 cap. A record with a run gets
+    ``MAX_LEAVES_PER_M`` per metre. ``wanted`` (``context``'s plan-wide share) wins over
+    both; it is an upper bound, never a density to inflate.
+    """
+    cap = MAX_LEAVES if run_length_cm is None else leaf_cap_for_run(run_length_cm)
+    desired = int(np.clip(shell_area_cm2 / LEAF_AREA_CM2, MIN_LEAVES, cap))
+    return desired if wanted is None else max(0, min(desired, int(wanted)))
 
 
 def core_ring(footprint: ArrayLike) -> F64:
@@ -135,7 +168,8 @@ def line_shell(line: F64, closed: bool, half_width_cm: float, height_cm: float) 
     return triangles, np.concatenate([np.repeat(n, 2, axis=0) for n in normals])
 
 
-def leaf_shell(shell: Shell, height_cm: float, seed: int, *, tinted: bool) -> Mesh:
+def leaf_shell(shell: Shell, height_cm: float, seed: int, *, tinted: bool,
+               run_length_cm: float | None = None, wanted: int | None = None) -> Mesh:
     """Micro-leaves scattered over ``shell``, trimmed at ``height_cm``.
 
     Diamond leaves (4 vertices, 2 triangles) facing along the surface normal with
@@ -143,6 +177,7 @@ def leaf_shell(shell: Shell, height_cm: float, seed: int, *, tinted: bool) -> Me
     a clipped hedge is a box). uv = (wind weight: root height / hedge height,
     phase). Colours: the hedge texture's four greens, darker low and lighter
     high; pure white when ``tinted`` (the item's colour is the hedge's).
+    ``run_length_cm`` sets its per-metre cap; ``wanted`` is the plan's share (#954).
     """
     triangles, normals = shell
     if not len(triangles) or height_cm <= 0.0:
@@ -155,7 +190,9 @@ def leaf_shell(shell: Shell, height_cm: float, seed: int, *, tinted: bool) -> Me
     total = float(area.sum())
     if total <= 0.0:
         return Mesh.empty()
-    count = leaf_count(total)
+    count = leaf_count(total, run_length_cm=run_length_cm, wanted=wanted)
+    if count < 1:
+        return Mesh.empty()
     face = rng.choice(len(triangles), size=count, p=area / total)
     r1, r2 = np.sqrt(rng.random(count)), rng.random(count)
     weights = np.stack([1.0 - r1, r1 * (1.0 - r2), r1 * r2], axis=1)
@@ -209,9 +246,11 @@ def seed_of(record: Record) -> int:
 
 
 def hedge_parts(core: Mesh, shell: Shell, height_cm: float, seed: int, *,
-                tinted: bool) -> tuple[MeshPart, ...]:
+                tinted: bool, run_length_cm: float | None = None,
+                wanted: int | None = None) -> tuple[MeshPart, ...]:
     """Any hedge as its one part: the core, then the leaves, in one foliage mesh."""
-    leaves = leaf_shell(shell, height_cm, seed, tinted=tinted)
+    leaves = leaf_shell(shell, height_cm, seed, tinted=tinted,
+                        run_length_cm=run_length_cm, wanted=wanted)
     return (MeshPart(Mesh.merge([core, leaves]), "foliage", tinted=tinted, name="hedge"),)
 
 
@@ -221,7 +260,10 @@ def _hedge(record: Record, height_cm: float) -> tuple[MeshPart, ...]:
         return ()
     core = prism(ring, 0.0, max(height_cm - CORE_DROP_CM, 0.5 * height_cm),
                  palette.HEDGE_CORE.linear)
-    return hedge_parts(core, ring_shell(ring, height_cm), height_cm, seed_of(record), tinted=False)
+    perimeter = float(np.linalg.norm(np.diff(np.vstack((ring, ring[:1])), axis=0), axis=1).sum())
+    # A strip polygon's perimeter counts both sides, so half its perimeter is its run length.
+    return hedge_parts(core, ring_shell(ring, height_cm), height_cm, seed_of(record), tinted=False,
+                       run_length_cm=0.5 * perimeter, wanted=hedge_leaf_share(record.params))
 
 
 build_hedge: Final = BuiltBuilder(_hedge, "hedge")
@@ -233,10 +275,57 @@ def shell_area_cm2(shell: Shell) -> float:
     return float(np.linalg.norm(cross, axis=1).sum() / 2.0)
 
 
+def is_hedge_record(record: Record) -> bool:
+    """True for the two polygon hedges and a ``HEDGE_FENCE`` line."""
+    if record.kind in ("HEDGE_SECTION", "HEDGE_POLYGON"):
+        return True
+    return (record.kind in ("FENCE", "WALL")
+            and record.params.get(PARAM_PATH_STYLE) == "HEDGE_FENCE")
+
+
+def hedge_area_and_run(record: Record) -> tuple[float, float] | None:
+    """The shell AREA a hedge's leaves cover and its run, without building a mesh.
+
+    Context shares the plan-wide budget on every snapshot and must not triangulate a
+    hedge to do it (that would re-cut a 400-vertex bed on every tick). The area is the
+    same closed surface's analytic area: a box top (width x run) and its two sides.
+    """
+    height = record.height_cm
+    if height is None:
+        height = nominal_height_cm(record.kind)
+    if height is None or not is_hedge_record(record):
+        return None
+    root = max(float(height) - CORE_DROP_CM / 2.0, 0.0)
+    if record.kind in ("HEDGE_SECTION", "HEDGE_POLYGON"):
+        if not record.footprints or not has_one_plain_ring(record):
+            return None
+        ring = core_ring(footprint_of(record))
+        if len(ring) < 3:
+            return None
+        closed_ring = np.vstack((ring, ring[:1]))
+        perimeter = float(np.linalg.norm(np.diff(closed_ring, axis=0), axis=1).sum())
+        area = abs(float(signed_area(ring))) + perimeter * root
+        return max(area, 0.0), 0.5 * perimeter
+    line, closed = centre_line(record)
+    if len(line) < 2:
+        return None
+    segments = np.vstack((line, line[:1])) if closed else line
+    run = float(np.linalg.norm(np.diff(segments, axis=0), axis=1).sum())
+    width = max(record.path_width_cm or 0.0, HEDGE_THICKNESS_CM) - 2.0 * CORE_INSET_CM
+    area = max(width, 0.0) * run + 2.0 * run * root
+    return max(area, 0.0), run
+
+
 def triangle_budget(record: Record) -> int:
-    """The most triangles a hedge may have: two per leaf (never more than 6,000
-    leaves) plus its core — 4 per footprint corner."""
-    return 2 * MAX_LEAVES + 4 * max(corner_count(record), 3) + 40
+    """The most triangles a hedge may have: two per leaf (its plan share, else its
+    per-metre cap) plus its core — 4 per footprint corner."""
+    measured = hedge_area_and_run(record)
+    wanted = hedge_leaf_share(record.params)
+    if wanted is None and measured is not None:
+        area, run = measured
+        wanted = leaf_count(area, run_length_cm=run)
+    cap = MAX_LEAVES if wanted is None else max(0, wanted)
+    return 2 * cap + 4 * max(corner_count(record), 3) + 40
 
 
 def register(registry: BuilderRegistry) -> None:

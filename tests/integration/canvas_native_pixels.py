@@ -371,7 +371,17 @@ def relocated_content_changes():
     return results
 
 
+def _reset_display_profile() -> None:
+    """The oracle is a picture of the default plan; a shared xdist worker may
+    have left a non-metric display profile in the isolated test store (#907)."""
+    from open_garden_planner.app.settings import get_settings
+
+    get_settings().unit_system = "metric"
+    get_settings().sync()
+
+
 if __name__ == "__main__":
+    _reset_display_profile()
     app = QApplication([])
     assert app.platformName() == "windows"
     print(json.dumps({"gaps": letter_gaps(), "hinted": letter_gaps(True),

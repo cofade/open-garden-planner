@@ -9,9 +9,11 @@ import math
 import time
 from pathlib import Path
 
+import numpy as np
 import pytest
 
 from open_garden_planner.core.phenology import (
+    BULB_LEAF_RAMP_DAYS,
     DEFAULT_LATITUDE_DEG,
     PhenologyState,
     evaluate_phenology,
@@ -72,7 +74,12 @@ DECIDUOUS_SPRITES: tuple[SpriteRef, ...] = tuple(
 )
 
 EVERGREEN_SPRITES: tuple[SpriteRef, ...] = tuple(
-    s for s in ALL_SPRITES if not traits_for(s).deciduous
+    s for s in ALL_SPRITES if not traits_for(s).deciduous and not traits_for(s).leaf_months
+)
+
+#: Spring bulbs (#963): up from late winter, gone by July, and not evergreens.
+DORMANT_SPRITES: tuple[SpriteRef, ...] = tuple(
+    s for s in ALL_SPRITES if traits_for(s).leaf_months
 )
 
 
@@ -134,6 +141,22 @@ class TestL35SeasonalAccents:
 
     def test_accent_families_constant(self) -> None:
         assert frozenset({"fruits", "blossoms", "umbels", "pods", "tubers"}) == ACCENT_FAMILIES
+
+    def test_every_fruit_carries_its_own_phase(self) -> None:
+        """#973: fruit is one part shown or hidden as a whole; each spheroid now carries a
+        phase in UV.y, so ``screen.vert`` collapses them one by one as ripeness rises."""
+        from open_garden_planner.core.plant_forge import FRUIT_PART
+
+        parts = forge_plant(SpriteRef("species", "apple_tree"), 420.0, 180.0,
+                            seed=7, lod=LOD0, cache=None)
+        fruit = next(p for p in parts if p.name == FRUIT_PART)
+        per_fruit = 2 * 6 + 2          # _spheroids_geo at LOD0: 6 sides
+        assert fruit.mesh.vertex_count % per_fruit == 0
+        blocks = fruit.mesh.uvs[:, 1].reshape(-1, per_fruit)
+        np.testing.assert_allclose(blocks, np.repeat(blocks[:, :1], per_fruit, axis=1))
+        phases = blocks[:, 0]
+        assert len(np.unique(phases)) > 1
+        assert float(phases.min()) >= 0.0 and float(phases.max()) <= 1.0
 
     @pytest.mark.parametrize(
         ("species_name", "expected_family"),
@@ -263,6 +286,31 @@ class TestL35PhenologyAndHemispheres:
             assert st_nh.autumn_color == 0.0
             assert st_sh.autumn_color == 0.0
 
+    @pytest.mark.parametrize("sprite", DORMANT_SPRITES, ids=lambda s: f"{s.group}/{s.name}")
+    def test_a_spring_bulb_is_gone_after_early_summer(self, sprite: SpriteRef) -> None:
+        """#963: a crocus, daffodil or tulip kept its leaves all year. Its leaf window is
+        late winter to early summer, on the same seasonal month as the rest of phenology."""
+        assert sprite.name in ("crocus", "daffodil", "tulip")
+        for month in (1, 7, 8, 9, 10, 11, 12):
+            day = datetime.date(2026, month, 15)
+            assert evaluate_phenology(sprite, day).leaf_density == 0.0, month
+        for month in (3, 4, 5):
+            day = datetime.date(2026, month, 15)
+            assert evaluate_phenology(sprite, day).leaf_density == 1.0, month
+        # The seasonal month shifts in the Southern Hemisphere: November there is May.
+        assert evaluate_phenology(
+            sprite, datetime.date(2026, 11, 15), latitude_deg=-35.0).leaf_density == 1.0
+        assert evaluate_phenology(
+            sprite, datetime.date(2026, 5, 15), latitude_deg=-35.0).leaf_density == 0.0
+        # It fades over days, never on the 1st of a month.
+        previous = None
+        for offset in range(365):
+            day = datetime.date(2026, 1, 1) + datetime.timedelta(days=offset)
+            value = evaluate_phenology(sprite, day).leaf_density
+            if previous is not None:
+                assert abs(value - previous) <= 1.5 / BULB_LEAF_RAMP_DAYS + 1e-6, day
+            previous = value
+
     def test_seasonal_transitions_spring_autumn_bloom_ripeness_snow(self) -> None:
         apple = SpriteRef("species", "apple_tree")
 
@@ -298,6 +346,93 @@ class TestL35PhenologyAndHemispheres:
         st_jan_30n = evaluate_phenology(apple, jan_15, latitude_deg=30.0)
         assert st_jan_52n.snow > 0.0
         assert st_jan_30n.snow == 0.0
+
+    def test_the_autumn_ramp_uses_the_palette_s_own_two_anchors(self) -> None:
+        """#941: the shader maps a leaf's summer tone onto the autumn palette's ramp.
+
+        Every palette's dark anchor (``b0``) must be strictly darker in luminance than its
+        light anchor (``t1``), and mapping real forged leaf samples must preserve leaf
+        tone monotonically while landing on the autumn palette's hues.
+        """
+        import colorsys
+
+        import numpy as np
+
+        from open_garden_planner.core.phenology import map_autumn_leaves
+        from open_garden_planner.core.plant_art import PALETTES, traits_for
+        from open_garden_planner.core.plant_forge.foliage import palette_leaf_colors
+        from open_garden_planner.core.scene3d.color import srgb_to_linear
+
+        def luma(rgb: tuple[float, float, float]) -> float:
+            return 0.2126 * rgb[0] + 0.7152 * rgb[1] + 0.0722 * rgb[2]
+
+        for name, pal in PALETTES.items():
+            d_lin = tuple(float(c) for c in srgb_to_linear(pal["b0"])[:3])
+            l_lin = tuple(float(c) for c in srgb_to_linear(pal["t1"])[:3])
+            assert luma(d_lin) < luma(l_lin), f"{name}: b0 must be darker than t1"
+
+        pear = SpriteRef("species", "pear_tree")
+        state = evaluate_phenology(pear, datetime.date(2026, 10, 20), latitude_deg=52.0)
+        assert state.autumn_color > 0.8
+        palette = PALETTES["redleaf"]
+        dark = tuple(srgb_to_linear(palette["b0"])[:3])
+        light = tuple(srgb_to_linear(palette["t1"])[:3])
+        assert state.autumn_dark_linear == pytest.approx(dark, abs=1e-6)
+        assert state.autumn_light_linear == pytest.approx(light, abs=1e-6)
+        assert state.summer_dark_linear == pytest.approx(
+            tuple(srgb_to_linear(PALETTES["fresh"]["b0"])[:3]), abs=1e-6)
+        assert state.summer_light_linear == pytest.approx(
+            tuple(srgb_to_linear(PALETTES["fresh"]["t1"])[:3]), abs=1e-6)
+        assert luma(state.summer_dark_linear) < luma(state.summer_light_linear)
+        assert luma(state.autumn_dark_linear) < luma(state.autumn_light_linear)
+
+        rng = np.random.default_rng(7)
+        raw = palette_leaf_colors(traits_for(pear).palette, pear,
+                                  rng.random(500), rng.random(500), rng)[:, :3]
+        mapped = np.asarray(map_autumn_leaves(raw, state))
+        l_in = np.array([luma(tuple(c)) for c in raw])
+        l_out = np.array([luma(tuple(c)) for c in mapped])
+        assert float(np.corrcoef(l_in, l_out)[0, 1]) > 0.90, "tone ordering must stay monotonic"
+
+        def hue(rgb: tuple[float, float, float]) -> float:
+            return colorsys.rgb_to_hsv(*rgb)[0] * 360.0
+
+        for mapped_anchor, anchor in ((state.autumn_dark_linear, dark),
+                                      (state.autumn_light_linear, light)):
+            difference = abs((hue(mapped_anchor) - hue(anchor) + 180.0) % 360.0 - 180.0)
+            assert difference < 0.5
+
+    def test_the_autumn_multiplier_is_not_applied_twice(self) -> None:
+        """#941: the shader and falling leaves map the hue from the two anchors; their
+        tint carries snow dust only (``foliage_snow_tint_linear``). Sending the legacy
+        ``foliage_tint_linear`` multiplier to the shader as well turned a clean redleaf
+        ramp dark and brown.
+        """
+        pear = SpriteRef("species", "pear_tree")
+        autumn = evaluate_phenology(pear, datetime.date(2026, 10, 20), latitude_deg=52.0)
+        assert autumn.autumn_color > 0.8
+        assert autumn.foliage_tint_linear != (1.0, 1.0, 1.0), (
+            "legacy field remains populated for backwards-compatible inspection")
+        assert autumn.foliage_snow_tint_linear == (1.0, 1.0, 1.0), (
+            "the shader maps the autumn hue itself and must not multiply it again")
+        winter = evaluate_phenology(pear, datetime.date(2027, 1, 15), latitude_deg=52.0)
+        assert winter.autumn_color == 0.0
+        assert winter.foliage_snow_tint_linear == winter.foliage_tint_linear, (
+            "with no autumn ramp the snow dust is the whole multiplier, as before")
+
+    def test_a_lawn_and_the_meadow_change_colour_through_the_year(self) -> None:
+        """#943: one grass multiplier for both surfaces, the same in both hemispheres."""
+        from open_garden_planner.core.phenology import seasonal_ground_tint
+
+        summer = seasonal_ground_tint(datetime.date(2026, 6, 21), 52.0)
+        winter = seasonal_ground_tint(datetime.date(2026, 1, 15), 52.0)
+        assert summer == (1.0, 1.0, 1.0)
+        assert winter[1] < summer[1] and winter[0] > winter[2], "paler and browner, not blue"
+        assert seasonal_ground_tint(datetime.date(2026, 1, 15), 52.0) == pytest.approx(
+            seasonal_ground_tint(datetime.date(2026, 7, 17), -52.0), abs=0.01)
+        for month in range(1, 13):
+            tint = seasonal_ground_tint(datetime.date(2026, month, 15), 52.0)
+            assert all(0.4 < channel < 1.1 for channel in tint), (month, tint)
 
     def test_frost_date_shifts_harvest_ripeness_window(self) -> None:
         radish = SpriteRef("species", "radish")  # harvest_weeks = (3, 5)

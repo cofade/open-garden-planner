@@ -252,8 +252,10 @@ Full how-to (step-by-step, `.ts` format, recompile command): see `docs/08-crossc
 
 - The issue tracker is the only work list. Read the issue and the roadmap's
   "Current work" section, then `git status` and `git log --oneline -20`.
-- Current release: **v1.40.12** (2026-11-20). No roadmap phase is active.
+- Current release: **v1.41.2** (2026-11-22). No roadmap phase is active.
   See the roadmap's Current work table and the open issues for the next change.
+- Open draft PR: [PR #998](https://github.com/cofade/open-garden-planner/pull/998) on
+  `feature/3d-showcase-followups-941-992` awaits the owner's manual visual pass.
 - Live decisions that constrain the next change:
   - Bloom hardiness & CAN pitfall index (ADR-014 addendum, ADR-061 addendum, PF-CAN-68):
     `frost_hardy_bloom` lives on `plant_species.json`; CAN pitfalls PF-CAN-49+
@@ -263,6 +265,13 @@ Full how-to (step-by-step, `.ts` format, recompile command): see `docs/08-crossc
     `SimClock.set_timezone` keeps the wall reading, and a document boundary
     stores the zone silently (`notify=False`) so a raising listener cannot
     abort a load. `tzdata` is a runtime dependency and `ogp.spec` collects it.
+  - Reference points (#666, ADR-080): a reference point is the ordinary
+    `GENERIC_CIRCLE` record plus `metadata.reference_point`; its `pos()` is the
+    only snap/measure anchor; the parent binding is `reference_point_parent_id`,
+    never `parent_bed_id`; move commands carry attached points in the same undo
+    step; it has no footprint and no 3D form.
+  - Locales (#553): en/de/es/ru/fr are all required. `scripts/fill_translations.py`
+    now fills German, Spanish and French; a new UI string needs all five.
   - Split (#828, ADR-075 addenda 4 and 5): a preselection scopes the cut.
     A straight cut of a sprite-painted, rectangle-only object (a raised bed
     or hedge section) keeps its type and picture. `shape_split.axis_parallel_rect`
@@ -272,8 +281,11 @@ Full how-to (step-by-step, `.ts` format, recompile command): see `docs/08-crossc
     `CanvasView.set_active_tool`.
   - Documentation before advertising (#976): the user-facing documents
     describe today's product; `tests/unit/test_docs_truth.py` guards them.
-  - Measurement units (#673, ADR-078): geometry and Agent API units stay cm;
-    display/input use the global preference and shared unit formatters.
+  - Measurement units (#673/#907, ADR-078/ADR-081): display units are per quantity
+    and stored additively; geometry, files, DXF export and the Agent API stay in
+    centimetres/kilograms/Celsius/millimetres. Read ADR-078/081 before adding a
+    display surface; subscribe multi-quantity views to `units_notifier().profile_changed`.
+    Canada (mixed) is provisional until Canadian feedback exists.
   - Distribution trust (ADR-073): the Microsoft Store listing is pending the owner's
     Partner Center registration and three `OGP_MSIX_*` repository variables. Never
     claim Store availability before the first certified version is live.
@@ -295,15 +307,24 @@ Full how-to (step-by-step, `.ts` format, recompile command): see `docs/08-crossc
     One `scene_azimuth` rule serves every sun surface. A live frost alert is
     classified against the wall day on every surface; an agent task read stays
     bounded by the window it reports.
-  - 3D look (#687-#807): read the ADR-059 and ADR-072 addenda and the
-    `ogp-lush-cinematic` references 013-019 before touching `ground.frag`, a built
+  - 3D look (#687-#807, #883-#965): read the ADR-059 and ADR-072 addenda and the
+    `ogp-lush-cinematic` references 013-022 before touching `ground.frag`, a built
     part's surface (`core/scene3d/materials.SURFACES`), the twilight fill, wind or
-    the tour video. One shader draws all ground; a still fits its own shadow map.
+    the tour video. One shader draws all ground; a still or resting view fits its own shadow map.
+  - Plant season truth (#948-#973, #995-#996): read the ADR-064 addendum, PF-L3D-37/38,
+    §8.29.11 and `ogp-lush-cinematic` reference 022 before touching the forge cache,
+    `ForgeWorker.prepare_for_sync`, `Traits3D.leaf_months`, `accents.build_far_accents`,
+    the foliage fit, or playback quality/RHI/2D guards.
   - Bundled examples and README pictures (#940/#564): read the ADR-066 addendum and
     §8.33 before touching `scripts/example_plans/`. The shipped files are generated
     (`scripts/generate_examples.py`, `--check` in the suite); a plan's row in
     `tests/example_specs.py` is stated by hand. After a change to the look, re-shoot
     the README with `scripts/capture_readme_media.py` (real window, graphics card).
+  - Open frames (#855): `open_frame_effective_length` trims an open frame's swept
+    prism to its own far member tip (both ground and elevated receiver sweeps);
+    the transmittance is measured against that trimmed prism, so FR-SUN-13's area
+    is unchanged and the shade ends where the frame does. The table's reach column
+    and `scripts/measure_built_world_shadows.py` carry the numbers.
 - Docs of record: `docs/roadmap.md` (current work and status), the ADRs (decisions),
   `docs/functional-requirements.md` (capabilities), and the `ogp-architecture-contract`
   skill (invariants). If a fact is not there, it does not belong in this file.

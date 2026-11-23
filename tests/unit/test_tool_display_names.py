@@ -22,7 +22,7 @@ from open_garden_planner.core.tools.base_tool import BaseTool
 
 TOOLS_DIR = Path(tools_package.__file__).parent
 #: The tool classes with a class-level English name (the reviewed count).
-EXPECTED = 19
+EXPECTED = 20
 
 
 def _literal_pair(call: ast.AST) -> tuple[str | None, str] | None:

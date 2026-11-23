@@ -1,21 +1,42 @@
 """Memory-bounded LRU cache for forged plant meshes (Phase 17 L3.1, #387).
 
 Caches ``tuple[MeshPart, ...]`` keyed by ``(sprite_group, sprite_name, seed, lod,
-height_q, radius_q, extra_sig)`` with a bounded LRU eviction policy so repeated
-plant builds, camera LOD switches, or undo/redo snapshots hit in O(1).
+height_bucket, radius_bucket, extra_sig)`` with a bounded LRU eviction policy so
+repeated plant builds, camera LOD switches, or undo/redo snapshots hit in O(1).
+
+The dimensions are quantised to 2 % geometric buckets (#973): a tree that grows a
+little every day keeps one forged shape for a whole bucket, and ``forge_plant``
+scales it to the exact height and spread, so a year time-lapse no longer reforges
+the tree with new random positions every day. A bucket is ``1.02 ** k`` (1 cm at
+``k = 0``); a size below 1 cm uses a negative index.
 
 Qt-free: standard library + NumPy only.
 """
 
 from __future__ import annotations
 
+import math
+import threading
 from collections import OrderedDict
 from collections.abc import Callable
-from typing import TypeAlias
+from typing import Final, TypeAlias
 
 from ..scene3d.mesh import MeshPart
 
 CacheKey: TypeAlias = tuple[str, str, int, int, int, int, str]
+
+#: Two sizes this relative step apart share one forged mesh (#973).
+QUANT_STEP: Final[float] = 1.02
+
+
+def size_bucket(value_cm: float) -> int:
+    """The 2 % geometric bucket that holds ``value_cm`` (#973)."""
+    return int(round(math.log(max(float(value_cm), 1e-6)) / math.log(QUANT_STEP)))
+
+
+def quantised_size_cm(value_cm: float) -> float:
+    """The size a bucket is forged at: ``1 cm * 1.02 ** bucket`` (#973)."""
+    return float(QUANT_STEP ** size_bucket(value_cm))
 
 
 def make_cache_key(
@@ -27,14 +48,14 @@ def make_cache_key(
     radius_cm: float,
     extra_sig: str = "",
 ) -> CacheKey:
-    """Build a canonical hashable cache key with 0.01 cm dimension quantisation."""
+    """Build a canonical hashable cache key with 2 % geometric dimension buckets."""
     return (
         str(sprite_group),
         str(sprite_name),
         int(seed),
         int(lod),
-        int(round(float(height_cm) * 100.0)),
-        int(round(float(radius_cm) * 100.0)),
+        size_bucket(height_cm),
+        size_bucket(radius_cm),
         str(extra_sig),
     )
 
@@ -51,6 +72,7 @@ class ForgeCache:
         self.max_bytes = int(max_bytes)
         self.current_bytes = 0
         self._store: OrderedDict[CacheKey, tuple[MeshPart, ...]] = OrderedDict()
+        self._lock = threading.RLock()
         self.hits: int = 0
         self.misses: int = 0
 
@@ -59,37 +81,46 @@ class ForgeCache:
         return self._max_entries
 
     def __len__(self) -> int:
-        return len(self._store)
+        with self._lock:
+            return len(self._store)
+
+    def contains(self, key: CacheKey) -> bool:
+        """True when ``key`` is currently in the cache without mutating hit/miss stats."""
+        with self._lock:
+            return key in self._store
 
     def clear(self) -> None:
-        self._store.clear()
-        self.current_bytes = 0
-        self.hits = 0
-        self.misses = 0
+        with self._lock:
+            self._store.clear()
+            self.current_bytes = 0
+            self.hits = 0
+            self.misses = 0
 
     def get(self, key: CacheKey) -> tuple[MeshPart, ...] | None:
-        parts = self._store.get(key)
-        if parts is not None:
-            self._store.move_to_end(key)
-            self.hits += 1
-            return parts
-        self.misses += 1
-        return None
+        with self._lock:
+            parts = self._store.get(key)
+            if parts is not None:
+                self._store.move_to_end(key)
+                self.hits += 1
+                return parts
+            self.misses += 1
+            return None
 
     def put(self, key: CacheKey, parts: tuple[MeshPart, ...]) -> tuple[MeshPart, ...]:
-        old = self._store.pop(key, None)
-        if old is not None:
-            self.current_bytes -= self._size(old)
-        size = self._size(parts)
-        if size > self.max_bytes:
+        with self._lock:
+            old = self._store.pop(key, None)
+            if old is not None:
+                self.current_bytes -= self._size(old)
+            size = self._size(parts)
+            if size > self.max_bytes:
+                return parts
+            self._store[key] = parts
+            self.current_bytes += size
+            self._store.move_to_end(key)
+            while len(self._store) > self._max_entries or self.current_bytes > self.max_bytes:
+                _, evicted = self._store.popitem(last=False)
+                self.current_bytes -= self._size(evicted)
             return parts
-        self._store[key] = parts
-        self.current_bytes += size
-        self._store.move_to_end(key)
-        while len(self._store) > self._max_entries or self.current_bytes > self.max_bytes:
-            _, evicted = self._store.popitem(last=False)
-            self.current_bytes -= self._size(evicted)
-        return parts
 
     @staticmethod
     def _size(parts: tuple[MeshPart, ...]) -> int:
@@ -116,6 +147,9 @@ __all__ = [
     "CacheKey",
     "DEFAULT_FORGE_CACHE",
     "ForgeCache",
+    "QUANT_STEP",
     "make_cache_key",
+    "quantised_size_cm",
+    "size_bucket",
 ]
 

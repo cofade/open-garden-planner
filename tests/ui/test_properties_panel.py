@@ -2,12 +2,23 @@
 
 import pytest
 from PyQt6.QtCore import QPoint, QPointF, Qt
-from PyQt6.QtWidgets import QAbstractSpinBox, QComboBox, QFormLayout
+from PyQt6.QtWidgets import (
+    QAbstractSpinBox,
+    QComboBox,
+    QFormLayout,
+    QLabel,
+    QPushButton,
+)
 
 from open_garden_planner.core.commands import CommandManager
 from open_garden_planner.core.object_types import ObjectType
 from open_garden_planner.core.roof_style import BUILDING_KINDS
-from open_garden_planner.ui.canvas.items import CircleItem, PolygonItem, RectangleItem
+from open_garden_planner.ui.canvas.items import (
+    CircleItem,
+    PolygonItem,
+    RectangleItem,
+    ReferencePointItem,
+)
 from open_garden_planner.ui.panels import PropertiesPanel
 from open_garden_planner.ui.panels.properties_panel import FIELD_WIDTH, ColorButton
 
@@ -34,6 +45,29 @@ class TestPropertiesPanel:
         panel.set_selected_items([item])
         # Panel should show properties
         assert panel._form_layout.rowCount() > 0
+
+    def test_reference_point_has_one_read_only_editor(self, qtbot):
+        """No generic circle marks; one summary and the reference editor (#666)."""
+        panel = PropertiesPanel()
+        point = ReferencePointItem(300, 100, 3.0)
+        panel.set_selected_items([point])
+
+        labels = [label.text() for label in panel.findChildren(QLabel)]
+        assert any("Independent point" in text for text in labels)
+        buttons = [button.text() for button in panel.findChildren(QPushButton)]
+        assert any(text.startswith("Edit reference point") for text in buttons)
+        # The generic circle's diameter is a second write path (#666 review).
+        row_labels = []
+        for row in range(panel._form_layout.rowCount()):
+            item = panel._form_layout.itemAt(row, QFormLayout.ItemRole.LabelRole)
+            widget = item.widget() if item is not None else None
+            if isinstance(widget, QLabel):
+                row_labels.append(widget.text())
+        assert "Diameter:" not in row_labels
+        # Type/name/styling are second write paths too: a Type change would
+        # turn the datum into a tree (#666 review).
+        assert "Type:" not in row_labels
+        assert len(panel.findChildren(QComboBox)) == 1  # the layer combo only
 
 
 class TestObjectTypeChange:
@@ -520,6 +554,44 @@ class TestContainerProperties:
         assert before and after and before != after, (
             f"Effective volume did not refresh on footprint change: {before!r} -> {after!r}"
         )
+
+    def test_effective_volume_follows_a_live_volume_switch(self, qtbot):
+        """#907: volume is its own quantity; a length-only signal left it stale."""
+        from PyQt6.QtWidgets import QLabel
+
+        from open_garden_planner.core.unit_preference import (
+            Quantity,
+            UnitProfile,
+            get_unit_preference,
+        )
+        from open_garden_planner.core.units import UnitSystem
+
+        get_unit_preference().set_profile(UnitProfile.all(UnitSystem.METRIC))
+        item = RectangleItem(0, 0, 100, 100, object_type=ObjectType.CONTAINER)
+        panel = PropertiesPanel()
+        panel.set_selected_items([item])
+
+        def effective_text() -> str:
+            for i in range(panel._form_layout.rowCount()):
+                lbl = panel._form_layout.itemAt(i, panel._form_layout.ItemRole.LabelRole)
+                fld = panel._form_layout.itemAt(i, panel._form_layout.ItemRole.FieldRole)
+                if (
+                    lbl and isinstance(lbl.widget(), QLabel)
+                    and lbl.widget().text() == "Effective:"
+                    and fld and isinstance(fld.widget(), QLabel)
+                ):
+                    return fld.widget().text()
+            return ""
+
+        before = effective_text()
+        get_unit_preference().set_quantity_system(Quantity.VOLUME, UnitSystem.IMPERIAL)
+        qtbot.wait(1)
+        after = effective_text()
+        assert before and before != after, (
+            f"Effective volume ignored the Volume row: {before!r} -> {after!r}"
+        )
+        assert "gal" in after or "qt" in after, after
+        get_unit_preference().set_profile(UnitProfile.all(UnitSystem.METRIC))
 
 
 class TestObjectHeightField:

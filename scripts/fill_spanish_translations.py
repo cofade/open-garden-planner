@@ -27,6 +27,7 @@ from scripts.translations_es.commands_services import TRANSLATIONS as T_CS
 from scripts.translations_es.dialogs import TRANSLATIONS as T_DIALOGS
 from scripts.translations_es.objects_gallery import TRANSLATIONS as T_OG
 from scripts.translations_es.panels import TRANSLATIONS as T_PANELS
+from scripts.translations_es.reference_points import TRANSLATIONS as T_REFERENCE
 from scripts.translations_es.view3d import TRANSLATIONS as T_VIEW3D
 from scripts.translations_examples import ES as T_EXAMPLES
 from scripts.translations_exports import ES as T_EXPORTS
@@ -36,7 +37,9 @@ from scripts.translations_l4 import ES as T_L4
 from scripts.translations_l5 import ES as T_L5
 from scripts.translations_l6 import ES as T_L6
 from scripts.translations_l7 import ES as T_L7
+from scripts.translations_showcase import ES as T_SHOWCASE
 from scripts.translations_sun_map import ES as T_SUN_MAP
+from scripts.translations_units_prefs import ES as T_UNITS_PREFS
 
 if sys.stdout is not None and hasattr(sys.stdout, "reconfigure"):
     sys.stdout.reconfigure(encoding="utf-8", errors="replace")
@@ -54,8 +57,9 @@ TS_FILE = (
 def get_spanish_translations() -> dict[str, dict[str, str]]:
     """Assemble modular Spanish translations into a unified dictionary."""
     assembled: dict[str, dict[str, str]] = {}
-    for module_trans in (T_CS, T_OG, T_CT, T_PANELS, T_DIALOGS, T_APP, T_VIEW3D, T_F4, T_L2, T_L4, T_L5, T_L6, T_L7, T_EXPORTS, T_EXAMPLES,
-                         T_SUN_MAP):
+    for module_trans in (T_CS, T_OG, T_CT, T_PANELS, T_DIALOGS, T_APP, T_VIEW3D, T_REFERENCE,
+                         T_F4, T_L2, T_L4, T_L5, T_L6, T_L7, T_EXPORTS, T_EXAMPLES,
+                         T_SUN_MAP, T_UNITS_PREFS, T_SHOWCASE):
         for ctx, mapping in module_trans.items():
             assembled.setdefault(ctx, {}).update(mapping)
     return assembled

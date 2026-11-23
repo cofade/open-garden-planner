@@ -267,147 +267,44 @@ class TestPreviewMode:
         qtbot.addWidget(window)
         assert not window._preview_mode
 
-    def test_enter_preview_mode_hides_sidebar(self, qtbot) -> None:
-        """Test that entering preview mode hides the sidebar."""
-        window = GardenPlannerApp()
-        qtbot.addWidget(window)
-        window._enter_preview_mode()
-        assert not window.sidebar.isVisible()
+    def test_preview_mode_hides_then_restores_all_chrome(self, qtbot) -> None:
+        """One window for every preview assertion (PF-TST-41).
 
-    def test_enter_preview_mode_hides_toolbar(self, qtbot) -> None:
-        """Test that entering preview mode hides the toolbar."""
+        This class was the one place the full suite lost a worker to a heap
+        fault; a full app per assertion was the amplifier, and every preview
+        test exercised the same enter/exit path.
+        """
         window = GardenPlannerApp()
         qtbot.addWidget(window)
-        window._enter_preview_mode()
-        assert not window.main_toolbar.isVisible()
-
-    def test_enter_preview_mode_hides_statusbar(self, qtbot) -> None:
-        """Test that entering preview mode hides the status bar."""
-        window = GardenPlannerApp()
-        qtbot.addWidget(window)
-        window._enter_preview_mode()
-        assert not window.statusBar().isVisible()
-
-    def test_enter_preview_mode_hides_menubar(self, qtbot) -> None:
-        """Test that entering preview mode hides the menu bar."""
-        window = GardenPlannerApp()
-        qtbot.addWidget(window)
-        window._enter_preview_mode()
-        assert not window.menuBar().isVisible()
-
-    def test_enter_preview_mode_hides_grid(self, qtbot) -> None:
-        """Test that entering preview mode hides the grid."""
-        window = GardenPlannerApp()
-        qtbot.addWidget(window)
-        # Enable grid first
         window.canvas_view.set_grid_visible(True)
-        window._enter_preview_mode()
-        assert not window.canvas_view.grid_visible
 
-    def test_enter_preview_mode_hides_scale_bar(self, qtbot) -> None:
-        """Test that entering preview mode hides the scale bar."""
-        window = GardenPlannerApp()
-        qtbot.addWidget(window)
-        window._enter_preview_mode()
-        assert not window.canvas_view.scale_bar_visible
-
-    def test_enter_preview_mode_hides_labels(self, qtbot) -> None:
-        """Test that entering preview mode hides labels."""
-        window = GardenPlannerApp()
-        qtbot.addWidget(window)
-        window._enter_preview_mode()
-        assert not window.canvas_scene.labels_enabled
-
-    def test_enter_preview_mode_sets_flag(self, qtbot) -> None:
-        """Test that entering preview mode sets the flag."""
-        window = GardenPlannerApp()
-        qtbot.addWidget(window)
         window._enter_preview_mode()
         assert window._preview_mode
+        assert not window.sidebar.isVisible()
+        assert not window.main_toolbar.isVisible()
+        assert not window.statusBar().isVisible()
+        assert not window.menuBar().isVisible()
+        assert not window.canvas_view.grid_visible
+        assert not window.canvas_view.scale_bar_visible
+        assert not window.canvas_scene.labels_enabled
+        assert not window.canvas_scene.constraints_visible
 
-    def test_exit_preview_mode_restores_sidebar(self, qtbot) -> None:
-        """Test that exiting preview mode restores the sidebar."""
-        window = GardenPlannerApp()
-        qtbot.addWidget(window)
-        window._enter_preview_mode()
-        window._exit_preview_mode()
-        assert window.sidebar.isVisible()
+        window._enter_preview_mode()  # idempotent
+        assert window._preview_mode
 
-    def test_exit_preview_mode_restores_toolbar(self, qtbot) -> None:
-        """Test that exiting preview mode restores the toolbar."""
-        window = GardenPlannerApp()
-        qtbot.addWidget(window)
-        window._enter_preview_mode()
-        window._exit_preview_mode()
-        assert window.main_toolbar.isVisible()
-
-    def test_exit_preview_mode_restores_statusbar(self, qtbot) -> None:
-        """Test that exiting preview mode restores the status bar."""
-        window = GardenPlannerApp()
-        qtbot.addWidget(window)
-        window._enter_preview_mode()
-        window._exit_preview_mode()
-        assert window.statusBar().isVisible()
-
-    def test_exit_preview_mode_restores_menubar(self, qtbot) -> None:
-        """Test that exiting preview mode restores the menu bar."""
-        window = GardenPlannerApp()
-        qtbot.addWidget(window)
-        window._enter_preview_mode()
-        window._exit_preview_mode()
-        assert window.menuBar().isVisible()
-
-    def test_exit_preview_mode_restores_grid_state(self, qtbot) -> None:
-        """Test that exiting preview mode restores the grid state."""
-        window = GardenPlannerApp()
-        qtbot.addWidget(window)
-        # Enable grid before entering preview
-        window.canvas_view.set_grid_visible(True)
-        window._enter_preview_mode()
-        window._exit_preview_mode()
-        assert window.canvas_view.grid_visible
-
-    def test_exit_preview_mode_restores_scale_bar_state(self, qtbot) -> None:
-        """Test that exiting preview mode restores scale bar state."""
-        window = GardenPlannerApp()
-        qtbot.addWidget(window)
-        window._enter_preview_mode()
-        window._exit_preview_mode()
-        assert window.canvas_view.scale_bar_visible
-
-    def test_exit_preview_mode_restores_labels_state(self, qtbot) -> None:
-        """Test that exiting preview mode restores labels state."""
-        window = GardenPlannerApp()
-        qtbot.addWidget(window)
-        window._enter_preview_mode()
-        window._exit_preview_mode()
-        assert window.canvas_scene.labels_enabled
-
-    def test_exit_preview_mode_clears_flag(self, qtbot) -> None:
-        """Test that exiting preview mode clears the flag."""
-        window = GardenPlannerApp()
-        qtbot.addWidget(window)
-        window._enter_preview_mode()
+        window._preview_action.setChecked(True)
         window._exit_preview_mode()
         assert not window._preview_mode
-
-    def test_exit_preview_mode_unchecks_action(self, qtbot) -> None:
-        """Test that exiting preview mode unchecks the menu action."""
-        window = GardenPlannerApp()
-        qtbot.addWidget(window)
-        window._preview_action.setChecked(True)
-        window._enter_preview_mode()
-        window._exit_preview_mode()
+        assert window.sidebar.isVisible()
+        assert window.main_toolbar.isVisible()
+        assert window.statusBar().isVisible()
+        assert window.menuBar().isVisible()
+        assert window.canvas_view.grid_visible
+        assert window.canvas_view.scale_bar_visible
+        assert window.canvas_scene.labels_enabled
         assert not window._preview_action.isChecked()
 
-    def test_double_enter_is_idempotent(self, qtbot) -> None:
-        """Test that entering preview mode twice doesn't cause issues."""
-        window = GardenPlannerApp()
-        qtbot.addWidget(window)
-        window._enter_preview_mode()
-        window._enter_preview_mode()  # Should be no-op
-        assert window._preview_mode
-        window._exit_preview_mode()
+        window._exit_preview_mode()  # idempotent
         assert not window._preview_mode
 
     def test_escape_ends_a_picked_tool_before_it_leaves_the_preview(
@@ -454,13 +351,6 @@ class TestPreviewMode:
             window._project_manager.mark_clean()
             window._autosave_manager.clear_autosave()
             window.close()
-
-    def test_double_exit_is_idempotent(self, qtbot) -> None:
-        """Test that exiting preview mode twice doesn't cause issues."""
-        window = GardenPlannerApp()
-        qtbot.addWidget(window)
-        window._exit_preview_mode()  # Should be no-op when not in preview
-        assert not window._preview_mode
 
 
 class TestApplicationIcon:

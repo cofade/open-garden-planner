@@ -8,6 +8,10 @@ with `scripts/normalize_icons.py`; theme tokens follow ADR-039.
 authored for #664 on 2026-11-09; project license GPL-3.0-or-later. Normalized
 with `scripts/normalize_icons.py`; theme tokens follow ADR-039.
 
+`reference_point.svg` — original 24×24 target/cross survey-datum geometry
+authored for #666 on 2026-11-20; project license GPL-3.0-or-later. Normalized
+with `scripts/normalize_icons.py`; theme tokens follow ADR-039.
+
 Every icon in this directory MUST have an entry here (a table row or a
 section) before it merges — same rule as the texture set (`ogp-asset-forge`:
 no provenance, no merge). `scripts/check_icon_conformance.py` cross-checks

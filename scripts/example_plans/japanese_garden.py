@@ -25,10 +25,12 @@ META = {
     "name_en": "Japanese garden - 12 x 10 m", "name_de": "Japangarten - 12 x 10 m",
     "name_es": "Jardín japonés - 12 x 10 m",
     "name_ru": "Японский сад - 12 x 10 м",
+    "name_fr": "Jardin japonais - 12 x 10 m",
     "description_en": "Sand, stone and water on an October afternoon: a raked sand court with moss islands and rocks, a pond with a plank bridge, a tea house with a hip roof and a timber veranda, stepping stones and slate. Red Japanese maples, a birch in autumn yellow, pine, bamboo, rhododendron and box. Nearly every ground material lies side by side here. Düsseldorf reference; opens on 20 October 2026 in low afternoon light. Illustrative layout.",
     "description_de": "Sand, Stein und Wasser an einem Oktobernachmittag: ein geharkter Sandhof mit Moosinseln und Steinen, ein Teich mit Bohlenbrücke, ein Teehaus mit Walmdach und Holzveranda, Trittsteine und Schiefer. Rote Fächerahorne, eine Birke in Herbstgelb, Kiefer, Bambus, Rhododendron und Buchs. Fast jedes Bodenmaterial liegt hier nebeneinander. Referenz Düsseldorf; öffnet am 20. Oktober 2026 im tiefen Nachmittagslicht. Beispielentwurf.",
     "description_es": "Arena, piedra y agua en una tarde de octubre: un patio de arena rastrillada con islas de musgo y rocas, un estanque con puente de tablones, una casa de té con tejado a cuatro aguas y galería de madera, pasaderas y pizarra. Arces japoneses rojos, un abedul amarillo de otoño, pino, bambú, rododendro y boj. Casi todos los materiales de suelo están aquí juntos. Referencia Düsseldorf; se abre el 20 de octubre de 2026 con luz baja de tarde. Diseño ilustrativo.",
     "description_ru": "Песок, камень и вода октябрьским днём: двор из граблёного песка с островками мха и камнями, пруд с дощатым мостиком, чайный домик с вальмовой крышей и деревянной верандой, шаговые камни и сланец. Красные японские клёны, берёза в осенней желтизне, сосна, бамбук, рододендрон и самшит. Здесь рядом лежат почти все материалы покрытий. Ориентир: Дюссельдорф; открывается 20 октября 2026 года при низком послеполуденном свете. Примерный проект.",
+    "description_fr": "Sable, pierre et eau un après-midi d’octobre : une cour de sable ratissée avec des îlots de mousse et des rochers, un bassin avec un pont de planches, une maison de thé au toit à quatre pans et une véranda en bois, des pas japonais et de l’ardoise. Érables du Japon rouges, un bouleau jaune d’automne, pin, bambou, rhododendron et buis. Presque tous les matériaux de sol se côtoient ici. Référence : Düsseldorf ; s’ouvre le 20 octobre 2026 dans la lumière basse de l’après-midi. Disposition illustrative.",
     "order": 4,
     "tags": ["japanese", "materials", "autumn"],
     "showcase_date": "2026-10-20", "showcase_utc_time": "13:50",
@@ -38,17 +40,23 @@ META = {
 def build():
     T, plan = ObjectType, Plan(SLUG, 1200, 1000, layer=text("Garden", "Garten", "Jardín"))
     plan.site("duesseldorf")
-    plan.rect(0, 0, 1200, 1000, T.LAWN, text("Moss lawn", "Moosrasen", "Césped de musgo"))
+    plan.rect(0, 0, 1200, 1000, T.LAWN, text("Moss lawn", "Moosrasen", "Césped de musgo"),
+              fill=FillPattern.MOSS, color="#4b6337")
     plan.line([(8, 8), (8, 992), (1192, 992), (1192, 8), (660, 8)], T.FENCE,
-              text("Timber fence", "Holzzaun", "Valla de madera"), style=PathFenceStyle.WOODEN_FENCE, tall=190)
-    plan.line([(540, 8), (8, 8)], T.FENCE, "Timber fence", style=PathFenceStyle.WOODEN_FENCE, tall=190)
+              text("Timber fence", "Holzzaun", "Valla de madera"),
+              style=PathFenceStyle.BOARD_FENCE, tall=190)
+    plan.line([(540, 8), (8, 8)], T.FENCE,
+              text("Timber fence", "Holzzaun", "Valla de madera"),
+              style=PathFenceStyle.BOARD_FENCE, tall=190)
 
     # ── the sand court with its islands
     plan.rect(90, 90, 620, 420, T.TERRACE_PATIO, text("Raked sand", "Geharkter Sand", "Arena rastrillada"),
               fill=FillPattern.SAND)
     island = text("Moss island", "Moosinsel", "Isla de musgo")
-    plan.polygon([(190, 300), (290, 270), (380, 320), (360, 410), (250, 430), (180, 380)], T.LAWN, island)
-    plan.polygon([(500, 250), (590, 240), (640, 300), (600, 360), (510, 340)], T.LAWN, island)
+    plan.polygon([(190, 300), (290, 270), (380, 320), (360, 410), (250, 430), (180, 380)],
+                 T.LAWN, island, fill=FillPattern.MOSS, color="#4b6337")
+    plan.polygon([(500, 250), (590, 240), (640, 300), (600, 360), (510, 340)],
+                 T.LAWN, island, fill=FillPattern.MOSS, color="#4b6337")
     rock = text("Rock", "Stein", "Roca")
     for tall, points in (
             (60, [(255, 332), (272, 322), (296, 320), (314, 334), (318, 356), (304, 372), (282, 378),

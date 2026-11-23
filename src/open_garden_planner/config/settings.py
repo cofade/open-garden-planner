@@ -5,6 +5,8 @@ Provides persistent storage for user preferences using QSettings, and owns
 is constructed (issue #285, ADR-041).
 """
 
+from __future__ import annotations
+
 import json
 import math
 import os
@@ -12,11 +14,18 @@ import stat
 import sys
 from collections.abc import Mapping
 from pathlib import Path
-from typing import cast
+from typing import TYPE_CHECKING, cast
 
 from PyQt6.QtCore import QSettings
 
 from open_garden_planner.models.theme import ThemeMode
+
+if TYPE_CHECKING:
+    # ``config`` may not import ``core`` at module scope (the layering gate);
+    # these feed annotations only and the runtime imports stay inside the
+    # unit-profile properties.
+    from open_garden_planner.core.unit_preference import UnitProfile
+    from open_garden_planner.core.units import UnitSystem
 
 # The one (organization, application) pair every store in this app is built
 # from — and, via ``main.py``, the QApplication names Qt derives the user-data
@@ -257,6 +266,15 @@ class AppSettings:
     KEY_VIEW3D_AUTO_BARS = "view3d/auto_quality_bars"
     # Phase 17 L7 (#391): which sky the 3D view draws
     KEY_UNIT_SYSTEM = "units/system"
+    #: #907: the per-quantity profile. A preset name, or ``custom`` with the six
+    #: per-quantity keys below; an absent profile reads as the legacy system.
+    KEY_UNIT_PROFILE = "units/profile"
+    KEY_UNIT_LENGTH = "units/length"
+    KEY_UNIT_AREA = "units/area"
+    KEY_UNIT_VOLUME = "units/volume"
+    KEY_UNIT_TEMPERATURE = "units/temperature"
+    KEY_UNIT_PRECIPITATION = "units/precipitation"
+    KEY_UNIT_MASS = "units/mass"
     UNIT_SYSTEMS = ("metric", "imperial")
     DEFAULT_UNIT_SYSTEM = "metric"
 
@@ -954,15 +972,91 @@ class AppSettings:
     def view3d_reduced_motion(self, value: bool) -> None:
         self._settings.setValue(self.KEY_VIEW3D_REDUCED_MOTION, bool(value))
 
+    def _raw_unit_system(self) -> UnitSystem:
+        """The legacy single choice, read without asking the profile (#907)."""
+        from open_garden_planner.core.units import UnitSystem
+
+        value = str(
+            self._settings.value(self.KEY_UNIT_SYSTEM, self.DEFAULT_UNIT_SYSTEM)
+        ).strip().lower()
+        return UnitSystem(value if value in self.UNIT_SYSTEMS else self.DEFAULT_UNIT_SYSTEM)
+
+    @staticmethod
+    def _quantity_system(raw: object, default: UnitSystem) -> UnitSystem:
+        from open_garden_planner.core.units import UnitSystem
+
+        value = str(raw).strip().lower()
+        return UnitSystem(value) if value in AppSettings.UNIT_SYSTEMS else default
+
     @property
     def unit_system(self) -> str:
-        value = str(self._settings.value(self.KEY_UNIT_SYSTEM, self.DEFAULT_UNIT_SYSTEM)).strip().lower()
-        return value if value in self.UNIT_SYSTEMS else self.DEFAULT_UNIT_SYSTEM
+        """The length system - the pre-#907 choice, now one part of the profile."""
+        return self.unit_profile.length.value
 
     @unit_system.setter
     def unit_system(self, value: str) -> None:
+        from open_garden_planner.core.unit_preference import UnitProfile
+        from open_garden_planner.core.units import UnitSystem
+
         text = str(value).strip().lower()
-        self._settings.setValue(self.KEY_UNIT_SYSTEM, text if text in self.UNIT_SYSTEMS else self.DEFAULT_UNIT_SYSTEM)
+        system = UnitSystem(text if text in self.UNIT_SYSTEMS else self.DEFAULT_UNIT_SYSTEM)
+        self.unit_profile = UnitProfile.all(system)
+
+    @property
+    def unit_profile(self) -> UnitProfile:
+        """Every quantity's display system (#907).
+
+        An absent ``units/profile`` keeps the pre-#907 behaviour: one system for
+        all quantities, read from ``units/system``. A preset is read by name; a
+        ``custom`` profile reads the six per-quantity keys. The setter always
+        writes those keys as well, so a preset and a later edit stay coherent.
+        """
+        from open_garden_planner.core.unit_preference import UnitPreset, UnitProfile
+
+        raw_preset = str(self._settings.value(self.KEY_UNIT_PROFILE, "")).strip().lower()
+        if raw_preset in {
+            UnitPreset.METRIC.value,
+            UnitPreset.IMPERIAL.value,
+            UnitPreset.CANADA_MIXED.value,
+        }:
+            return UnitProfile.for_preset(raw_preset)
+        legacy = self._raw_unit_system()
+        if raw_preset == UnitPreset.CUSTOM.value:
+            return UnitProfile(
+                length=self._quantity_system(
+                    self._settings.value(self.KEY_UNIT_LENGTH, legacy.value), legacy
+                ),
+                area=self._quantity_system(
+                    self._settings.value(self.KEY_UNIT_AREA, legacy.value), legacy
+                ),
+                volume=self._quantity_system(
+                    self._settings.value(self.KEY_UNIT_VOLUME, legacy.value), legacy
+                ),
+                temperature=self._quantity_system(
+                    self._settings.value(self.KEY_UNIT_TEMPERATURE, legacy.value), legacy
+                ),
+                precipitation=self._quantity_system(
+                    self._settings.value(self.KEY_UNIT_PRECIPITATION, legacy.value), legacy
+                ),
+                mass=self._quantity_system(
+                    self._settings.value(self.KEY_UNIT_MASS, legacy.value), legacy
+                ),
+            )
+        return UnitProfile.all(legacy)
+
+    @unit_profile.setter
+    def unit_profile(self, profile: UnitProfile) -> None:
+        from open_garden_planner.core.unit_preference import Quantity
+
+        preset = profile.preset
+        self._settings.setValue(self.KEY_UNIT_PROFILE, preset.value)
+        for quantity in Quantity:
+            # Ask the class for the same constant the reader uses, so a key
+            # rename cannot silently split writer from reader (#907 review).
+            key = getattr(type(self), f"KEY_UNIT_{quantity.name}")
+            self._settings.setValue(key, profile.system_for(quantity).value)
+        # The legacy key stays truthful for a reader that predates the profile.
+        self._settings.setValue(self.KEY_UNIT_SYSTEM, profile.length.value)
 
     @property
     def view3d_sky_model(self) -> str:

@@ -185,7 +185,7 @@ from .look import (
     scene_properties,
     sky_properties,
 )
-from .materials import PART_COMPONENTS, surface_look, tint_uniform
+from .materials import PART_COMPONENTS, fill_surface_name, surface_look, tint_uniform
 from .patterns import GrassDetailTexture, PatternTexture
 from .shots import PerspectiveShot, Shot, TopDownShot
 
@@ -326,14 +326,16 @@ class _Part:
     The HOST owns both (``Quick3DHost._parts``); a sink holds handles as names.
     """
 
-    __slots__ = ("geometry", "item_id", "kind", "model")
+    __slots__ = ("active_surface", "geometry", "item_id", "kind", "model", "surface")
 
     def __init__(self, model: QObject, geometry: BufferGeometry, kind: str,
-                 item_id: str = "") -> None:
+                 item_id: str = "", surface: str = "") -> None:
         self.model: QObject | None = model
         self.geometry: BufferGeometry | None = geometry
         self.kind = kind
         self.item_id = item_id
+        self.surface = surface
+        self.active_surface = surface
 
     def forget(self) -> None:
         self.model = None
@@ -627,7 +629,7 @@ class Quick3DHost:
             raise EngineError(
                 f"the scene created no Model for part {spec.part_index} ({spec.kind}) "
                 f"of item {spec.item_id!r}")
-        part = _Part(model, geometry, spec.kind, spec.item_id)
+        part = _Part(model, geometry, spec.kind, spec.item_id, spec.surface)
         self._parts.add(part)
         try:
             _set(model, "partName", spec.name)
@@ -724,7 +726,12 @@ class Quick3DHost:
         it; the sink releases it with the last user.
         """
         self._open("set_part_fill")
+        part = self._part(handle)
         model = self._model(handle)
+        effective = fill_surface_name(part.surface, pattern)
+        if effective != part.active_surface:
+            self._apply_surface_look(model, part.kind, effective)
+            part.active_surface = effective
         fill = pattern_from_name(pattern)
         texture = self._fill_texture(fill, tint_rgba) if fill is not None else None
         if texture is None:
@@ -782,7 +789,11 @@ class Quick3DHost:
     def _apply_surface(self, model: QObject, spec: PartSpec) -> None:
         """What the part is made of (#803), and its detail picture (#801): the numbers of
         ``materials.surface_look`` on the Model, once, at its birth."""
-        look = surface_look(spec.kind, spec.surface)
+        self._apply_surface_look(model, spec.kind, spec.surface)
+
+    def _apply_surface_look(self, model: QObject, kind: str, surface: str) -> None:
+        """Write ``materials.surface_look(kind, surface)`` properties onto ``model``."""
+        look = surface_look(kind, surface)
         if look is None:
             return
         for name, value in look.properties.items():
@@ -791,6 +802,8 @@ class Quick3DHost:
             texture = self._detail_texture(look.detail_pattern)
             if texture is not None:
                 _set(model, "detailMap", texture)
+        elif model.property("detailMap") is not None:
+            _set(model, "detailMap", None)
 
     def _detail_texture(self, pattern_name: str) -> QObject | None:
         """The shared ``Texture`` of a surface's detail picture (#801), made once per
@@ -862,12 +875,20 @@ class Quick3DHost:
         if self._open("request_frame") is HostState.LIVE:
             self._view.update()
 
+    def set_meadow_season(self, tint: tuple[float, float, float]) -> None:
+        """The meadow's and open ground's seasonal grass multiplier (#943)."""
+        self._open("set_meadow_season")
+        _set(self._root, "meadowSeason", QVector3D(*(float(value) for value in tint)))
+        self.request_frame()
+
     def set_plant_seasons(self, states: Mapping[str, PhenologyState]) -> None:
         """Update seasonal material values in one QML hop, with no Model/geometry churn."""
         self._open("set_plant_seasons")
         values = {
-            item_id: [state.leaf_density, *state.foliage_tint_linear,
-                      state.bloom, state.ripeness, state.snow, *state.accent_tint_linear]
+            item_id: [state.leaf_density, *state.foliage_snow_tint_linear,
+                      state.bloom, state.ripeness, state.snow, *state.accent_tint_linear,
+                      state.autumn_color, *state.summer_dark_linear, *state.summer_light_linear,
+                      *state.autumn_dark_linear, *state.autumn_light_linear]
             for item_id, state in states.items()
         }
         self._call("setPlantSeasons", values)
@@ -1650,19 +1671,19 @@ class Quick3DHost:
 
     def capture(self, size: tuple[int, int], shot: PerspectiveShot | None = None, *,
                 wind_time_s: float | None = None, photo: PhotoSettings | None = None,
-                label: str = "", fitted_shadows: bool = False) -> QImage:
+                label: str = "", fitted_shadows: bool | None = None) -> QImage:
         """A picture of exactly ``size`` device pixels, without moving anything on screen:
         ``shot`` (None: the camera in place) through the scene's second View3D, whose size
         does not depend on the window's. Selection ring off; the photo settings apply.
         ``wind_time_s``: the wind's clock for this picture (a tour's frames are computed,
         not timed). ``photo``: develop this picture differently from the view (an agent's
-        picture takes ``NO_PHOTO``). ``fitted_shadows=True``: the key light's shadow map
-        fitted to the casters for this frame only (``set_fitted_shadows``) — what a STILL
-        picture asks for (a photo, an agent's picture, a held camera's frame); a frame of a
-        moving camera keeps the default, the view's stable fit. The default is what makes a
-        capture at the view's size the view, pixel for pixel (the self-test's check; #734:
-        a fitted frame differs from the view by up to 24 levels along its shadow edges).
-        Legal on a ``LIVE`` host only (``lifecycle.py``); else ``HostStateError``.
+        picture takes ``NO_PHOTO``). ``fitted_shadows``: ``True`` fits the key light's
+        shadow map to the casters for this frame only (``set_fitted_shadows``) — what a
+        STILL picture asks for (a photo, an agent's picture, a held camera's frame);
+        ``False`` forces the moving-camera texel-locked fit; ``None`` (the default) keeps
+        the view's current fit, so a capture at the view's size matches the view pixel for
+        pixel whether the view is moving or resting (#734, #894). Any prior state is
+        restored on exit. Legal on a ``LIVE`` host only (``lifecycle.py``); else ``HostStateError``.
         ``EngineError`` when no picture comes back.
 
         WHY NOTHING JUMPS (ADR-072, measured: the view read back after a capture differs
@@ -1701,6 +1722,7 @@ class Quick3DHost:
                               f"picture from elsewhere cannot be put back")
         wind_before = _get(root, "windTime")
         ring_before = _get(root, "selectionVisible")
+        fitted_before = bool(_get(root, "fittedShadows"))
         photo_before = self._photo
         started = time.perf_counter()
         try:
@@ -1716,7 +1738,8 @@ class Quick3DHost:
             _set(root, "captureWidth", width)
             _set(root, "captureHeight", height)
             _set(root, "captureAoDistanceScale", ao_distance_scale(float(height)))
-            _set(root, "fittedShadows", bool(fitted_shadows))
+            if fitted_shadows is not None:
+                _set(root, "fittedShadows", bool(fitted_shadows))
             _set(root, "captureWanted", True)
             self._apply_photo()
             item = cast("QQuickItem", self._call("captureItem"))
@@ -1733,7 +1756,7 @@ class Quick3DHost:
                     self._drop_capture_view()
             finally:
                 _set(root, "captureAoDistanceScale", 1.0)
-                _set(root, "fittedShadows", False)
+                _set(root, "fittedShadows", fitted_before)
                 _set(root, "selectionVisible", ring_before)
                 _set(root, "windTime", wind_before)
                 self._photo = photo_before

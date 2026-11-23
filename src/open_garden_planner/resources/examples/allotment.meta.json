@@ -3,10 +3,12 @@
   "name_de": "Schrebergarten - 15 x 20 m",
   "name_es": "Huerto urbano - 15 x 20 m",
   "name_ru": "Садовый участок - 15 x 20 м",
+  "name_fr": "Potager familial - 15 x 20 m",
   "description_en": "A plot in an allotment colony: summer house with a mono-pitch roof, greenhouse, cold frames, water tap and compost. Rows of potatoes, onions, carrots, cabbage and beans, a Three Sisters mound, berries and a plum tree. Succession plan, soil sample and harvest log are fictional. Leipzig reference; opens on a morning of 18 July 2026. Illustrative layout.",
   "description_de": "Eine Parzelle in der Kleingartenanlage: Laube mit Pultdach, Gewächshaus, Frühbeete, Wasserhahn und Kompost. Reihen mit Kartoffeln, Zwiebeln, Möhren, Kohl und Bohnen, ein Drei-Schwestern-Beet, Beeren und ein Pflaumenbaum. Nachfolgeplan, Bodenprobe und Erntebuch sind fiktiv. Referenz Leipzig; öffnet am Morgen des 18. Juli 2026. Beispielentwurf.",
   "description_es": "Una parcela de un huerto urbano: caseta con tejado a un agua, invernadero, cajoneras, grifo y compostador. Hileras de patatas, cebollas, zanahorias, coles y judías, un montículo de las tres hermanas, bayas y un ciruelo. El plan de sucesión, la muestra de suelo y las cosechas son ficticios. Referencia Leipzig; se abre una mañana del 18 de julio de 2026. Diseño ilustrativo.",
   "description_ru": "Участок в садовом товариществе: домик с односкатной крышей, теплица, парники, водопроводный кран и компост. Ряды картофеля, лука, моркови, капусты и фасоли, грядка «три сестры», ягодные кусты и слива. План смены культур, образец почвы и журнал урожая условные. Ориентир: Лейпциг; открывается утром 18 июля 2026 года. Примерный проект.",
+  "description_fr": "Une parcelle dans une colonie de jardins ouvriers : cabane avec toit à un pan, serre, châssis froids, robinet et compost. Rangs de pommes de terre, oignons, carottes, choux et haricots, une butte des Trois Sœurs, des baies et un prunier. Le plan de succession, l’échantillon de sol et le journal de récolte sont fictifs. Référence : Leipzig ; s’ouvre un matin du 18 juillet 2026. Disposition illustrative.",
   "order": 9,
   "tags": [
     "allotment",

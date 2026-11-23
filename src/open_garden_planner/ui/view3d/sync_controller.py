@@ -462,6 +462,9 @@ class Scene3DController(QObject):
         self._baker = ground_baker
         self._sync = SceneSync(sink, registry, ground_baker=ground_baker)
         self._ground_stage: GroundStage = plain_ground
+        self._plant_preparer: (
+            Callable[[Mapping[str, Record], tuple[str, ...]], dict[str, tuple[MeshPart, ...]]] | None
+        ) = None
         self._active = False
         self._records_dirty = True   # nothing was ever applied
         self._sun_dirty = True
@@ -747,6 +750,13 @@ class Scene3DController(QObject):
         None restores the bare rectangle. The next pass re-sends the ground."""
         self._ground_stage = stage if stage is not None else plain_ground
         self.mark_dirty()
+
+    def set_plant_preparer(
+        self,
+        preparer: Callable[[Mapping[str, Record], tuple[str, ...]], dict[str, tuple[MeshPart, ...]]] | None,
+    ) -> None:
+        """Register a callback that supplies forged plant meshes before ``SceneSync.apply`` (#995)."""
+        self._plant_preparer = preparer
 
     def reset(self) -> None:
         """The ENGINE's scene was rebuilt (a fresh host): forget what was sent; the
@@ -1206,7 +1216,10 @@ class Scene3DController(QObject):
         self._capture_reconciling = reconciling
         self._capture_started = time.perf_counter()
         try:
+            from open_garden_planner.core.phenology import plan_latitude
+
             self._capture = snapshot_steps(self._scene, self._capture_date,
+                                           latitude_deg=plan_latitude(self._location()),
                                            skipped=self._capture_skipped)
             try:
                 next(self._capture)  # the scene's items are listed HERE, on this turn
@@ -1387,6 +1400,19 @@ class Scene3DController(QObject):
                 _LOG.warning("3D sync: the 3D scene was left in an unknown state by a failed "
                              "engine call; rebuilding it")
         else:
+            if self._plant_preparer is not None:
+                if stale:
+                    fresh_diff = diff(self._sync.records, records)
+                    plant_build_ids = tuple(
+                        item_id
+                        for item_id in (*fresh_diff.added, *fresh_diff.geometry)
+                        if item_id in records
+                    )
+                else:
+                    plant_build_ids = ticket.build_ids
+                forged = self._plant_preparer(records, plant_build_ids)
+                if forged:
+                    prepared = {**prepared, **forged} if prepared is not None else forged
             try:
                 changes = self._sync.apply(
                     records, sun=sun,

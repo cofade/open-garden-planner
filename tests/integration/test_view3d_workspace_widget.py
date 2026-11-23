@@ -96,6 +96,7 @@ class FakeHost:
         #: The look (L1.4): what the look controller told the host, in order.
         self.looks: list[Any] = []
         self.skies: list[Any] = []
+        self.fitted_shadows: list[bool] = []
         self.wind: list[str] = []
         #: The analysis (L2): overlays by layer (the last mesh; None: hidden), the
         #: Cutaway switch and the faded items, as last told.
@@ -109,6 +110,7 @@ class FakeHost:
         self.lamps: list[list[tuple[float, float, float, float]]] = []
         self.life: list[bool] = []
         self.seasons: list[Any] = []
+        self.meadow_seasons: list[Any] = []
 
     def set_ambient(self, buffers: Any) -> None:
         self.ambient.append(buffers)
@@ -121,6 +123,9 @@ class FakeHost:
 
     def set_plant_seasons(self, states: Any) -> None:
         self.seasons.append(states)
+
+    def set_meadow_season(self, tint: Any) -> None:
+        self.meadow_seasons.append(tint)
 
     def set_overlay(self, layer: str, mesh: Any) -> None:
         self.overlays[layer] = mesh
@@ -138,6 +143,9 @@ class FakeHost:
 
     def set_sky(self, sky: Any) -> None:
         self.skies.append(sky)
+
+    def set_fitted_shadows(self, fitted: bool) -> None:
+        self.fitted_shadows.append(bool(fitted))
 
     def set_wind_running(self, running: bool) -> None:
         self.wind.append("run" if running else "stop")
@@ -1728,3 +1736,104 @@ def test_a_session_that_never_enters_split_keeps_nothing(
     bench.workspace.set_mode(PLAN)
     bench.workspace.shutdown()
     assert app_settings.create_qsettings().value("UiState/splitter_workspace") is None
+
+
+def test_hemisphere_location_change_updates_lawns_and_meadow_together(
+        canvas: CanvasView, qtbot, tmp_path: Path) -> None:
+    """#943: switching hemispheres via location_changed() must re-snapshot LAWN items
+    alongside updating meadowSeason so baked lawns never stay stuck in the old season."""
+    from datetime import date
+
+    from PyQt6.QtCore import QPointF
+    from PyQt6.QtGui import QColor, QPolygonF
+
+    from open_garden_planner.core.object_types import ObjectType
+    from open_garden_planner.ui.canvas.items import PolygonItem
+
+    lawn = PolygonItem(
+        QPolygonF([QPointF(0, 0), QPointF(400, 0), QPointF(400, 300), QPointF(0, 300)]),
+        object_type=ObjectType.LAWN,
+        name="Lawn",
+    )
+    recolour_fill(lawn, QColor(100, 160, 80, 255)).execute()
+    canvas.scene().addItem(lawn)
+    lawn_id = str(lawn.item_id)
+
+    bench = Bench(canvas, qtbot, tmp_path, location={"latitude": 52.0, "longitude": 10.0})
+    bench.clock.set_date(date(2026, 1, 15))
+    bench.workspace.set_mode(VIEW3D)
+    bench.settle()
+
+    # Northern Hemisphere January: dormant winter lawn and meadow.
+    winter_lawn = bench.workspace.controller.sync.records[lawn_id].material.fill_rgba
+    winter_meadow = bench.hosts[-1].meadow_seasons[-1]
+    assert winter_meadow[1] < 0.8 and winter_lawn[1] < 130
+
+    # Flip to Southern Hemisphere (January = midsummer): BOTH lawn and meadow must turn summer.
+    bench.location = {"latitude": -35.0, "longitude": 149.0}
+    bench.workspace.location_changed()
+    bench.settle()
+
+    summer_lawn = bench.workspace.controller.sync.records[lawn_id].material.fill_rgba
+    summer_meadow = bench.hosts[-1].meadow_seasons[-1]
+    assert summer_meadow == (1.0, 1.0, 1.0)
+    assert summer_lawn[:3] == (100, 160, 80)
+    bench.workspace.shutdown()
+
+
+def test_lawn_seasonal_fill_is_quantised_so_year_playback_avoids_daily_rebakes(
+        canvas: CanvasView, qtbot, tmp_path: Path) -> None:
+    """#943 / PF-L3D-38: day-by-day year stepping must keep LAWN Record.material stable
+    on >80 % of days while baked lawns and the open-ground meadow share the exact same
+    quantised multiplier on every date (including off-grid transition dates like Sep 17)."""
+    from datetime import date, timedelta
+
+    from PyQt6.QtCore import QPointF
+    from PyQt6.QtGui import QColor, QPolygonF
+
+    from open_garden_planner.core.object_types import ObjectType
+    from open_garden_planner.ui.canvas.items import PolygonItem
+    from open_garden_planner.ui.view3d.snapshot import _seasonal_fill
+
+    base = (100, 160, 80, 255)
+    d0 = date(2026, 1, 1)
+    fills = [_seasonal_fill("LAWN", base, d0 + timedelta(days=i), 52.0) for i in range(365)]
+    transitions = sum(1 for a, b in zip(fills, fills[1:], strict=False) if a != b)
+    assert transitions <= 70, f"expected coarse seasonal transitions, got {transitions}/364"
+
+    # The smoothness gate itself: no single day may step the lawn's colour more than
+    # the render tier's 4.0 frame bound allows, in either hemisphere. This catches a
+    # return to a coarser grid even when the transition count stays under the cap.
+    def luma(rgba: tuple[int, int, int, int]) -> float:
+        return 0.2126 * rgba[0] + 0.7152 * rgba[1] + 0.0722 * rgba[2]
+
+    steps = [abs(luma(b) - luma(a)) for a, b in zip(fills, fills[1:], strict=False)]
+    assert max(steps) <= 4.0, f"the steepest lawn-colour step is {max(steps):.2f} luma"
+    south = [_seasonal_fill("LAWN", base, d0 + timedelta(days=i), -52.0) for i in range(365)]
+    south_steps = [abs(luma(b) - luma(a)) for a, b in zip(south, south[1:], strict=False)]
+    assert max(south_steps) <= 4.0, f"the southern steepest step is {max(south_steps):.2f} luma"
+
+    assert _seasonal_fill("LAWN", base, date(2026, 6, 21), 52.0) == base
+    assert _seasonal_fill("LAWN", base, date(2026, 1, 15), 52.0)[1] < 120
+
+    # End-to-end: on a non-grid autumn transition date (2026-09-17), lawn and meadow
+    # receive the exact same multiplier so no seam opens between them.
+    lawn = PolygonItem(
+        QPolygonF([QPointF(0, 0), QPointF(400, 0), QPointF(400, 300), QPointF(0, 300)]),
+        object_type=ObjectType.LAWN,
+        name="Lawn",
+    )
+    recolour_fill(lawn, QColor(*base)).execute()
+    canvas.scene().addItem(lawn)
+    lawn_id = str(lawn.item_id)
+
+    bench = Bench(canvas, qtbot, tmp_path, location={"latitude": 52.0, "longitude": 10.0})
+    bench.clock.set_date(date(2026, 9, 17))
+    bench.workspace.set_mode(VIEW3D)
+    bench.settle()
+
+    lawn_rgba = bench.workspace.controller.sync.records[lawn_id].material.fill_rgba
+    meadow = bench.hosts[-1].meadow_seasons[-1]
+    expected = tuple(min(255, max(0, int(round(c * m)))) for c, m in zip(base[:3], meadow, strict=True))
+    assert lawn_rgba[:3] == expected
+    bench.workspace.shutdown()

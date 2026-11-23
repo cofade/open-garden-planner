@@ -1,8 +1,8 @@
 """Measurement fields whose value unit never follows their display unit.
 
 value(), setValue(), ranges and valueChanged stay in cm (or the explicitly
-supplied value_unit_cm), and litres for volumes. Metric uses Qt's native text,
-decimals, suffix and steps. A unit switch blocks signals and retains the exact
+supplied value_unit_cm), litres for volumes, and Celsius for temperatures.
+Metric uses Qt's native text, decimals, suffix and steps. A unit switch blocks signals and retains the exact
 value; merely focusing a rounded imperial readout never writes it back.
 """
 
@@ -23,23 +23,29 @@ from PyQt6.QtWidgets import (
     QWidget,
 )
 
-from open_garden_planner.core.unit_preference import active_unit_system
+from open_garden_planner.core.unit_preference import Quantity, UnitProfile, active_unit_system
 from open_garden_planner.core.units import (
     LITRES_PER_US_QUART,
     LengthStyle,
     UnitSystem,
     cm_to_inches,
     format_length,
+    format_temperature,
     format_volume,
     imperial_step_inches,
     inches_to_cm,
     parse_length,
+    parse_temperature,
     parse_volume,
 )
 from open_garden_planner.ui.units_notifier import units_notifier
 
 
 class _UnitSpinBox(QDoubleSpinBox):
+    #: The quantity whose unit this field follows (#907). Length is the legacy
+    #: default; a subclass whose stored value is a volume overrides it.
+    _quantity: Quantity = Quantity.LENGTH
+
     def __init__(self, parent: QWidget | None = None) -> None:
         self._system = UnitSystem.METRIC
         self._metric_decimals = 2
@@ -48,8 +54,8 @@ class _UnitSpinBox(QDoubleSpinBox):
         self._exact = 0.0
         super().__init__(parent)
         self.valueChanged.connect(self._remember_exact)
-        units_notifier().changed.connect(self._on_units_changed)
-        self._on_units_changed(active_unit_system())
+        units_notifier().profile_changed.connect(self._on_profile_changed)
+        self._on_units_changed(active_unit_system(self._quantity))
 
     def unit_system(self) -> UnitSystem:
         return self._system
@@ -82,7 +88,12 @@ class _UnitSpinBox(QDoubleSpinBox):
         # caller's value in imperial, including a real US gallon's nine places.
         self._exact = value if self._system == UnitSystem.IMPERIAL else super().value()
 
+    def _on_profile_changed(self, profile: UnitProfile) -> None:
+        self._on_units_changed(profile.system_for(self._quantity))
+
     def _on_units_changed(self, system: UnitSystem) -> None:
+        if system == self._system:
+            return  # another quantity's row moved; this editor is unchanged
         exact = self._exact
         self._system = system
         with QSignalBlocker(self):
@@ -125,13 +136,23 @@ class _UnitSpinBox(QDoubleSpinBox):
         prefix = self.prefix()
         return text[len(prefix) :].strip() if prefix and text.startswith(prefix) else text.strip()
 
+    def _parse_metric(self, _text: str) -> float | None:
+        """Optional hook for subclasses accepting explicit foreign units in Metric mode."""
+        return None
+
     def valueFromText(self, text: str | None) -> float:
+        raw = text or ""
+        if self.specialValueText() and raw == self.specialValueText():
+            return self.minimum()
         if self._system == UnitSystem.METRIC:
             rendered = self.prefix() + super().textFromValue(super().value()) + self.suffix()
-            if text == rendered:
+            if raw == rendered:
                 return self._exact
-            return super().valueFromText(text)
-        number = self._number_text(text or "")
+            parsed = self._parse_metric(raw)
+            if parsed is not None:
+                return parsed
+            return super().valueFromText(raw)
+        number = self._number_text(raw)
         if number == self._imperial_text(super().value()):
             return self._exact
         try:
@@ -156,7 +177,7 @@ class _UnitSpinBox(QDoubleSpinBox):
         except ValueError:
             state = (
                 QValidator.State.Intermediate
-                if re.fullmatch(r"[\s\d.,/'\"+\-a-zA-Z]*", number)
+                if re.fullmatch(r"[\s\d.,/'\"+\-a-zA-Z°]*", number)
                 else QValidator.State.Invalid
             )
         return state, text, pos
@@ -209,7 +230,77 @@ class LengthSpinBox(_UnitSpinBox):
         self.setValue(inches_to_cm(target) / self._value_unit_cm)
 
 
+class TemperatureSpinBox(_UnitSpinBox):
+    """A field whose value is Celsius and whose display follows the temperature unit (#907)."""
+
+    _quantity = Quantity.TEMPERATURE
+
+    def _imperial_text(self, value: float) -> str:
+        return format_temperature(
+            value, UnitSystem.IMPERIAL, decimals=self._metric_decimals,
+            decimal_mark=self.locale().decimalPoint(),
+        )
+
+    def _parse_imperial(self, text: str) -> float:
+        return parse_temperature(text, UnitSystem.IMPERIAL)
+
+    def _metric_temperature_text(self, text: str) -> str:
+        number = self._number_text(text)
+        suffix = self.suffix().strip()
+        if suffix and number.endswith(suffix):
+            stripped = number[: -len(suffix)].strip()
+            if stripped:
+                return stripped
+        return number
+
+    def _parse_metric(self, text: str) -> float | None:
+        """The text in the field's STORED unit (cm, litres or Celsius), or None
+        when it is not a valid Metric value. The one parse seam shared by
+        ``valueFromText`` and ``validate``; a subclass overriding it must keep
+        that contract."""
+        number = self._metric_temperature_text(text)
+        try:
+            return parse_temperature(number, UnitSystem.METRIC)
+        except ValueError:
+            return None
+
+    def validate(self, text: str | None, pos: int) -> tuple[QValidator.State, str, int]:
+        if self._system == UnitSystem.METRIC:
+            state, out, out_pos = super().validate(text, pos)
+            if state == QValidator.State.Acceptable:
+                return state, out, out_pos
+            raw = text or ""
+            if self.specialValueText() and raw == self.specialValueText():
+                return QValidator.State.Acceptable, raw, pos
+            value = self._parse_metric(raw)
+            if value is not None:
+                new_state = (
+                    QValidator.State.Acceptable
+                    if self.minimum() <= value <= self.maximum()
+                    else QValidator.State.Intermediate
+                )
+                return new_state, raw, pos
+            number = self._metric_temperature_text(raw)
+            new_state = (
+                QValidator.State.Intermediate
+                if re.fullmatch(r"[\s\d.,+\-a-zA-Z°]*", number)
+                else QValidator.State.Invalid
+            )
+            return new_state, raw, pos
+        return super().validate(text, pos)
+
+    def stepBy(self, steps: int) -> None:
+        if self._system == UnitSystem.METRIC:
+            super().stepBy(steps)
+            return
+        self.interpretText()
+        fahrenheit = self.value() * 9.0 / 5.0 + 32.0
+        self.setValue((round(fahrenheit) + steps - 32.0) * 5.0 / 9.0)
+
+
 class VolumeSpinBox(_UnitSpinBox):
+    _quantity = Quantity.VOLUME
+
     def _imperial_text(self, value: float) -> str:
         return format_volume(value, UnitSystem.IMPERIAL, decimal_mark=self.locale().decimalPoint())
 

@@ -8,7 +8,7 @@ Detailed functional requirements for Open Garden Planner. These serve as the spe
 - **FR-CANVAS-01**: Canvas uses metric coordinate system (centimeters as base unit)
 - **FR-CANVAS-02**: Display can show measurements in cm, m, or mixed (e.g., "2.35 m")
 - **FR-CANVAS-03**: Canvas supports zoom from 1:1000 (overview) to 1:1 (detail) scale
-- **FR-CANVAS-04**: Pan and zoom via mouse wheel, drag, and keyboard shortcuts — and, since issue #321, **touch**: Qt's own pinch recognizer turns two fingers into a zoom about the gesture centre (panning as they move), both through the same anchored-zoom and pan helpers as the mouse (so the clamping, the 1 px anchoring and the minimap/rulers/zoom label agree). A **single** finger is never claimed by the recognizer, so tap-to-select and one-finger drag stay on Qt's synthesised mouse path and behave exactly as before. A pinch **never drags** the object under the first finger: a move it had begun is put back with no undo step, a half-made shape is discarded, and a selection the press cleared on empty canvas is restored (it may still select the object under that finger, as a tap would); the one stated exception is a resize/rotate/vertex handle being dragged, whose normal release finalizes that edit as one undo step. Touch *drawing* with tools is out of scope. Trackpad pinch arrives as Qt's native zoom gesture and is handled too. The behaviour is the **Preferences → Canvas → "Enable touch gestures"** setting (`canvas/touch_gestures_enabled`, default on); off grabs no gesture at all, leaving the canvas as it was before #321.
+- **FR-CANVAS-04**: Pan and zoom via mouse wheel, drag, and keyboard shortcuts — and, since issue #321, **touch**: Qt's own pinch recognizer turns two fingers into a zoom about the gesture centre (panning as they move), both through the same anchored-zoom and pan helpers as the mouse (so the clamping, the 1 px anchoring and the minimap/rulers/zoom label agree). A **single** finger is never claimed by the recognizer, so tap-to-select and one-finger drag stay on Qt's synthesised mouse path and behave exactly as before. A pinch **never drags** the object under the first finger: a move it had begun is put back with no undo step, a half-made shape is discarded, and a selection the press cleared on empty canvas is restored (it may still select the object under that finger, as a tap would); the one stated exception is a resize/rotate/vertex handle being dragged, whose normal release finalizes that edit as one undo step. Touch *drawing* with tools is out of scope. Trackpad pinch arrives as Qt's native zoom gesture and is handled too. The behaviour is the **Preferences → General → Canvas → "Enable touch gestures"** setting (`canvas/touch_gestures_enabled`, default on); off grabs no gesture at all, leaving the canvas as it was before #321.
 
 ### FR-1.2 Grid System
 - **FR-GRID-01**: Optional visible grid overlay (toggleable via toolbar button). The grid lies on the ground: it is drawn inside the plan only, over the ground surfaces (lawn, terrace, path, in-ground bed) and under every object that stands on them, so no grid line crosses a plant, a building or a piece of furniture *(issue #793)*. It is a canvas aid and is in no export.
@@ -243,7 +243,10 @@ Pre-defined object types for common property elements:
 - **FR-MEAS-04**: Perimeter/circumference display for selected objects
 - **FR-MEAS-05**: Scale bar overlay (Phase 6)
 - **FR-MEAS-06**: Measurements snap to object vertices/edges
-- **FR-MEAS-07**: Preferences offers Metric (default) and Imperial (US). Switching updates layout lengths, plant sizes, seed depth, area and real container volume without reopening the plan. Imperial layout uses feet and eighth-inches, plants whole inches, depth fractional inches, area in²/ft², volume US qt/gal. Input accepts explicit units and either decimal mark; bare imperial entries mean inches, or feet in fields whose metric value unit is metres. Switching or viewing rounded text creates no model edit. Scene values, saved geometry, Agent API units and DXF export retain centimetres (issue #673; ADR-078). Temperature, precipitation, harvest mass and a Canadian preset are tracked in #907.
+- **FR-MEAS-07**: Preferences offers Metric (default) and Imperial (US). Switching updates layout lengths, plant sizes, seed depth, area and real container volume without reopening the plan. Imperial layout uses feet and eighth-inches, plants whole inches, depth fractional inches, area in²/ft², volume US qt/gal. Input accepts explicit units and either decimal mark; bare imperial entries mean inches, or feet in fields whose metric value unit is metres. Switching or viewing rounded text creates no model edit. Scene values, saved geometry, Agent API units and DXF export retain centimetres (issue #673; ADR-078). Temperature, precipitation, harvest mass and the Canadian preset follow FR-MEAS-08 to FR-MEAS-10 (#907).
+- **FR-MEAS-08**: The unit profile is per quantity: **length** (and the canvas), **area**, **volume**, **temperature**, **precipitation** and **harvest mass** each follow Metric or Imperial independently. Preferences offers the presets **Metric**, **Imperial (US)**, **Canada (mixed)** and **Custom**; choosing a single quantity row makes the profile Custom. The legacy `units/system` setting still reads as one system for every quantity; the profile is stored additively in `units/profile` and the six `units/<quantity>` keys, and a plan file never stores a display unit.
+- **FR-MEAS-09**: Temperature is stored and computed in Celsius and displayed in °C or °F; precipitation is stored in millimetres and displayed in mm or in (at least two decimals, so a drizzle is not `0.0 in`); a new harvest entry offers kg or lb from the mass profile, while each saved harvest record keeps the unit it was entered in and that unit remains its aggregation key (totals never mix units; ADR-081). Weather panels, frost-alert thresholds, germination temperatures, generated frost-task titles and the harvest entry's default unit follow the profile, in the UI language's number format. Temperature fields accept an explicit °C/°F unit in either system (with bare entries using the active system); `core.units` also provides explicit-unit parsers (`parse_precipitation`, `parse_mass`) for precipitation and mass. A live switch refreshes all display surfaces (including canvas/3D area readouts, status bar, weather and calendar dashboard) without reopening the plan.
+- **FR-MEAS-10**: **Canada (mixed)** is the recorded provisional preset: length and area imperial (feet/inches, ft²), volume, temperature, precipitation and harvest mass metric. Changing any row makes a Custom profile. Its defaults are revisited when Canadian users' feedback is available (ADR-081).
 
 ## FR-8: Object Library & Plant Lists
 
@@ -317,7 +320,7 @@ Pre-defined object types for common property elements:
 - **FR-UI-11**: Fullscreen preview mode (F11) hiding all UI overlays
 - **FR-UI-12**: Toggleable object labels on canvas
 - **FR-UI-13** *(issue #304)*: Across the main toolbar and the constraint toolbar **exactly one tool button is highlighted at any time — the active tool's**. The two toolbars own separate exclusive `QButtonGroup`s, so the app reconciles them itself: `ToolManager` emits `tool_type_changed(ToolType)` alongside the display-name `tool_changed(str)`; `GardenPlannerApp` forwards it to both toolbars' `set_active_tool()`, each of which unchecks its own group when the active tool is not one of its buttons. (Before this, the sync was a hard-coded map from tool *display name* to `ToolType` that knew only three of the ~15 constraint tools — every other tool, e.g. **Equal Size**, never reached the toolbars at all, so **Select** stayed highlighted too and the user could only reach objects via right-click; keying on display names — several of which are translated at import — was a second fragility the type-keyed signal removes.) Pinned by `tests/integration/test_toolbar_highlight_sync.py` (which drives every constraint-toolbar tool plus the main-toolbar tools through the real window).
-- **FR-UI-14** *(issue #569)*: Preferences keeps every control at its natural height on a short screen. The settings form lives in a scroll area with Save / Cancel outside the viewport, so Tab reveals the last setting instead of a control squeezed to zero height; the dialog opens at its content height capped to the available screen height rather than at the scroll area's small size hint. Pinned by `tests/integration/test_preferences_layout.py` at 400 and 800 px, 10 and 14 pt, in both themes.
+- **FR-UI-14** *(issue #569, updated by #986)*: Preferences keeps every control at its natural height on a short screen. Each tab's settings form (`FR-UI-PREF-01`) lives in its own scroll area with Save / Cancel outside every viewport, so Tab reveals the last setting instead of a control squeezed to zero height; the dialog opens wide enough to display all five tabs without horizontal scroll arrows and tall enough for the tallest tab, both capped to the available screen. Pinned by `tests/integration/test_preferences_layout.py` at 400 and 800 px, 10 and 14 pt, in both themes.
 
 ### FR-10.3 Object Gallery
 - Category-based thumbnail gallery (Trees, Shrubs, Flowers, Furniture, etc.)
@@ -348,6 +351,7 @@ Pre-defined object types for common property elements:
 - **FR-I18N-10**: Numbers, month names and weekday names in the UI follow the UI language, never the operating system's locale on its own; the system contributes its region only when it speaks the same language (#792, ADR-077).
 - **FR-I18N-11**: A number field accepts a comma or a point as the decimal mark in every UI language, typed or pasted (keyboard or context menu), and accepts back what the UI shows; a single mark is never read as a thousands separator, and a free-text number field refuses `nan`, `inf` and exponents; machine-readable files (.ogp, DXF, CSV, clipboard rows) keep a decimal point in every language, while a reader-facing picture (SVG text, PDF report) follows the UI language like the canvas (#792, #860, ADR-077).
 - **FR-I18N-12**: The UI language does not choose date and time conventions: every date field shows ISO (`yyyy-MM-dd`), every time field 24 hours, every calendar popup starts on Monday, and a date written in text names its month ("7 Jun 2026"), in every UI language and on every system (#792, ADR-077 decisions 7 to 9).
+- **FR-I18N-13**: French localization (`fr`, "Français") shipped with 100% key coverage of all source strings, collision-free menu accelerators, valid placeholders, and NSIS installer support (#553).
 
 ## FR-12: Visual Rendering
 
@@ -477,7 +481,7 @@ US-B7 (Paper Space MVP) and the FR-LAYOUT-01 … FR-LAYOUT-06 entries that previ
 - **FR-TASK-05**: Both new keys are backwards-compatible (no `FILE_VERSION` bump; older files load with empty dicts). Legacy `task_completions` ids are folded into `task_states` as archived done entries on load, and `set_task_status` keeps `task_completions` in sync so the (unchanged) planting-calendar dashboard still hides completed tasks.
 - **FR-TASK-06**: Clicking a task's navigate (→) control switches to the Garden Plan tab and selects/centres the linked bed (`navigate_to_bed`), species items (`navigate_to_species`), or specific items (`navigate_to_items`, e.g. frost-affected plants).
 - **FR-TASK-07**: The Tasks tab regenerates on relevant project changes (location, task/manual-task/succession changes, any command) through a 1 s coalescing debounce, and reuses the planting calendar's single weather fetch for frost tasks (`PlantingCalendarView.frost_alerts_ready`) — no second forecast request.
-- **FR-TASK-08**: On startup (and on opening a project) a non-modal status-bar message reports overdue manual tasks when `Preferences → Tasks → Notify about overdue tasks on startup` is enabled (default ON, `settings.notify_overdue_tasks_on_startup`).
+- **FR-TASK-08**: On startup (and on opening a project) a non-modal status-bar message reports overdue manual tasks when `Preferences → General → Tasks → Notify about overdue tasks on startup` is enabled (default ON, `settings.notify_overdue_tasks_on_startup`).
 - **FR-TASK-09**: On new-season rollover, future-dated (and undated) manual tasks carry forward and future snoozes are preserved; past-due manual tasks and done/dismissed states stay in the previous season file.
 
 > Scope note: US-C2 builds a *new* unified Tasks tab on pure generators; the existing planting-calendar "today" dashboard is intentionally left in place (it reads the same project state, so the two cannot diverge in data). A convergence follow-up to refactor that dashboard onto `services/task_generator.py` is tracked separately.
@@ -620,6 +624,7 @@ US-B7 (Paper Space MVP) and the FR-LAYOUT-01 … FR-LAYOUT-06 entries that previ
 - **FR-UI-THEME-01**: Chrome follows the selected theme **everywhere**: semantic status colors (error/warning/success/info/caution and their tinted `*_bg` surfaces) come from the palette in every panel, dialog, view, banner and overlay — including the previously theme-blind weather forecast cards, the task-reminder and update banners, and the companion-check score colors — and a **live theme switch restyles the running app** without restart (icons re-tint, palette-driven views re-render).
 - **FR-UI-THEME-02**: Typography is role-based (h1/h2/hint/small/placeholder plus semantic color roles) and styled centrally; dialog CTAs use accent-branded primary/secondary button roles.
 - **FR-UI-THEME-03**: Widget code may not hardcode chrome colors — `ui/theme.py` is the single home of chrome hex values, enforced by a repo lint gate.
+- **FR-UI-PREF-01** (#986): Preferences is a tabbed dialog, not one long form: **General** (units, canvas, tasks), **Weather**, **Online services**, **Agent API** and **3D View**. Each tab scrolls on its own; Save and Cancel stay outside every viewport and are always reachable. Every existing preference keeps its current key and default.
 
 Acceptance: `tests/integration/test_icon_system.py` + `tests/integration/test_theme_switch_chrome.py` (§8.10) plus the `test_icon_conformance` / `test_no_hardcoded_qss_colors` / `test_theme_tokens` gates.
 
@@ -733,7 +738,7 @@ Acceptance: `tests/unit/test_stacking.py` (the Qt-free arrange algorithm — nor
 ### FR-SUN-13: Open frames shade as frames (issue #698)
 
 - A **pergola**, a **trellis**, a **swing**, a **hammock** and a **garden light** are open frames: the 2D shadow overlay, the hours-of-sun heatmap, the per-plant sun estimates and the 3D analysis drape cast their footprint prism weighted by the share of the sun the frame lets through, not as a solid block.
-- The share is computed for the item itself and the sun of the moment — its size, its height, its rotation, the sun's elevation and azimuth — from the same members the 3D view builds (a pergola's from the one layout its 2D picture is drawn from). It is between 0 and 1; at the default sizes a pergola lets 64–71 % of the sun through, a trellis 61–68 %, a swing 83–85 %, a hammock 70–79 %, a garden light 63–79 % (sun due south at 15°–60°).
+- The share is computed for the item itself and the sun of the moment — its size, its height, its rotation, the sun's elevation and azimuth — from the same members the 3D view builds (a pergola's from the one layout its 2D picture is drawn from). The prism is trimmed to the frame's own far member tip (#855), so the shade ends where the real shadow ends, not at `height / tan a` past it. It is between 0 and 1; at the default sizes a pergola lets 64–71 % of the sun through, a trellis 59–67 %, a swing 79–82 %, a hammock 57–77 %, a garden light 59–78 % (sun due south at 15°–60°; `scripts/measure_built_world_shadows.py`).
 - Ground under or behind an open frame collects its minutes of sun multiplied by that share; where the shade of two frames overlaps the shares multiply, and a solid's shade stays full shade (FR-SUN-12).
 - The overlay draws an open frame's shade lighter in proportion, with a soft edge of the same strength.
 - A **parasol**, a **greenhouse** and low furniture (tables, bench, chair, trampoline, grill, wheelbarrow, bird bath) keep the solid prism; a string of lights casts no 2D shadow (FR-3D-LIVE-08).
@@ -744,6 +749,12 @@ Acceptance: `tests/unit/test_stacking.py` (the Qt-free arrange algorithm — nor
 - **File > Set North Orientation…** stores a plan-level **`north_angle_deg`**: the direction of true north on the drawing, in degrees clockwise from plan-up (0 = up, 90 = right, 135 = down-right). The dialog offers a clickable/draggable compass and a numeric angle; a small `N` arrow on the canvas follows it. The value is additive plan metadata (`FILE_VERSION` unchanged), restored as 0 for old files and kept by a template export; **no object is rotated or moved**.
 - Every solar consumer turns a compass azimuth into the scene frame **once** (`scene_azimuth = azimuth + north_angle`): the 2D shadow overlay, the hours-of-sun sampling, the plant sun-exposure diagnostics, the 3D sun, and the 3D sun path and compass. The PDF report's north arrow applies the same angle as a painter rotation. Setting 0/45/135/270 produces the expected shadow, heatmap, 3D light and report-arrow direction.
 - A change is **one undo step** (`SetPlanNorthCommand`) and invalidates daily results: a heatmap computed for the old north is cleared or refused, never shown as current. The dialog and the command reject a bool, a non-number, a non-finite or a malformed value before any mutation. In a file, a **non-numeric/malformed** value is ignored and the plan opens at 0; a **non-finite number** is refused by the file validator like every other numeric (`plan_io`).
+
+### FR-SUN-15: Hours-of-sun map legibility (issue #852)
+
+- The map's 10 cm cells are bilinearly interpolated inside every cell (`HEATMAP_UPSAMPLE = 2` per axis) into a lossless `Format_ARGB32` image covering the grid's full extent, uploaded to a `QPixmap` (stored premultiplied by Qt) and drawn with smooth scaling (`SmoothTransformation`), so at 400 % the fill reads as a smooth colour field without 10 cm blotches or nearest-neighbor stair-step blocks. The overlay bitmap's own draw adds ~0.5 ms on the family-garden example at fit zoom; rebuilding the image when the map changes is a separate cost, and total map-on repaint cost from contour paths and haloed hour labels remains tracked on #852.
+- An hour label keeps a 1.3× clearance around its own box when its place is chosen, so a fixed-pixel label stays off an object's edge when the plan is zoomed out up to 1.3× the nominal 1100 px fit.
+- The sun-mismatch badge paints a theme-contrasting backing (`core.legibility.halo_for` of the active theme's accent — light halo in light theme, dark halo in dark theme) under its warning triangle only, strictly inside its icon bounds, leaving the sun's middle transparent; the icon itself keeps the theme's accent sentinel.
 
 ## Audit A1 data and download safety (issue #453)
 
@@ -761,9 +772,13 @@ Acceptance: `tests/unit/test_stacking.py` (the Qt-free arrange algorithm — nor
 The 3D view on Qt Quick 3D. Package L1 (#385) opens this bucket; each story appends its `FR-3D-*` entries. They reach the user since v1.30.14 (PR #484).
 
 - **FR-3D-PLANT-01** (L1.7): Every plant with a known height is shown as the silhouette of the archetype of its 2D sprite — canopy, conifer, mound, climber, ground cover, hedge, rosette, head, grass, allium, feathery, flower or palm — in that sprite's palette. The recipe is resolved by the same rule that picks the plant's sprite on the plan, from the same inputs (the item's type, its own species string as it is, its plant category) — so a species drawn with a category sprite is built from the category's recipe, and a plant whose species was assigned from the plant database is built from the sprite the plan still draws for it; the foliage hue is within 10° of the sprite's foliage.
-- **FR-3D-PLANT-02** (L1.7): A plant's model is as tall as the plan's resolved height for the plan date (± 3 %) and its widest span is its canopy diameter on that date (± 10 %); it stands on its own ground, its widest span is centred on its canopy circle, and no part of it lies more than 10 % of the canopy radius outside that circle. Height, span and centring hold by construction, for every plant: they are what the last steps of the builder's fit produce (exact to float32). The circle holds for the FOLIAGE by construction (the fit's last step: 9 %), and for the plant because foliage is its outermost part — a trunk is built within a third of the canopy radius of the plan position, which is asserted for every recipe at every proportion and is an invariant every new trunk builder must keep. A height or canopy radius outside a micrometre … 10 km is not built (the item has no solid and is reported). Scrubbing the plan date changes only the plants whose size changed. *Not requirements but measured properties, stated with their sample in §8.29.7:* that the builders build to those numbers rather than being scaled into them (the fit's own report), and where a plant's foliage mass lies in its height.
+- **FR-3D-PLANT-02** (L1.7): A plant's model is as tall as the plan's resolved height for the plan date (± 3 %) and its widest span is its canopy diameter on that date (± 10 %); it stands on its own ground, its widest span is centred on its canopy circle, and no part of it lies more than 10 % of the canopy radius outside that circle. Height, span and centring hold by construction, for every plant: they are what the last steps of the builder's fit produce (exact to float32). The circle holds for the FOLIAGE by construction (the fit's last step: 9 %), and for the plant because foliage is its outermost part — a trunk is built within a third of the canopy radius of the plan position, which is asserted for every recipe at every proportion and is an invariant every new trunk builder must keep. A height or canopy radius outside a micrometre … 10 km is not built (the item has no solid and is reported). Scrubbing the plan date changes only the plants whose size changed. A climber trained to a pergola is the one exception: a mature vine taller than the pergola is capped at its support's top so it does not hover above the rafters (FR-3D-BUILT-13). *Not requirements but measured properties, stated with their sample in §8.29.7:* that the builders build to those numbers rather than being scaled into them (the fit's own report), and where a plant's foliage mass lies in its height.
 - **FR-3D-PLANT-03** (L1.7, *issue #557*): A plant the plan gives no height — no species data, no measured size, no typed height — is shown at an **illustrative category fallback height** from one canonical table (`core/plant_height_estimate.py`: tree 400 cm, shrub 150 cm, perennial 60 cm, vegetable 50 cm; category group first, then kind), rendered as the matching plant form instead of the former neutral low marker (at most 25 cm, no shadow). The fallback is explicitly **estimated**: the plan keeps height unknown (nothing is written to species data, measurements or the saved file), the transient record carries it separately (`estimated_height_cm`), viewing 3D adds no undo step, and the UI labels the dimension as estimated. Estimated geometry may cast a decorative 3D shadow, but the analytical 2D sun/shade model keeps treating the height as unknown. Typing a height or assigning a species replaces the estimate immediately.
 - **FR-3D-PLANT-04** (L1.7): v0 makes no seasonal claim: no fruit, flowers or flower heads, and no bare crowns. Each plant has at most 2,000 triangles, and two plants of the same species and size are not identical.
+- **FR-3D-PLANT-05** (#949): A **palm**'s trunk is as tall as the plant needs. A palm at or below 160 cm, or one whose canopy diameter is at least 1.5 times its height, is a **dwarf or clumping** form: its ascending fronds rise almost from the ground (trunk share 0.08 of the height, half the trunk rings, three more fronds, gentler lean, and grounded base at `z = 0` across all LODs). A taller palm keeps the measured tall-trunk form (trunk share at least 0.64). The same builder serves both; the species' height and spread choose the form.
+- **FR-3D-PLANT-06** (#960): A **Scots pine** is an umbrella, not a spruce cone: its crown starts above half its height (trunk share 0.55), stays broad to 80 % of the crown and flattens at the top (taper 0.30, droop 0.15). Its needle is recorded at 6 cm with width ratio 0.18 (the crown-area budget may lengthen it to keep the crown covered, but it stays narrow) and the spray covers each branch to its tip while the wooden branch stops at 85 %, so no bare brown spoke shows outside the spray. The rule is the named crown shape `umbrella` (`core/plant_art/traits3d.py`), built by `plant_forge/woody.py`; every other conifer keeps its tiered or conical crown.
+- **FR-3D-PLANT-07** (#941): The autumn tint of a crown is a **two-anchor ramp**, not one multiplier per channel. `PhenologyState` carries the summer palette's dark (`b0`) and light (`t1`) anchors and the autumn palette's, all linear (`luma(dark) < luma(light)` for every palette); the foliage shaders map each leaf's position on the summer ramp onto the autumn ramp (`uAutumn`, `uSummerDark/Light`, `uAutumnDark/Light`), so dark and light leaves both arrive cleanly on the autumn palette instead of olive and salmon. Falling leaves (`scene3d/particles.py`) apply the same two-anchor ramp via `phenology.map_autumn_leaves` (#941, #895), and the shader's `uTint` carries the snow dust only (`foliage_snow_tint_linear`). The two-anchor ramp is pinned by `tests/unit/test_phenology.py` (`test_the_autumn_ramp_uses_the_palette_s_own_two_anchors`, `test_the_autumn_multiplier_is_not_applied_twice`), `tests/unit/test_scene3d_particles.py`, and `tests/ui/test_quick3d_host.py::test_the_plant_season_payload_keeps_the_autumn_hue_out_of_the_multiplier`.
+- **FR-3D-PLANT-08** (#960): A **Japanese maple**'s 2D and 3D leaves are small: its baked leaf scale is 0.45 (was 0.65). The change is in `core/plant_art/recipes.py` and the regenerated sprite; the 3D build reads the same recipe. The canopy's tip weight stays #994's green-sprite constant 0.43 (`FOLIAGE_TIP_WEIGHT`); the red-leaved maple is excluded from that sample, so this smaller-leaf change does not move it.
 
 Acceptance (L1.7): `tests/unit/test_plant_art.py` (one table, one rule — also with sprite files missing), `tests/unit/test_scene3d_plants.py` (every recipe × every proportion step, and × six real sizes × five ids; the fit's guarantees also on hostile input to the fit itself; hue against the rendered sprites; clones over twelve ids; placeholder; the shape cache, also at its cap), `tests/integration/test_scene3d_plants.py` (§8.10 — a planted garden at two dates through the pipeline; every gallery plant and every species string drawn and built from the same sprite), `tests/perf/test_scene3d_plants_budget.py` (both bench plans: a first build, a daily scrub tick warm and cold).
 
@@ -806,12 +821,13 @@ Looks, sky and motion (L1.4, ADR-059 addendum "looks, sky and the animation poli
 - **FR-3D-LOOK-06** (L1.4): The shadow of a solid block in the 3D view covers the ground the plan's 2D shadow covers: an overlap (intersection over union) of at least 0.85 at sun heights of 15°, 35° and 60°, at every quality setting, on a graphics card and in compatibility mode (measured: 0.92 – 0.99).
 - **FR-3D-LOOK-08** (L7, #391): Preferences → 3D View → **Sky** offers **Painted** (the default) and **Atmosphere with clouds**: a physically based sky (Qt 6.12) that is bluer overhead, brightens toward the horizon and toward the sun, reddens at sunset, and shows the weather's cloud as volumetric clouds (Partly cloudy: scattered clouds in a blue sky; Overcast and Rain cover the sky, Snow nearly). The sun stands in the same place in both skies and the shadows are the same. The light on the garden is the same in every weather: the atmosphere only draws the sky, and the painted sky lights the garden under both (its own light crashed the app on Qt 6.12.0, PF-E3D-17). The atmosphere's brightness is scaled to the painted sky's light on the ground at every sun height. The horizon the haze meets is the same, and from the end of civil twilight the night is the same. The change applies at once; the first atmosphere of a session can take about a second to appear (the painted sky shows meanwhile). In compatibility mode there is no sky picture, whichever is chosen.
 - **FR-3D-LOOK-07** (L1.4): At every quality setting thin repeated parts — the pickets of a fence — read as pickets, not as a moiré pattern (Low and Medium use the same 4x multisampling), and the plan's ground meets the meadow around it without a visible edge while nothing is drawn on it.
+- **FR-3D-LOOK-09** (#992, Ultra): A **window pane** catches the garden and the sky. At Ultra, where the view draws screen-space reflections, an opaque glazed pane (`glass_pane` on `vcPart`) gets `vcGlass` (`built_snow.vert` + `glass.frag`, warmed in `shaderWarmer`): `MAIN()` sets `ROUGHNESS = uSsrRough` (**0.38** while SSR is visible, **0.70** otherwise), while `IBL_PROBE()` samples sky IBL at `uRough` (**0.70**, keeping the #883 Ultra SSR flicker floor). With SSR off — every other preset, the photo blur's chain, and a view that cannot draw it — both are 0.70 and the pane matches the reviewed #883 look. Metalness stays 0 and the pane's specular amount is kept; translucent greenhouse glass (`glassPart`, `NeverDepthDraw`) stays excluded from SSR. Pinned by `tests/unit/test_scene3d_materials_and_built_polish.py::TestBuiltSurfaceParameters::test_a_window_pane_gets_its_own_ssr_material`, `tests/unit/test_quick3d_qml.py` (including the static QML↔shader uniform contract) and `tests/unit/test_quick3d_packaging.py`.
 
 Acceptance (L1.4): `tests/unit/test_scene3d_look.py` (the rig against the L0 spike's, every ramp step bounded, the presets, the automatic quality on synthetic frame series, when a sky is stale), `tests/unit/test_view3d_look_settings.py`, `tests/integration/test_view3d_look_controller.py`, `tests/integration/test_view3d_looks.py` (§8.10 — a scripted day in the real main window with a recording engine: the looks handed over, the sky rebuilds, the light, a quality change that moves no camera and rebuilds nothing, hide and show), `tests/ui/test_quick3d_host.py` (the light's rotation for a sweep of suns and for the moon; a fresh sky texture per build; the wind's clock); on a real graphics device `tests/integration/test_view3d_looks_render.py` (the production Beauty Board: shadow overlap in a perspective view with cascades at every quality, the sky's sun, the horizon, night against noon, the speckle gate with its control, the software fallback, twenty sun changes without a retained sky, the wind's clock on the real render loop, the evening from 6° to −7°, the fences' aliasing against a supersampled render, the plan's edge, two minutes of wind without a growing memory).
 
 Acceptance (L7, FR-3D-LOOK-08 and FR-3D-LOOK-04's operating-system half): `tests/integration/test_view3d_atmosphere_sky.py` (§8.10 — Preferences → 3D View → Sky in the real main window, and compatibility mode), `tests/integration/test_view3d_look_controller.py` (the model switch, the noise worker, the fallbacks, the operating system's motion preference), `tests/unit/test_scene3d_atmosphere_sky.py`, `tests/unit/test_scene3d_cloud_noise.py`, `tests/unit/test_quick3d_qml.py` (the atmosphere asks Qt for no cube, PF-E3D-17), `tests/ui/test_quick3d_host.py` (`TestSky`: the painted sky built and lighting under the atmosphere), `tests/unit/test_scene3d_weather.py` (Partly cloudy), `tests/unit/test_view3d_look_settings.py`; on a real graphics device `tests/integration/test_view3d_looks_render.py` (every board gate on both skies, the painted night kept, the atmosphere on a live host against a fresh host per sun, a sky rebuilt after its predecessors are deleted) and `tests/integration/test_living_garden_render.py` (the weather's gates on both skies); the frozen self-test's point 8.
 
-- **FR-3D-GROUND-01** (L1.5): Every flat surface of the plan — lawn, terrace, driveway, path, in-ground bed, flat furniture, any item without a 3D solid except a plant — is shown on the 3D ground as the plan paints it: the same fill texture and tint anchored the same way, the same outline pen, the same path or fence style, the same furniture sprite, in the plan's stacking order, north up. Measured against the plan's own full-detail render of the same items: the mean difference per channel is at most 6 of 255 for each of the 24 fill patterns, tinted and untinted, turned and not (measured: 0 not turned, ≤ 0.0002 turned). A plant is never painted on the ground.
+- **FR-3D-GROUND-01** (L1.5): Every flat surface of the plan — lawn, terrace, driveway, path, in-ground bed, flat furniture, any item without a 3D solid except a plant — is shown on the 3D ground as the plan paints it: the same fill texture and tint anchored the same way, the same outline pen, the same path or fence style, the same furniture sprite, in the plan's stacking order, north up. Measured against the plan's own full-detail render of the same items: the mean difference per channel is at most 6 of 255 for each of the 24 fill textures, tinted and untinted, turned and not (measured: 0 not turned, ≤ 0.0002 turned). A plant is never painted on the ground.
 - **FR-3D-GROUND-02** (L1.5): An item that has a 3D solid is not painted; under it the ground shows whatever flat surface was drawn there, else meadow. Plan ground no item covers is meadow in the colour of the ground around the plan. Since #798 the meadow round the plan and — by the look's switch `OPEN_GROUND_GRASS`, on by default — the plan ground no item covers are one grass surface (the plan's own GRASS texture with a slow variation, its mean the meadow's colour), so the plan's edge shows no step; in the top-down truth view the meadow stays its flat colour. From the app's default framing at most 20 % of the picture is flat green on every bundled example (measured 0.0–13.7 % at 1280 × 720, against 73–80 % before); the far meadow does not shimmer in a camera move and the grass's repeat does not show (`tests/integration/test_meadow_render.py`).
 - **FR-3D-GROUND-03** (L1.5): Editing the plan never disturbs the 2D view: baking the ground changes no selection, hides no item and does not touch the scene. One small edit — an item of up to 3 m moved by up to 2 m — re-paints at most four ground tiles. On the two bench plans, an edit of up to two tiles takes at most 10 ms in the median, in one pass; an edit of more than two tiles is held to a median of 20 ms in at most two passes (owner decision on #615, 2026-10-29). Readings are in ADR-065; the gate is `tests/integration/test_scene3d_ground_bake.py::TestOneSmallEdit`. A longer move re-paints the tiles of the old and of the new place, up to eight. After any sequence of edits the ground equals one baked from scratch, bit for bit.
 - **FR-3D-GROUND-04** (L1.5): A flat item whose outline is too large to be built as a solid (a path of thousands of points, a traced lawn) is still on the ground exactly as drawn. An outline above 16,384 vertices is on neither. No item of a plan file — however long, large or numerous — makes the ground hold or count more than a stated bound per ground tile. Where a bound cuts something off, what is lost is stated and the tile is reported (`GroundBaker.capped`) rather than silently incomplete: a 5 m tile shows at most 256 surfaces, and one that holds more loses its SMALLEST — those whose painted box overlaps the least of the tile, the lower of two equals first — never a large one: a lawn under any number of pavers stays on the ground wherever its edge runs, and what is missing are the smallest pavers (measured against the plan's own render for a lawn 10 cm inside the plan's edge under 2,000 pavers: no lawn pixel bare; the pavers of 145 of 400 places missing). What the ranking does not know is a shape: a thin diagonal line counts as large, and a small surface on top of 256 larger ones is among those left out. Beyond 16,384 style elements or 32,768 dashes in a tile the rest is left out or drawn solid.
@@ -819,7 +835,10 @@ Acceptance (L7, FR-3D-LOOK-08 and FR-3D-LOOK-04's operating-system half): `tests
 - **FR-3D-GROUND-06** (L1.5): Baking the ground never holds the application for a whole plan: one pass paints for at most 10 ms plus the one ground tile it is in — and one tile more when an edit arrives while older tiles are still waiting, so that a drag cannot starve them — and the tiles it has not reached keep their older picture (bare ground when a plan is first opened) until a later pass paints them, nearest to the last edit first. A ground tile that cannot be painted at all (no memory for its image) keeps its older picture, takes no other tile with it and is tried again with the next edit. Once no work is pending the ground is exactly the ground of one complete bake. A plan built to be slow can still make ONE tile cost seconds (measured: 0.9 s for a tile crossed by two styled paths of 16,384 points; 19 s for a tile under one comb-shaped polygon of 16,384 vertices — which the plan view itself needs 186 s to paint).
 
 - **FR-3D-GROUND-07** (L1.5): The 3D view paints the plan's ground while the user works: an edit appears on the ground in the pass that applies it, and the tiles a time budget left are painted in passes of their own — each takes no reading of the whole plan — while the view is visible; a hidden view does no ground work and goes on when it is shown again. A new or opened plan never shows the previous plan's ground: a piece of the new ground not yet painted is bare meadow.
-- **FR-3D-GROUND-08** (L1.5): What the 3D ground cannot show is reported, not hidden: an object whose paint on the ground failed is named in the list ("it could not be painted completely on the 3D ground") — it is shown, cut off, so the strip does not count it among the objects not shown in 3D — and the list opens with a note when the ground could not be finished (it is tried again with the next change), when places of the ground hold more surfaces than it can show (the smallest are left out), when pieces of it could not be painted (they show an older picture), or when the ground could not be painted at all; in each of these cases the strip says that the 3D ground does not show all of the plan. A ground that keeps failing never keeps the application busy: it is tried again with the next change of the plan. In the user's language (English, German, Spanish).
+- **FR-3D-GROUND-08** (L1.5): What the 3D ground cannot show is reported, not hidden: an object whose paint on the ground failed is named in the list ("it could not be painted completely on the 3D ground") — it is shown, cut off, so the strip does not count it among the objects not shown in 3D — and the list opens with a note when the ground could not be finished (it is tried again with the next change), when places of the ground hold more surfaces than it can show (the smallest are left out), when pieces of it could not be painted (they show an older picture), or when the ground could not be painted at all; in each of these cases the strip says that the 3D ground does not show all of the plan. A ground that keeps failing never keeps the application busy: it is tried again with the next change of the plan. In the user's language (English, German, Spanish, Russian,
+French).
+
+- **FR-3D-GROUND-09** (#943): A **lawn** and the meadow around the plan follow the plan date's grass colour. One sRGB multiplier from `core/phenology.py` (`seasonal_ground_tint`, keyframed through the year, six months later in the Southern Hemisphere, quantised by default on a shared 4-day seasonal grid `LAWN_TINT_STEP_DAYS` so year playback avoids daily tile re-bakes while keeping lawn and meadow identical and time-lapse transitions smooth) scales a grass lawn's fill — and therefore its ground picture and its 3D blades — and is applied in sRGB before `groundLinear()` on uncovered ground in `ground.frag` across every surface mode (Low, Medium, High, Ultra, compatibility, `openGroundGrass=false`), keeping lawn and meadow seamless; MOSS lawns stay evergreen, and paths, terraces or other covered surfaces keep their own colour. Winter is paler and browner, spring fresh, late summer slightly dry, and summer proper is exactly the colour every earlier board measured (1, 1, 1). The snapshot takes the plan's latitude (`snapshot_records(..., latitude_deg=)`, wired by `sync_controller`), `Workspace.location_changed` refreshes baked lawns on a hemisphere flip, and `offscreen.render_records` sets `meadowSeason` when `plant_date` is provided.
 
 Acceptance (L1.5): `tests/integration/test_scene3d_ground_bake.py` (§8.10 — parity per pattern, shape, path style, sprite and pen; north-up on `bench_small.ogp`; the live scene spied on; one small edit on both bench plans; an edit session against a from-scratch bake; stacking; refused outlines; the hostile corpus by counts), `tests/unit/test_scene3d_ground.py`, `tests/unit/test_path_style_paint.py`, `tests/ui/test_quick3d_ground_tiles.py`, `tests/unit/test_quick3d_ground_tiles.py`, `tests/integration/test_scene3d_ground_rules.py` (a tile loses its smallest records — four lawns under 255, 256 and 2,000 pavers, and a real scene against the canvas; the time budget with a clock the test owns, the backlog under an edit a pass; a tile that cannot be painted; a painter that raises; the tip of a mitred hairpin); render tier `tests/integration/test_scene3d_ground_render.py` (the engine shows the bake north up; no seam; a re-textured tile keeps its picture; a ground that arrives over several passes; the keep-alive rule in objects and — unconditionally — in memory). The 2D defects the bake found are pinned in the 2D suites: `tests/integration/test_item_style_in_step.py`, `tests/integration/test_item_roundtrip_matrix.py`, `tests/integration/test_polyline_style_paint.py` — and the class behind them by a teardown fixture over every integration test (`tests/integration/conftest.py`, §8.10.10). Wired into the workspace (FR-3D-GROUND-07, -08): `tests/integration/test_scene3d_ground_wiring.py`; the frozen `--selftest` bakes a lawn (`tests/unit/test_quick3d_selftest.py`).
 
@@ -845,10 +864,24 @@ Plant Forge: procedural species models, LODs and phenology (L3, #387, ADR-064).
   external models. Known heights remain within 3% and crown spread within 10%;
   winter structural wood retains ground contact and recorded height. A bulb
   (tulip, daffodil, crocus, iris, lily) reaches its height with its flower: out of
-  bloom it stands as its strap leaves, at about 40-60% of that height (#940).
+  bloom, inside its leaf window, it stands as its strap leaves, at about 40-60% of
+  that height (#940); outside the window only its neck remains. Three spring bulbs -
+  crocus and daffodil from February, tulip from March - keep
+  leaves only to early summer and are gone after it, their leaf window fading in
+  and out over 14 days (#963); the other `grass`/`allium` recipes stay evergreen.
 - **FR-3D-FORGE-02:** Total triangle caps are 25,000/6,000/800 at distance LODs
-  up to 18 m / up to 45 m / beyond 45 m. A256-entry, 64 MiB LRU bounds mesh storage.
-- **FR-3D-FORGE-03:** Initial silhouettes precede background synthesis. Camera
+  up to 18 m / up to 45 m / beyond 45 m. A 256-entry, 64 MiB LRU bounds mesh
+  storage. The cache keys its meshes by 2% geometric size buckets and stretches a
+  hit to the exact height and the exact scale (the post-fit pin keeps the spread
+  within 1.04 of the diameter), so a tree that grows a little every day
+  keeps one shape through a bucket instead of being re-forged and re-randomised
+  every day (#973); a bucket builds the same mesh for every size inside it.
+- **FR-3D-FORGE-03:** Initial silhouettes precede background synthesis. Once a
+  plant is forged, a live regrowth pass never downgrades it back to a v0
+  silhouette (`ForgeWorker.prepare_for_sync` stretches a warm 2% bucket hit in
+  place, stretches the last forged mesh on a cold bucket miss while the background
+  worker builds the new bucket, and forges a dated plant that first crosses its
+  planting date into an already-forged scene directly; #995). Camera
   movement updates LOD without an edit; stale document/geometry completions are
   refused. Recovery restores progressive upgrades.
 - **FR-3D-FORGE-04:** Climbers prefer their trellis parent, then a structure
@@ -857,7 +890,9 @@ Plant Forge: procedural species models, LODs and phenology (L3, #387, ADR-064).
   independent bloom and ripeness. Recorded harvest windows follow the shared
   day-level task calendar and the plan's local frost dates; a perennial's fruit
   shows only inside its fruit months (#940). Flowers are counted by the crown's
-  surface and show from every side.
+  surface and show from every side. Each fruit carries its own phase, so a crop
+  ripens one fruit at a time across the window (ripeness 0.55 to 1) rather than
+  every apple appearing on its first day (#973); pods carry a phase as well.
 - **FR-3D-FORGE-06:** Existing Models respond to seasonal date changes through
   shader/material values. Deciduous leaves and their shadows disappear in
   winter, evergreens retain foliage; illustrative seasons shift in the southern
@@ -865,6 +900,19 @@ Plant Forge: procedural species models, LODs and phenology (L3, #387, ADR-064).
   the first ten days of its window and fades over the last ten, flower by flower;
   a hardy plant flowers before the last frost, a tender one waits for it; magnolia,
   forsythia, peach, plum and cherry carry few leaves until their bloom ends (#940).
+  Beyond 45 m a flowering or fruit-bearing plant (a flower or fruit other than a pod)
+  keeps a sparse far representation of
+  its crop - large patches of the blossom or fruit colour inside its LOD2 budget
+  and its own height and reach - so a blossoming orchard or a ripening berry row
+  does not lose its crop at distance (#948). The 64-triangle LOD2 reserve is paid
+  only by a canopy that has a far crop; a leaf-only canopy keeps its full foliage.
+  Pods and root crowns have no far cue (their green or underground colour does not
+  read at 45 m) and keep their LOD2 behaviour.
+- **FR-3D-FORGE-07:** The canopy's foliage tip weight is measured over the
+  green-leaved canopy sprites only. A red- or purple-leaved canopy sprite is not
+  part of that measurement and cannot move it (it uses the same canopy weight, so a
+  new colour form cannot re-tint the green crowns) (#969). The 40 golden tree meshes
+  pin the resulting colours.
 
 Acceptance: `tests/integration/test_plant_forge.py`,
 `tests/integration/test_plant_forge_workspace.py`,
@@ -942,19 +990,23 @@ The built world complete (L4, #388, ADR-065).
   fill on its top face and keeps the slab finish on its edges and underside.
   An automatic flat house roof keeps the concrete slab finish. The roof-aware
   sun study uses the 3D roof geometry including pitch and overhang (FR-SUN-03).
-- **FR-3D-BUILT-03** (L4.1): A building has windows on its walls and a door on the
+- **FR-3D-BUILT-03** (L4.1, #965): A building has windows on its walls and a door on the
   wall that faces the nearest path (a garage: the nearest driveway, then path).
   On the door's wall the windows are spaced on each side of the door, so a long
   wall with its door in the middle has a window either side, and an upper row runs
   over them and over the door. Moving the building along its path does not move its
-  door to another wall. A building too low for a door has no door or window.
-- **FR-3D-BUILT-04** (L4.2): A path shows its style on the 3D ground: stepping
+  door to another wall. A building too low for a door has no door or window. A
+  flat-roofed house uses contemporary wide, tall, single-pane dark-framed windows
+  and a modern door rather than cottage crossbars (#965).
+- **FR-3D-BUILT-04** (L4.2, #961): A path shows its style on the 3D ground: stepping
   stones where the plan draws them, boardwalk planks, paving kerbs, a gravel path's
   edging. A gravel path is the gravel texture and a dirt path the soil texture, in
   the path's colour and opaque, in 2D and on the 3D ground alike (owner, L4 manual
   pass: they were translucent strokes the lawn showed through); a new dirt path
   starts in the 2D sprites' light soil colour. A terrace or driveway shows kerbs, or deck boards for a wood pattern;
-  a pond shows water inside a stone coping. All of this lies on the plan's painted
+  a formal pool (rectangular, circular or raised) shows water inside a stone coping,
+  while an organic multi-vertex ground pond (5+ vertices per ring) shows a smoothed
+  flush low earth shore (strictly below deck height) and darker natural water (#961). All of this lies on the plan's painted
   ground, casts no shadow and cannot be clicked: a click on it is a click on the
   ground, as on the flat surface before L4. A surface given a height is a raised solid with that top.
 - **FR-3D-BUILT-05** (L4.2): A path's width is its width on the ground in cm. New
@@ -1014,6 +1066,51 @@ The built world complete (L4, #388, ADR-065).
   The picture is cached per (pattern, colour) and shared, so a recolour is a material
   update and a removed object leaves no picture behind. Not shown while X-ray fades
   an object: a faded solid is a screen door of its colour.
+- **FR-3D-BUILT-10** (#955): A **GENERIC_POLYGON with the STONE fill and a height** is a
+  **rock**: a low upright base (15 % of its height), then a domed, faceted top carrying
+  the canvas's stone picture (three rings at 0, 42 and 78 % of the height, the widest at
+  the ground, narrowing to one exact peak with a smooth normal per vertex). A per-record
+  ring-scale jitter of 0.92–1.0 keeps the rocks from being clones while every ring stays
+  inside the convex footprint. Its top is still the plan's height and it stays on its
+  footprint. A convex outline of at most 512 vertices is a rock; a concave or hostile
+  one keeps its honest prism; every other fill is the plain prism. In 2D the plan keeps
+  its stone picture. Pinned by `tests/unit/test_scene3d_rock.py`,
+  `tests/integration/test_example_plans.py::test_the_japanese_garden_builds_its_rocks_moss_and_raked_sand`,
+  and the rock in `tests/fixtures/plans/bench_built.ogp`.
+- **FR-3D-BUILT-11** (#960): **Board Fence** is a fence style of its own (`PathFenceStyle.BOARD_FENCE`,
+  category fence). In 3D it is a closed timber screen: vertical boards pitched 14.6 cm with
+  a 0.25 cm weather gap, from the ground to just under the post tops, stout posts and one
+  rail behind the boards. In 2D it is the drawn panel with vertical seams and stouter posts.
+  A file that names the style opens in an older release as its default fence; the style is
+  additive and no `FILE_VERSION` changes. Pinned by
+  `tests/unit/test_scene3d_builders.py::TestPolylinesAreBuiltFromTheCentreLine::test_a_board_fence_is_a_closed_timber_screen`,
+  `tests/integration/test_path_style_export.py`, and the Japanese garden example.
+- **FR-3D-BUILT-12** (#960): A **lawn whose fill is MOSS** is an evergreen moss cushion: its blades are
+  2.2 cm tall at 1,800 a square metre (`MOSS_BLADES_PER_M2`, wired through `context._blade_shares`),
+  dense and low, instead of the lawn's grass; its 2D fill is the hedge texture in the plan's own
+  moss colour. Every **terrace, path or other ground surface whose fill is SAND** (including
+  existing plans that use `FillPattern.SAND`) is raked in 3D: parallel 13 cm ridges 2.4 cm wide and
+  1.5 cm high with alternating 1.0/0.78 shade bands. They follow the court's own outline; a flat
+  item painted above the court (a moss island, a path, a bed) stops them, so a tan ridge never
+  crosses a green cushion. A stepping-stone path is not a continuous surface: each painted stone
+  is its own cut-out, so the rake runs between the stones and stops at their edges. They lie on
+  the ground (no shadow, not clickable) and are bounded per
+  surface by both rows (`MAX_RAKED_ROWS = 1,000`) and total ridges
+  (`MAX_RAKED_RIDGES = 2,000`). Both are additive reads of the fill pattern (no `FILE_VERSION`
+  change); plans without `MOSS` or `SAND` fills are unchanged. Pinned by
+  `tests/unit/test_scene3d_l4_surfaces.py::test_moss_is_a_low_dense_cushion_and_sand_is_raked`,
+  `tests/integration/test_board_fence_and_moss_properties.py`, and the Japanese garden example.
+- **FR-3D-BUILT-13** (#956): A **climber trained to a pergola** climbs to the pergola's rafter deck
+  and spreads overhead along and inward across the pergola's own rafters, not round the rectangle's
+  edge: `plant_forge/climbers.py` asks `core/pergola.py`'s layout for the nine rafters centred on
+  the footprint bounding box (`layout(...).rafters`), records the pergola centre in the plant's
+  frame, and trains overhead vines along the nearest rafter and laterally across neighbouring
+  rafters within the canopy radius, capping mature climbers taller than the pergola at the
+  support's top (the rafter deck's height) so vines never hover above the rafters. A young vine
+  below deck height stays vertical along
+  the post; a pergola too small for the layout keeps its outline, and a trellis/path support is
+  unchanged. Pinned by
+  `tests/unit/test_plant_forge_l34.py::TestL34ClimberSupportResolution::test_a_climber_on_a_pergola_is_trained_along_a_rafter`.
 
 Acceptance (L4): `tests/integration/test_l4_built_world.py` (§8.10 — the roof
 rows through the real panel, undo and a save/load; the door against the path and
@@ -1034,7 +1131,12 @@ tier `tests/integration/test_scene3d_ground_render.py` and the frozen
   at **Slow / Normal / Fast** (day: 5 / 10 / 30 minutes per step; year: 1 / 2 / 7 days per
   step; a step every 0.2 s; "Normal" day is Phase 14's Animate). Every step is a write of
   the one simulation clock: the 2D shadows, the hours of sun, the 3D light and the 3D
-  growth follow it (3D regrowth at most twice a second). Not stored: every session starts
+  growth follow it (3D regrowth at most twice a second, with seasonal plant shader uniforms
+  evaluated on every date step; #995). While playback runs, the 3D workspace holds its
+  automatic quality preset and defers `QQuickWindow.releaseResources()` cache drops until
+  playback pauses, and pure 3D mode (without the 2D shadow drape) skips 2D shadow polygon
+  solves and defers heavy 2D date diagnostic sweeps until playback stops or 2D is shown
+  again (#996). Not stored: every session starts
   with the day at Normal.
 - **FR-3D-LIVE-02** (L5.1): The 3D view names its **mood** in the Weather button's
   tooltip — Night, Twilight, Rain, Snow, Overcast, Morning dew (a morning, from the end of
@@ -1052,7 +1154,9 @@ tier `tests/integration/test_scene3d_ground_render.py` and the frozen
   stronger wind and falling rain. Snow: a pale sky, snow on the ground and the leaves, and
   on the TOPS of what is built — roofs, a bed's soil, decks, the trampoline's mat, a bench's
   seat (#687; walls, glass and water stay as they are) — falling snow, little wind. A new
-  weather shows at once. Not stored: every session starts clear.
+  weather shows at once. The weather is the plan's since #944 (FR-3D-LIVE-10): a plan without
+  one opens clear, and a concrete choice is saved with it. Today's Weather is a forecast and
+  is never stored.
 - **FR-3D-LIVE-04** (L5.2): Particles: rain and snow around the point the camera looks at;
   **falling leaves** under trees and shrubs that are dropping their leaves on the plan
   date, each in its own tree's turned colour (a red Japanese maple drops red leaves, #687); **butterflies** at plants in flower (up to 3.5 m tall) by day in dry weather;
@@ -1098,6 +1202,22 @@ tier `tests/integration/test_scene3d_ground_render.py` and the frozen
   morning dew **pause**: the garden shows the clear sun's look, so the drape's colours read
   as its legend's. The Weather button keeps the chosen weather's name and adds "(paused
   while analysing)"; with Nothing on the Ground the chosen weather returns.
+- **FR-3D-LIVE-10** (#944): A **plan stores the concrete weather it opens in** — clear,
+  partly cloudy, overcast, rain or snow — as an additive top-level `weather` key. Choosing
+  one in the 3D strip's Weather menu marks the plan dirty; saving stores it; opening the plan
+  applies it, clear included, so a plan can open in the sky it was built with and a
+  snowy example followed by a clear one does not leave snow on the second. A **new untitled
+  plan** has no weather of its own: it keeps **Today's Weather** (session-only live forecast)
+  when active, and resets any previous plan's concrete weather to clear so the 3D view and
+  `plan_weather` stay in sync. It is the plan's
+  look, not a personal fact, so a portable template keeps it. A file without the key, an
+  unknown value, or `today` opens clear; **Today's Weather** is a live forecast and is never
+  written. No `FILE_VERSION` change: an older app ignores the key and writes the plan without
+  it. Pinned by `tests/unit/test_plan_weather.py`,
+  `tests/integration/test_plan_weather.py` (save/reopen through the real window and its
+  Weather menu), and `tests/integration/test_autosave_recovery.py` (recovery keeps it).
+  The weather is still not part of a **tour**: a tour rendered from a plan uses the plan's
+  weather (FR-3D-TOUR-04).
 
 - **FR-3D-PHOTO-01** (L6.1): The 3D strip's **Capture** menu (and View → Workspace) offers **Photo
   Mode**: a line of controls for exposure, vignette, blur and a colour grade (Golden Hour, Crisp Day,
@@ -1179,8 +1299,19 @@ tier `tests/integration/test_scene3d_ground_render.py` and the frozen
   rejected entries produce at most five detailed warnings plus the aggregate count (#891).
   Tour number, date and time controls follow FR-I18N-10/11/12 (#896).
   The look of the picture (photo mode, weather, quality)
-  is not part of a tour: it is the view's when the tour is rendered. Not included: a tour is not
+  is not part of a tour: it is the view's when the tour is rendered, and the weather is the
+  plan's own (FR-3D-LIVE-10). Not included: a tour is not
   kept in the crash-recovery file (which holds the drawing only).
+- **FR-3D-TOUR-05** (#966): A drone orbit's **Turns** may be a **part turn or a whole turn**,
+  from 0.25 to 4, in steps of 0.25 (a two-decimal field). A garden with a house on one side
+  can store a half turn on its garden side; the first frame is the view it was set from
+  (Use Current View) and an eased half turn stops exactly opposite its start. A tour with a
+  part turn takes 30 s a turn until the user sets a duration (a half turn: 15 s), and the
+  value is written as a fractional `turns` and read back unchanged. A file that asks for less
+  than 0.25 or more than 4 is clamped to the dialog's range; one that is not a finite number
+  is refused as before. Pinned by `tests/unit/test_camera_tours.py`,
+  `tests/integration/test_directors_cut.py::test_a_part_turn_starts_the_orbit_at_the_view_and_stops_half_way_round`,
+  and the three bundled half-turn orbits in `tests/unit/test_example_specs.py`.
 - **FR-AGENT-31** (L6.3, #390, ADR-072): **`render_3d_view`** renders a PNG of the 3D view for an
   agent, from the owner's camera or one of its own, and reports what it shows (plan date, time, sun,
   weather, quality, roofs, overlays). It is read-only and needs no token; it never moves the
@@ -1327,7 +1458,7 @@ ADR-066, `tests/example_specs.py`, `tests/integration/test_example_plans.py`,
   with an estimate label. Unchanged counters show zero; dates outside coverage are not
   invented. No user-count or in-app/web attribution is inferred, and the app sends no telemetry.
 - **FR-STATS-04:** The existing summary embeds a static preview and links to a keyboard-
-  accessible, English/German/Spanish, light/dark responsive website and downloadable daily JSON.
+  accessible, English/German/Spanish/French/Russian, light/dark responsive website and downloadable daily JSON.
   Durable data is pushed before Pages deployment; reports can be rebuilt offline.
 
 Owner accepted the chart on 28 October 2026 ("perfect"); section 7.4 owns Pages deployment.
@@ -1409,3 +1540,27 @@ Pins: `tests/unit/test_shape_split.py`, `tests/integration/test_split_shapes.py`
 `tests/integration/test_group_drill_down.py`, `tests/unit/test_project.py::TestItemReferences`,
 `tests/integration/test_tool_switching.py::TestEscapeReturnsToSelect`,
 `tests/unit/test_object_height.py::TestHeightAcrossATypeChange`.
+
+## FR-36: Reference points for survey stakes and measurement datums (issue #666, ADR-080)
+
+- **FR-REF-01**: The Reference point tool places a named point at a clicked coordinate.
+  The point is the ordinary `GENERIC_CIRCLE` record with `metadata.reference_point =
+  true`; older versions read it as a small circle and no `FILE_VERSION` bump is needed.
+- **FR-REF-02**: The exact centre is `item.pos()` and `rect()` is centred on it. A
+  reference point exposes exactly one snap/measure anchor, `CENTER` at that coordinate;
+  its halo arms are never snap targets.
+- **FR-REF-03**: A point is independent or bound to a parent's outline through
+  `reference_point_parent_id` and `reference_point_on_contour`. A bound point is
+  projected onto the nearest straight parent edge when placed or moved, and an
+  off-contour move is refused; "Independent point" in the dialog is the explicit
+  detach. Parent translation moves the point in the same undo step; parent rotation or
+  vertex edits do not move an existing point.
+- **FR-REF-04**: The symbol is fixed in the plan (default 6 cm, scales with zoom) or
+  constant on screen (default 16 px). Colour and cosmetic stroke width are editable.
+  The symbol is a target/cross with a solid centre dot.
+- **FR-REF-05**: Placement and every edit are exactly one undo step, and moving a
+  parent carries its attached points in that same step. Layer, lock, copy/duplicate,
+  delete and save/reload follow the ordinary object rules. A reference point has no
+  3D form.
+- **FR-REF-06**: Every user-visible string is complete in every registered locale
+  (en/de/es/ru/fr).

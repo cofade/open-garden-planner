@@ -108,7 +108,7 @@ def test_bundled_parent_links_and_forest_layers_follow_render_order(qtbot):
             assert any(obj.get("metadata", {}).get("guild") for obj in objects.values())
 
 
-@pytest.mark.parametrize("language", ["en", "de", "es", "ru"])
+@pytest.mark.parametrize("language", ["en", "de", "es", "ru", "fr"])
 def test_one_picture_serves_an_example_in_every_language(language):
     """The picture shows the plan without its hint layer, the only text in a plan, so it
     says nothing to translate. A picture per language cost 8 MB for the same image."""

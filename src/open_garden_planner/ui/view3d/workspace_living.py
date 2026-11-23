@@ -27,8 +27,9 @@ coordinators of the workspace it is told the host and the look controller by
   change. A picture from another camera — a tour's frame, an agent's view — is lit by
   ITS target while it is taken (``aim_lamps``).
 
-Both the weather and the life switch are the session's (not stored), like the sim
-moment itself (FR-SUN-04): every session starts clear, with life on.
+The plan owns the concrete weather (#944, FR-3D-LIVE-10): a plan without a stored
+choice opens clear. Today's forecast and the life switch stay the session's, like the
+sim moment itself (FR-SUN-04): a session starts with life on.
 
 NOTHING HERE TAKES A FRAME (ADR-060 decision 17): the host is told things, never
 asked for a picture.
@@ -94,6 +95,9 @@ class WorkspaceLivingCoordinator(QObject):
     #: Today's Weather needs a forecast: the app fetches one through the Planting
     #: Calendar's weather widget (its one fetch path) and hands it to ``set_forecast``.
     forecast_wanted = pyqtSignal()
+    #: The user chose a weather (#944). The window may store a concrete choice in the
+    #: plan; opening a plan feeds the stored one back without dirtying it.
+    weather_chosen = pyqtSignal(str)
 
     def __init__(self, get_host: Callable[[], EngineHost | None],
                  get_look: Callable[[], LookController | None],
@@ -208,7 +212,7 @@ class WorkspaceLivingCoordinator(QObject):
         self._update_todays()
 
     def wire(self, look: LookController) -> None:
-        """A new engine: give its look the session's weather, and listen to its mood."""
+        """A new engine: give its look the plan's weather, and listen to its mood."""
         look.mood_changed.connect(self._on_mood)
         look.set_weather(self._weather)
         look.set_analysing(self._analysing)
@@ -252,6 +256,7 @@ class WorkspaceLivingCoordinator(QObject):
         if weather == TODAY:
             self.forecast_wanted.emit()
         self._refresh_button()
+        self.weather_chosen.emit(weather)
 
     def document_changed(self) -> None:
         """A new, opened or recovered document: the forecast was the old one's place —

@@ -109,11 +109,13 @@ def test_a_dull_dark_surface_takes_no_specular_at_all() -> None:
 
 def test_only_roofs_and_walls_carry_a_picture_and_a_roof_s_tiles_are_the_plan_s_size() -> None:
     pictured = {name for name, surface in SURFACES.items() if surface.detail is not None}
-    assert pictured == {"roof_tile", "shingle", "plaster", "masonry", "wood_cladding"}
+    assert pictured == {"roof_tile", "shingle", "plaster", "masonry", "wood_cladding", "corten", "concrete_wall"}
     tiles = SURFACES["roof_tile"].detail
     assert isinstance(tiles, SurfaceDetail)
     # the canvas lays every pattern at 256 cm (core.scene3d.PATTERN_TILE_CM): one size in 2D and 3D
     assert (tiles.pattern, tiles.mapping, tiles.tile_cm) == ("ROOF_TILES", DETAIL_UV, 256.0)
+    # #887: the ridge cap stays plain (no detail picture) so it stands out from tiles/shingles
+    assert SURFACES["roof_cap"].detail is None
 
 
 def test_a_uv_picture_shows_on_roof_parts_only() -> None:
@@ -188,7 +190,7 @@ def test_walls_name_their_own_surface() -> None:
     assert next(p for p in shed if p.name == "walls").surface == "wood_cladding"
     assert wall[0].surface == "masonry"
     roof = next(p for p in house if p.name == "roof")
-    assert [name for name, _count in roof.surface_runs] == ["roof_tile", "wood"]   # tiles, timber
+    assert [name for name, _count in roof.surface_runs] == ["roof_tile", "roof_cap", "wood"]   # tiles, cap, timber
     for style, surface in (("WOODEN_FENCE", "wood"), ("METAL_FENCE", "iron"), ("CHAIN_LINK", "steel")):
         (fence,) = REGISTRY.build(line_record("FENCE", STRAIGHT_PATH, 120.0, style=style))
         assert fence.surface == surface, style
@@ -247,13 +249,18 @@ def test_the_scene_file_reads_every_surface_number_the_host_writes(component: st
     default = SURFACES[DEFAULT_SURFACE]
     assert f"property real surfaceRough: {default.roughness}" in block
     assert f"property real surfaceSpecular: {default.specular}" in block
+    assert f"property real surfaceAlbedo: {default.albedo_scale}" in block
+    assert f"property real surfaceAlbedoSrgb: {default.albedo_scale}" in block
     assert not re.search(r"roughness: \d", block) and not re.search(r"uRough: \d", block)
     assert not re.search(r"specularAmount: \d", block) and not re.search(r"uSpecular: \d", block)
+    assert not re.search(r"uAlbedo: \d", block)
     assert block.count("roughness: surfaceRough") == 1
+    assert "surfaceAlbedoSrgb" in block
     # every custom material reads them: the screen door, the detail material (#801), the
     # snowy look (#687) and, on vcPart, a plant's swaying wood (#800)
     assert block.count("uRough: surfaceRough") == block.count("uRough:") >= 3
     assert block.count("uSpecular: surfaceSpecular") == block.count("uSpecular:") >= 3
+    assert block.count("uAlbedo: surfaceAlbedo") == block.count("uAlbedo:") == block.count("uRough:")
 
 
 def test_a_part_of_no_surface_kind_gets_no_surface_look() -> None:

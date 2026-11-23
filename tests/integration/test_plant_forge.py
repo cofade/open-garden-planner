@@ -272,7 +272,9 @@ class TestPlantForgeEndToEndIntegration:
 
     @pytest.mark.perf
     def test_l36_all_13_archetypes_and_cache_latency_budget(self) -> None:
-        """L3.6 gate: verify all 13 archetypes build cleanly and warm cache hits take < 1 ms."""
+        """L3.6 gate: all 13 archetypes build cleanly; a warm cache hit scales the bucket
+        mesh to the exact size (#973), so the 13-archetype warm budget is 15 ms, still far
+        below one cold build of the set."""
         cache = ForgeCache(max_entries=256)
         rep_by_arch: dict[str, SpriteRef] = {}
         for name, rec in sorted(SPECIES.items()):
@@ -296,7 +298,8 @@ class TestPlantForgeEndToEndIntegration:
             assert len(parts) >= 2
         warm_ms = (time.perf_counter() - t_warm_start) * 1000.0
 
-        # Cold build of all 13 archetypes at LOD0 well under 1.5s; warm cache under 5 ms
+        # Cold build of all 13 archetypes at LOD0 well under 1.5s; a warm hit now also
+        # scales the bucket mesh to the exact size (#973): 15 ms for 13, measured 5-6 ms.
         assert cold_ms < 1500.0
-        assert warm_ms < 5.0
+        assert warm_ms < 15.0
         assert cache.hits == len(ARCHETYPES)

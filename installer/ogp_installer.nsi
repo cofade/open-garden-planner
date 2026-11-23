@@ -1,4 +1,4 @@
-; Open Garden Planner - NSIS Installer Script
+﻿; Open Garden Planner - NSIS Installer Script
 ; Build with: makensis /DVERSION=1.0.0 /DSRCDIR=dist\OpenGardenPlanner /DOUTDIR=dist \
 ;   /DLICENSE_FILE=LICENSE /DNOTICES_FILE=dist\THIRD_PARTY_NOTICES.md \
 ;   /DAPP_ICON=installer\ogp_app.ico /DFILE_ICON=installer\ogp_file.ico ogp_installer.nsi
@@ -62,13 +62,8 @@ SetCompressorDictSize 64
 !define MUI_ABORTWARNING
 !define MUI_UNABORTWARNING
 
-; Welcome page
-!define MUI_WELCOMEPAGE_TITLE "Welcome to ${APP_NAME} Setup"
-!define MUI_WELCOMEPAGE_TEXT "This wizard will guide you through the installation of ${APP_NAME} v${VERSION}.$\r$\n$\r$\nOpen Garden Planner is a precision garden planning tool with CAD-like metric accuracy.$\r$\n$\r$\nClick Next to continue."
-
 ; Finish page
 !define MUI_FINISHPAGE_RUN "$INSTDIR\${APP_EXE}"
-!define MUI_FINISHPAGE_RUN_TEXT "Launch ${APP_NAME}"
 
 ;---------------------------------------------------------------------------
 ; Installer pages
@@ -85,20 +80,64 @@ SetCompressorDictSize 64
 !insertmacro MUI_UNPAGE_INSTFILES
 
 ; Language
+!define MUI_LANGDLL_ALLLANGUAGES
 !insertmacro MUI_LANGUAGE "English"
 !insertmacro MUI_LANGUAGE "German"
 !insertmacro MUI_LANGUAGE "Spanish"
 !insertmacro MUI_LANGUAGE "Russian"
+!insertmacro MUI_LANGUAGE "French"
+
+; Modern UI translates the standard pages and buttons.
+LangString OGP_MAIN ${LANG_ENGLISH} "${APP_NAME} (required)"
+LangString OGP_DESKTOP ${LANG_ENGLISH} "Desktop shortcut"
+LangString OGP_ASSOCIATION ${LANG_ENGLISH} ".ogp file association"
+LangString OGP_MAIN_DESC ${LANG_ENGLISH} "Install the application (required)."
+LangString OGP_DESKTOP_DESC ${LANG_ENGLISH} "Create a desktop shortcut."
+LangString OGP_ASSOCIATION_DESC ${LANG_ENGLISH} "Open .ogp files on double-click."
+LangString OGP_UPGRADE ${LANG_ENGLISH} "Click OK to uninstall the previous version of ${APP_NAME} and continue, or Cancel to quit."
+
+LangString OGP_MAIN ${LANG_GERMAN} "${APP_NAME} (erforderlich)"
+LangString OGP_DESKTOP ${LANG_GERMAN} "Desktopverknüpfung"
+LangString OGP_ASSOCIATION ${LANG_GERMAN} ".ogp-Dateizuordnung"
+LangString OGP_MAIN_DESC ${LANG_GERMAN} "Installiert das Programm (erforderlich)."
+LangString OGP_DESKTOP_DESC ${LANG_GERMAN} "Erstellt eine Desktopverknüpfung."
+LangString OGP_ASSOCIATION_DESC ${LANG_GERMAN} "Öffnet .ogp-Dateien per Doppelklick."
+LangString OGP_UPGRADE ${LANG_GERMAN} "Klicken Sie auf OK, um die bisherige Version von ${APP_NAME} zu deinstallieren, oder auf Abbrechen."
+
+LangString OGP_MAIN ${LANG_SPANISH} "${APP_NAME} (obligatorio)"
+LangString OGP_DESKTOP ${LANG_SPANISH} "Acceso directo en el escritorio"
+LangString OGP_ASSOCIATION ${LANG_SPANISH} "Asociación de archivos .ogp"
+LangString OGP_MAIN_DESC ${LANG_SPANISH} "Instala la aplicación (obligatorio)."
+LangString OGP_DESKTOP_DESC ${LANG_SPANISH} "Crea un acceso directo en el escritorio."
+LangString OGP_ASSOCIATION_DESC ${LANG_SPANISH} "Abre archivos .ogp al hacer doble clic."
+LangString OGP_UPGRADE ${LANG_SPANISH} "Pulsa Aceptar para desinstalar la versión anterior de ${APP_NAME} y continuar, o Cancelar para salir."
+
+LangString OGP_MAIN ${LANG_RUSSIAN} "${APP_NAME} (обязательно)"
+LangString OGP_DESKTOP ${LANG_RUSSIAN} "Ярлык на рабочем столе"
+LangString OGP_ASSOCIATION ${LANG_RUSSIAN} "Ассоциация файлов .ogp"
+LangString OGP_MAIN_DESC ${LANG_RUSSIAN} "Устанавливает программу (обязательно)."
+LangString OGP_DESKTOP_DESC ${LANG_RUSSIAN} "Создаёт ярлык на рабочем столе."
+LangString OGP_ASSOCIATION_DESC ${LANG_RUSSIAN} "Открывает файлы .ogp двойным щелчком."
+LangString OGP_UPGRADE ${LANG_RUSSIAN} "Нажмите «ОК», чтобы удалить предыдущую версию ${APP_NAME} и продолжить, или «Отмена» для выхода."
+
+LangString OGP_MAIN ${LANG_FRENCH} "${APP_NAME} (obligatoire)"
+LangString OGP_DESKTOP ${LANG_FRENCH} "Raccourci sur le Bureau"
+LangString OGP_ASSOCIATION ${LANG_FRENCH} "Association des fichiers .ogp"
+LangString OGP_MAIN_DESC ${LANG_FRENCH} "Installe l’application (obligatoire)."
+LangString OGP_DESKTOP_DESC ${LANG_FRENCH} "Crée un raccourci sur le Bureau."
+LangString OGP_ASSOCIATION_DESC ${LANG_FRENCH} "Ouvre les fichiers .ogp par un double-clic."
+LangString OGP_UPGRADE ${LANG_FRENCH} "Cliquez sur OK pour désinstaller la version précédente de ${APP_NAME} et continuer, ou sur Annuler pour quitter."
 
 ;---------------------------------------------------------------------------
 ; Upgrade: silently uninstall previous version before installing
 ;---------------------------------------------------------------------------
 Function .onInit
+  !insertmacro MUI_LANGDLL_DISPLAY
   ReadRegStr $R0 HKLM "${UNINSTALL_REG_KEY}" "UninstallString"
   StrCmp $R0 "" done
 
   MessageBox MB_OKCANCEL|MB_ICONINFORMATION \
-    "${APP_NAME} is already installed.$\r$\n$\r$\nClick OK to uninstall the previous version and continue, or Cancel to abort." \
+    "$(OGP_UPGRADE)" \
     IDOK uninst
   Abort
 
@@ -114,7 +153,7 @@ FunctionEnd
 ;---------------------------------------------------------------------------
 ; Installer sections
 ;---------------------------------------------------------------------------
-Section "!${APP_NAME} (required)" SecMain
+Section "!$(OGP_MAIN)" SecMain
   SectionIn RO  ; Required, cannot be deselected
 
   SetOutPath "$INSTDIR"
@@ -163,11 +202,11 @@ Section "!${APP_NAME} (required)" SecMain
 
 SectionEnd
 
-Section "Desktop shortcut" SecDesktop
+Section "$(OGP_DESKTOP)" SecDesktop
   CreateShortCut "$DESKTOP\${APP_NAME}.lnk" "$INSTDIR\${APP_EXE}" "" "$INSTDIR\ogp_app.ico"
 SectionEnd
 
-Section ".ogp file association" SecFileAssoc
+Section "$(OGP_ASSOCIATION)" SecFileAssoc
   ; Register .ogp extension
   WriteRegStr HKCR ".ogp" "" "OpenGardenPlanner.Project"
   WriteRegStr HKCR ".ogp" "Content Type" "application/x-ogp"
@@ -187,9 +226,9 @@ SectionEnd
 ; Section descriptions
 ;---------------------------------------------------------------------------
 !insertmacro MUI_FUNCTION_DESCRIPTION_BEGIN
-  !insertmacro MUI_DESCRIPTION_TEXT ${SecMain} "Install ${APP_NAME} core files (required)."
-  !insertmacro MUI_DESCRIPTION_TEXT ${SecDesktop} "Create a shortcut on the desktop."
-  !insertmacro MUI_DESCRIPTION_TEXT ${SecFileAssoc} "Associate .ogp files with ${APP_NAME} so you can double-click to open them."
+  !insertmacro MUI_DESCRIPTION_TEXT ${SecMain} "$(OGP_MAIN_DESC)"
+  !insertmacro MUI_DESCRIPTION_TEXT ${SecDesktop} "$(OGP_DESKTOP_DESC)"
+  !insertmacro MUI_DESCRIPTION_TEXT ${SecFileAssoc} "$(OGP_ASSOCIATION_DESC)"
 !insertmacro MUI_FUNCTION_DESCRIPTION_END
 
 ;---------------------------------------------------------------------------

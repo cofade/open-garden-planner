@@ -7,7 +7,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Any, Literal, NoReturn
 from uuid import UUID
 
-from PyQt6.QtCore import QEvent, Qt, QTimer
+from PyQt6.QtCore import QCoreApplication, QEvent, Qt, QTimer
 from PyQt6.QtGui import QAction, QCloseEvent, QKeySequence, QResizeEvent
 from PyQt6.QtWidgets import (
     QApplication,
@@ -53,7 +53,7 @@ from open_garden_planner.core.plant_renderer import is_plant_type
 from open_garden_planner.core.solar import plan_place
 from open_garden_planner.core.tools import ToolType
 from open_garden_planner.core.unit_preference import get_unit_preference
-from open_garden_planner.core.units import LengthStyle, UnitSystem
+from open_garden_planner.core.units import LengthStyle
 from open_garden_planner.services.companion_planting_service import (
     ANTAGONISTIC,
     BENEFICIAL,
@@ -249,6 +249,9 @@ class GardenPlannerApp(QMainWindow):
         # geometry from _restore_ui_state() above is honoured instead.
         if not self._geometry_restored:
             self.showMaximized()
+            self._sun_toolbar.reflow()
+            if (layout := self.layout()) is not None:
+                layout.activate()
         QTimer.singleShot(100, self.canvas_view.fit_in_view)
 
         # Check for recovery files after UI is fully loaded
@@ -1863,7 +1866,7 @@ class GardenPlannerApp(QMainWindow):
         menu.addAction(check_companion_action)
 
     def _setup_garden_menu(self, menu: QMenu) -> None:
-        """Set up the Garden menu actions (US-12.10a — soil)."""
+        """Set up the Garden menu actions (US-12.10a - soil)."""
         # Set default soil test (project-wide fallback when a bed has no own test)
         default_soil_action = QAction(self.tr("&Set default soil test…"), self)
         default_soil_action.setStatusTip(
@@ -1891,6 +1894,14 @@ class GardenPlannerApp(QMainWindow):
         shopping_list_action.triggered.connect(self._on_shopping_list)
         self._set_action_icon(shopping_list_action, "shopping_list")
         menu.addAction(shopping_list_action)
+
+        menu.addSeparator()
+        reference_point_action = QAction(
+            QCoreApplication.translate("ReferencePoints", "Reference point"), self
+        )
+        self._set_action_icon(reference_point_action, "reference_point")
+        reference_point_action.triggered.connect(self._on_reference_point_tool)
+        menu.addAction(reference_point_action)
 
     def _setup_help_menu(self, menu: QMenu) -> None:
         """Set up the Help menu actions."""
@@ -1942,7 +1953,7 @@ class GardenPlannerApp(QMainWindow):
         status_bar.addPermanentWidget(self._coord_icon)
         self.coord_label = QLabel()
         self.update_coordinates(0.0, 0.0)
-        units_notifier().changed.connect(self._on_unit_system_changed)
+        units_notifier().profile_changed.connect(self._on_unit_system_changed)
         status_bar.addPermanentWidget(self.coord_label)
 
         # Typed coordinate input (Package A US-A1/A2). Wired up after
@@ -2108,6 +2119,10 @@ class GardenPlannerApp(QMainWindow):
         from open_garden_planner.ui.view3d.workspace import Workspace
 
         self._workspace = Workspace(self.canvas_view, parent=self)
+        # #944: choosing a concrete weather stores it in the plan; opening a plan applies
+        # the stored choice without writing it back (the flag breaks the round trip).
+        self._applying_plan_weather = False
+        self._workspace.living.weather_chosen.connect(self._store_plan_weather)
         self._main_splitter = QSplitter(Qt.Orientation.Horizontal)
         self._main_splitter.addWidget(self._workspace)
         # Route CanvasView's status messages to the window's status bar. This is
@@ -2269,6 +2284,8 @@ class GardenPlannerApp(QMainWindow):
         self._sun_toolbar.datetime_changed.connect(self._on_sun_sim_datetime)
         self._sun_toolbar.date_requested.connect(self._sim_clock.set_date)
         self._sun_toolbar.location_requested.connect(self._on_set_location)
+        self._sun_toolbar.animation_toggled.connect(self._on_sun_animation_toggled)
+        self._date_diagnostics_deferred = False
         location = self._project_manager.location or {}
         self._sun_toolbar.set_location_available(plan_place(location) is not None)
         # The sim instant is deliberately NOT persisted: the clock starts at the
@@ -2335,6 +2352,7 @@ class GardenPlannerApp(QMainWindow):
         # and "Hours of Sun on the Ground" switches the shared Hours of Sun on.
         self._workspace.connect_analysis(self._sun_controller, self._sun_heatmap,
                                          self._live_sun_map)
+        self._workspace.mode_changed.connect(self._on_workspace_mode_changed)
         # the director's cut (L6): a tour plays the clock itself, and saves like everything else
         self._workspace.capture.clock_wanted.connect(self._sun_toolbar.stop_animation)
         self._workspace.default_save_path = self._default_save_path
@@ -3091,6 +3109,7 @@ class GardenPlannerApp(QMainWindow):
             # After the rewire, like every document change (#795): the clock
             # re-raises a listener's error.
             self._showcase_moment.document_opened(None)
+            self._apply_plan_weather()
             self._autosave_manager.adopt_recovery_file(recovery_path)
 
             self.statusBar().showMessage(self.tr("Recovered from auto-save. Remember to save your work!"))
@@ -3335,6 +3354,10 @@ class GardenPlannerApp(QMainWindow):
         # Last, after the document is rewired (#795): the clock re-raises a
         # listener's error, and nothing above may be skipped by it.
         self._showcase_moment.document_opened(None)
+        # A new untitled plan has no weather of its own: keep Today's live forecast
+        # (session-only), while resetting any previous plan's concrete weather to clear
+        # so the 3D view and project_manager.plan_weather never disagree (#944).
+        self._apply_plan_weather(reset_session=False)
 
     def _on_canvas_size(self) -> None:
         """Handle Canvas Size action — resize the current canvas."""
@@ -3511,6 +3534,43 @@ class GardenPlannerApp(QMainWindow):
         self._workspace.set_opening_side(
             opening_side(self._project_manager.camera_tours) if moment is not None else None)
         self._showcase_moment.document_opened(moment)
+        self._apply_plan_weather()
+
+    def _store_plan_weather(self, weather: str) -> None:
+        """The user's concrete weather becomes the plan's own (#944).
+
+        Today's Weather is a live forecast choice, not a plan fact: it is not stored.
+        """
+        from open_garden_planner.core.scene3d.weather import TODAY, WEATHERS
+
+        if self._applying_plan_weather or weather == TODAY or weather not in WEATHERS:
+            return
+        self._project_manager.set_plan_weather(weather)
+
+    def _apply_plan_weather(self, *, reset_session: bool = True) -> None:
+        """Open the window in the weather the document carries (#944), clear included.
+
+        The weather is now the plan's, not the session's: a bundled example opens in the
+        sky it was built for, and a snowy example followed by a clear one does not leave
+        snow on the second. A NEW untitled plan has no weather of its own: it preserves
+        Today's live forecast (session-only, never stored in a plan) while resetting any
+        concrete plan weather from the previous document to clear so the view and
+        ``project_manager.plan_weather`` never disagree.
+        """
+        from open_garden_planner.core.scene3d.weather import TODAY
+
+        weather = self._project_manager.plan_weather
+        if (
+            not reset_session
+            and weather == "clear"
+            and self._workspace.living.weather_choice == TODAY
+        ):
+            return
+        self._applying_plan_weather = True
+        try:
+            self._workspace.living.set_weather(weather)
+        finally:
+            self._applying_plan_weather = False
 
     def _reset_compare_overlay_after_failed_load(self) -> None:
         """#337: a failed load can leave the compare-overlay action state
@@ -4062,6 +4122,9 @@ class GardenPlannerApp(QMainWindow):
             event.ignore()
             return
         if self._confirm_discard_changes():
+            timer = getattr(self, "_preview_fit_timer", None)
+            if timer is not None:
+                timer.stop()
             # Stop the Agent API server first, while the scene/bridge still exist.
             self._stop_agent_api()
             # Join a running heatmap worker — a QThread destroyed while
@@ -4110,6 +4173,9 @@ class GardenPlannerApp(QMainWindow):
             self, restore_window_state=False)
         self._ui_state.restore_splitter("main", self._main_splitter)
         self._enforce_toolbar_visibility()
+        if self._geometry_restored:
+            self._toolbar_rows.fit()
+            self._sun_toolbar.reflow()
 
     def _enforce_toolbar_visibility(self) -> None:
         """Toolbar visibility is owned by the app, never by the restored state.
@@ -4288,6 +4354,28 @@ class GardenPlannerApp(QMainWindow):
         """
         return self._workspace.capture
 
+    def _on_workspace_mode_changed(self, mode: Any) -> None:
+        """Skip 2D shadow polygon solves while in pure 3D mode without the 2D shadow drape (#996)."""
+        from open_garden_planner.ui.view3d.workspace import WorkspaceMode
+
+        self._sun_controller.set_canvas_shown(mode is not WorkspaceMode.VIEW3D)
+
+    def _on_sun_animation_toggled(self, active: bool) -> None:
+        """Hold 3D quality and defer heavy 2D diagnostic sweeps during toolbar playback (#996)."""
+        self.canvas_scene.is_animating_timeline = bool(active)
+        self._workspace.set_playback_active(bool(active))
+        if not active and getattr(self, "_date_diagnostics_deferred", False):
+            self._date_diagnostics_deferred = False
+            self._flush_sim_date_surfaces()
+
+    def _flush_sim_date_surfaces(self) -> None:
+        self._update_companion_highlights()
+        self._update_spacing_overlaps()
+        self.canvas_view.refresh_soil_mismatches()
+        self.calendar_view.schedule_refresh()
+        self.tasks_view.schedule_refresh()
+        self._refresh_succession_indicators()
+
     def _on_sim_date_changed(self, _day: "datetime.date") -> None:
         """A new plan DATE — never a time-of-day change (the clock's L1.0 gate).
 
@@ -4296,15 +4384,11 @@ class GardenPlannerApp(QMainWindow):
         subscription. A time-only change follows the instant channel instead.
         """
         self.canvas_scene.refresh_timeline()
-        self._update_companion_highlights()
-        self._update_spacing_overlaps()
-        self.canvas_view.refresh_soil_mismatches()
-        # #859: every date-driven surface follows the plan's shared day, not the
-        # wall clock — the calendar's "Today" line and dashboard, the Tasks tab,
-        # and the succession badges on the beds.
-        self.calendar_view.schedule_refresh()
-        self.tasks_view.schedule_refresh()
-        self._refresh_succession_indicators()
+        if self._sun_toolbar.animation_active:
+            self._date_diagnostics_deferred = True
+        else:
+            self._date_diagnostics_deferred = False
+            self._flush_sim_date_surfaces()
         # The Plant Details age label is a plan-day readout too (#859); the
         # panel is passive, so the fan-out has to tell it.
         self.plant_database_panel.refresh_plan_date()
@@ -5060,8 +5144,16 @@ class GardenPlannerApp(QMainWindow):
         # Go fullscreen
         self.showFullScreen()
 
-        # Fit the canvas nicely after entering fullscreen
-        QTimer.singleShot(50, self.canvas_view.fit_in_view)
+        # Fit the canvas nicely after entering fullscreen. A member timer is
+        # stopped on exit and on close: a pending singleShot outlived the
+        # gesture and fired into the next test's teardown (PF-TST-14/41).
+        timer = getattr(self, "_preview_fit_timer", None)
+        if timer is None:
+            timer = QTimer(self)
+            timer.setSingleShot(True)
+            timer.timeout.connect(self.canvas_view.fit_in_view)
+            self._preview_fit_timer = timer
+        timer.start(50)
 
     def _exit_preview_mode(self) -> None:
         """Exit fullscreen preview mode, restoring all UI chrome."""
@@ -5070,6 +5162,9 @@ class GardenPlannerApp(QMainWindow):
 
         self._preview_mode = False
         self._preview_action.setChecked(False)
+        timer = getattr(self, "_preview_fit_timer", None)
+        if timer is not None:
+            timer.stop()
 
         # Restore UI chrome
         self.menuBar().show()
@@ -5337,6 +5432,10 @@ class GardenPlannerApp(QMainWindow):
                 "Please restart the application for the change to take effect."
             ).format(language=lang_name),
         )
+
+    def _on_reference_point_tool(self) -> None:
+        """Arm the Reference point tool from the Garden menu (#666)."""
+        self.canvas_view.set_active_tool(ToolType.REFERENCE_POINT)
 
     def _on_tool_selected(self, tool_type: ToolType) -> None:
         """Handle tool selection from toolbar.
@@ -5716,7 +5815,14 @@ class GardenPlannerApp(QMainWindow):
 
         before = _agent_api_state()
         dialog = PreferencesDialog(self)
-        if dialog.exec():
+        try:
+            accepted = dialog.exec()
+        finally:
+            # #986 review: the dialog is not WA_DeleteOnClose, and its unit spin
+            # boxes stay connected to profile_changed; do not leave a hidden
+            # responder behind after every Preferences visit.
+            dialog.deleteLater()
+        if accepted:
             self._apply_unit_setting()
             self._update_satellite_menu_state()
             self._workspace.apply_look_settings()  # 3D quality, reduced motion (L1.4), sky (L7)
@@ -6010,9 +6116,9 @@ class GardenPlannerApp(QMainWindow):
 
     def _apply_unit_setting(self) -> None:
         from open_garden_planner.config.settings import get_settings
-        get_unit_preference().set_system(UnitSystem(get_settings().unit_system))
+        get_unit_preference().set_profile(get_settings().unit_profile)
 
-    def _on_unit_system_changed(self, _system: UnitSystem) -> None:
+    def _on_unit_system_changed(self, _profile: object) -> None:
         self.update_coordinates(*self._last_cursor_cm)
         selected = self.canvas_scene.selectedItems()
         self.update_selection(len(selected), selected)

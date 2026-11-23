@@ -1289,23 +1289,30 @@ selected: it hides the member's handles by opacity, never by a flag (PF-CAN-48).
 
 
 
-## Unit preference switch (ADR-078)
+## Unit preference switch (ADR-078 / ADR-081)
 
 ```mermaid
 sequenceDiagram
-    participant P as Preferences
+    participant P as PreferencesDialog
     participant A as Application
     participant U as UnitPreference
     participant Q as UnitsNotifier
     participant V as Existing surfaces
-    P->>P: Save AppSettings.unit_system
-    P->>A: Accepted
-    A->>U: set_system(settings.unit_system)
-    U->>Q: changed(system)
-    Q->>V: changed(system)
+    P->>P: interpretText() on frost TemperatureSpinBoxes
+    P->>P: Save AppSettings.unit_profile (+ legacy unit_system)
+    P->>U: set_profile(profile)
+    U->>Q: profile_changed(profile) [always]; changed(length) [if length changed]
+    Q->>V: profile_changed / changed
     V->>V: Reformat text; block field edit signals
+    P->>A: Accepted
+    A->>U: set_profile(settings.unit_profile) [no-op if equal]
 ```
 
-Startup applies the setting before widgets are built. The preference transition
-never writes a command or a plan value. Properties defers its in-place value/feedback refresh by one event-loop turn,
-protecting the focused editor; read-only calendar and 3D card content refresh in place.
+Startup applies `settings.unit_profile` before widgets are built. Inside
+`PreferencesDialog._save_and_accept`, uncommitted temperature spinbox edits are
+committed via `interpretText()` before `set_profile(profile)` fires so signal-blocked
+reformatting cannot discard in-flight Imperial input. The preference transition never
+writes a command or a plan value. Multi-quantity views (weather, calendar dashboard,
+tasks, properties, seed inventory/plant database, canvas scene, status bar, 3D info
+card) subscribe to `units_notifier().profile_changed`; Properties defers its in-place
+value/feedback refresh by one event-loop turn, protecting the focused editor.

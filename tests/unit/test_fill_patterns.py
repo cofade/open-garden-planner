@@ -36,7 +36,7 @@ class TestFillPatternEnum:
             assert hasattr(FillPattern, name), f"Missing pattern: {name}"
 
     def test_pattern_count(self, qtbot: object) -> None:
-        assert len(FillPattern) == 25
+        assert len(FillPattern) == 26
 
 
 class TestTextureFiles:

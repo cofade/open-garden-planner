@@ -1,5 +1,6 @@
 """Tests for internationalization (i18n) infrastructure."""
 
+import xml.etree.ElementTree as ET
 from typing import Any
 
 import pytest
@@ -15,6 +16,7 @@ from open_garden_planner.core.object_types import ObjectType, get_translated_dis
         ("de", "Studentenblume", "Geranie", "Ringelblume"),
         ("es", "Tagete", "Geranio", "Maravilla (caléndula)"),
         ("ru", "Бархатцы", "Пеларгония", "Календула"),
+        ("fr", "Œillet d’Inde", "Géranium", "Souci"),
     ],
 )
 def test_gallery_names_distinguish_tagetes_calendula_and_pelargonium(
@@ -48,11 +50,17 @@ class TestSupportedLanguages:
     def test_contains_russian(self, qtbot) -> None:
         assert "ru" in SUPPORTED_LANGUAGES
 
+    def test_contains_french(self, qtbot) -> None:
+        assert "fr" in SUPPORTED_LANGUAGES
+
     def test_spanish_native_name(self, qtbot) -> None:
         assert SUPPORTED_LANGUAGES["es"] == "Español"
 
     def test_russian_native_name(self, qtbot) -> None:
         assert SUPPORTED_LANGUAGES["ru"] == "Русский"
+
+    def test_french_native_name(self, qtbot) -> None:
+        assert SUPPORTED_LANGUAGES["fr"] == "Français"
 
     def test_at_least_three_languages(self, qtbot) -> None:
         assert len(SUPPORTED_LANGUAGES) >= 3
@@ -104,6 +112,14 @@ class TestTranslationFiles:
         qm_file = _TRANSLATIONS_DIR / "open_garden_planner_ru.qm"
         assert qm_file.exists(), f"Russian .qm file not found at {qm_file}"
 
+    def test_french_ts_file_exists(self, qtbot) -> None:
+        ts_file = _TRANSLATIONS_DIR / "open_garden_planner_fr.ts"
+        assert ts_file.exists(), f"French .ts file not found at {ts_file}"
+
+    def test_french_qm_file_exists(self, qtbot) -> None:
+        qm_file = _TRANSLATIONS_DIR / "open_garden_planner_fr.qm"
+        assert qm_file.exists(), f"French .qm file not found at {qm_file}"
+
     def test_german_ts_has_no_unfinished(self, qtbot) -> None:
         """All translations in the German .ts file should be complete."""
         ts_file = _TRANSLATIONS_DIR / "open_garden_planner_de.ts"
@@ -126,6 +142,36 @@ class TestTranslationFiles:
         content = ts_file.read_text(encoding="utf-8")
         assert 'type="unfinished"' not in content, (
             "Russian .ts file contains unfinished translations"
+        )
+
+    def test_russian_units_preferences_match_their_canonical_record(self, qtbot) -> None:
+        """Russian has no fill script, so ``scripts.translations_units_prefs.RU``
+        is its record; the shipped .ts must not drift from it (#986/#907)."""
+        from scripts.translations_units_prefs import RU
+
+        root = ET.parse(_TRANSLATIONS_DIR / "open_garden_planner_ru.ts").getroot()
+        messages: dict[tuple[str, str], str] = {}
+        for context in root.findall("context"):
+            context_name = context.findtext("name") or ""
+            for message in context.findall("message"):
+                source = message.find("source")
+                target = message.find("translation")
+                if source is not None and target is not None:
+                    messages[(context_name, source.text or "")] = target.text or ""
+        drift = [
+            (context, source, messages.get((context, source)), target)
+            for context, entries in RU.items()
+            for source, target in entries.items()
+            if messages.get((context, source)) != target
+        ]
+        assert not drift, f"Russian .ts drifted from its record: {drift}"
+
+    def test_french_ts_has_no_unfinished(self, qtbot) -> None:
+        """All translations in the French .ts file should be complete."""
+        ts_file = _TRANSLATIONS_DIR / "open_garden_planner_fr.ts"
+        content = ts_file.read_text(encoding="utf-8")
+        assert 'type="unfinished"' not in content, (
+            "French .ts file contains unfinished translations"
         )
 
 
@@ -166,6 +212,16 @@ class TestLoadTranslator:
 
         app = QApplication.instance()
         result = load_translator(app, "ru")
+        assert result is True
+        # Clean up: restore to English
+        load_translator(app, "en")
+
+    def test_french_returns_true(self, qtbot) -> None:
+        """French .qm file exists — should load successfully and return True."""
+        from PyQt6.QtWidgets import QApplication
+
+        app = QApplication.instance()
+        result = load_translator(app, "fr")
         assert result is True
         # Clean up: restore to English
         load_translator(app, "en")

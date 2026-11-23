@@ -1112,23 +1112,32 @@ def generate_terracotta(rng: random.Random) -> Image.Image:
 
 
 def generate_pebbles(rng: random.Random) -> Image.Image:
-    """River pebbles on sand: large smooth stones (cool/warm greys, cream,
-    slate blue) with strong rim→crown shading, gloss and occlusion, small
-    pebbles filling the gaps."""
-    t = Tile((170, 158, 136))
-    t.mottle(rng, 4, 3, 0.06)
-    t.grain(rng, 0.04)
+    """River pebbles on gritty sand (#959): densely packed matte 2-8 cm stones
+    in cool/warm greys, cream and slate with flatter radial shading and soft
+    crevice occlusion (no inflated glossy domes), plus fine grit."""
+    t = Tile((154, 144, 128))
+    t.mottle(rng, 4, 3, 0.08)
+    t.mottle(rng, 12, 2, 0.04)
+    t.grain(rng, 0.05)
     palette = [
-        (172, 168, 162), (190, 184, 174), (154, 156, 160), (206, 198, 184),
-        (164, 152, 138), (178, 170, 166), (144, 146, 150), (198, 190, 176),
-        (186, 174, 156), (168, 160, 150), (196, 176, 150), (158, 148, 132),
-        (176, 166, 158), (140, 130, 118),
+        (172, 168, 162), (190, 184, 174), (154, 156, 160), (204, 196, 182),
+        (164, 152, 138), (178, 170, 166), (142, 144, 148), (194, 186, 172),
+        (182, 170, 154), (166, 158, 148), (188, 172, 150), (156, 146, 132),
+        (174, 164, 156), (136, 128, 118),
     ]
-    scatter_stones(t, rng, 150, (5.0, 11.0), palette, (92, 84, 72), elong=(0.55, 0.9),
-                   rim=0.78, crown=1.12, gloss=0.12, occ_grow=1.22, occ_alpha=0.45, tone_jitter=0.06)
-    scatter_stones(t, rng, 220, (2.0, 4.4), palette, (92, 84, 72), elong=(0.6, 0.95),
-                   rim=0.8, crown=1.1, gloss=0.0, occ_grow=1.28, occ_alpha=0.4, tone_jitter=0.06)
-    return t.finish(blur=0.35)
+    occ = (102, 94, 82)
+    # Dense under-layer of small irregular grit and pebbles so bare sand never dominates
+    scatter_stones(t, rng, 750, (1.1, 2.5), palette, occ, elong=(0.50, 0.92),
+                   rim=0.90, crown=1.04, gloss=0.0, occ_grow=1.14, occ_alpha=0.22, tone_jitter=0.08)
+    # Main pebble layer: matte, flatter stones at realistic 4-8 cm scale (radius 2-4 px)
+    scatter_stones(t, rng, 520, (2.0, 4.3), palette, occ, elong=(0.48, 0.90),
+                   rim=0.88, crown=1.05, gloss=0.0, occ_grow=1.15, occ_alpha=0.26, tone_jitter=0.08)
+    # Occasional slightly larger river stones nestled among the smaller ones
+    scatter_stones(t, rng, 110, (3.6, 5.6), palette, occ, elong=(0.52, 0.86),
+                   rim=0.87, crown=1.05, gloss=0.0, occ_grow=1.15, occ_alpha=0.26, tone_jitter=0.07)
+    speckle(t, rng, 650, (0.4, 0.9), [(116, 110, 100), (206, 200, 188), (144, 138, 130)], alpha=0.55)
+    t.grain(rng, 0.04)
+    return t.finish(blur=0.3)
 
 
 def generate_slate(rng: random.Random) -> Image.Image:
@@ -1202,29 +1211,40 @@ def generate_lattice(rng: random.Random) -> Image.Image:
 
 
 def generate_compost(rng: random.Random) -> Image.Image:
-    """Ripe compost: dark crumb ground, clumps with occlusion, straw
-    fragments, leaf bits, eggshell specks and twigs."""
-    t = Tile((60, 44, 30))
-    t.mottle(rng, 4, 3, 0.10)
-    t.grain(rng, 0.05)
-    clumps = [(74, 54, 36), (88, 64, 42), (56, 40, 28), (100, 74, 50), (68, 50, 34)]
-    scatter_stones(t, rng, 260, (2.4, 8.0), clumps, (30, 20, 12), elong=(0.65, 1.0),
-                   rim=0.78, crown=1.14, occ_grow=1.3, occ_alpha=0.5, tone_jitter=0.05)
-    for _ in range(46):
-        x, y = rng.uniform(0, SIZE), rng.uniform(0, SIZE)
-        L = rng.uniform(4, 10)
-        a = rng.uniform(0, math.pi)
-        t.capsule(x, y, x + L * math.cos(a), y + L * math.sin(a), 1.3, (176, 150, 96), alpha=0.9)
+    """Ripe compost (#959): dark mottled crumbly humus with fine irregular
+    crumbs, soft small clods (no inflated domes), straw fragments, leaf bits,
+    eggshell specks and twigs."""
+    t = Tile((58, 42, 28))
+    t.mottle(rng, 3, 4, 0.14)
+    t.mottle(rng, 10, 3, 0.08)
     for _ in range(26):
         x, y = rng.uniform(0, SIZE), rng.uniform(0, SIZE)
-        col = rng.choice([(104, 112, 52), (128, 96, 48), (90, 104, 50)])
-        t.leaf(x, y, rng.uniform(4, 8), rng.uniform(2, 3.4), rng.uniform(0, 360), col, rim=0.8, crown=1.12)
-    speckle(t, rng, 30, (0.6, 1.2), [(226, 220, 206), (210, 200, 184)], alpha=0.9)
-    for _ in range(30):
+        r = rng.uniform(8, 22)
+        t.ellipse(x, y, r, r * rng.uniform(0.55, 1.0), (44, 30, 20), rot=rng.uniform(0, 180),
+                  soft=r * 0.85, alpha=0.38)
+    crumbs = [(68, 50, 34), (78, 58, 38), (52, 38, 26), (86, 64, 44), (62, 46, 32)]
+    occ = (34, 24, 16)
+    # Dense fine organic crumbs and modest irregular clods (flatter rim->crown)
+    scatter_stones(t, rng, 950, (0.8, 2.3), crumbs, occ, elong=(0.48, 0.95),
+                   rim=0.90, crown=1.05, occ_grow=1.16, occ_alpha=0.22, tone_jitter=0.07)
+    scatter_stones(t, rng, 220, (1.8, 3.8), crumbs, occ, elong=(0.45, 0.90),
+                   rim=0.88, crown=1.06, occ_grow=1.18, occ_alpha=0.26, tone_jitter=0.07)
+    for _ in range(54):
         x, y = rng.uniform(0, SIZE), rng.uniform(0, SIZE)
-        L = rng.uniform(3, 8)
+        L = rng.uniform(3.5, 9.0)
         a = rng.uniform(0, math.pi)
-        t.capsule(x, y, x + L * math.cos(a), y + L * math.sin(a), 1.0, (40, 28, 18), alpha=0.9)
+        t.capsule(x, y, x + L * math.cos(a), y + L * math.sin(a), 1.0, (146, 122, 78), alpha=0.8)
+    for _ in range(32):
+        x, y = rng.uniform(0, SIZE), rng.uniform(0, SIZE)
+        col = rng.choice([(88, 94, 46), (108, 82, 42), (76, 86, 44)])
+        t.leaf(x, y, rng.uniform(3.2, 6.5), rng.uniform(1.6, 2.8), rng.uniform(0, 360), col, rim=0.86, crown=1.06)
+    speckle(t, rng, 55, (0.5, 1.0), [(192, 184, 170), (168, 158, 142)], alpha=0.75)
+    for _ in range(38):
+        x, y = rng.uniform(0, SIZE), rng.uniform(0, SIZE)
+        L = rng.uniform(3, 7.5)
+        a = rng.uniform(0, math.pi)
+        t.capsule(x, y, x + L * math.cos(a), y + L * math.sin(a), 0.9, (38, 26, 16), alpha=0.85)
+    t.grain(rng, 0.07)
     return t.finish(blur=0.3)
 
 

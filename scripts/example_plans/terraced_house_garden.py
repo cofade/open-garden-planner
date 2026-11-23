@@ -21,6 +21,10 @@ SLUG = "terraced-house-garden"
 ORBIT_PITCH_DEG = 45.0
 #: ... and nearer: fitted to the house, the garden filled a third of the picture.
 ORBIT_CLOSER = 0.85
+#: A half turn films the garden, never the back of the house (#966).
+#: Counter-clockwise from the WSW start sweeps south across the garden instead of north behind the house.
+ORBIT_TURNS = 0.5
+ORBIT_CLOCKWISE = False
 #: The gallery picture: the deck, the extension and the top of the lawn, not an 18 m sliver.
 THUMBNAIL = (0, 760, 600, 760)
 NORTH_DEG = 35.0
@@ -30,10 +34,12 @@ META = {
     "name_en": "Terraced-house garden - 6 x 18 m", "name_de": "Reihenhausgarten - 6 x 18 m",
     "name_es": "Jardín de casa adosada - 6 x 18 m",
     "name_ru": "Сад таунхауса - 6 x 18 м",
+    "name_fr": "Jardin de maison mitoyenne - 6 x 18 m",
     "description_en": "A narrow garden between two hedges: house with a flat-roofed extension, timber deck, lawn with sandbox and swing, an apple tree, two borders and a shed with a mono-pitch roof. North is turned 35 degrees, so the hours-of-sun map and the shadows tell the two borders apart. A stored tour plays the shadows over one day. Cologne reference; opens on the late afternoon of 21 June 2026. Illustrative layout.",
     "description_de": "Ein schmaler Garten zwischen zwei Hecken: Haus mit Flachdach-Anbau, Holzdeck, Rasen mit Sandkasten und Schaukel, ein Apfelbaum, zwei Rabatten und ein Schuppen mit Pultdach. Norden ist um 35 Grad gedreht, so unterscheiden Sonnenstunden-Karte und Schatten die beiden Rabatten. Eine gespeicherte Kamerafahrt zeigt den Schattenlauf eines Tages. Referenz Köln; öffnet am späten Nachmittag des 21. Juni 2026. Beispielentwurf.",
     "description_es": "Un jardín estrecho entre dos setos: casa con anexo de cubierta plana, tarima de madera, césped con arenero y columpio, un manzano, dos arriates y una caseta de tejado a un agua. El norte está girado 35 grados, de modo que el mapa de horas de sol y las sombras distinguen los dos arriates. Un recorrido guardado muestra las sombras de un día. Referencia Colonia; se abre al final de la tarde del 21 de junio de 2026. Diseño ilustrativo.",
     "description_ru": "Узкий сад между двумя живыми изгородями: дом с пристройкой под плоской крышей, деревянный настил, газон с песочницей и качелями, яблоня, два цветника и сарай с односкатной крышей. Север повёрнут на 35 градусов, поэтому карта солнечных часов и тени показывают разницу между цветниками. Сохранённый облёт показывает движение теней за день. Ориентир: Кёльн; открывается ближе к вечеру 21 июня 2026 года. Примерный проект.",
+    "description_fr": "Un jardin étroit entre deux haies : maison avec extension à toit plat, platelage en bois, pelouse avec bac à sable et balançoire, un pommier, deux bordures et un cabanon à toit à un pan. Le nord est tourné de 35 degrés, si bien que la carte des heures de soleil et les ombres distinguent les deux bordures. Une visite enregistrée fait défiler les ombres d’une journée. Référence : Cologne ; s’ouvre en fin d’après-midi le 21 juin 2026. Disposition illustrative.",
     "order": 8,
     "tags": ["terraced-house", "sun", "north"],
     "showcase_date": "2026-06-21", "showcase_utc_time": "16:15",

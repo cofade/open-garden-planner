@@ -48,6 +48,8 @@ from open_garden_planner.core.scene3d.materials import (
     two_sided_kinds,
 )
 
+from .look import engine_srgb
+
 __all__ = [
     "DETAIL_MODES",
     "PART_COMPONENTS",
@@ -55,6 +57,7 @@ __all__ = [
     "TWO_SIDED_KINDS",
     "WHITE",
     "SurfaceLook",
+    "fill_surface_name",
     "part_tint",
     "surface_look",
     "tint_uniform",
@@ -112,6 +115,20 @@ class SurfaceLook:
     detail_pattern: str | None
 
 
+def fill_surface_name(surface: str, pattern: str | None) -> str:
+    """Effective surface for a ``fill_texture`` part given its current 2D pattern.
+
+    #965: an explicit flat roof defaults to neutral matte ``flat_roof``
+    (``albedo_scale=0.45``) for concrete/solid fills, while custom 2D fills
+    (e.g. a green ``GRASS`` sedum roof) switch to matte ``concrete``
+    (``albedo_scale=0.85``, ``specular=0.0``) on the material path with no
+    geometry rebuild (FR-3D-BUILT-02).
+    """
+    if surface == "flat_roof" and pattern not in (None, "", "SOLID", "CONCRETE"):
+        return "concrete"
+    return surface
+
+
 def surface_look(kind: str, surface: str) -> SurfaceLook | None:
     """The surface look of a part of material ``kind`` made of ``surface`` (empty:
     ``DEFAULT_SURFACE``) — None for a kind whose component reads no surface. THE rule:
@@ -119,8 +136,16 @@ def surface_look(kind: str, surface: str) -> SurfaceLook | None:
     if kind not in SURFACE_KINDS:
         return None
     entry = SURFACES[surface or DEFAULT_SURFACE]
+    albedo = float(entry.albedo_scale)
+    albedo_srgb = 1.0 if albedo == 1.0 else engine_srgb((albedo, albedo, albedo))[0]
     properties: dict[str, float] = {"surfaceRough": entry.roughness,
-                                    "surfaceSpecular": entry.specular}
+                                    "surfaceSpecular": entry.specular,
+                                    "surfaceAlbedo": albedo,
+                                    "surfaceAlbedoSrgb": albedo_srgb}
+    if kind == "vc":
+        # #992: a window pane gets its own fragment material on vcPart, so Ultra SSR
+        # can reflect the garden at 0.38 while its sky IBL keeps the 0.70 flicker floor
+        properties["surfaceGlass"] = 1.0 if entry.name == "glass_pane" else 0.0
     detail = detail_of(entry.name, kind)
     if detail is None:
         return SurfaceLook(MappingProxyType(properties), None)

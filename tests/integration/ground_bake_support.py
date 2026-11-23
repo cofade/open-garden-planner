@@ -127,7 +127,7 @@ class Bake:
         self.sink = RecordingSink()
         if baker is None:
             baker = (GroundBaker(budget_s=None) if bare_rgb is None
-                     else GroundBaker(bare_rgb=bare_rgb, budget_s=None))
+                     else GroundBaker(bare_rgb=bare_rgb, budget_s=None, surface_outlines=True))
         self.baker = baker
         self.sync = SceneSync(self.sink, registry, ground_baker=self.baker)
         self.plan = GroundSpec(float(scene.width_cm), float(scene.height_cm))

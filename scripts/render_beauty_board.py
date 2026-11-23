@@ -808,7 +808,9 @@ class Board:
 
             started = time.perf_counter()
             skipped: list[Any] = []
-            self._records[at] = snapshot_records(self.scene, at, skipped=skipped)
+            self._records[at] = snapshot_records(
+                self.scene, at, skipped=skipped,
+                latitude_deg=float((self.location or {}).get("latitude", 52.0)))
             self._snapshot_day[id(self._records[at])] = at
             self.metrics.setdefault("builds", {})[at.isoformat()] = {
                 "records": len(self._records[at]), "skipped": len(skipped),

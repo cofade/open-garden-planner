@@ -36,6 +36,7 @@ SUPPORTED_LANGUAGES: dict[str, str] = {
     "de": "Deutsch",
     "es": "Español",
     "ru": "Русский",
+    "fr": "Français",
 }
 
 _TRANSLATIONS_DIR = Path(__file__).parent.parent / "resources" / "translations"

@@ -7036,7 +7036,7 @@ only, and correct their heights with a fit after the fact.
 
   | Kind | 3D area ÷ 2D area | IoU | Reach 3D − 2D (cm) | Why |
   |---|---|---|---|---|
-  | picket fence | 1.00 / 1.00 / 1.00 | 0.65 / 0.66 / 0.68 | +2.0 / +2.0 / +2.4 | porosity (weighted 2D area; IoU vs solid strip) |
+  | picket fence | 1.01 / 1.01 / 1.00 | 0.66 / 0.67 / 0.68 | +2.0 / +2.0 / +2.4 | porosity (weighted 2D area; IoU vs solid strip) |
   | metal fence | 0.99 / 0.99 / 0.98 | 0.19 / 0.20 / 0.24 | +0.8 / +0.8 / +0.8 | porosity (weighted 2D area; IoU vs solid strip) |
   | chain-link fence | 1.09 / 1.03 / 1.08 | 0.12 / 0.13 / 0.19 | +1.5 / +1.5 / +1.5 | porosity (weighted 2D area; IoU vs solid strip) |
   | hedge fence | 1.04 / 1.13 / 1.31 | 0.96 / 0.89 / 0.76 | +19.6 / +19.5 / +19.6 | nominal section |
@@ -7069,17 +7069,17 @@ only, and correct their heights with a fit after the fact.
   | planter pot | 0.83 / 0.81 / 0.81 | 0.83 / 0.81 / 0.81 | -0.6 / -0.6 / -0.3 | shape and porosity vs solid 2D prism |
   | sandbox | 1.00 / 1.00 / 1.00 | 1.00 / 1.00 / 1.00 | 0.0 / 0.0 / 0.0 | shape and porosity vs solid 2D prism |
   | hot tub | 1.00 / 0.85 / 0.60 | 1.00 / 0.85 / 0.60 | 0.0 / 0.0 / 0.0 | shape and porosity vs solid 2D prism |
-  | swing | 1.00 / 1.00 / 1.00 | 0.17 / 0.16 / 0.15 | -71.0 / -71.0 / -70.6 | open frame (#698 weighted 2D area; IoU vs solid prism) |
-  | hammock | 1.00 / 1.00 / 1.00 | 0.21 / 0.26 / 0.30 | -56.3 / -56.3 / -56.0 | open frame (#698 weighted 2D area; IoU vs solid prism) |
+  | swing | 1.00 / 1.00 / 1.00 | 0.18 / 0.19 / 0.21 | 0.0 / 0.0 / 0.0 | open frame (#698 weighted, #855 reach-trimmed 2D area; IoU vs trimmed prism) |
+  | hammock | 1.00 / 1.00 / 1.00 | 0.23 / 0.33 / 0.43 | 0.0 / 0.0 / 0.0 | open frame (#698 weighted, #855 reach-trimmed 2D area; IoU vs trimmed prism) |
   | compost bin | 0.93 / 0.94 / 0.89 | 0.93 / 0.94 / 0.89 | -0.8 / -0.8 / -0.5 | shape and porosity vs solid 2D prism |
   | cold frame | 1.00 / 1.00 / 1.00 | 1.00 / 1.00 / 1.00 | 0.0 / 0.0 / 0.0 | shape and porosity vs solid 2D prism |
   | rain barrel | 0.81 / 0.79 / 0.76 | 0.81 / 0.79 / 0.76 | -20.1 / -10.9 / -7.5 | shape and porosity vs solid 2D prism |
   | water tap | 0.64 / 0.63 / 0.61 | 0.64 / 0.63 / 0.61 | -6.0 / -6.0 / -6.0 | shape and porosity vs solid 2D prism |
   | wheelbarrow | 0.44 / 0.45 / 0.46 | 0.44 / 0.45 / 0.46 | -22.0 / -22.0 / -22.0 | shape and porosity vs solid 2D prism |
   | bird bath | 0.40 / 0.47 / 0.61 | 0.40 / 0.47 / 0.61 | -0.8 / -0.8 / -0.8 | shape and porosity vs solid 2D prism |
-  | pergola | 0.99 / 0.99 / 0.99 | 0.28 / 0.32 / 0.36 | -16.7 / -7.5 / -3.8 | open frame (#698 weighted 2D area; IoU vs solid prism) |
-  | trellis | 1.00 / 1.00 / 1.00 | 0.32 / 0.34 / 0.39 | -7.0 / -7.0 / -6.8 | open frame (#698 weighted 2D area; IoU vs solid prism) |
-  | garden light | 1.00 / 1.00 / 1.00 | 0.21 / 0.28 / 0.37 | -18.4 / -12.0 / -9.6 | open frame (#698 weighted 2D area; IoU vs solid prism) |
+  | pergola | 0.99 / 0.99 / 0.99 | 0.29 / 0.32 / 0.36 | -0.8 / -0.8 / -0.5 | open frame (#698 weighted, #855 reach-trimmed 2D area; IoU vs trimmed prism) |
+  | trellis | 1.00 / 1.00 / 1.00 | 0.33 / 0.35 / 0.41 | 0.0 / 0.0 / 0.0 | open frame (#698 weighted, #855 reach-trimmed 2D area; IoU vs trimmed prism) |
+  | garden light | 1.00 / 1.00 / 1.00 | 0.21 / 0.29 / 0.39 | 0.0 / 0.0 / 0.0 | open frame (#698 weighted, #855 reach-trimmed 2D area; IoU vs trimmed prism) |
 
   Follow-up #624 extends the analytic reference to all 24 L4 object kinds; Phase 17 L5.4
   (#389, ADR-070) adds the garden light. A string of lights casts no 2D shadow (ADR-070's
@@ -7910,6 +7910,33 @@ Tests: `tests/unit/test_scene3d_surfaces.py`, `tests/unit/test_scene3d_roof_uvs.
 compare against the same frame without the picture, and before there was none). Pitfalls PF-L3D-34, PF-L3D-35,
 PF-E3D-32.
 
+### ADR-059 addendum: built-material stability, night fill, resting live shadow fit and built-world polish (#883, #884, #887, #894, #953, #957, #958, #959, #961, #965)
+
+**Status**: Shipped in v1.41.1 after owner acceptance (2026-11-22; [PR #990](https://github.com/cofade/open-garden-planner/pull/990)). Amends the L1.4, L1.6, #734, #799/#802 and #801/#803 addenda above.
+
+**Context.** Ten focused 3D rendering and built-world issues found across the 13 example plans on Ultra, High and Low presets:
+- `#883` / `#958`: Qt Quick 3D's Ultra SSR (`reflectionEnabled: true`) reflects aggressively below roughness `0.70`, causing shimmer on `steel`/`iron`/`enamel`/`glass_pane` and turning courtyard pools into sharp house mirrors.
+- `#884`: Direct noon light plus IBL pushed bright terracotta tiles, pale plaster walls and wood decks into R-channel clipping (`255`).
+- `#887`: Shed `shingle` detail (`100 cm`, default `contrast=1.0`) read as patchwork; ridge caps inherited roof tile detail instead of reading cleanly; `masonry` at `256 cm` produced ~60 cm blocks; grazing close-up fascia/plaster showed SSAO concentric rings at `AO_FLAT_BIAS_CM = 1.0`.
+- `#894`: Live 3D views always used the texel-locked shadow sphere while saved photos used `fittedShadows=true`, leaving preview shadows softer than saved photos even when the camera rested.
+- `#953`: At night, vertical faces turned away from the fixed moon received zero bounce and crushed to sRGB `<= 3`.
+- `#957`, `#961`, `#965`, `#959`: Raised beds always rendered as oak planks regardless of 2D `FillPattern`; multi-vertex organic ponds rendered with polygonal grey rims and cobalt water; flat-roofed houses kept cottage windows and a pale concrete roof (`specular=0.15`) that took a golden-hour lilac cast; `pebbles` and `compost` textures had glossy spherical domes baked into the PNGs.
+
+**Decision.**
+1. **Ultra SSR roughness floor & decoupled water SSR (`#883`, `#958`).** Raise `steel`, `iron`, `enamel` and `glass_pane` to roughness `0.70`. In `water.frag` and `water_door.frag`, keep `uRough` (`0.02`) for direct GGX sun glints and IBL probe while writing `ROUGHNESS = uSsrRough` (`0.40`) in `MAIN()` so Ultra SSR renders soft, translucent water reflections rather than a sharp mirror (`0.02`) or flat unreflective blue (`0.75`).
+2. **Per-surface linear albedo scaling (`#884`).** Add `Surface.albedo_scale` (`surfaceAlbedo` / `surfaceAlbedoSrgb` in `quick3d/materials.py` and `Garden.qml`, `uAlbedo` across every custom material in `vcPart`/`roofPart` including `screen.frag`), keeping `DEFAULT_SURFACE` at `1.0`. Exact surface table and GPU measurements live in `ogp-lush-cinematic` reference `021`.
+3. **Cohesive roof/wall detail and SSAO floor (`#887`).** Set `shingle` to `SLATE` at `128 cm` (`normal=1.2`, `contrast=0.35`); point `ROOF_TILE_CAP` and `SHINGLE_CAP` at plain `"roof_cap"` (`detail=None`); tighten `masonry` to `128 cm`; raise `look.AO_FLAT_BIAS_CM` (and QML default `aoBias`) from `1.0` to `1.4` cm.
+4. **Live shadow fitting at rest (`#894`).** Add `EngineHost.set_fitted_shadows(bool)` and a `250 ms` debounce (`SHADOW_FIT_DELAY_MS`) in `Workspace`: camera motion unlocks (`fittedShadows = false`) immediately; after `250 ms` at rest the view locks to `fittedShadows = true`. `Quick3DHost.capture(fitted_shadows: bool | None = None)` preserves the view's current fit when `None` and always restores `fitted_before` in `finally:`.
+5. **Cool sky-tinted night minimum fill (`#953`).** Add `look.night_fill_linear(look)` (`NIGHT_FILL_SKY_SHARE = 0.75`, radiance-capped at `NIGHT.sky_top`, cloud-attenuated) folded into `twilight_fill` (keeping `TWILIGHT_FILL_DAY_SHARE = 0.4` and `TWILIGHT_FILL_TARGET = ((TWILIGHT_DEG, 1.0), (-3.0, 1.02), (NIGHT_BELOW_DEG, 1.035))`) so `5.89°` stays `(0, 0, 0)` and dusk/dawn stays monotone across all presets and weathers.
+6. **Built-world fidelity (`#957`, `#961`, `#965`, `#959`) & clean 3D ground surfaces.**
+   - Forward `PARAM_SURFACE_PATTERN` for `RAISED_BED` in `ui/view3d/snapshot.py`; `builders/beds.py` maps architectural fills (`CORTEN` -> `corten`, `STONE`/`BRICK`/`FLAGSTONE`/`SLATE` -> `masonry`, `CONCRETE`/`CLAY` -> `concrete_wall` with `CONCRETE` detail, `TERRACOTTA` -> `terracotta`) to a tinted frame while preserving exact `soil_surface_cm`. `modern-garden` now uses real `RAISED_BED` items for its three Corten beds instead of the `#940` metal-container workaround.
+   - `builders/surfaces.py` treats ground polygons with `>= 5` vertices per ring as natural ponds (`is_natural_pond`): convex corners are smoothed inward via clamped quadratic Bézier fillets (`NATURAL_POND_MAX_CUT_CM = 5.5 cm`, skipping reflex corners), bordered by a low flush earth shore (`BANK_UP_CM = 1.35 cm`, strictly below `DECK_TOP_CM = 2.5 cm` so overhanging pond decks clear it cleanly) and darker olive-green natural water. Formal pools stay unchanged. Gravel path rims drop to `GRAVEL_RIM_CM = 1.8 cm` (`< DECK_TOP_CM`) so round end caps abutting wooden terraces stay underneath the deck boards.
+   - `ui/view3d/ground_bake.py` suppresses 2D CAD outline strokes on `SURFACE_OUTLINE_KINDS` (`LAWN`, `GARDEN_BED`, `TERRACE_PATIO`, `DRIVEWAY`, `POND_POOL`) by default (`surface_outlines=False`) so neon-green/orange CAD borders do not bleed onto 3D ground tiles, while keeping `surface_outlines=True` available for 2D-canvas parity tests and preserving `GENERIC_*` and `PATH` strokes.
+   - `builders/buildings.py` / `facade.py` give flat-roofed houses `MODERN_HOUSE_SPEC` (wide/tall single-pane dark-framed windows, modern door); explicit flat roofs carry `"flat_roof"` (`roughness=0.95, specular=0.0, albedo_scale=0.45`) for `CONCRETE`/`SOLID` fills while custom 2D fills (e.g. `GRASS` green roofs) switch to matte `"concrete"` (`roughness=0.95, specular=0.0, albedo_scale=0.85`) on the material path (`quick3d/materials.fill_surface_name`, `host.set_part_fill`) with no geometry rebuild, preserving `FR-3D-BUILT-02` alongside automatic ridge-less flat houses.
+   - Re-author `generate_pebbles` and `generate_compost` matte (`gloss=0.0`) in `scripts/generate_asset_forge_textures.py` (`PROVENANCE.md` updated). `wildlife-garden` example paths, boardwalk and oak-shaded hammock updated for plausible, unobstructed flow.
+
+**Evidence & tests.** Full RTX 4070 before/after numbers and Beauty Board gates are recorded in `ogp-lush-cinematic` reference `021`. Tests: `tests/unit/test_scene3d_materials_and_built_polish.py`, `tests/integration/test_view3d_materials_shadow_fit.py`, `tests/ui/test_quick3d_host.py`, updated `test_scene3d_surfaces.py` / `test_scene3d_look.py`, and GPU render-tier suites.
+
 ### ADR-059 addendum: ground bake — flat surfaces painted from records into ground tiles (Phase 17, L1.5)
 
 **Status**: Accepted (2026-10-12, #385 story L1.5); amended the same day by the story's first
@@ -8365,6 +8392,111 @@ cost 3.25 s against 1.48 s for the whole 153-union profile — the per-owner uni
 keeps the global union small. `owned_shadows` has no production reader, but removing its
 unions is a pessimisation, not an optimisation. Recorded so the next attempt starts from
 the measurement.
+
+### ADR-059 addendum: the 3D showcase follow-ups (#941, #943, #955, #960, #992)
+
+**Status**: Accepted (draft PR; the owner's visual pass is still owed).
+
+**Context**: the independent 3D review of the bundled examples (#940) found looks that
+were fixed values rather than the plan's own: one multiplier per channel turned green
+crowns olive and salmon in autumn; a lawn and the meadow kept one green all year; a
+stone-filled polygon was a flat concrete block; moss was a bright lawn; a sand court had
+no rake; a tall timber fence was a picket fence; a Scots pine was a spruce cone; and at
+Ultra a window pane was flat blue while the water reflected. The fixes must not move the
+sun, a shadow, a footprint or a saved file's version.
+
+**Decision**:
+1. **Two-anchor autumn.** `PhenologyState` carries the summer and autumn palettes' dark
+   (`b0`) and light (`t1`) linear anchors (`FR-3D-PLANT-07`, `PF-L3D-39`);
+   `foliage.frag`/`foliage_door.frag` and falling leaves (`phenology.map_autumn_leaves`)
+   apply the same two-anchor ramp (#941, #895) while the shader multiplier carries snow
+   dust only (`foliage_snow_tint_linear`).
+2. **The grass through the year.** `phenology.seasonal_ground_tint(date, latitude)` is the
+   one sRGB lawn/meadow multiplier (`FR-3D-GROUND-09`), quantised by default on a shared
+   4-day seasonal grid (`LAWN_TINT_STEP_DAYS`) so year playback avoids daily tile re-bakes
+   while keeping baked lawns and the open-ground meadow bit-identical, time-lapse steps
+   smooth, and summer exact. A
+   grass lawn's fill is scaled in the snapshot (`snapshot._seasonal_fill`), while MOSS lawns
+   stay evergreen; the open ground reads `meadowSeason` in `ground.frag` in sRGB before
+   `groundLinear()` across every surface mode, eliminating any lawn-to-meadow colour-space
+   seam. Covered surfaces stay untouched. `snapshot_records(..., latitude_deg=)` is additive,
+   `Scene3DController` supplies `plan_latitude`, `Workspace.location_changed` dirties baked
+   lawns on a hemisphere flip, and `offscreen.render_records` wires `set_meadow_season`
+   alongside `forge_scene_plants`.
+3. **A rock is a stone polygon's 3D form** (`surfaces.rock_parts`, `FR-3D-BUILT-10`):
+   a low upright base (15 % of the height) and a domed top for convex stone polygons with
+   a height; the widest ring sits at the ground, and a per-record ring-scale jitter
+   (0.92–1.0) keeps the rocks distinct while staying inside the footprint. Concave or
+   hostile outlines keep the prism. `GENERIC_POLYGON` joins the surfaces family so the
+   builder is registered once.
+4. **Materials with a look of their own.** `PathFenceStyle.BOARD_FENCE` (`FR-3D-BUILT-11`,
+   exposed dynamically in `PropertiesPanel` from `PATH_FENCE_STYLES`), evergreen MOSS
+   cushions and raked SAND surfaces (`FR-3D-BUILT-12`; 2.4 cm ridges 1.5 cm high on the
+   13 cm pitch), Japanese maple / Scots pine / dwarf palm refinements
+   (`FR-3D-PLANT-05/-06/-08`; the pine's recorded 6 cm needles cover each branch to its
+   tip — the crown-area budget may lengthen them, not widen them — and the wood stops at
+   85 %), and pergola-rafter climber training
+   (`FR-3D-BUILT-13`, capping overhead vine height at the pergola deck).
+5. **A window pane at Ultra** gets `vcGlass` (`built_snow.vert` + `glass.frag`, warmed in
+   `shaderWarmer`): `MAIN()` sets `ROUGHNESS = uSsrRough` (`0.38` only while `ssrVisible`,
+   `0.70` otherwise) and linearises `uTintSrgb` via `engineLinear()`, while `IBL_PROBE()`
+   samples `qt_sampleGlossy(..., uRough)` at the #883 `0.70` flicker floor. Metalness stays
+   0. Translucent greenhouse glass (`glassPart`, `NeverDepthDraw`) stays excluded from SSR.
+6. **Hedges keep their density** (#954): a hedge's leaves are capped at 600 a metre of
+   run (including the closing edge of a closed `HEDGE_FENCE` loop, and half-perimeter run
+   length for polygon hedges — a strip polygon counts both sides), with a 30,000-leaf
+   plan-wide budget shared by demand. The
+   two bench plans grow 30,606 and 71,614 triangles; their build medians remain under
+   40/60 ms, and the plan triangle tripwires are raised to 35,000/80,000 with those
+   measurements.
+
+**Alternatives rejected**: keeping the one-multiplier autumn (no single multiplier gives
+a clean palette; reference 018); storing the season in the plan (the plan date already
+drives every dated surface); a texture on the hedge core instead of more leaves (no
+material path for a foliage-textured solid, and the issue's measured target is the leaf
+coverage); raising the hedge leaf budget without a plan cap (unbounded triangles); a
+second autumn field for the shader (the anchors already carry the palette).
+
+**Consequences**: no `FILE_VERSION` change; one additive plan key (`weather`, ADR-070
+addendum) and one additive tour field value range (`turns`, ADR-072 addendum). One new
+shader (`glass.frag`) ships in the bundle. The plan-wide hedge budget is a new
+performance bound; its evidence is `tests/perf/test_scene3d_built_world_budget.py`.
+A CustomMaterial's uniforms are declared per material, not per shader: every material in
+`Garden.qml` (warmers included) must declare every `u[A-Z]...` uniform referenced by its
+bound vertex and fragment shaders and declare no dead uniform; this contract is now
+statically pinned by `tests/unit/test_quick3d_qml.py::test_every_custom_material_declares_every_uniform_its_shaders_use`
+in addition to the frozen `--selftest` and `Render 3D` runs.
+Pinned by `tests/unit/test_phenology.py`, `tests/ui/test_quick3d_host.py`,
+`tests/integration/test_scene3d_snapshot.py`, `tests/unit/test_scene3d_rock.py`,
+`tests/unit/test_scene3d_l4_surfaces.py`, `tests/unit/test_scene3d_builders.py`,
+`tests/unit/test_scene3d_materials_and_built_polish.py`, `tests/unit/test_quick3d_qml.py`,
+`tests/unit/test_quick3d_packaging.py`, and the Japanese garden's example gate.
+
+**Round 2 (independent 3D review, 2026-11-23, PR #998)**: the first build's Japanese
+garden still read as a willow with bare brown spokes, plain paving and pale concrete
+bollards. Three P1s were fixed at the source: the pine's needle spray now covers each
+branch to its tip (the wood stops at 85 %, the needle is recorded at 6 cm with width
+ratio 0.18 — the crown-area budget may lengthen it, not widen it — and the umbrella is
+broad to 80 % of the crown); the rake is 2.4 cm wide and 1.5 cm high
+with 1.0/0.78 shade bands on the 13 cm pitch; and a rock starts at a 15 % base with its
+widest ring at the ground, rings at 42 % and 78 %, and a per-record 0.92–1.0 scale jitter
+so the three example rocks are not clones. The lesson is the same for all three: a
+relief or profile that is correct in centimetres can still be invisible or wrong at the
+product's default framing; judge it on a rendered board, not on the builder's numbers.
+The sand court's cut-outs now come from the same context pass as a lawn's
+(`_lawn_cutouts` serves a SAND surface too), so the moss islands painted above it stop
+the rake and no tan ridge crosses a green cushion. The owner's manual pass then caught
+the same class of defect at a stepping stone: the canvas paints a stone centred on the
+path's end, so its picture reaches 0.4 widths past the footprint while the cut-out was
+only the footprint, and the rake ran across the painted stone. A first fix cut the
+rounded stroke, which hid the rake but exposed the flat painted stone and cut a
+corridor-shaped notch through the court, because the 3D relief had been slid 0.4 widths
+onto the path. The final rule treats the stones as the path's painted surface: the 3D
+stones mirror the 2D painter's walk exactly (the end stone stays centred on the end), and
+the lawn/rake cut-out is each painted stone, not the path's footprint, so grass grows
+and the rake runs between the stones. The winter tint's darkness,
+the moss cushion's flatness and the board's hero camera outside a tall screen stay
+recorded P2/owner questions.
 
 ## ADR-060: The 3D workspace — Plan / 3D / Split in the main window, one kept engine host (Phase 17, L1.3)
 
@@ -9996,6 +10128,113 @@ reporting and injected 20 ms negative control. The statistical guarantee has
 changed explicitly; no absolute deadline or presented-FPS guarantee is claimed.
 This correction changes tests and documentation, not the released runtime.
 
+**Addendum (plant seasonal truth and forge stability, issues #948, #963, #969, #970, #973, #995, #996).**
+**Status**: Shipped in [v1.41.2](https://github.com/cofade/open-garden-planner/releases/tag/v1.41.2) after owner acceptance (2026-11-22; [PR #994](https://github.com/cofade/open-garden-planner/pull/994)).
+Seven follow-ups to #940 settled how a plant's season survives growth, distance, live year
+playback and a growing
+species catalogue. (1) **The canopy's tip weight is measured over green-leaved sprites only**
+(`GREEN_LEAF_PALETTES`, `FOLIAGE_TIP_WEIGHT["canopy"] = 0.43`). The red-leaved Japanese maple
+had moved the all-sprites median from 0.43 to 0.45 and re-tinted every green crown about one
+sRGB level; a coloured canopy is now measured on its own sprite-level hue gate and cannot
+move the green constant. (2) **A sparse LOD2 crown keeps its spread by turning its four
+outermost leaves onto the plan's axes after the fit** (`assemble.pin_foliage_spread`). The
+fit scales the box to the canopy and then pulls diagonal tips onto `REACH_MAX`; at LOD2 a
+jasmine, cucumber, pea or climbing-plant crown came out at 0.865-0.893 of its diameter on
+some seeds. Pinning before the fit was rejected: the larger axis-aligned box made the fit
+scale every leaf down, and a tall birch fell below its foliage-coverage gate. Only LOD2 is
+pinned; beyond 45 m a leaf turned about the trunk is not seen, and LOD0/1 pass every seed.
+(3) **A spring bulb has a leaf window of its own** (`Traits3D.leaf_months`: crocus and
+daffodil February-June, tulip March-June). The deciduous rule would have made it bare in
+February and leafed all summer; its 14-day ramps replace a step on the 1st, and a dormant
+bulb is not `evergreen`. At LOD2 its scapes now live in the flowers part, so July shows
+neither leaves nor bare stalks. (4) **The forge cache keys on 2 % geometric size buckets**
+(`cache.QUANT_STEP`, `quantised_size_cm`) and stretches a hit to the day's exact height and
+spread (`Mesh.scaled`, inverse-transpose normals), so a growing tree keeps one shape for a
+bucket instead of being re-forged and re-randomised every day: a 90 % growing season costs
+about 65 builds, not 365, and every day's height and spread stay exact. Without a cache the
+exact size is built unchanged. (5) **Each fruit carries its own phase** (`accents.with_phase`)
+and the fruit part's season opacity is the ripeness progress `0.55 -> 1`, so a crop ripens
+one fruit at a time instead of all of it appearing on the harvest window's first day.
+Beyond 45 m (**#948**) a flowering or fruit-bearing LOD2 plant (other than a pod) keeps a
+sparse crop of large,
+single-sided colour patches (`accents.build_far_accents`, at most 64 triangles per family,
+inside `REACH_MAX`) whose colour comes from the recipe's own `flowers`/`clusters`/`puffs`/
+`umbels`/`fruit` table, with a flower's normal leaned about 30° to the sky and its colour
+lifted by up to ×1.35 with a hue-preserving peak clamp at 0.9 linear, so a low sun does
+not turn its shade side mauve. A canopy
+that has a far crop reserves 64 LOD2 triangles for it; a leaf-only canopy keeps the old 16
+and its full foliage. A sunflower's builder-placed head gets the same far patch at its stem
+tips; pods and root crowns have no far cue and pods ripen by phase. A crown tint was rejected: it needs a per-item LOD channel through the host
+and QML, and it would tint the real flowers at close range. (6) **Live regrowth never downgrades
+an already-forged plant to a v0 silhouette (#995):** `Scene3DController` asks
+`ForgeWorker.prepare_for_sync` for prepared `PartSpec`s before `SceneSync.apply`, returning a
+stretched warm 2 % bucket hit immediately (and keeping its `_applied_state`), stretching the
+last forged mesh on a cold bucket miss while the background worker builds the new bucket, or
+forging a newly appearing dated plant directly when the scene is already forged; `Workspace`
+also evaluates seasonal uniforms on every `SimClock.date_changed` tick and harvests up to 16
+plants per `_step_forge` turn. (7) **Toolbar playback holds quality, defers RHI cache drops
+and skips hidden 2D work (#996):** while `SunSimToolbar` playback runs, `Workspace` holds
+`LookController.hold_preset` and defers `QQuickWindow.releaseResources()` (and resets the
+auto-quality sample window during pipeline passes and `ForgeWorker` uploads), `SunShadowController`
+skips 2D shadow polygon solves in pure `VIEW3D` mode without `DrapeMode.SHADOWS`,
+`CanvasScene.refresh_timeline` invalidates only plants whose canopy radius changed, and
+`GardenPlannerApp` defers heavy 2D date diagnostic sweeps until playback stops (PF-L3D-38).
+**No `.ogp` format change.**
+FR-3D-FORGE-01/02/03/05/06/07, FR-3D-LIVE-01; tests `tests/unit/test_plant_forge_bloom.py`,
+`tests/unit/test_plant_forge_l31.py`, `tests/unit/test_phenology.py`,
+`tests/unit/test_plant_art.py`, `tests/unit/test_scene3d_mesh.py`,
+`tests/unit/test_scene3d_plants.py`, `tests/unit/test_quick3d_qml.py`,
+`tests/integration/test_plant_forge_workspace.py` and the 40 golden
+tree references (their foliage colours were re-measured once, for #969).
+
+### ADR-064 addendum 2: species forms from the plant's own size (#949, #956, #960)
+
+**Status**: Accepted (draft PR; the owner's visual pass is still owed).
+
+**Context**: the Forge had one palm and one conifer silhouette. A dwarf fan palm
+therefore got the windmill palm's bare 0.64-height trunk, a Scots pine got a spruce
+cone, and a grape vine on a pergola stayed a column at the post because the support
+resolver only knew a rectangle's edge.
+
+**Decision**:
+1. **The palm's trunk is a function of the plant.** A palm at or below 160 cm, or one
+   whose canopy diameter is at least 1.5 times its height, is the dwarf/clumping form:
+   `trunk_share = 0.08`, half the trunk rings, three more fronds, gentler lean
+   (`0.05..0.16` vs `0.14..0.34`), and ascending fronds clamped above ground so the trunk
+   base stays grounded at `z = 0` across all LODs. A taller palm keeps
+   `max(crown.trunk_share, 0.64)`. One builder (`plant_forge/woody.build_forged_palm`),
+   chosen from the recorded size.
+2. **The Scots pine is an `umbrella`.** `traits3d` gains the named crown shape;
+   `build_forged_conifer` (`plant_forge/woody.py`) gives it a broad lower crown, a
+   flat-topped head (broad to 80 % of the crown), a short narrow needle (recorded at
+   6 cm, width ratio 0.18; the crown-area budget may lengthen it, not widen it), and a
+   needle spray that covers each branch to its tip while the wooden branch stops at
+   85 %, so no bare spokes show. Other conifers are unchanged.
+3. **A pergola climber follows the rafters.** `climbers._support_segments` asks
+   `core/pergola.layout` for the pergola's own rafters centred on the footprint bounding
+   box, `_concrete_support` records the pergola centre in the plant's local frame, and
+   `build_forged_climber` climbs the post to the rafter deck before fanning overhead along
+   the nearest rafter and inward across neighbouring rafters within the plant's canopy
+   radius. A pergola too small for that layout keeps its outline; trellis and path supports
+   are unchanged.
+4. **The Japanese maple's leaves are small** (`recipes.py` leaf scale 0.45, from 0.65),
+   so its crown is not a mass of large diamonds. The green canopy's tip weight stays
+   #994's 0.43, measured over green-leaved sprites only.
+
+**Alternatives rejected**: a second palm builder (two silhouettes to keep in step);
+scaling a tall palm down (the trunk stays, the fronds would sink); a pine palette-only
+change (the cone is geometry); a pergola's bounding rectangle (the very shape that made
+the vine a column); a saved support segment (the support is transient and must follow
+the pergola when it moves).
+
+**Consequences**: no `FILE_VERSION` change; no new dependency. The forms are runtime
+only. Pinned by `tests/unit/test_plant_forge_l32.py`
+(`test_a_scots_pine_is_an_umbrella_not_a_spruce_cone`,
+`test_a_dwarf_palm_is_trunkless_and_a_tall_palm_is_not`),
+`tests/unit/test_plant_forge_l34.py::TestL34ClimberSupportResolution::test_a_climber_on_a_pergola_is_trained_along_a_rafter`,
+`tests/unit/test_plant_art.py` (the crown-shape set), and
+`tests/unit/test_scene3d_plants.py` (the measured tip weight).
+
 ## ADR-065: The built world complete — objects, roofs, facades, surfaces and ground detail (Phase 17 L4, #388)
 
 **Status:** Accepted; shipped in [v1.34.0](https://github.com/cofade/open-garden-planner/releases/tag/v1.34.0) via [PR #613](https://github.com/cofade/open-garden-planner/pull/613), after the owner's third manual pass ("all perfect") confirmed every decision below, including the "Owner's second manual pass" addendum (every object without a 2D default height gets a real, settable one; detail-normal strength 3.0) and the two re-review fixes (the AO fade switched SSAO on at Low, PF-L3D-15; a plain-block house had a sandstone top instead of roof tiles).
@@ -11156,8 +11395,8 @@ Raw snapshot/delta CSV schemas and meanings remain unchanged. No in-app/web infe
 The standard-library report module emits a daily series, SVG and a local-asset website.
 Its browser code SUMS days into Monday weeks, calendar months or years after applying
 the selected date range; cut-off buckets retain partial labels and estimate components.
-Default view: daily, last 365 covered calendar dates. Website English/German/Spanish catalogs
-are separate from Qt: reporting runs on a plain Python runner, not an installed app.
+Default view: daily, last 365 covered calendar dates. Website catalogs
+(`en`/`de`/`es`/`fr`/`ru`) are separate from Qt: reporting runs on a plain Python runner, not an installed app.
 Both themes, mobile layout, accessible bar descriptions and keyboard inspection are
 supported without an external chart dependency or CDN.
 
@@ -12054,13 +12293,13 @@ runner bean tied to a trellis read 0 h of sun and wore a "too little sun" badge.
 **Measured** (`scripts/measure_built_world_shadows.py`; one item of the stated footprint at
 its default height, the sun due south, at 15° / 35° / 60°):
 
-| Kind (footprint, height) | 3D shadow ÷ 2D prism | Transmittance | 3D ÷ weighted 2D |
+| Kind (footprint, height) | IoU, 3D vs trimmed 2D | Transmittance | 3D ÷ weighted 2D |
 |---|---|---|---|
-| pergola (300 × 300 cm, 250 cm) | 0.28 / 0.32 / 0.36 | 0.71 / 0.68 / 0.64 | 0.99 / 0.99 / 0.99 |
-| trellis (200 × 20 cm, 180 cm) | 0.32 / 0.34 / 0.39 | 0.68 / 0.66 / 0.61 | 1.00 / 1.00 / 1.00 |
-| swing (200 × 150 cm, 220 cm) | 0.17 / 0.16 / 0.15 | 0.83 / 0.84 / 0.85 | 1.00 / 1.00 / 1.00 |
-| hammock (300 × 120 cm, 110 cm) | 0.21 / 0.26 / 0.30 | 0.79 / 0.74 / 0.70 | 1.00 / 1.00 / 1.00 |
-| garden light (radius 20 cm, 110 cm) | 0.21 / 0.28 / 0.37 | 0.79 / 0.72 / 0.63 | 1.00 / 1.00 / 1.00 |
+| pergola (300 × 300 cm, 250 cm) | 0.29 / 0.32 / 0.36 | 0.71 / 0.67 / 0.64 | 0.99 / 0.99 / 0.99 |
+| trellis (200 × 20 cm, 180 cm) | 0.33 / 0.35 / 0.41 | 0.67 / 0.65 / 0.59 | 1.00 / 1.00 / 1.00 |
+| swing (200 × 150 cm, 220 cm) | 0.18 / 0.19 / 0.21 | 0.82 / 0.81 / 0.79 | 1.00 / 1.00 / 1.00 |
+| hammock (300 × 120 cm, 110 cm) | 0.23 / 0.33 / 0.43 | 0.77 / 0.67 / 0.57 | 1.00 / 1.00 / 1.00 |
+| garden light (radius 20 cm, 110 cm) | 0.21 / 0.29 / 0.39 | 0.78 / 0.70 / 0.59 | 1.00 / 1.00 / 1.00 |
 
 The last column is the issue's gate — within 10 %, as #440 held fences — and it is the
 ratio column of the builders addendum's table for these five rows. It is 1.00 where the 2D
@@ -12068,9 +12307,10 @@ model reads the very mesh the measurement projects; the pergola's 0.99 is the la
 plain boxes against the chamfered timber. The gate is not trivially met for that reason:
 the measurement unites every triangle of the mesh in its own code, and
 `tests/unit/test_open_frames.py` holds the 2D weight to it within 0.02 over three sizes,
-five elevations and seven azimuths per kind. The table's reach column is unchanged: an
-open frame's shade still ends where its prism's does, 4–71 cm further than the frame's
-real shadow (a swing's top beam is mid-frame).
+five elevations and seven azimuths per kind. The table's reach column now reads 0.0 cm
+for the four frames whose top member is their far member and −0.8 cm for the pergola:
+since #855 the prism is trimmed to the frame's own far member tip, so the shade no
+longer ends 4-71 cm past the real shadow (a swing's top beam is mid-frame).
 
 **What changes for existing plans.** No file-format change; a plan with one of the five
 kinds shows more sun under and behind it the next time the map is computed. On the bundled
@@ -12145,6 +12385,67 @@ twin, the soft edge, the heatmap worker, a pergola placed through the command st
 undone), `tests/unit/test_scene3d_shadow_agreement.py` (the five rows).
 
 
+
+**Addendum (issue #855): the prism is trimmed to the frame's own far tip.** The
+weighted model above spread the frame's shade over the whole `height / tan a` prism.
+That prism ends at the shadow of the frame's nominal height, not at its topmost
+member: a swing's top beam is mid-frame, so its shade ran 71 cm past the beam's
+shadow (4-71 cm across the five kinds). `core.shadow_geometry.open_frame_effective_length`
+now trims the swept length to the largest `x·dx + y·dy + z / tan a` of the frame's
+own members, minus the footprint's reach; the transmittance is measured against that
+trimmed prism, so its tip is the frame's while the frame's own shadow is spread over
+the smaller prism as before. The table's reach column reads 0.0 cm for the four frames whose top
+member is their far member and -0.8 cm for the pergola; the ratio column is 3D against
+the weighted, trimmed 2D area. The 3D analysis drape, the hours-of-sun map, the overlay
+and the per-plant estimates all read the same trimmed caster. Less than one minute can
+still be lost in a cell or two at a weighted-region seam (the #440 limitation, 0.997 min
+measured); that is a seam, not a solid's shade. Tests:
+`tests/unit/test_open_frames.py` (the reach versus the measuring script's mesh shadow,
+the transmittance against the trimmed prism, and the turned frame) and
+`tests/integration/test_open_frame_shade.py` (the real overlay and map). FR-SUN-13,
+§8.29.6 and the shadow table carry the new numbers.
+
+### ADR-070 addendum: the weather is the plan's, not the session's (#944)
+
+**Status**: Accepted (draft PR; the owner's visual pass is still owed).
+
+**Context**: L5 made the weather session state: `WorkspaceLivingCoordinator` started
+clear and the note said "not stored". A bundled example or a stored camera tour could
+therefore not open in snow or rain, so a winter showcase could not be shipped. The
+issue's direction was "an optional weather on the showcase moment of an example, or on
+a stored tour". The tour is the wrong home: a tour is a camera and a clock (ADR-072
+addendum), and the weather is a property of the whole plan's look, not of one flight.
+
+**Decision**:
+1. **One additive top-level plan key, `weather`.** `ProjectData.weather` defaults to
+   `"clear"`, is written only when it is not clear, and is read through
+   `weather.normalise_weather` — an unknown value, a missing key or `today` opens clear.
+   No `FILE_VERSION` change; an older app ignores the key.
+2. **The choice is the user's and dirties the plan.** `ProjectManager.set_plan_weather`
+   stores the weather and marks the plan dirty; the window's
+   `_store_plan_weather` stores every concrete weather the toolbar emits and refuses
+   `today` (a forecast, not a plan fact); `_restore_project_metadata` normalises through
+   `_plan_weather` so `today` can never leak into `plan_weather`. Opening a plan calls
+   `_apply_plan_weather`, which applies the stored weather — **clear included** — with an
+   `_applying_plan_weather` guard so the feed-back does not dirty the document. `File -> New`
+   preserves `today` (session-only) while resetting any previous plan's concrete weather to
+   `clear` so the 3D view and `plan_weather` never desynchronise.
+3. **A portable template keeps it.** `weather` joins `KEEP_PROJECT_FIELDS`: it is part
+   of the plan's look, not personal site data.
+4. **A tour keeps no weather.** A tour rendered from a plan uses that plan's weather
+   (FR-3D-TOUR-04); the weather still belongs to the view/plan at render time.
+
+**Alternatives rejected**: a tour-only field (one flight would own the whole plan's
+sky, and a still picture or the live view would not see it); a session setting (the
+issue's whole point); writing clear explicitly (the plan key is additive and absent
+means clear, so a file stays small and old plans stay byte-compatible); treating an
+unknown weather as an error (a file from a future build must still open).
+
+**Consequences**: one additive plan key; no new UI string (the
+Weather menu exists). Pinned by `tests/unit/test_plan_weather.py` (the key, the range,
+unknown values), `tests/integration/test_plan_weather.py` (the real window: the menu
+stores, save/reopen applies, Today is not stored), and
+`tests/integration/test_autosave_recovery.py` (recovery keeps it).
 
 ## ADR-071: Per-object fill transform as additive appearance metadata (issue #665)
 
@@ -12853,6 +13154,39 @@ unbounded GUI-thread join on a gigabyte copy (freezes close).
 **Pinned by:** `tests/unit/test_mp4_stream.py`, `tests/unit/test_camera_tours.py`,
 `tests/integration/test_tour_video_reliability.py`, and the real encoder/decoder workflows
 in `tests/integration/test_video_writer.py`.
+
+### ADR-072 addendum: a drone orbit's part turn (#966)
+
+**Status**: Accepted (draft PR; the owner's visual pass is still owed).
+
+**Context**: `DroneOrbit(turns=0.5)` already existed in `core/camera_path.py`, but the
+tour dialog offered a `QSpinBox` of whole turns (1–4) and `SavedTour` refused any
+non-integer. A garden with a house on one side could only fly a full turn, so three
+bundled examples showed the back of the house for half the video.
+
+**Decision**:
+1. **Turns are a part or a whole turn.** `ORBIT_TURNS = (0.25, 4.0)`; the dialog's
+   **Turns** is a `QDoubleSpinBox` with two decimals and a 0.25 step (the tooltip
+   explains the garden-side use). `default_duration_s` multiplies
+   `ORBIT_SECONDS_PER_TURN` by the fractional turns, so a half turn lasts 15 s.
+2. **The file carries the fraction.** `_orbit_dict` writes an integer when the value is
+   whole and a float otherwise; `_orbit_from` clamps any written value to the dialog's
+   range and rounds to two decimals. `SavedTour` validates the range, not integrality.
+3. **The bundled examples use it.** Terraced-house, Mediterranean and modern gardens
+   store a counter-clockwise (`ORBIT_CLOCKWISE = False`) half-turn orbit sweeping across
+   the south/garden side opposite the house; their first frame is still the stored view.
+
+**Alternatives rejected**: a separate "half turn" checkbox (two truths for one number);
+only whole turns in the file (a plan could not say what the dialog offers); a fixed
+half-turn preset (a quarter turn is useful on a small courtyard).
+
+**Consequences**: no `FILE_VERSION` change; `turns` stays the same additive orbit
+field with a wider value range. An older app rounds a fractional value to a whole turn
+(a stored 0.5 becomes 1) and flies a full turn; it does not fail to open the plan. No new
+UI string except the tooltip, translated in all five locales. Pinned by
+`tests/unit/test_camera_tours.py` (round trip, clamp, default duration),
+`tests/integration/test_directors_cut.py::test_a_part_turn_starts_the_orbit_at_the_view_and_stops_half_way_round`,
+and `tests/unit/test_example_specs.py` (the three stored half turns).
 
 ## ADR-073: The Microsoft Store as a second distribution channel (MSIX), and the #375 decision record (issue #375, #358, #356)
 
@@ -13707,7 +14041,7 @@ before.
 
 ## ADR-078: A unit preference over the centimetre model (issue #673)
 
-**Status**: Shipped in v1.40.0; owner confirmed manual acceptance (issue #673; discussion #671, with defaults informed by @ciru-chan).
+**Status**: Shipped in v1.40.0; owner confirmed manual acceptance (issue #673; discussion #671, with defaults informed by @ciru-chan). Partly superseded by ADR-081 (#907): the display preference is per quantity.
 
 **Context**: US gardeners read seed packets, plants and site dimensions in different native units. Converting the model would break geometry, constraints, saved plans and clients. The issue's November 8 survey predates ADR-077's locale formatting and the shipped #782 PDF scale-bar correction; both remain in effect.
 
@@ -13730,7 +14064,7 @@ before.
 - *Use the issue's original 3 ft switch and fractions for plant sizes.* Superseded by the horticultural feedback in #671.
 - *Force English decimal marks to keep the pure module Qt-free.* Rejected: the explicit decimal-mark argument and thin adapter preserve the later locale contract.
 
-**Consequences**: No dependency or file-format change. Metric remains the default. Temperature, precipitation, harvest mass and a Canadian mixed preset need separate decisions (#907); DXF unit selection and per-plan overrides are deferred. Tests: `test_units.py`, `test_unit_preference.py`, `test_unit_spin_box.py`, `test_units_surfaces.py`, `test_unit_dialogs.py`, `test_unit_reports.py`, `test_units_guard.py`, `test_coordinate_units.py` and the save/reopen workflow in `tests/integration/test_unit_system.py`. FR-MEAS-07; §8.9.19.
+**Consequences**: No dependency or file-format change. Metric remains the default. ADR-081 extends the preference to temperature, precipitation, harvest mass and Canada (mixed), one system per quantity; DXF unit selection and per-plan overrides are deferred. Tests: `test_units.py`, `test_unit_preference.py`, `test_unit_spin_box.py`, `test_units_surfaces.py`, `test_unit_dialogs.py`, `test_unit_reports.py`, `test_units_guard.py`, `test_coordinate_units.py` and the save/reopen workflow in `tests/integration/test_unit_system.py`. FR-MEAS-07; §8.9.19.
 
 ## ADR-079: The IANA time-zone data (`tzdata`) is a runtime dependency (#945)
 
@@ -13893,3 +14227,156 @@ An explicitly selected flat roof has a separate 3D top surface with plan UVs.
 The shared fill pipeline supplies its texture and tint. A fill edit updates
 the material. The slab's sides and underside use their own finish, and an
 automatic concrete slab keeps its legacy finish.
+
+## ADR-080: A reference point is a circle record with additive metadata (#666)
+
+**Status**: Shipped in v1.40.13 after owner acceptance ([PR #985](https://github.com/cofade/open-garden-planner/pull/985)).
+
+**Context**: A plan could record footprints, plants, annotations and construction
+geometry, but not a first-class survey stake, fence post, datum or measurement
+reference. Reusing a tiny plant circle gives it botanical semantics and puts it in
+plant lists and diagnostics; a callout or journal pin is attached to something else;
+construction geometry is not a durable document object. The requested object is a
+named target/cross whose exact centre is the snap and measure point, optionally bound
+to a parent's outline, with the ordinary layer/lock/copy/undo/save rules. The issue's
+design study is `Sevoiger/open-garden-planner` PRs #26 and #30; its object model and
+Qt item base have moved since, so this ADR settles the kind before code.
+
+**Decision**:
+1. **Object kind.** A reference point is the existing `GENERIC_CIRCLE` record with
+   `metadata["reference_point"] = true`, not a new `ObjectType`. `ProjectManager`'s
+   ordinary circle branch writes and loads it, and an older version reads it as a small
+   circle. No `.ogp` `FILE_VERSION` bump and no second serializer path.
+2. **One exact coordinate.** `ReferencePointItem` keeps `rect()` centred on `(0, 0)`
+   and its `pos()` is the datum, so `mapToScene(rect().center())` is the exact point in
+   both size modes. `core.measure_snapper.get_anchor_points` returns only
+   `AnchorType.CENTER` for a reference point; the halo arms are decoration, never
+   snap targets.
+3. **Binding is additive metadata.** `reference_point_parent_id` and
+   `reference_point_on_contour` name the parent and the contour rule. The legacy
+   `parent_bed_id` link is deliberately not used, so bed membership, plant lists,
+   capacity and deletion cascades keep their old meaning. A bound point is projected
+   onto the nearest straight parent edge (`core.snap.geometry.item_edges` +
+   `core.cad_geometry.point_to_segment_distance`) when placed or moved; an off-contour
+   move is refused, and the dialog's Independent point choice is the explicit detach.
+   Parent translation moves the point; parent rotation or vertex edits do not move an
+   existing point, which is the documented limitation.
+4. **A parent move and its point are one undo step.** `core.commands.expand_with_bed_children`
+   appends each moved parent's attached points with that parent's delta, so drag,
+   keyboard, typed-coordinate, align/distribute and agent move paths all carry the
+   point inside the same command. The live drag propagates attached points like bed
+   children and resets them before the command re-applies the delta. There is no scene
+   watcher and no second write path.
+5. **Two size modes.** `reference_point_size_mode` is `plan_cm` (default, 6 cm, scales
+   with zoom) or `screen_px` (default 16 px, `ItemIgnoresTransformations`); colour and
+   cosmetic stroke width are metadata. The symbol is a target/cross with a centre dot;
+   `boundingRect`/`shape` keep the halo clickable and the minimap paints a dot.
+6. **No 3D form.** A generic shape has no height, so the built world produces nothing
+   for it. A measurement datum stays a 2D plan object; `core/scene3d` is unchanged.
+7. **Ordinary object rules.** Placement is one `CreateItemCommand`; every edit is one
+   `ChangePropertyCommand` over `(name, binding, size, colour, stroke, position)`.
+   Layer, lock, copy/duplicate, delete, context menu, save and reload use the existing
+   mixins and commands.
+8. **Translations.** All strings use `ReferencePoints`, `MainToolbar` and `Commands`
+   contexts and are complete in every registered locale (en/de/es/ru/fr). The French
+   locale lands in the same package (#553) so this object's strings exist everywhere.
+
+**Alternatives considered**:
+- *A new `ObjectType` and item class.* Rejected: it needs a `FILE_VERSION` bump, an
+  old version cannot read a file that contains it, and it repeats the ~16 dispatch sites
+  ADR-031 already rejected for "things plants live in".
+- *A tiny generic circle without metadata.* Rejected: it cannot be named, bound,
+  snapped from a declared datum, or distinguished from a surface.
+- *A callout or journal pin.* Rejected: both attach to another object and cannot be a
+  free-standing datum.
+- *A Qt child of the parent item.* Rejected: a parent rotation would move the datum,
+  and the group serializer would treat it as nested content rather than a plan object.
+- *A scene-change watcher that follows the parent.* Rejected: it mutates outside the
+  undo stack and adds a chatty teardown signal (invariant 18).
+
+**Consequences**: Adds `core/reference_points.py`, `ui/reference_points.py`,
+`ui/canvas/items/reference_point_item.py`, `core/tools/reference_point_tool.py`, and
+the dialog strings. The tool is armed from **Garden > Reference point**; it is not a
+sixth main-toolbar button. A sixth button, like any extra per-window widget, amplified
+a teardown fault during this delivery (PF-TST-14's armed timer, PF-TST-41's churn);
+the menu action is the stable entry and keeps the toolbar at the five tools ADR-018
+defines.
+Deleting a bound parent leaves the datum in place; it reads as independent and the
+dangling key is cleared on its next edit. No dependency, `.ogp` format, or 3D change.
+Tests: `tests/unit/test_reference_points.py` and
+`tests/integration/test_reference_points.py` (placement, contour projection, parent
+translation with one undo step, detach, edit, copy, layer, save/reload, legacy circle
+fallback and both size modes). Cross-refs: FR-36 (FR-REF-01..06), §8.9.20, glossary
+"Reference point", ADR-017/ADR-031 (bed predicates), ADR-004 (commands), ADR-078
+(measurement display).
+
+
+**Review addendum (PR #985).** A direct move projects the requested coordinate once.
+Undo and redo restore the captured coordinates, including a point left off the
+contour by a parent geometry edit. Changing a name or symbol does not project
+the point. A parent translation carries unlocked points in their own coordinate
+frame, including a point inside a separate stationary group. A position lock
+or locked layer prevents this implicit move. A point and its parent copied
+together rebind by UUID even when nested. An ordinary translation of a Qt group
+also moves its members. Constraints treat reference points as stationary
+anchors during the solve. If the solve moves a binding parent, its unlocked
+points follow that parent in the same command. A datum may have an attachment or
+participate in a geometric constraint. Attachment still permits centre snapping,
+measurement and a position lock. The dialog offers only persistent rectangles
+and polygons for new bindings; construction guides remain snap aids. The datum's rendered perimeter
+does not participate in snapping or rectangle-based geometry editors.
+
+## ADR-081: Per-quantity unit systems and the Canada (mixed) preset (issue #907)
+
+**Status**: Shipped in v1.41.0 after owner acceptance (issue #907; [PR #989](https://github.com/cofade/open-garden-planner/pull/989)).
+
+**Context**: ADR-078 shipped one Metric/Imperial choice over the centimetre model. That
+choice covered layout lengths, areas and container volumes; temperature, precipitation
+and harvest mass stayed metric, and a Canadian gardener could not have feet for beds and
+degrees Celsius for the weather at the same time. Issue #907 asked for a per-quantity
+profile and a Canadian mixed preset, while keeping the centimetre geometry model, the
+Agent API units and every saved file unchanged.
+
+**Decision**:
+1. **One immutable profile, six quantities.** `core/unit_preference.py` defines
+   `Quantity` (length, area, volume, temperature, precipitation, mass) and a frozen
+   `UnitProfile` mapping each to `UnitSystem`. `UnitPreference` holds the process
+   profile, emits the legacy `changed(length)` signal and a `profile_changed(profile)`
+   signal for the new surfaces. `set_system` remains the one-value API and sets every
+   quantity; `set_quantity_system` moves one.
+2. **Presets and storage.** `UnitPreset` names Metric, Imperial (US), Canada (mixed)
+   and Custom. `AppSettings` stores `units/profile` plus one `units/<quantity>` key;
+   an absent profile reads the legacy `units/system` for every quantity, and the
+   legacy key is kept truthful as the length system. No `.ogp` key changes.
+3. **Pure conversions, one display seam.** `core/units.py` gains
+   `format_temperature` / `parse_temperature` (Celsius), `format_precipitation` /
+   `parse_precipitation` (millimetres) and `format_mass` / `parse_mass` (kilograms).
+   `core/measurement_display.py` adapts temperature and precipitation to the active
+   profile and Qt locale; the harvest log keeps its explicitly entered unit, with
+   `default_mass_unit()` choosing only a new entry's default.
+   `TemperatureSpinBox` keeps its value in Celsius while displaying °C or °F.
+4. **Surfaces.** The preferences General tab exposes the preset and the six rows; the
+   weather panel, frost thresholds, germination temperature and harvest log read the
+   profile. Harvest records keep their explicit unit as the aggregation key
+   (`kg`, `g`, `lb`, `oz`, `pcs`, `bunch`, `L`), so totals never mix units.
+5. **Canada (mixed), provisionally.** Length and area are imperial; volume,
+   temperature, precipitation and mass are metric. This is a recorded starting point,
+   not a claim that every Canadian gardener chooses it; changing any row yields
+   Custom, and the defaults are revisited when feedback exists.
+
+**Alternatives considered**:
+- *One global system only.* Rejected: it cannot express the mixed profile the issue
+  asks for, and it forces a Canadian user to choose between feet and Celsius.
+- *Convert stored values when the display changes.* Rejected: it mutates geometry and
+  saved data, violating ADR-078 and the Agent API's centimetre contract.
+- *Convert harvest totals to one unit.* Rejected: a bunch, a kilogram and a pound are
+  not interchangeable records; the existing per-unit aggregation is the honest total.
+- *A locale-derived unit default.* Rejected: the UI language decides formats, not
+  measurement systems; the user chooses the profile.
+
+**Consequences**: Adds `UnitProfile`, `UnitPreset`, `Quantity`, the three conversion
+families, `TemperatureSpinBox`, and the per-quantity preferences rows. Weather and
+germination displays refresh on `profile_changed`; existing settings and plans open
+unchanged. Tests: `tests/unit/test_units.py`, `tests/unit/test_unit_preference.py`,
+`tests/integration/test_unit_quantities.py`, `tests/ui/test_plant_database_panel.py` and the
+preferences suites. Cross-refs: ADR-078, FR-MEAS-07..10, §8.3 (locale), issue #907.
