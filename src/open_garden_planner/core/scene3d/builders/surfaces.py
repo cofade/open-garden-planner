@@ -597,7 +597,8 @@ def _raked_sand(record: Record) -> list[Mesh]:
             if rows > MAX_RAKED_ROWS:
                 return []
             for x0, x1 in _inside_at(edges, y):
-                if x1 - x0 <= 1.0:
+                # A ridge wider than its run would overhang the court's own outline.
+                if x1 - x0 <= RAKED_SAND_WIDTH_CM:
                     continue
                 runs.append((x0, x1, y, rows))
                 if len(runs) > MAX_RAKED_RIDGES:
