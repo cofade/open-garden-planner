@@ -8393,9 +8393,9 @@ keeps the global union small. `owned_shadows` has no production reader, but remo
 unions is a pessimisation, not an optimisation. Recorded so the next attempt starts from
 the measurement.
 
-### ADR-059 addendum: the 3D showcase follow-ups (#941, #943, #955, #960, #992)
+### ADR-059 addendum: the 3D showcase follow-ups (#941, #943, #954, #955, #960, #992)
 
-**Status**: Accepted (draft PR; the owner's visual pass is still owed).
+**Status**: Shipped in [v1.41.3](https://github.com/cofade/open-garden-planner/releases/tag/v1.41.3) after owner acceptance (2026-11-23; [PR #998](https://github.com/cofade/open-garden-planner/pull/998)).
 
 **Context**: the independent 3D review of the bundled examples (#940) found looks that
 were fixed values rather than the plan's own: one multiplier per channel turned green
@@ -10189,7 +10189,7 @@ tree references (their foliage colours were re-measured once, for #969).
 
 ### ADR-064 addendum 2: species forms from the plant's own size (#949, #956, #960)
 
-**Status**: Accepted (draft PR; the owner's visual pass is still owed).
+**Status**: Shipped in [v1.41.3](https://github.com/cofade/open-garden-planner/releases/tag/v1.41.3) after owner acceptance (2026-11-23; [PR #998](https://github.com/cofade/open-garden-planner/pull/998)).
 
 **Context**: the Forge had one palm and one conifer silhouette. A dwarf fan palm
 therefore got the windmill palm's bare 0.64-height trunk, a Scots pine got a spruce
@@ -12407,7 +12407,7 @@ the transmittance against the trimmed prism, and the turned frame) and
 
 ### ADR-070 addendum: the weather is the plan's, not the session's (#944)
 
-**Status**: Accepted (draft PR; the owner's visual pass is still owed).
+**Status**: Shipped in [v1.41.3](https://github.com/cofade/open-garden-planner/releases/tag/v1.41.3) after owner acceptance (2026-11-23; [PR #998](https://github.com/cofade/open-garden-planner/pull/998)).
 
 **Context**: L5 made the weather session state: `WorkspaceLivingCoordinator` started
 clear and the note said "not stored". A bundled example or a stored camera tour could
@@ -13157,7 +13157,7 @@ in `tests/integration/test_video_writer.py`.
 
 ### ADR-072 addendum: a drone orbit's part turn (#966)
 
-**Status**: Accepted (draft PR; the owner's visual pass is still owed).
+**Status**: Shipped in [v1.41.3](https://github.com/cofade/open-garden-planner/releases/tag/v1.41.3) after owner acceptance (2026-11-23; [PR #998](https://github.com/cofade/open-garden-planner/pull/998)).
 
 **Context**: `DroneOrbit(turns=0.5)` already existed in `core/camera_path.py`, but the
 tour dialog offered a `QSpinBox` of whole turns (1–4) and `SavedTour` refused any

@@ -287,8 +287,17 @@ def test_live_regrowth_never_downgrades_forged_tree_to_v0_silhouette(qtbot, monk
     qtbot.waitUntil(lambda: worker.pending_count == 0, timeout=10000)
 
     item_id = str(item.item_id)
-    forged_wood = next(p.mesh for p in engines.sink.item(item_id).parts if p.name == "wood")
-    assert forged_wood.vertex_count > 100
+
+    def sink_wood():  # the forge upgrade is a later event-loop turn than the first pass
+        try:
+            return next(p.mesh for p in engines.sink.item(item_id).parts if p.name == "wood")
+        except (KeyError, StopIteration):
+            return None
+
+    qtbot.waitUntil(lambda: (wood := sink_wood()) is not None and wood.vertex_count > 100,
+                    timeout=10000)
+    forged_wood = sink_wood()
+    assert forged_wood is not None and forged_wood.vertex_count > 100
 
     def forbid_v0_downgrade(_record):
         raise AssertionError("An already-forged growing tree was downgraded to a v0 silhouette")

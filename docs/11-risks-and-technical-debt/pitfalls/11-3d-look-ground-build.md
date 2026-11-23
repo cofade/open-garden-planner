@@ -515,5 +515,5 @@ Symptom (#995, #996): during the year animation in `spring-garden.ogp` at Normal
 - **Rule:** A two-anchor autumn map must not also apply the old palette multiplier; the shader takes the snow tint only.
 - **Pinned by:** `tests/unit/test_phenology.py::test_the_autumn_multiplier_is_not_applied_twice`
 - **Source:** #941; ADR-059 addendum
-- **Status:** pointer → [ADR-059 addendum](../../09-architecture-decisions/README.md#adr-059-addendum-the-3d-showcase-follow-ups-941-943-955-960-992)
+- **Status:** pointer → [ADR-059 addendum](../../09-architecture-decisions/README.md#adr-059-addendum-the-3d-showcase-follow-ups-941-943-954-955-960-992)
 - **Legacy:** none (new entry)
