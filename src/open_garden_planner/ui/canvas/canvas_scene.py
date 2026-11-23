@@ -2393,6 +2393,15 @@ class CanvasScene(QGraphicsScene):
         # plan's content is gone, and this is the one place that knows.
         self.note_plan_changed()
 
+    @property
+    def document_generation(self) -> int:
+        """Counter bumped each time the document is cleared or replaced.
+
+        A modal reply captured under an older generation belongs to a plan that
+        is gone and must be discarded.
+        """
+        return getattr(self, "_document_generation", 0)
+
     def reset_document_diagnostics(self) -> None:
         """Drop document-owned caches at clear and successful load commit."""
         self._guild_diagnostics: list[dict[str, Any]] = []

@@ -5846,28 +5846,11 @@ class GardenPlannerApp(QMainWindow):
 
     def _on_search_plant_database(self) -> None:
         """Handle Search Plant Database action."""
-        import os
-
-        from open_garden_planner.app.settings import get_settings
         from open_garden_planner.services import PlantAPIManager
         from open_garden_planner.ui.dialogs import PlantSearchDialog
 
-        # Read API credentials from QSettings, with env var fallback
-        settings = get_settings()
-        trefle_token = settings.trefle_api_token or os.environ.get("TREFLE_API_TOKEN", "")
-        perenual_key = settings.perenual_api_key or os.environ.get("PERENUAL_API_KEY", "")
-        from open_garden_planner.services.plant_api.permapeople_client import (
-            resolve_permapeople_credentials,
-        )
-
-        permapeople_id, permapeople_secret = resolve_permapeople_credentials(settings)
-
-        api_manager = PlantAPIManager(
-            trefle_api_token=trefle_token or None,
-            perenual_api_key=perenual_key or None,
-            permapeople_key_id=permapeople_id or None,
-            permapeople_key_secret=permapeople_secret or None,
-        )
+        # Preferences credentials with environment fallback (one factory).
+        api_manager = PlantAPIManager.from_settings()
 
         dialog = PlantSearchDialog(api_manager, self)
         if dialog.exec():

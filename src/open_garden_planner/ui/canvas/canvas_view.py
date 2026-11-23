@@ -529,8 +529,11 @@ class CanvasView(QGraphicsView):
 
     def _setup_tools(self) -> None:
         """Register and initialize drawing tools."""
+        from open_garden_planner.ui.canvas.plant_grid_tool import PlantGridTool
+
         # Register basic tools
         self._tool_manager.register_tool(SelectTool(self))
+        self._tool_manager.register_tool(PlantGridTool(self, self._canvas_scene))
         self._tool_manager.register_tool(MeasureTool(self))
         self._tool_manager.register_tool(ConstraintTool(self))
         self._tool_manager.register_tool(EdgeLengthConstraintTool(self))
@@ -1505,7 +1508,7 @@ class CanvasView(QGraphicsView):
         finger can start a pinch. Without this the whole pinch drags (or draws
         with) whatever the first finger landed on. The live half is undone
         first — a moved item is put back and its pending undo step never exists —
-        then the tool's own ``cancel()`` discards a half-made shape, and the
+        then the tool rolls back its pointer press, and the
         release ends the interaction where it began. A resize/rotate/vertex handle is
         the one thing not reverted: its normal release finalizes the edit as one
         undo step (§8.9.12).
@@ -1517,7 +1520,7 @@ class CanvasView(QGraphicsView):
         self._cancel_pointer_interaction()
         tool = self._tool_manager.active_tool
         if tool is not None:
-            tool.cancel()
+            tool.cancel_pointer_press()
         position, button = press
         if button != Qt.MouseButton.NoButton:
             QApplication.sendEvent(
@@ -4489,6 +4492,16 @@ class CanvasView(QGraphicsView):
 
         # The scene's own foreground: the object labels, above the grid.
         super().drawForeground(painter, rect)
+        # The active tool's view-only draft (ADR-082), above the labels.
+        # The view owns the painter state, so a tool cannot leak a transform
+        # or pen into the guides painted after it.
+        active_tool = self._tool_manager.active_tool
+        if active_tool is not None:
+            painter.save()
+            try:
+                active_tool.paint_foreground(painter)
+            finally:
+                painter.restore()
 
         # Draw snap alignment guides
         if self._snap_guides:

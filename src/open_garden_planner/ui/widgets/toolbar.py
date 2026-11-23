@@ -18,7 +18,7 @@ from open_garden_planner.ui.icons import get_icon
 
 
 class MainToolbar(QToolBar):
-    """CAD-style top toolbar with core tools: Select, Measure, annotations.
+    """CAD-style top toolbar with core tools: Select, Measure, annotations, Plant Grid.
 
     Signals:
         tool_selected: Emitted when a tool button is clicked (ToolType)
@@ -66,6 +66,11 @@ class MainToolbar(QToolBar):
         self._add_tool_button(
             ToolType.JOURNAL_PIN, "journal_pin", self.tr("Journal Pin"),
             self.tr("Drop a garden-journal note pin"), "J",
+        )
+
+        self._add_tool_button(
+            ToolType.PLANT_GRID, "grid", self.tr("Plant Grid"),
+            self.tr("Place a grid of plants"), "",
         )
 
         self._buttons[ToolType.SELECT].setChecked(True)

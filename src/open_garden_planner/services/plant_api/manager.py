@@ -75,6 +75,32 @@ class PlantAPIManager:
 
         # TODO: Add bundled database client when implemented
 
+    @classmethod
+    def from_settings(cls, settings: Any = None) -> "PlantAPIManager":
+        """Build the manager from the Preferences credentials.
+
+        Every plant-database search surface calls this one factory, so a key
+        entered in Preferences reaches all of them (PR #1000 review). Each
+        credential falls back to its environment variable when unset.
+        """
+        import os
+
+        if settings is None:
+            from open_garden_planner.config.settings import get_settings
+
+            settings = get_settings()
+        trefle_token = settings.trefle_api_token or os.environ.get("TREFLE_API_TOKEN", "")
+        perenual_key = settings.perenual_api_key or os.environ.get("PERENUAL_API_KEY", "")
+        from .permapeople_client import resolve_permapeople_credentials
+
+        permapeople_id, permapeople_secret = resolve_permapeople_credentials(settings)
+        return cls(
+            trefle_api_token=trefle_token or None,
+            perenual_api_key=perenual_key or None,
+            permapeople_key_id=permapeople_id or None,
+            permapeople_key_secret=permapeople_secret or None,
+        )
+
     @property
     def configured_source_count(self) -> int:
         """Number of API clients that have the credentials needed to

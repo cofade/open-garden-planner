@@ -98,6 +98,7 @@ All rows **production** unless noted.
 | `canvas/tangent_snap_enabled` | `tangent_snap_enabled` | **`False`** | production, default-OFF opt-in precision aid (US-B6) |
 | `canvas/dynamic_input_enabled` | `dynamic_input_enabled` | `True` | production (US-A4 cursor overlay + typed coordinates) |
 | `canvas/touch_gestures_enabled` | `touch_gestures_enabled` | `True` | production (#321 pinch zoom + two-finger pan; Preferences → General → Canvas; off leaves touch to Qt's synthesised mouse path) |
+| `tools/plant_grid_rows` / `tools/plant_grid_columns` | `plant_grid_dimensions` (tuple) | `3` / `3` | production (FR-PLANT-25, #1002): the last confirmed Plant Grid counts, written when the rows-and-columns dialog is accepted; read and written clamped to 1–`PLANT_GRID_MAX_SIDE` (20). No Preferences row |
 
 All read by `ui/canvas/canvas_view.py` / the snap pipeline; toggled from the
 View menu. If a snap "doesn't work", check nearest/perpendicular/tangent first —

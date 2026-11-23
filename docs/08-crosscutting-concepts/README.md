@@ -639,8 +639,10 @@ press for the first touch point before the second finger can start the gesture,
 and nothing in the recognizer stops that press's stream. `eventFilter` remembers
 that press; on `GestureStarted` `_cancel_touch_press` puts back a move the press
 had begun (item, constraint-propagated and child positions) so its release pushes
-no undo step, calls the active tool's own `cancel()` (a half-made shape or a
-selection box is discarded), sends the press's release **at the point it was made**,
+no undo step, calls the active tool's `cancel_pointer_press()` (by default its own
+`cancel()`: a half-made shape or a selection box is discarded; Plant Grid overrides it to
+undo only that press and keep its multi-press draft, ADR-082), sends the press's release
+**at the point it was made**,
 and restores a selection the press had cleared on empty canvas. The item under the
 first finger may still be selected, as a tap selects it. One exception is stated
 rather than hidden: a **resize/rotate/vertex handle** being dragged is finalized by
@@ -1386,6 +1388,33 @@ re-applies the delta. A parent move and its point are therefore one undo step on
 path, with no scene watcher. `ItemIgnoresTransformations` is set only for `screen_px`
 size mode. A generic shape has no height, so nothing is added to the 3D scene.
 The tool is armed from **Garden > Reference point**; it has no main-toolbar button.
+
+### 8.9.21 A tool's multi-press draft is view-painted (ADR-082, #1002)
+
+A tool whose draft lives across several presses (Plant Grid) paints it in
+`BaseTool.paint_foreground(painter)`. `CanvasView.drawForeground` calls the hook for the
+active tool, in scene coordinates, above the object labels. A one-gesture preview of items
+that are about to exist keeps using scene items at `preview_z`.
+
+- **A paint only reads.** Never move a widget, change a scene item or change tool state in
+  the hook. A widget attached to the draft is placed from the tool's mouse handlers, from
+  `zoom_changed` and the scroll bars' `valueChanged`, and from a viewport-resize event
+  filter that defers one event-loop turn (the Resize event precedes the view's
+  re-centring). The view saves and restores the painter around the hook.
+- **View-only by construction.** Exports and the minimap use `scene.render()` and never
+  see the draft (§8.9.16), so the tool needs no exclusion filter.
+- **Esc belongs to the view (#829).** The tool does not handle Esc itself. The view ends the
+  tool and `deactivate()` → `cancel()` discards the draft.
+- **Pinch.** Override `cancel_pointer_press()` to undo only the interrupted press
+  (§8.9.12).
+- **What the preview shows is what gets placed.** A species sprite in the preview is drawn
+  at `PLANT_FILL_SCALE` (`ui/canvas/items/circle_item.py`), as the placed `CircleItem`
+  draws it.
+
+Test pattern: move the attached widget, grab the viewport, and assert that the widget did
+not move; then zoom, scroll and resize, and assert that it did (`qtbot.waitUntil` for the
+deferred resize)
+(`tests/integration/test_plant_grid_tool.py`).
 
 ## 8.10 Integration Test Policy
 
