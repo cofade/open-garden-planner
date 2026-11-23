@@ -233,8 +233,11 @@ def _cutout_rings(record: Record) -> list[tuple[tuple[float, float], ...]]:
     style = record.params.get(PARAM_PATH_STYLE)
     if record.kind == "PATH" and style == "STEPPING_STONES" and width:
         line, closed = centre_line(record)
-        if not closed and len(line) >= 2:
-            points, along = walk_path(np.asarray(line, dtype=np.float64), width * 1.8)
+        if len(line) >= 2:
+            walked = np.asarray(line, dtype=np.float64)
+            if closed:  # the painter's walk goes round the loop and closes it (#998)
+                walked = np.concatenate([walked, walked[:1]])
+            points, along = walk_path(walked, width * 1.8)
             # #998: the 2D painter draws a stone wherever its walk lands, including one
             # centred on an open end; the path's footprint is not a surface there. Cut
             # each stone's own rounded rectangle (as its square envelope, 1 cm clear so

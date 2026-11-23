@@ -169,6 +169,26 @@ def test_a_stepping_stone_paths_painted_stone_is_cut_out_of_the_rake() -> None:
         for beam in beams)), "the whole stepping-stone corridor is cut out"
 
 
+def test_a_closed_stepping_stone_loop_cuts_its_stones_not_its_ring() -> None:
+    """#998: a closed stepping-stone loop is not a continuous surface either. Each
+    painted stone is cut out; the ground between stones stays raked and grassed."""
+    court = polygon_record("TERRACE_PATIO", rectangle(1000.0, 800.0), None,
+                           params={"surface_pattern": "SAND"}, item_id="court")
+    path = dataclasses.replace(
+        line_record("PATH", CLOSED_PATH, None, width=55.0, style="STEPPING_STONES",
+                    item_id="loop"),
+        material=Material("PATH", (200, 180, 140, 255), paint=Paint()))
+    records = {court.item_id: court, path.item_id: path}
+    with_context(records)
+    rings = records[court.item_id].params.get("lawn_cutouts", ())
+    line = np.asarray(CLOSED_PATH[:-1], dtype=float)
+    walked = surfaces.walk_path(np.concatenate([line, line[:1]]), 55.0 * 1.8)[0]
+    assert len(rings) == len(walked)
+    between = (walked[0] + walked[1]) / 2.0
+    assert not any(point_in_ring(float(between[0]), float(between[1]), ring) for ring in rings), (
+        "the loop's whole stroke is cut out, not its stones")
+
+
 def test_batched_lawn_mask_matches_even_odd_at_edges_holes_and_self_crossings() -> None:
     rng = np.random.default_rng(607)
     points = np.concatenate([rng.uniform(-200, 200, (2000, 2)),
