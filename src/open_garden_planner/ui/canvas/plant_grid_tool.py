@@ -377,13 +377,15 @@ class PlantGridTool(BaseTool):
             self._place_controls()
         else:
             # A hover changes nothing but the highlighted handle: repaint the
-            # plan (and up to 400 preview sprites) only when that changes.
+            # plan (and up to 400 preview sprites) only when that changes. The
+            # cursor is set on every move: the view resets it from outside the
+            # tool (a middle-button pan release, leaving a guide).
+            highlighted = self._drag if self._drag is not None else self._hover
             self._drag = None
-            hover = self._handle_at(scene_pos)
-            if hover == self._hover:
+            self._hover = self._handle_at(scene_pos)
+            self._update_cursor(self._hover)
+            if self._hover == highlighted:
                 return True
-            self._hover = hover
-            self._update_cursor(hover)
         self._viewport.update()
         return True
 
@@ -446,28 +448,30 @@ class PlantGridTool(BaseTool):
             return
         transform = self._transform()
         painter.save()
-        painter.setWorldTransform(transform, True)
-        pen = QPen(QColor(_ACCENT))
-        pen.setCosmetic(True)
-        painter.setPen(pen)
-        painter.setBrush(Qt.BrushStyle.NoBrush)
-        painter.drawRect(self._rect())
-        painter.setBrush(QColor(227, 129, 39, 35))
-        radius = self._diameter / 2
-        species = self._species
-        preview = self._preview_button is not None and self._preview_button.isChecked()
-        object_type = species_object_type(species) if preview and species is not None else None
-        species_name = (species.get("common_name") or species.get("scientific_name") or "") if species else ""
-        for point in self._centers():
-            if object_type is not None:
-                # Drawn as the placed CircleItem draws it: the sprite is wider
-                # than the footprint by the same fill factor.
-                size = self._diameter * PLANT_FILL_SCALE
-                rect = QRectF(point.x() - size / 2, point.y() - size / 2, size, size)
-                if paint_plant(painter, rect, object_type, species=species_name):
-                    continue
-            painter.drawEllipse(point, radius, radius)
-        painter.restore()
+        try:
+            painter.setWorldTransform(transform, True)
+            pen = QPen(QColor(_ACCENT))
+            pen.setCosmetic(True)
+            painter.setPen(pen)
+            painter.setBrush(Qt.BrushStyle.NoBrush)
+            painter.drawRect(self._rect())
+            painter.setBrush(QColor(227, 129, 39, 35))
+            radius = self._diameter / 2
+            species = self._species
+            preview = self._preview_button is not None and self._preview_button.isChecked()
+            object_type = species_object_type(species) if preview and species is not None else None
+            species_name = (species.get("common_name") or species.get("scientific_name") or "") if species else ""
+            for point in self._centers():
+                if object_type is not None:
+                    # Drawn as the placed CircleItem draws it: the sprite is
+                    # wider than the footprint by the same fill factor.
+                    size = self._diameter * PLANT_FILL_SCALE
+                    rect = QRectF(point.x() - size / 2, point.y() - size / 2, size, size)
+                    if paint_plant(painter, rect, object_type, species=species_name):
+                        continue
+                painter.drawEllipse(point, radius, radius)
+        finally:
+            painter.restore()
         if self._editing:
             self._paint_handles(painter)
 

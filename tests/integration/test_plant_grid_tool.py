@@ -412,3 +412,21 @@ def test_species_picker_uses_the_preferences_credentials(qtbot, monkeypatch):
     _click(qtbot, view, QPointF(100, 100))
     assert len(managers) == 1
     assert managers[0].configured_source_count == 1
+
+
+def test_hover_takes_the_cursor_back_after_the_view_resets_it(qtbot, monkeypatch):
+    """A middle-button pan release sets the tool cursor; the next hover restores the handle's."""
+    _scene, view = _grid_view(qtbot)
+    _accept_setup(monkeypatch)
+    grid = _start_draft(qtbot, view)
+    viewport = view.viewport()
+    body = view.mapFromScene(grid._center + QPointF(20, 20))
+    qtbot.mouseMove(viewport, body)
+    assert grid._hover == "move"
+    assert view.cursor().shape() == Qt.CursorShape.OpenHandCursor
+    qtbot.mousePress(viewport, Qt.MouseButton.MiddleButton, pos=body)
+    qtbot.mouseRelease(viewport, Qt.MouseButton.MiddleButton, pos=body)
+    assert view.cursor().shape() != Qt.CursorShape.OpenHandCursor
+    qtbot.mouseMove(viewport, body + QPoint(2, 2))
+    assert grid._hover == "move"
+    assert view.cursor().shape() == Qt.CursorShape.OpenHandCursor
