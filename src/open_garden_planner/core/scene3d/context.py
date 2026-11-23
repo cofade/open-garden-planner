@@ -49,6 +49,7 @@ from .builders.surfaces import (
     COPING_OUT_CM,
     MOSS_BLADES_PER_M2,
     is_moss,
+    is_sand,
     pond_regions,
 )
 from .builders.surfaces import MAX_BLADES as MAX_LAWN_BLADES
@@ -258,42 +259,58 @@ def _lawn_cutouts(records: MutableMapping[str, Record]) -> None:
     lawns = [index for index, item_id in enumerate(order)   # a lawn with a height grows no blades
              if records[item_id].kind == "LAWN" and records[item_id].footprints
              and records[item_id].height_cm is None]
-    if not lawns:
+    # #960 review: a SAND court's rake stops at a flat item painted above it too (the
+    # Japanese garden's moss islands lie on the court), so the same pass serves both.
+    sands = [index for index, item_id in enumerate(order)
+             if records[item_id].kind != "LAWN" and records[item_id].footprints
+             and is_sand(records[item_id])]
+    if not lawns and not sands:
         return
-    candidates = []  # every record that cuts a lawn it lies on: collected once
+    lawn_set = set(lawns)
+    candidates = []  # every record that cuts a ground surface it lies on: collected once
     for index, item_id in enumerate(order):
         other = records[item_id]
         enclosed = other.kind in ENCLOSED_KINDS or other.kind in GROUND_COVERING_KINDS
-        if not other.footprints or (not enclosed and (
-                other.kind in _NOT_A_CUTOUT or other.height_cm is not None or other.material.paint is None
-                or other.kind in OBJECT_KINDS)):
+        if not other.footprints:
             continue
+        if not enclosed:
+            if other.kind in ("TREE", "SHRUB", "PERENNIAL"):
+                continue
+            if (other.height_cm is not None or other.material.paint is None
+                    or other.kind in OBJECT_KINDS):
+                continue
         own = _cutout_rings(other)
         if not own:
             continue
         rings = [np.asarray(pose_ring(other.transform, ring), dtype=np.float64) for ring in own]
-        candidates.append((len(order) if enclosed else index, own, rings, _box(rings)))
+        candidates.append((len(order) if enclosed else index, own, rings, _box(rings),
+                           other.kind not in _NOT_A_CUTOUT))
     shares = _blade_shares(
         {index: sum(ring_area(ring) for ring in records[order[index]].footprints)
          for index in lawns},
         {index: MOSS_BLADES_PER_M2 if is_moss(records[order[index]]) else BLADES_PER_M2
          for index in lawns},
     )
-    for index in lawns:
+    for index in [*lawns, *sands]:
         item_id = order[index]
-        lawn = records[item_id]
-        merged: dict[str, object] = {PARAM_LAWN_BLADES: shares[index]}
-        lawn_rings = [np.asarray(pose_ring(lawn.transform, ring), dtype=np.float64) for ring in lawn.footprints]
-        lx0, ly0, lx1, ly1 = _box(lawn_rings)
+        target = records[item_id]
+        merged: dict[str, object] = {}
+        if index in lawn_set:
+            merged[PARAM_LAWN_BLADES] = shares[index]
+        target_rings = [np.asarray(pose_ring(target.transform, ring), dtype=np.float64)
+                        for ring in target.footprints]
+        lx0, ly0, lx1, ly1 = _box(target_rings)
         found: list[tuple[float, tuple[tuple[float, float], ...]]] = []
-        for other_index, own, rings, (ox0, oy0, ox1, oy1) in candidates:
-            if other_index <= index:  # painted under the lawn: the lawn hides it
+        for other_index, own, rings, (ox0, oy0, ox1, oy1), cuts_lawn in candidates:
+            if other_index <= index:  # painted under the target: the target hides it
+                continue
+            if index in lawn_set and not cuts_lawn:  # a second lawn is not a lawn cut-out
                 continue
             if ox1 < lx0 or ox0 > lx1 or oy1 < ly0 or oy0 > ly1:
                 continue
             for ring, scene_ring in zip(own, rings, strict=True):
                 local = tuple((round(x, 1) + 0.0, round(y, 1) + 0.0)
-                              for x, y in (_local(lawn.transform, float(px), float(py)) for px, py in scene_ring))
+                              for x, y in (_local(target.transform, float(px), float(py)) for px, py in scene_ring))
                 found.append((ring_area(ring), local))
         if found:
             found.sort(key=lambda entry: -entry[0])
@@ -305,7 +322,8 @@ def _lawn_cutouts(records: MutableMapping[str, Record]) -> None:
                 kept.append(ring)
                 vertices += len(ring)
             merged[PARAM_LAWN_CUTOUTS] = tuple(kept)
-        records[item_id] = replace(lawn, params=lawn.params.merged(merged))  # type: ignore[arg-type]
+        if merged:
+            records[item_id] = replace(target, params=target.params.merged(merged))  # type: ignore[arg-type]
 
 
 def _hedge_leaves(records: MutableMapping[str, Record]) -> None:

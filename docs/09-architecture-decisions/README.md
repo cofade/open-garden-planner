@@ -8481,8 +8481,11 @@ widest ring at the ground, rings at 42 % and 78 %, and a per-record 0.92–1.0 s
 so the three example rocks are not clones. The lesson is the same for all three: a
 relief or profile that is correct in centimetres can still be invisible or wrong at the
 product's default framing; judge it on a rendered board, not on the builder's numbers.
-The winter tint's darkness, the moss cushion's flatness and the board's hero camera
-outside a tall screen stay recorded P2/owner questions.
+The sand court's cut-outs now come from the same context pass as a lawn's
+(`_lawn_cutouts` serves a SAND surface too), so the moss islands painted above it stop
+the rake and no tan ridge crosses a green cushion. The winter tint's darkness, the moss
+cushion's flatness and the board's hero camera outside a tall screen stay recorded
+P2/owner questions.
 
 ## ADR-060: The 3D workspace — Plan / 3D / Split in the main window, one kept engine host (Phase 17, L1.3)
 

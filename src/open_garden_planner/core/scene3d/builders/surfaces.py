@@ -167,6 +167,7 @@ BLADE_CM: Final = 7.0
 #: #960: a moss lawn is a tight LOW cushion, not bright lawn blades: many more, much
 #: shorter blades, and the fill's own dark moss colour.
 MOSS_PATTERN: Final = "MOSS"
+SAND_PATTERN: Final = "SAND"
 MOSS_BLADE_CM: Final = 2.2
 MOSS_BLADES_PER_M2: Final = 1800.0
 
@@ -533,6 +534,24 @@ def _overlap(first: list[tuple[float, float]], second: list[tuple[float, float]]
     return out
 
 
+def _subtract_runs(run: tuple[float, float],
+                   holes: list[tuple[float, float]]) -> list[tuple[float, float]]:
+    """``run`` with every ``holes`` interval removed (the pieces left, in order)."""
+    pieces = [run]
+    for lo, hi in holes:
+        kept: list[tuple[float, float]] = []
+        for a, b in pieces:
+            if hi <= a or lo >= b:
+                kept.append((a, b))
+                continue
+            if lo > a:
+                kept.append((a, lo))
+            if hi < b:
+                kept.append((hi, b))
+        pieces = kept
+    return pieces
+
+
 def _board_runs(edges: F64, y: float, half: float) -> list[tuple[float, float]]:
     """Where a board centred on ``y`` (``half`` its half width) lies inside the region
     whose ``_region_edges`` are ``edges``: the x intervals inside along its centre line
@@ -584,6 +603,9 @@ def _raked_sand(record: Record) -> list[Mesh]:
     """Parallel raised ridges in a sand court's own ground (#960), bounded by rows and total ridges."""
     if _outline_vertices(record.regions) > MAX_RELIEF_VERTICES:
         return []
+    # #960 review round 2: a flat item painted above the court (a moss island, a path,
+    # a bed) cuts the rake. The cut-out rings are in this record's own frame.
+    cut_edges = [_region_edges(ring, ()) for ring in _cutouts(record)]
     runs: list[tuple[float, float, float, int]] = []
     rows = 0
     for outer, holes in record.regions:
@@ -596,13 +618,15 @@ def _raked_sand(record: Record) -> list[Mesh]:
             rows += 1
             if rows > MAX_RAKED_ROWS:
                 return []
+            cut = [interval for cut_edge in cut_edges for interval in _inside_at(cut_edge, y)]
             for x0, x1 in _inside_at(edges, y):
-                # A ridge wider than its run would overhang the court's own outline.
-                if x1 - x0 <= RAKED_SAND_WIDTH_CM:
-                    continue
-                runs.append((x0, x1, y, rows))
-                if len(runs) > MAX_RAKED_RIDGES:
-                    return []
+                for a, b in _subtract_runs((x0, x1), cut):
+                    # A ridge wider than its run would overhang the court's own outline.
+                    if b - a <= RAKED_SAND_WIDTH_CM:
+                        continue
+                    runs.append((a, b, y, rows))
+                    if len(runs) > MAX_RAKED_RIDGES:
+                        return []
             y += RAKED_SAND_SPACING_CM
     return [
         beam((x0 + 0.5, y, RAKED_SAND_HEIGHT_CM / 2.0),
@@ -631,7 +655,7 @@ def _surface(record: Record) -> tuple[MeshPart, ...]:
     boarded = _deck(record, DECK_TOP_CM, solid=False) if deck else None
     if boarded is not None:
         return _relief(boarded, "deck")
-    if pattern == "SAND":
+    if pattern == SAND_PATTERN:
         return _relief(_raked_sand(record), "raked_sand")
     return _relief(_kerbs(record, KERB_CM, 8.0, _shade(0.72)), "kerb")
 
@@ -1324,6 +1348,11 @@ def is_moss(record: Record) -> bool:
     return record.kind == "LAWN" and bool(record.params.get(PARAM_SURFACE_PATTERN) == MOSS_PATTERN)
 
 
+def is_sand(record: Record) -> bool:
+    """A ground surface whose fill is SAND: its court is raked (#960)."""
+    return bool(record.params.get(PARAM_SURFACE_PATTERN) == SAND_PATTERN)
+
+
 def _kept(arrays: tuple[NDArray[np.float32], ...], keep: NDArray[np.bool_]) -> tuple[NDArray[np.float32], ...]:
     return arrays if keep.all() else tuple(array[keep] for array in arrays)
 
@@ -1366,5 +1395,6 @@ def register(registry: BuilderRegistry) -> None:
 
 __all__ = ["BUILDERS", "DECK_PATTERNS", "KINDS", "LAWN_BLADES", "MEADOW_PATTERN",
            "MOSS_BLADE_CM", "MOSS_BLADES_PER_M2", "MOSS_PATTERN", "ROCK_PATTERN",
-           "clear_lawn_cache", "flower_colours", "is_meadow", "is_moss", "pond_regions",
-           "register", "rock_parts", "sward_cache_info", "walk_path"]
+           "SAND_PATTERN", "clear_lawn_cache", "flower_colours", "is_meadow", "is_moss",
+           "is_sand", "pond_regions", "register", "rock_parts", "sward_cache_info",
+           "walk_path"]

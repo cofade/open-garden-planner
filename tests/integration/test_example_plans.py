@@ -281,6 +281,9 @@ def test_the_japanese_garden_builds_its_rocks_moss_and_raked_sand(qtbot):
              and record.params.get("surface_pattern") == "SAND"]
     assert raked and all("raked_sand" in [part.name for part in sink.item(record.item_id).parts]
                          for record in raked)
+    # #960 review round 2: the rake stops at the moss islands (and the pond) painted
+    # above it, so tan ridges never run across the green cushions.
+    assert all(len(record.params.get("lawn_cutouts", ())) >= 2 for record in raked)
     scene.clear()
 
 

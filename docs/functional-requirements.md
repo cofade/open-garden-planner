@@ -1089,9 +1089,10 @@ The built world complete (L4, #388, ADR-065).
   dense and low, instead of the lawn's grass; its 2D fill is the hedge texture in the plan's own
   moss colour. Every **terrace, path or other ground surface whose fill is SAND** (including
   existing plans that use `FillPattern.SAND`) is raked in 3D: parallel 13 cm ridges 2.4 cm wide and
-  1.5 cm high with alternating 1.0/0.78 shade bands follow the court's own outline, lie on the
-  ground (no shadow, not clickable), and are
-  bounded per surface by both rows (`MAX_RAKED_ROWS = 1,000`) and total ridges
+  1.5 cm high with alternating 1.0/0.78 shade bands. They follow the court's own outline; a flat
+  item painted above the court (a moss island, a path, a bed) stops them, so a tan ridge never
+  crosses a green cushion. They lie on the ground (no shadow, not clickable) and are bounded per
+  surface by both rows (`MAX_RAKED_ROWS = 1,000`) and total ridges
   (`MAX_RAKED_RIDGES = 2,000`). Both are additive reads of the fill pattern (no `FILE_VERSION`
   change); plans without `MOSS` or `SAND` fills are unchanged. Pinned by
   `tests/unit/test_scene3d_l4_surfaces.py::test_moss_is_a_low_dense_cushion_and_sand_is_raked`,
