@@ -1800,6 +1800,19 @@ def test_lawn_seasonal_fill_is_quantised_so_year_playback_avoids_daily_rebakes(
     fills = [_seasonal_fill("LAWN", base, d0 + timedelta(days=i), 52.0) for i in range(365)]
     transitions = sum(1 for a, b in zip(fills, fills[1:], strict=False) if a != b)
     assert transitions <= 70, f"expected coarse seasonal transitions, got {transitions}/364"
+
+    # The smoothness gate itself: no single day may step the lawn's colour more than
+    # the render tier's 4.0 frame bound allows, in either hemisphere. This catches a
+    # return to a coarser grid even when the transition count stays under the cap.
+    def luma(rgba: tuple[int, int, int, int]) -> float:
+        return 0.2126 * rgba[0] + 0.7152 * rgba[1] + 0.0722 * rgba[2]
+
+    steps = [abs(luma(b) - luma(a)) for a, b in zip(fills, fills[1:], strict=False)]
+    assert max(steps) <= 4.0, f"the steepest lawn-colour step is {max(steps):.2f} luma"
+    south = [_seasonal_fill("LAWN", base, d0 + timedelta(days=i), -52.0) for i in range(365)]
+    south_steps = [abs(luma(b) - luma(a)) for a, b in zip(south, south[1:], strict=False)]
+    assert max(south_steps) <= 4.0, f"the southern steepest step is {max(south_steps):.2f} luma"
+
     assert _seasonal_fill("LAWN", base, date(2026, 6, 21), 52.0) == base
     assert _seasonal_fill("LAWN", base, date(2026, 1, 15), 52.0)[1] < 120
 

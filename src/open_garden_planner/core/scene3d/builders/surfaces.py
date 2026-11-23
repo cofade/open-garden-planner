@@ -605,7 +605,8 @@ def _raked_sand(record: Record) -> list[Mesh]:
         return []
     # #960 review round 2: a flat item painted above the court (a moss island, a path,
     # a bed) cuts the rake. The cut-out rings are in this record's own frame.
-    cut_edges = [_region_edges(ring, ()) for ring in _cutouts(record)]
+    cut_edges = [_region_edges(tuple((float(x), float(y)) for x, y in ring), ())
+                 for ring in _cutouts(record)]
     runs: list[tuple[float, float, float, int]] = []
     rows = 0
     for outer, holes in record.regions:
