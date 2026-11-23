@@ -118,9 +118,10 @@ LAWN_SEASON_TINTS: Final = (
 #: Quantisation grid (in seasonal days) shared by lawn and meadow (#943 / PF-L3D-38):
 #: 4-day steps move all three RGB channels together (<= 65 transitions across a full
 #: 365-day year, so >82 % of daily steps trigger zero ground tile re-bakes or meadow
-#: uniform churn while keeping every step in a year time-lapse under ~2 luma levels —
-#: well below the 4.0 DST smoothness bound), summer holds exact (1.0, 1.0, 1.0), and
-#: lawn and meadow stay bit-identical on every date.
+#: uniform churn). The steepest tint step is ~5.6 luma levels; in the render tier's
+#: 24-frame DST window the steepest whole-frame step is 3.36, under the 4.0 bound.
+#: Summer holds exact (1.0, 1.0, 1.0), and lawn and meadow stay bit-identical on
+#: every date.
 LAWN_TINT_STEP_DAYS: Final[float] = 4.0
 
 
