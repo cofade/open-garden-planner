@@ -8473,8 +8473,9 @@ Pinned by `tests/unit/test_phenology.py`, `tests/ui/test_quick3d_host.py`,
 **Round 2 (independent 3D review, 2026-11-23, `13ad5544`)**: the first build's Japanese
 garden still read as a willow with bare brown spokes, plain paving and pale concrete
 bollards. Three P1s were fixed at the source: the pine's needle spray now covers each
-branch to its tip (the wood stops at 85 %, the needle is 6 cm at width ratio 0.18, and
-the umbrella is broad to 80 % of the crown); the rake is 2.4 cm wide and 1.5 cm high
+branch to its tip (the wood stops at 85 %, the needle is recorded at 6 cm with width
+ratio 0.18 — the crown-area budget may lengthen it, not widen it — and the umbrella is
+broad to 80 % of the crown); the rake is 2.4 cm wide and 1.5 cm high
 with 1.0/0.78 shade bands on the 13 cm pitch; and a rock starts at a 15 % base with its
 widest ring at the ground, rings at 42 % and 78 %, and a per-record 0.92–1.0 scale jitter
 so the three example rocks are not clones. The lesson is the same for all three: a
@@ -10191,9 +10192,10 @@ resolver only knew a rectangle's edge.
    chosen from the recorded size.
 2. **The Scots pine is an `umbrella`.** `traits3d` gains the named crown shape;
    `build_forged_conifer` (`plant_forge/woody.py`) gives it a broad lower crown, a
-   flat-topped head (broad to 80 % of the crown), a short narrow needle (6 cm, width
-   ratio 0.18), and a needle spray that covers each branch to its tip while the wooden
-   branch stops at 85 %, so no bare spokes show. Other conifers are unchanged.
+   flat-topped head (broad to 80 % of the crown), a short narrow needle (recorded at
+   6 cm, width ratio 0.18; the crown-area budget may lengthen it, not widen it), and a
+   needle spray that covers each branch to its tip while the wooden branch stops at
+   85 %, so no bare spokes show. Other conifers are unchanged.
 3. **A pergola climber follows the rafters.** `climbers._support_segments` asks
    `core/pergola.layout` for the pergola's own rafters centred on the footprint bounding
    box, `_concrete_support` records the pergola centre in the plant's local frame, and
