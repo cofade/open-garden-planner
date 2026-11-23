@@ -9,8 +9,8 @@ from __future__ import annotations
 BOARD_DE = "Bretterzaun"
 MOSS_DE = "Moos"
 TURN_DE = (
-    "Wie viel einer Runde der Drohnenflug zurücklegt. Weniger als eine volle Runde "
-    "hält einen Garten mit einem Haus auf einer Seite auf seiner Gartenseite."
+    "Welchen Anteil einer Umrundung der Drohnenflug abdeckt. Weniger als eine volle Runde "
+    "hält die Kamera bei einem Garten mit Haus an einer Seite auf der Gartenseite."
 )
 
 DE = {
@@ -28,8 +28,8 @@ ES = {
     "TourDialog": {
         "How much of a turn the drone makes. Less than a full turn keeps a garden "
         "with a house on one side on its garden side.": (
-            "Cuánto gira el dron. Menos de una vuelta completa mantiene un jardín "
-            "con una casa en un lado del lado del jardín."
+            "Qué fracción de vuelta recorre el dron. Menos de una vuelta completa "
+            "mantiene la cámara del lado del jardín cuando hay una casa en un borde."
         ),
     },
 }

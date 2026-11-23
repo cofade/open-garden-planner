@@ -265,6 +265,7 @@ def build_forged_climber(
     target = np.zeros(2, dtype=float)
     raw_support_h = height_cm
     train_top = height_cm
+    fit_height = height_cm
     if concrete:
         segment = np.asarray(support_map["segment_cm"], dtype=float).reshape(2, 2)
         delta = segment[1] - segment[0]
@@ -383,11 +384,16 @@ def build_forged_climber(
             if abs(proj0) > abs(proj1):
                 along = -along
         can_reach_roof = raw_support_h > 0.0 and raw_support_h <= height_cm * 1.15
-        roof_z = (
-            min(height_cm * 0.92, max(height_cm * 0.68, train_top - 12.0))
-            if can_reach_roof else height_cm * 0.94
-        )
-        top_z = min(height_cm * 0.99, max(roof_z + 4.0, train_top)) if can_reach_roof else height_cm * 0.99
+        if can_reach_roof:
+            # #956: once a vine reaches the pergola deck, train it along the rafters
+            # at the support's height rather than letting tall species (grape, wisteria)
+            # hover above the roof in mid-air.
+            fit_height = train_top
+            roof_z = max(0.0, min(train_top * 0.92, train_top - min(12.0, train_top * 0.12)))
+            top_z = train_top
+        else:
+            roof_z = height_cm * 0.94
+            top_z = height_cm * 0.99
         climb_end = 0.45
         post_twine = min(5.0, radius_cm * 0.08)
         for v_i in range(n_vines):
@@ -400,7 +406,7 @@ def build_forged_climber(
                 if can_reach_roof else 0.0
             )
             perp_reach = radius_cm * (0.08 + 0.78 * frac) if can_reach_roof else 0.0
-            v_top_z = height_cm * 0.99 if v_i == 0 else (
+            v_top_z = top_z if v_i == 0 else (
                 roof_z + (top_z - roof_z) * float(rng.uniform(0.45, 1.0))
             )
             phase = float(rng.uniform(0.0, 2.0 * math.pi))
@@ -529,14 +535,14 @@ def build_forged_climber(
     spray_r = max(min(height_cm, radius_cm * 2.0) * 0.11, 2.0)
     dirs = normalize_vec(rng.normal(0.0, 1.0, size=(total_leaves, 3)))
     leaf_pts = base_pts + dirs * (spray_r * (rng.uniform(0.2, 1.0, size=(total_leaves, 1)) ** 0.6))
-    leaf_pts[:, 2] = np.clip(leaf_pts[:, 2], height_cm * 0.04, height_cm)
+    leaf_pts[:, 2] = np.clip(leaf_pts[:, 2], fit_height * 0.04, fit_height)
 
-    center = np.array([0.0, 0.0, height_cm * 0.52], dtype=np.float64)
+    center = np.array([0.0, 0.0, fit_height * 0.52], dtype=np.float64)
     outward = normalize_vec(0.6 * dirs + 0.4 * normalize_vec(leaf_pts - center[None, :]))
     colors = palette_leaf_colors(
         traits.palette,
         traits.sprite,
-        leaf_pts[:, 2] / max(height_cm, 1.0),
+        leaf_pts[:, 2] / max(fit_height, 1.0),
         np.hypot(leaf_pts[:, 0], leaf_pts[:, 1]) / max(radius_cm, 1.0),
         rng,
     )
@@ -569,11 +575,11 @@ def build_forged_climber(
     if lod == LOD2 and not (concrete and sup_kind == SUPPORT_PERGOLA):
         # #970: a sparse far crown's box sits on diagonals; skip for concrete pergola
         # climbers so LOD2 does not rotate leaves outside the pergola into empty air.
-        parts = fit_forged_parts(wood, foliage, accent_geo, height_cm, radius_cm,
+        parts = fit_forged_parts(wood, foliage, accent_geo, fit_height, radius_cm,
                                  structural_height=traits.deciduous or concrete,
                                  preserve_horizontal_frame=concrete)
         return pin_foliage_spread(parts)
-    return fit_forged_parts(wood, foliage, accent_geo, height_cm, radius_cm,
+    return fit_forged_parts(wood, foliage, accent_geo, fit_height, radius_cm,
                             structural_height=traits.deciduous or concrete,
                             preserve_horizontal_frame=concrete)
 

@@ -15616,7 +15616,7 @@ El inventario es suyo, no de un plano: todos los planos que abra muestran los mi
         <message>
             <location filename="../../ui/view3d/tour_dialog.py" line="244" />
             <source>How much of a turn the drone makes. Less than a full turn keeps a garden with a house on one side on its garden side.</source>
-            <translation>Cuánto gira el dron. Menos de una vuelta completa mantiene un jardín con una casa en un lado del lado del jardín.</translation>
+            <translation>Qué fracción de vuelta recorre el dron. Menos de una vuelta completa mantiene la cámara del lado del jardín cuando hay una casa en un borde.</translation>
         </message>
         <message>
             <location filename="../../ui/view3d/tour_dialog.py" line="259" />

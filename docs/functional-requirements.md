@@ -1085,11 +1085,13 @@ The built world complete (L4, #388, ADR-065).
 - **FR-3D-BUILT-12** (#960): A **lawn whose fill is MOSS** is an evergreen moss cushion: its blades are
   2.2 cm tall at 1,800 a square metre (`MOSS_BLADES_PER_M2`, wired through `context._blade_shares`),
   dense and low, instead of the lawn's grass; its 2D fill is the hedge texture in the plan's own
-  moss colour. A **terrace or other ground surface whose fill is SAND** is raked: parallel 13 cm
-  ridges 0.8 cm wide and 0.45 cm high follow the court's own outline, lie on the ground (no shadow,
-  not clickable), and are bounded by both rows (`MAX_RAKED_ROWS = 1,000`) and total ridges
-  (`MAX_RAKED_RIDGES = 2,000`). Both are additive reads of the fill pattern; a plan without them is
-  unchanged. Pinned by `tests/unit/test_scene3d_l4_surfaces.py::test_moss_is_a_low_dense_cushion_and_sand_is_raked`,
+  moss colour. Every **terrace, path or other ground surface whose fill is SAND** (including
+  existing plans that use `FillPattern.SAND`) is raked in 3D: parallel 13 cm ridges 0.8 cm wide and
+  0.45 cm high follow the court's own outline, lie on the ground (no shadow, not clickable), and are
+  bounded per surface by both rows (`MAX_RAKED_ROWS = 1,000`) and total ridges
+  (`MAX_RAKED_RIDGES = 2,000`). Both are additive reads of the fill pattern (no `FILE_VERSION`
+  change); plans without `MOSS` or `SAND` fills are unchanged. Pinned by
+  `tests/unit/test_scene3d_l4_surfaces.py::test_moss_is_a_low_dense_cushion_and_sand_is_raked`,
   `tests/integration/test_board_fence_and_moss_properties.py`, and the Japanese garden example.
 - **FR-3D-BUILT-13** (#956): A **climber trained to a pergola** climbs to the pergola's rafter deck
   and spreads overhead along and inward across the pergola's own rafters, not round the rectangle's

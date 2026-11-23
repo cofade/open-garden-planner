@@ -16118,7 +16118,7 @@ Der Bestand gehört Ihnen, nicht einem Plan: Jeder Plan, den Sie öffnen, zeigt 
         <message>
             <location filename="../../ui/view3d/tour_dialog.py" line="244" />
             <source>How much of a turn the drone makes. Less than a full turn keeps a garden with a house on one side on its garden side.</source>
-            <translation>Wie viel einer Runde der Drohnenflug zurücklegt. Weniger als eine volle Runde hält einen Garten mit einem Haus auf einer Seite auf seiner Gartenseite.</translation>
+            <translation>Welchen Anteil einer Umrundung der Drohnenflug abdeckt. Weniger als eine volle Runde hält die Kamera bei einem Garten mit Haus an einer Seite auf der Gartenseite.</translation>
         </message>
         <message>
             <location filename="../../ui/view3d/tour_dialog.py" line="259" />

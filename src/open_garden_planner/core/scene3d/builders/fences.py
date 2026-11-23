@@ -4,6 +4,7 @@ Geometry only: which polyline becomes which fence is decided in ``lines.py``.
 
 =================  =========================================================
 ``WOODEN_FENCE``   posts, two rails, pickets
+``BOARD_FENCE``    stout posts, one rail, closed vertical timber boards
 ``METAL_FENCE``    slim posts, two rails, square bars with spear tips
 ``CHAIN_LINK``     posts, a top rail, a diamond mesh of wires
 ``HEDGE_FENCE``    a hedge block along the line (``hedges.py``)
@@ -670,6 +671,7 @@ def fence_transmittance(
 #: ================  ==============  ====================================================
 #: ``WOODEN_FENCE``  ~0.341 (34.1%)  7.44/12 cm pickets (38% raw gap), two 6 cm rails,
 #:                                   9 cm posts every 200 cm
+#: ``BOARD_FENCE``   0.000 (0.0%)    opaque closed timber screen (0.25 cm seams)
 #: ``METAL_FENCE``   ~0.812 (81.2%)  1.6/11 cm bars (85.5% raw gap), two 2.5 cm rails,
 #:                                   4 cm posts every 200 cm
 #: ``CHAIN_LINK``    ~0.885 (88.5%)  0.8 cm wires at 25 cm diamond pitch (93.4% raw gap),
@@ -678,7 +680,7 @@ def fence_transmittance(
 #: ``STONE_WALL``    0.000 (0.0%)    opaque masonry wall
 #: ``GRAVEL_PATH``   0.000 (0.0%)    ground path (not a vertical fence caster)
 #: ``STEPPING_STONES`` 0.000 (0.0%)  ground path (not a vertical fence caster)
-#: `` PAVED_PATH``   0.000 (0.0%)    ground path (not a vertical fence caster)
+#: ``PAVED_PATH``    0.000 (0.0%)    ground path (not a vertical fence caster)
 #: ``WOODCHIP_PATH`` 0.000 (0.0%)    ground path (not a vertical fence caster)
 #: ``PLAIN``         0.000 (0.0%)    opaque plain panel
 #: ================  ==============  ====================================================
@@ -686,6 +688,7 @@ NOMINAL_FENCE_OPEN_FRACTION: Final[dict[str, float]] = {
     "WOODEN_FENCE": round(
         1.0 - fence_segment_occlusion("WOODEN_FENCE", 150.0, 3.0, 0.0, 1.0, 0.0, 1000.0), 4
     ),
+    "BOARD_FENCE": 0.0,
     "METAL_FENCE": round(
         1.0 - fence_segment_occlusion("METAL_FENCE", 150.0, 3.0, 0.0, 1.0, 0.0, 1000.0), 4
     ),

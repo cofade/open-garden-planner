@@ -115,14 +115,7 @@ LAWN_SEASON_TINTS: Final = (
 )
 
 
-def seasonal_ground_tint(plan_date: datetime.date,
-                         latitude_deg: float = DEFAULT_LATITUDE_DEG) -> tuple[float, float, float]:
-    """The lawn and meadow colour multiplier on ``plan_date`` (#943).
-
-    Linear in the seasonal day between the keyframes above, wrapping across New Year;
-    the Southern Hemisphere uses the same broadleaf seasons six months later.
-    """
-    day = seasonal_day_of_year(plan_date, latitude_deg)
+def _tint_at_seasonal_day(day: float) -> tuple[float, float, float]:
     points = LAWN_SEASON_TINTS
     for index, (start, first) in enumerate(points):
         end, second = points[(index + 1) % len(points)]
@@ -134,6 +127,25 @@ def seasonal_ground_tint(plan_date: datetime.date,
             return tuple(round(a + (b - a) * share, 5)  # type: ignore[return-value]
                          for a, b in zip(first, second, strict=True))
     return (1.0, 1.0, 1.0)
+
+
+def seasonal_ground_tint(plan_date: datetime.date,
+                         latitude_deg: float = DEFAULT_LATITUDE_DEG,
+                         *,
+                         step_days: float = 0.0) -> tuple[float, float, float]:
+    """The lawn and meadow colour multiplier on ``plan_date`` (#943).
+
+    Linear in the seasonal day between the keyframes above, wrapping across New Year;
+    the Southern Hemisphere uses the same broadleaf seasons six months later.
+    When ``step_days > 0``, non-summer days snap to that seasonal-day grid so baked lawn
+    tiles do not re-paint on every day step of year playback while summer stays exact.
+    """
+    day = seasonal_day_of_year(plan_date, latitude_deg)
+    exact = _tint_at_seasonal_day(day)
+    if step_days <= 0.0 or exact == (1.0, 1.0, 1.0):
+        return exact
+    snapped = (round(day / step_days) * step_days) % 365.0
+    return _tint_at_seasonal_day(snapped)
 
 
 @lru_cache(maxsize=64)

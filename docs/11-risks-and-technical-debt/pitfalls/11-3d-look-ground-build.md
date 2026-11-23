@@ -517,3 +517,19 @@ Symptom (#995, #996): during the year animation in `spring-garden.ogp` at Normal
 - **Source:** #941; ADR-059 addendum
 - **Status:** pointer → [ADR-059 addendum](../../09-architecture-decisions/README.md#adr-059-addendum-the-3d-showcase-follow-ups-941-943-955-960-992)
 - **Legacy:** none (new entry)
+
+### PF-L3D-40
+
+- **Rule:** Never reference `CustomMaterial` uniforms inside top-level GLSL helper functions: Qt Quick 3D splices declared material uniforms into the generated shader *after* user helper functions, so any helper reading a uniform fails SPIR-V compilation; pass uniform values in as parameters from `MAIN()` / `IBL_PROBE()`.
+- **Pinned by:** `tests/ui/test_quick3d_host.py`; `tests/integration/test_quick3d_selftest.py`
+- **Source:** #941, #992; ADR-059 addendum
+- **Status:** standing
+- **Legacy:** none (new entry)
+
+### PF-L3D-41
+
+- **Rule:** Every `CustomMaterial` in `Garden.qml` (including `shaderWarmer` instances) must declare every `u[A-Z]...` uniform referenced by its bound vertex and fragment shaders and declare no dead uniform; binding a shared vertex shader like `built_detail.vert` without its uniforms fails shader compilation at runtime.
+- **Pinned by:** `tests/unit/test_quick3d_qml.py::test_every_custom_material_declares_every_uniform_its_shaders_use`
+- **Source:** #992; ADR-059 addendum
+- **Status:** standing
+- **Legacy:** none (new entry)

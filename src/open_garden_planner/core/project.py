@@ -307,7 +307,6 @@ class ProjectManager(QObject):
     task_states_changed = pyqtSignal(object)  # dict[str, dict] (US-C2)
     harvest_logs_changed = pyqtSignal(object)  # dict[str, dict] (US-C1)
     camera_tours_changed = pyqtSignal(object)  # tuple[SavedTour, ...] (#737)
-    plan_weather_changed = pyqtSignal(str)  # the weather an opened plan asks for (#944)
 
     def __init__(self, parent: QObject | None = None) -> None:
         """Initialize the project manager."""
@@ -956,7 +955,6 @@ class ProjectManager(QObject):
         if weather == self._plan_weather:
             return
         self._plan_weather = weather
-        self.plan_weather_changed.emit(weather)
         self.mark_dirty()
 
     # ── Camera tours (#737, ADR-072 addendum) ────────────────────────────────
@@ -1109,7 +1107,6 @@ class ProjectManager(QObject):
         self.task_states_changed.emit({})
         self.harvest_logs_changed.emit({})
         self.camera_tours_changed.emit(())
-        self.plan_weather_changed.emit("clear")
 
     def save(self, scene: QGraphicsScene, file_path: Path) -> None:
         """Save the project to a file.
@@ -1403,7 +1400,6 @@ class ProjectManager(QObject):
         self._location = data.location
         self.location_changed.emit(self._location)
         self._plan_weather = _plan_weather(data.weather)
-        self.plan_weather_changed.emit(self._plan_weather)
         self._north_angle_deg = normalize_north_angle(data.north_angle_deg)
         self.north_angle_changed.emit(self._north_angle_deg)
         self._task_completions = set(data.task_completions)

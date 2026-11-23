@@ -1779,3 +1779,20 @@ def test_hemisphere_location_change_updates_lawns_and_meadow_together(
     assert summer_meadow == (1.0, 1.0, 1.0)
     assert summer_lawn[:3] == (100, 160, 80)
     bench.workspace.shutdown()
+
+
+def test_lawn_seasonal_fill_is_quantised_so_year_playback_avoids_daily_rebakes(
+        canvas: CanvasView, qtbot) -> None:
+    """#943 / PF-L3D-38: day-by-day year stepping must keep LAWN Record.material stable
+    on >93 % of days so GroundBaker does not re-paint tiles and rebuild blades every day."""
+    from datetime import date, timedelta
+
+    from open_garden_planner.ui.view3d.snapshot import _seasonal_fill
+
+    base = (100, 160, 80, 255)
+    d0 = date(2026, 1, 1)
+    fills = [_seasonal_fill("LAWN", base, d0 + timedelta(days=i), 52.0) for i in range(365)]
+    transitions = sum(1 for a, b in zip(fills, fills[1:], strict=False) if a != b)
+    assert transitions <= 25, f"expected coarse seasonal transitions, got {transitions}/364"
+    assert _seasonal_fill("LAWN", base, date(2026, 6, 21), 52.0) == base
+    assert _seasonal_fill("LAWN", base, date(2026, 1, 15), 52.0)[1] < 120

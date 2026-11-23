@@ -250,6 +250,23 @@ class TestL34ClimberSupportResolution:
         assert float(np.ptp(young_top[:, 0])) < 20.0, "short vine must not fan horizontally in mid-air"
         assert float(np.ptp(young_top[:, 1])) < 20.0, "short vine must stay vertical along post"
 
+        # A mature climber taller than its pergola (400 cm / 600 cm grape on a 240 cm pergola)
+        # must stay trained along the 240 cm rafters instead of hovering above them.
+        for tall_h in (400.0, 600.0):
+            for lod in (LOD0, LOD1, LOD2):
+                tall_parts = build_forged_climber(traits_for(ref), tall_h, 90.0, seed=41,
+                                                  support=sup, lod=lod)
+                tall_wood = next(part for part in tall_parts if part.name == PART_WOOD).mesh.positions
+                tall_foliage = next(
+                    part for part in tall_parts if part.name == PART_FOLIAGE
+                ).mesh.positions
+                assert float(tall_wood[:, 2].max()) <= 240.5, (tall_h, lod)
+                assert float(tall_foliage[:, 2].max()) <= 240.5, (tall_h, lod)
+                if lod == LOD0:
+                    roof_wood = tall_wood[tall_wood[:, 2] >= 0.85 * 240.0]
+                    assert roof_wood.size and float(np.ptp(roof_wood[:, 0])) > 45.0
+                    assert float(np.ptp(roof_wood[:, 1])) > 45.0
+
     def test_forge_worker_enriches_climber_support_from_snapshot(self) -> None:
         sink = RecordingSink()
         worker = ForgeWorker(sink, cache=ForgeCache(max_entries=16))

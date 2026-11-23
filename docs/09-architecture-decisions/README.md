@@ -8407,35 +8407,29 @@ sun, a shadow, a footprint or a saved file's version.
 
 **Decision**:
 1. **Two-anchor autumn.** `PhenologyState` carries the summer and autumn palettes' dark
-   (`b0`) and light (`t1`) linear anchors (`luma(dark) < luma(light)` for every palette);
-   `foliage.frag`/`foliage_door.frag` map each leaf's summer luma from the summer pair onto
-   the autumn pair. Falling leaves (`core/scene3d/particles.py`) apply the same two-anchor
-   ramp via `phenology.map_autumn_leaves` so crowns and falling leaves match (#941, #895);
-   the foliage shader receives `foliage_snow_tint_linear` (snow dust only) so the autumn
-   hue is never applied twice.
+   (`b0`) and light (`t1`) linear anchors (`FR-3D-PLANT-07`, `PF-L3D-39`);
+   `foliage.frag`/`foliage_door.frag` and falling leaves (`phenology.map_autumn_leaves`)
+   apply the same two-anchor ramp (#941, #895) while the shader multiplier carries snow
+   dust only (`foliage_snow_tint_linear`).
 2. **The grass through the year.** `phenology.seasonal_ground_tint(date, latitude)` is the
-   one sRGB lawn/meadow multiplier (keyframed, hemisphere-aware). A grass lawn's fill is
-   scaled in the snapshot (`snapshot._seasonal_fill`), while MOSS lawns stay evergreen; the
-   open ground reads `meadowSeason` in `ground.frag` in sRGB before `groundLinear()` across
-   every surface mode (Low, Medium, High, Ultra, compatibility, `openGroundGrass=false`),
-   eliminating any lawn-to-meadow colour-space seam. Covered surfaces stay untouched.
+   one sRGB lawn/meadow multiplier (`FR-3D-GROUND-09`). A grass lawn's fill is scaled in
+   the snapshot (`snapshot._seasonal_fill`, quantised on 14-day seasonal steps so year
+   playback avoids daily tile re-bakes while summer stays exact), while MOSS lawns stay
+   evergreen; the open ground reads
+   `meadowSeason` in `ground.frag` in sRGB before `groundLinear()` across every surface
+   mode, eliminating any lawn-to-meadow colour-space seam. Covered surfaces stay untouched.
    `snapshot_records(..., latitude_deg=)` is additive, `Scene3DController` supplies
-   `plan_latitude`, and `offscreen.render_records` wires `set_meadow_season` alongside
-   `forge_scene_plants`.
-3. **A rock is a stone polygon's 3D form** (`surfaces.rock_parts`): upright base walls and
-   a three-ring domed top with one exact peak, for a convex ring of at most 512 vertices
-   with a height; a concave/hostile outline keeps the prism. `GENERIC_POLYGON` joins the
-   surfaces family so the builder is registered once.
-4. **Materials with a look of their own.** `PathFenceStyle.BOARD_FENCE` is a closed board
-   screen in 2D and 3D and is exposed in `PropertiesPanel` (derived dynamically from
-   `PATH_FENCE_STYLES`); a MOSS-filled lawn is a 2.2 cm cushion at `MOSS_BLADES_PER_M2`
-   (1,800/m², wired in `context._blade_shares`) and its 2D fill is the hedge texture in the
-   moss colour; a SAND-filled ground surface gains raked ridges bounded by `MAX_RAKED_ROWS`
-   (1,000) and `MAX_RAKED_RIDGES` (2,000). The Japanese maple's leaf scale drops to 0.45
-   (the recipe and its regenerated sprite); the canopy tip weight stays #994's green-sprite
-   constant 0.43. The Scots pine's crown is the `umbrella` shape, and a low/wide palm is
-   trunkless and grounded (`plant_forge/woody.py`); a pergola climber climbs to the rafters
-   and spreads along and inward across `core/pergola.py`'s centred rafters.
+   `plan_latitude`, `Workspace.location_changed` dirties baked lawns on a hemisphere flip,
+   and `offscreen.render_records` wires `set_meadow_season` alongside `forge_scene_plants`.
+3. **A rock is a stone polygon's 3D form** (`surfaces.rock_parts`, `FR-3D-BUILT-10`):
+   upright base walls and a domed top for convex stone polygons with a height; concave or
+   hostile outlines keep the prism. `GENERIC_POLYGON` joins the surfaces family so the
+   builder is registered once.
+4. **Materials with a look of their own.** `PathFenceStyle.BOARD_FENCE` (`FR-3D-BUILT-11`,
+   exposed dynamically in `PropertiesPanel` from `PATH_FENCE_STYLES`), evergreen MOSS
+   cushions and raked SAND surfaces (`FR-3D-BUILT-12`), Japanese maple / Scots pine /
+   dwarf palm refinements (`FR-3D-PLANT-05`), and pergola-rafter climber training
+   (`FR-3D-BUILT-13`, capping overhead vine height at the pergola deck).
 5. **A window pane at Ultra** gets `vcGlass` (`built_snow.vert` + `glass.frag`, warmed in
    `shaderWarmer`): `MAIN()` sets `ROUGHNESS = uSsrRough` (`0.38` only while `ssrVisible`,
    `0.70` otherwise) and linearises `uTintSrgb` via `engineLinear()`, while `IBL_PROBE()`
@@ -12391,7 +12385,7 @@ addendum), and the weather is a property of the whole plan's look, not of one fl
    `weather.normalise_weather` — an unknown value, a missing key or `today` opens clear.
    No `FILE_VERSION` change; an older app ignores the key.
 2. **The choice is the user's and dirties the plan.** `ProjectManager.set_plan_weather`
-   emits `plan_weather_changed` and marks the plan dirty; the window's
+   stores the weather and marks the plan dirty; the window's
    `_store_plan_weather` stores every concrete weather the toolbar emits and refuses
    `today` (a forecast, not a plan fact); `_restore_project_metadata` normalises through
    `_plan_weather` so `today` can never leak into `plan_weather`. Opening a plan calls
@@ -12410,7 +12404,7 @@ issue's whole point); writing clear explicitly (the plan key is additive and abs
 means clear, so a file stays small and old plans stay byte-compatible); treating an
 unknown weather as an error (a file from a future build must still open).
 
-**Consequences**: one additive plan key and one new signal; no new UI string (the
+**Consequences**: one additive plan key; no new UI string (the
 Weather menu exists). Pinned by `tests/unit/test_plan_weather.py` (the key, the range,
 unknown values), `tests/integration/test_plan_weather.py` (the real window: the menu
 stores, save/reopen applies, Today is not stored), and
