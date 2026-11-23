@@ -8470,6 +8470,19 @@ Pinned by `tests/unit/test_phenology.py`, `tests/ui/test_quick3d_host.py`,
 `tests/unit/test_scene3d_materials_and_built_polish.py`, `tests/unit/test_quick3d_qml.py`,
 `tests/unit/test_quick3d_packaging.py`, and the Japanese garden's example gate.
 
+**Round 2 (independent 3D review, 2026-11-23, `13ad5544`)**: the first build's Japanese
+garden still read as a willow with bare brown spokes, plain paving and pale concrete
+bollards. Three P1s were fixed at the source: the pine's needle spray now covers each
+branch to its tip (the wood stops at 85 %, the needle is 6 cm at width ratio 0.18, and
+the umbrella is broad to 80 % of the crown); the rake is 2.4 cm wide and 1.5 cm high
+with 1.0/0.78 shade bands on the 13 cm pitch; and a rock starts at a 15 % base with its
+widest ring at the ground, rings at 42 % and 78 %, and a per-record 0.92–1.0 scale jitter
+so the three example rocks are not clones. The lesson is the same for all three: a
+relief or profile that is correct in centimetres can still be invisible or wrong at the
+product's default framing; judge it on a rendered board, not on the builder's numbers.
+The winter tint's darkness, the moss cushion's flatness and the board's hero camera
+outside a tall screen stay recorded P2/owner questions.
+
 ## ADR-060: The 3D workspace — Plan / 3D / Split in the main window, one kept engine host (Phase 17, L1.3)
 
 **Status**: Accepted (2026-10-12, #385 story L1.3, epic #383). Behind the internal switch
