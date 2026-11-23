@@ -152,9 +152,9 @@ PARAM_DOOR_WALL: Final = "door_wall"
 #: flowers), so every other lawn's record stays as it was.
 PARAM_SURFACE_PATTERN: Final = "surface_pattern"
 #: ``((x, y), …)`` rings — a LAWN's or a SAND court's (L4.5, #960): the outlines, in
-#: the record's local frame, of the flat items painted ABOVE it (paths, terraces,
-#: beds, ponds, a moss island …). A lawn's blades grow nowhere under them, and a
-#: raked sand court's ridges stop at them.
+#: the record's local frame, of the flat items painted ABOVE it (paths, stepping
+#: stones, terraces, beds, ponds, a moss island …). A lawn's blades grow nowhere
+#: under them, and a raked sand court's ridges stop at them.
 PARAM_LAWN_CUTOUTS: Final = "lawn_cutouts"
 #: int — how many blades a LAWN grows (L4.5): its share of the plan's blade budget
 #: (``context.MAX_PLAN_BLADES``). Absent: the lawn's own count (a record made by hand).

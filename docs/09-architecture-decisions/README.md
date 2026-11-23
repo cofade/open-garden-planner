@@ -8488,9 +8488,13 @@ The sand court's cut-outs now come from the same context pass as a lawn's
 the rake and no tan ridge crosses a green cushion. The owner's manual pass then caught
 the same class of defect at a stepping stone: the canvas paints a stone centred on the
 path's end, so its picture reaches 0.4 widths past the footprint while the cut-out was
-only the footprint, and the rake ran across the painted stone. A stepping-stone path's
-cut-out is now its rounded stroke (`polyline_round_outline`), whose round cap holds the
-painted stone; the 3D relief's own 9 cm slide is unchanged. The winter tint's darkness,
+only the footprint, and the rake ran across the painted stone. A first fix cut the
+rounded stroke, which hid the rake but exposed the flat painted stone and cut a
+corridor-shaped notch through the court, because the 3D relief had been slid 0.4 widths
+onto the path. The final rule treats the stones as the path's painted surface: the 3D
+stones mirror the 2D painter's walk exactly (the end stone stays centred on the end), and
+the lawn/rake cut-out is each painted stone, not the path's footprint, so grass grows
+and the rake runs between the stones. The winter tint's darkness,
 the moss cushion's flatness and the board's hero camera outside a tall screen stay
 recorded P2/owner questions.
 

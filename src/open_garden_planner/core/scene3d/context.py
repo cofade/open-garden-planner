@@ -16,8 +16,9 @@ the record's own frame, once every record exists (``with_context``):
   (painted on the ground, no height, not a plant, later in paint order; or
   enclosed) whose box meets the lawn's, in the lawn's frame — a pond's grown by its
   coping (``POND_CLEARANCE_CM``), an open gravel or dirt path's the rounded stroke the
-  canvas paints (``ROUND_PATH_STYLES``), a stepping-stone path's the stroke that holds
-  the stones the canvas paints beyond its ends (#998). At most
+  canvas paints (``ROUND_PATH_STYLES``), a stepping-stone path's each painted stone —
+  the path itself is not a continuous surface, so grass grows and a rake runs between
+  its stones (#998). At most
   ``MAX_CUTOUTS`` outlines and ``MAX_CUTOUT_VERTICES`` vertices, the largest
   first: beyond that, the smallest items let blades through.
 - **How many blades a lawn grows** is the PLAN's to say: ``params["lawn_blades"]``
@@ -52,6 +53,7 @@ from .builders.surfaces import (
     is_moss,
     is_sand,
     pond_regions,
+    walk_path,
 )
 from .builders.surfaces import MAX_BLADES as MAX_LAWN_BLADES
 from .frame import cos_sin, pose_ring
@@ -223,17 +225,30 @@ def _cutout_rings(record: Record) -> list[tuple[tuple[float, float], ...]]:
     """The ground ``record`` keeps blades off, in its own frame, one ring a region (its
     holes joined in: ``_keyhole``): its outline — for a pond grown by its coping, for an
     open gravel or dirt path the rounded stroke the canvas paints, for a stepping-stone
-    path the stroke that holds its painted stones (they are centred on the path's ends)."""
+    path each painted stone (the path is not a continuous surface)."""
     if record.kind == "POND_POOL":  # the outline its coping is built on (a round pond: round)
         return [_keyhole(grown, holes) for outer, holes in pond_regions(record)
                 for grown in grown_polygon(outer, POND_CLEARANCE_CM)]
     width = record.path_width_cm
     style = record.params.get(PARAM_PATH_STYLE)
-    # #998: the canvas paints a stepping stone centred on the path's end, so its picture
-    # reaches 0.4 widths beyond the footprint; a lawn's blades, and a raked court's
-    # ridges, must stop at the painted stone. The stroke's round cap covers it.
-    round_stroke = style in ROUND_PATH_STYLES or style == "STEPPING_STONES"
-    if record.kind == "PATH" and round_stroke and width:
+    if record.kind == "PATH" and style == "STEPPING_STONES" and width:
+        line, closed = centre_line(record)
+        if not closed and len(line) >= 2:
+            points, along = walk_path(np.asarray(line, dtype=np.float64), width * 1.8)
+            # #998: the 2D painter draws a stone wherever its walk lands, including one
+            # centred on an open end; the path's footprint is not a surface there. Cut
+            # each stone's own rounded rectangle (as its square envelope, 1 cm clear so
+            # a 2.4 cm ridge's edge cannot graze the bevelled base) out of the lawn/rake.
+            half_long, half_wide = 0.4 * width + 1.0, 0.3 * width + 1.0
+            rings: list[tuple[tuple[float, float], ...]] = []
+            for (x, y), (dx, dy) in zip(points, along, strict=True):
+                rings.append(tuple(
+                    (float(x + dx * sx * half_long - dy * sy * half_wide),
+                     float(y + dy * sx * half_long + dx * sy * half_wide))
+                    for sx, sy in ((-1.0, -1.0), (1.0, -1.0), (1.0, 1.0), (-1.0, 1.0))))
+            if rings:
+                return rings
+    if record.kind == "PATH" and style in ROUND_PATH_STYLES and width:
         line, closed = centre_line(record)
         if not closed and len(line) >= 2:
             rounded = polyline_round_outline([(float(x), float(y)) for x, y in line], width)

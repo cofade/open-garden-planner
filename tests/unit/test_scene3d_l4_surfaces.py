@@ -147,7 +147,10 @@ def test_a_stepping_stone_paths_painted_stone_is_cut_out_of_the_rake() -> None:
     rings = records[court.item_id].params.get("lawn_cutouts", ())
     half_along = 0.4 * width   # a stone is 0.8 widths long, centred on the walk
     half_across = 0.3 * width  # and 0.6 widths across
-    assert rings and any(point_in_ring(-half_along, 0.0, ring) for ring in rings), (
+    walked = surfaces.walk_path(np.asarray(path.path, dtype=float), width * 1.8)[0]
+    # One cut-out per painted stone, not one corridor through the court.
+    assert len(rings) == len(walked)
+    assert any(point_in_ring(-half_along, 0.0, ring) for ring in rings), (
         "the cut-out stops at the path footprint, not at the painted stone")
     beams = surfaces._raked_sand(records[court.item_id])
     assert beams
@@ -160,6 +163,10 @@ def test_a_stepping_stone_paths_painted_stone_is_cut_out_of_the_rake() -> None:
         assert not (y0 < core_across and y1 > -core_across
                     and x0 < core_along and x1 > -core_along), (
             "a ridge crosses the painted stone", x0, x1, y0, y1)
+    # And the rake still runs between two stones: the corridor is not cut out.
+    assert any(x0 > 0.0 and x1 < 80.0 for x0, x1, *_ in (
+        (float(beam.positions[:, 0].min()), float(beam.positions[:, 0].max()))
+        for beam in beams)), "the whole stepping-stone corridor is cut out"
 
 
 def test_batched_lawn_mask_matches_even_odd_at_edges_holes_and_self_crossings() -> None:
@@ -214,7 +221,10 @@ def test_the_surface_kinds() -> None:
 @pytest.mark.parametrize("width", [60.0, 100.0, 8.0])
 def test_a_path_s_relief_is_ground_detail_on_its_footprint(style, path, width) -> None:
     record = line_record("PATH", path, None, width=width, style=style)
-    parts = verify_builder(REGISTRY.builder_for("PATH"), record, plan_margin_cm=10.0)
+    # A stepping stone is centred on the 2D painter's walk, so an end stone stands
+    # 0.4 widths beyond the stroke; every other relief stays within 10 cm (#998).
+    margin = 0.5 * width + 1.0 if style == "STEPPING_STONES" else 10.0
+    parts = verify_builder(REGISTRY.builder_for("PATH"), record, plan_margin_cm=margin)
     assert all(part.ground_detail and not part.casts_shadow and part.tinted for part in parts)
     if style in (None, "DIRT_PATH") or width < surfaces.MIN_RELIEF_WIDTH_CM:
         assert parts == ()  # flat, or a 2D pattern rather than a path one walks on
@@ -265,7 +275,11 @@ def reach_outside(record) -> float:
 @pytest.mark.parametrize("width", [40.0, 90.0, 150.0])
 def test_no_relief_vertex_lies_more_than_10_cm_past_the_path(style, path, width) -> None:
     record = line_record("PATH", path, None, width=width, style=style)
-    assert reach_outside(record) <= (0.05 if style == "GRAVEL_PATH" else 10.0)
+    # A stepping stone is centred on the painter's walk, so a corner of an end stone
+    # is at most half a width (its half-diagonal) past the stroke (#998).
+    allowed = 0.05 if style == "GRAVEL_PATH" else (
+        0.5 * width + 1.0 if style == "STEPPING_STONES" else 10.0)
+    assert reach_outside(record) <= allowed
 
 
 @pytest.mark.parametrize("kind,params", [("TERRACE_PATIO", {}), ("TERRACE_PATIO", {"surface_pattern": "DECKING"}),
@@ -290,23 +304,27 @@ def test_the_stones_lie_where_the_2d_painter_draws_them() -> None:
     assert stones.mesh.triangle_count == per_stone * len(walked)  # every stone the 2D plan draws
 
 
-def test_the_end_stone_is_slid_onto_the_path_not_dropped() -> None:
-    """2D centres the first stone ON the path's end, half of it beyond; 3D slides it
-    half a stone along the path, onto the footprint."""
-    record = line_record("PATH", ((-500.0, 0.0), (500.0, 0.0)), None, width=60.0, style="STEPPING_STONES")
+def test_an_open_end_stone_is_where_the_2d_painter_draws_it() -> None:
+    """#998: the 3D stone mirrors the painter's walk, including the first stone centred
+    on an open end, half of it beyond the footprint (22 cm at 55 cm wide)."""
+    record = line_record("PATH", ((-500.0, 0.0), (500.0, 0.0)), None, width=60.0,
+                         style="STEPPING_STONES")
     (stones,) = REGISTRY.build(record)
     east = stones.mesh.positions[:, 0]
-    assert float(east.min()) == pytest.approx(-500.0, abs=0.5)
+    assert float(east.min()) == pytest.approx(-500.0 - 0.4 * 60.0, abs=0.5)
     assert float(east.max()) <= 500.0 + 0.5
 
 
-def test_a_stone_that_would_hang_off_a_tight_bend_is_slid_or_left_out() -> None:
+def test_every_stone_the_2d_painter_draws_on_a_tight_bend_is_built() -> None:
     one = line_record("PATH", ((0.0, 0.0), (100.0, 0.0)), None, width=100.0, style="STEPPING_STONES")
     per_stone = REGISTRY.build(one)[0].mesh.triangle_count
     record = line_record("PATH", HAIRPIN_PATH, None, width=100.0, style="STEPPING_STONES")
     walked = len(surfaces.walk_path(np.array(record.path), 180.0)[0])
-    (stones,) = verify_builder(REGISTRY.builder_for("PATH"), record, plan_margin_cm=10.0)
-    assert 0 < stones.mesh.triangle_count <= per_stone * walked
+    # The painted stone may stand beyond the stroke at an end or a bend; the cut-out
+    # that keeps grass and rake off it is the same walk (context._cutout_rings).
+    (stones,) = verify_builder(REGISTRY.builder_for("PATH"), record,
+                               plan_margin_cm=0.5 * 100.0 + 1.0)
+    assert stones.mesh.triangle_count == per_stone * walked
 
 
 def test_a_path_kilometres_long_gets_no_relief() -> None:

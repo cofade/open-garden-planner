@@ -95,10 +95,6 @@ MIN_RELIEF_WIDTH_CM: Final = 20.0
 #: Relief heights (cm): a stone, a kerb, a gravel rim, a board's top, the water's surface.
 STONE_CM: Final = 4.0
 KERB_CM: Final = 3.0
-#: How far (cm) a stepping stone of a stepping-stone path may stand outside the path's
-#: footprint: the 2D painter draws a stone half over a path's end, and ``_path`` slides
-#: or drops it to stay within this margin (the 3D truth gate's 10 cm, less one).
-STEPPING_STONE_OVERHANG_CM: Final = 9.0
 #: A gravel path's 3D rim sits below ``DECK_TOP_CM`` (2.5 cm) so a round end cap that
 #: meets a wooden terrace stays cleanly underneath the deck boards instead of cutting
 #: through them.
@@ -374,32 +370,6 @@ def _trimmed(line: F64, distance: float) -> F64:
     return np.asarray([at(distance), *inner, at(total - distance)])
 
 
-def _on_ground(points: F64, record: Record, margin: float) -> np.ndarray:
-    """Which ``points`` lie on the record's ground — inside a region, or within
-    ``margin`` cm of one's outline."""
-    on = np.zeros(len(points), dtype=bool)
-    for outer, holes in record.regions:
-        inside = _inside(points, np.asarray(outer, dtype=np.float64))
-        for hole in holes:
-            inside &= ~_inside(points, np.asarray(hole, dtype=np.float64))
-        on |= inside
-    if on.all():
-        return on
-    for outer, holes in record.regions:
-        for ring in (outer, *holes):
-            closed = np.asarray((*ring, ring[0]), dtype=np.float64)
-            start, end = closed[:-1], closed[1:]
-            edge = end - start
-            length2 = np.maximum((edge * edge).sum(axis=1), 1e-12)
-            rest = points[~on]
-            t = np.clip(((rest[:, None, :] - start[None]) * edge[None]).sum(axis=2) / length2, 0.0, 1.0)
-            gap = np.linalg.norm(rest[:, None, :] - (start[None] + t[:, :, None] * edge[None]), axis=2)
-            near = np.zeros(len(points), dtype=bool)
-            near[np.flatnonzero(~on)] = gap.min(axis=1) <= margin
-            on |= near
-    return on
-
-
 @surfaced
 def _path(record: Record) -> tuple[MeshPart, ...]:
     if record.height_cm is not None:  # a path the user gave a height: the plain prism, as before L4
@@ -420,33 +390,13 @@ def _path(record: Record) -> tuple[MeshPart, ...]:
         if not len(points) or len(points) > MAX_PATH_ELEMENTS:
             return ()
         jitter = 0.88 + 0.12 * ((np.arange(len(points)) * 7919) % 13) / 12.0
-        # the 2D painter draws a stone wherever its walk lands, also half over a
-        # path's end or over the outside of a tight bend; in 3D a stone stays on the
-        # path (the truth gate: nothing beyond the footprint plus 10 cm) — slid by
-        # half its length along the path where that puts it there, else left out
-        across = np.stack([-along[:, 1], along[:, 0]], axis=1)
-
-        def fits(centres: F64) -> np.ndarray:
-            corners = [centres + along * (sx * 0.4 * width) + across * (sy * 0.3 * width)
-                       for sx in (-1.0, 1.0) for sy in (-1.0, 1.0)]
-            return np.asarray(np.all(
-                [_on_ground(corner, record, STEPPING_STONE_OVERHANG_CM) for corner in corners],
-                axis=0), dtype=bool)
-
-        points = points.copy()
-        keep = fits(points)
-        for shift in (0.4 * width, -0.4 * width):
-            if keep.all():
-                break
-            moved = points + along * shift
-            slid = ~keep & fits(moved)
-            points[slid] = moved[slid]
-            keep |= slid
-        if not keep.any():
-            return ()
-        angles = np.degrees(np.arctan2(along[keep, 1], along[keep, 0]))
-        colors = np.stack([jitter[keep], jitter[keep], jitter[keep], np.ones(int(keep.sum()))], axis=1)
-        stones = bevelled_boxes(points[keep], (0.8 * width, 0.6 * width), 0.0,
+        # #998: the 3D stone is where the 2D painter draws it, including the first
+        # stone centred on an open end (half of it beyond the footprint). Sliding it
+        # onto the path exposed the flat painted stone and cut a corridor-shaped notch
+        # in a raked court; the stones are the path's painted surface, not its stroke.
+        angles = np.degrees(np.arctan2(along[:, 1], along[:, 0]))
+        colors = np.stack([jitter, jitter, jitter, np.ones(len(points))], axis=1)
+        stones = bevelled_boxes(points, (0.8 * width, 0.6 * width), 0.0,
                                 min(STONE_CM, 0.08 * width), min(2.0, 0.1 * width), angles, colors)
         return _relief([stones], "stones")
     if style == "WOODEN_BOARDWALK":
@@ -1401,6 +1351,6 @@ def register(registry: BuilderRegistry) -> None:
 
 __all__ = ["BUILDERS", "DECK_PATTERNS", "KINDS", "LAWN_BLADES", "MEADOW_PATTERN",
            "MOSS_BLADE_CM", "MOSS_BLADES_PER_M2", "MOSS_PATTERN", "ROCK_PATTERN",
-           "SAND_PATTERN", "STEPPING_STONE_OVERHANG_CM", "clear_lawn_cache",
-           "flower_colours", "is_meadow", "is_moss", "is_sand", "pond_regions", "register",
-           "rock_parts", "sward_cache_info", "walk_path"]
+           "SAND_PATTERN", "clear_lawn_cache", "flower_colours", "is_meadow", "is_moss",
+           "is_sand", "pond_regions", "register", "rock_parts", "sward_cache_info",
+           "walk_path"]
