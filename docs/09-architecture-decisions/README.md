@@ -10138,7 +10138,8 @@ only the plants whose state changed (a date step changes nearly all of them — 
 the measured case); moving the tints into the materials' uniforms from Python (a second
 write path beside the QML bindings that X-ray, Cutaway and the surfaces read). Result and
 protocol: §8.29.11 — worst date medians 5.9–6.3 ms on the RTX 4070 and 6.8–7.6 ms on WARP
-(13.2–15.3 before); CI asserts 16 ms again, which its render3d runs must confirm.
+(13.2–15.3 before); CI asserts 16 ms again, and the render3d jobs of PR #1016 passed on it.
+**Status**: Shipped in v1.42.1 (PR #1016).
 
 **Addendum (plant seasonal truth and forge stability, issues #948, #963, #969, #970, #973, #995, #996).**
 **Status**: Shipped in [v1.41.2](https://github.com/cofade/open-garden-planner/releases/tag/v1.41.2) after owner acceptance (2026-11-22; [PR #994](https://github.com/cofade/open-garden-planner/pull/994)).
@@ -11604,8 +11605,9 @@ exclusion are required.
 cooperative sliced read and the geometry lane. The decision's #531 half was first built
 with a NEW geometry object assigned to each live Model; that renders nothing while still
 picking, and it was WITHDRAWN on 2026-11-01 together with #598's seasonal-parts index.
-**Superseded on 2026-11-24:** a regrown part loads new buffers into the geometry object its
-live Model already has (#531, the addendum below), and the seasonal index is back (#598,
+**Superseded on 2026-11-24 (shipped in v1.42.1, PR #1016; owner's manual test 2026-11-25):** a
+regrown part loads new buffers into the geometry object its
+live Model already has (#531, the addenda below), and the seasonal index is back (#598,
 ADR-064's addendum "the seasonal callback's headroom"). Release counting: #1014.
 #475 (raster lane, padded tiles) is NOT covered by this decision.
 

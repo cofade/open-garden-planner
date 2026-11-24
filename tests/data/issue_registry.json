@@ -29,10 +29,30 @@
     "state": "OPEN",
     "title": "Flaky on llvmpipe: live-regrowth forge test times out waiting for the forged wood"
   },
+  "1012": {
+    "is_pr": false,
+    "state": "OPEN",
+    "title": "3D render tier: open-snow luma, herb 60 fps step and the G7 soak's upload count fail on master (RTX 4070)"
+  },
   "1013": {
     "is_pr": false,
     "state": "OPEN",
     "title": "3D date playback: ~13 kB committed per regrown tree remains after #531's Model reuse"
+  },
+  "1015": {
+    "is_pr": false,
+    "state": "OPEN",
+    "title": "3D: one Workspace.at_rest() instead of a test helper that reads private timers"
+  },
+  "1017": {
+    "is_pr": false,
+    "state": "OPEN",
+    "title": "Flaky: test_selected_shed_replacement_repaints_in_the_main_window fails under full-suite load"
+  },
+  "1018": {
+    "is_pr": false,
+    "state": "OPEN",
+    "title": "Flaky: test_a_heavy_build_is_prepared_on_the_geometry_lane fails once in a full -n auto run"
   },
   "114": {
     "is_pr": true,
@@ -796,7 +816,7 @@
   },
   "531": {
     "is_pr": false,
-    "state": "OPEN",
+    "state": "CLOSED",
     "title": "3D: about 15-20 kB per destroyed Qt Quick 3D Model is never returned (date playback churns Models)"
   },
   "532": {
@@ -806,7 +826,7 @@
   },
   "534": {
     "is_pr": false,
-    "state": "OPEN",
+    "state": "CLOSED",
     "title": "3D: committed memory grows ~2 MB/min while the wind runs (FU-L14-2, intermittent)"
   },
   "536": {
@@ -936,7 +956,7 @@
   },
   "598": {
     "is_pr": false,
-    "state": "OPEN",
+    "state": "CLOSED",
     "title": "FU-L3: Seasonal callback budget has limited headroom across Windows/WARP runners"
   },
   "600": {
@@ -1111,7 +1131,7 @@
   },
   "667": {
     "is_pr": false,
-    "state": "OPEN",
+    "state": "CLOSED",
     "title": "G7 soak: fix QT_HASH_SEED in the soak child so the QTBUG-151940 leak share is repeatable"
   },
   "670": {
