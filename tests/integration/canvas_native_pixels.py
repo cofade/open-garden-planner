@@ -149,6 +149,28 @@ def embedded_shed_repaints() -> dict:
                      round(viewport.width() * ratio), round(viewport.height() * ratio))
         return frame.toImage().copy(crop).convertToFormat(QImage.Format.Format_ARGB32)
 
+    def settled_grab() -> QImage:
+        """A partial-repaint grab after the viewport's pixels stop changing.
+
+        #1017: the fixed settle below can return while a queued paint from the
+        edit is still on its way on a loaded machine, so the partial frame is
+        compared before it is complete. This waits until two grabs 100 ms apart
+        are identical, bounded at 3 s. That only waits out a queued paint; it
+        does not prove the frame is complete. The forced full repaint taken
+        immediately after is the negative control: a region the partial frame
+        never painted stays different from that full repaint even when two
+        partial grabs agree.
+        """
+        previous = grab()
+        deadline = time.monotonic() + 3.0
+        while time.monotonic() < deadline:
+            QTest.qWait(100)
+            current = grab()
+            if np.array_equal(_pixels(previous), _pixels(current)):
+                return current
+            previous = current
+        return previous
+
     def bounds(mask):
         rows, columns = np.nonzero(mask)
         return [int(columns.min()), int(rows.min()), int(columns.max()), int(rows.max())] if len(rows) else []
@@ -205,7 +227,7 @@ def embedded_shed_repaints() -> dict:
         regions.regions.clear()
         edit()
         settle()
-        partial = grab()
+        partial = settled_grab()
         ordinary = list(regions.regions)
         viewport.repaint()
         full = grab()

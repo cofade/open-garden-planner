@@ -170,6 +170,19 @@ class TestCanvasView:
         qtbot.addWidget(view)
         assert view.snap_enabled is True
 
+    def test_auto_assign_layers_is_one_view_accessor(self, qtbot) -> None:
+        """#1005: the drop path and Plant Grid ask the view, not the window."""
+        from types import SimpleNamespace
+
+        scene = CanvasScene()
+        view = CanvasView(scene)
+        qtbot.addWidget(view)
+        assert view.auto_assign_permaculture_layers is False
+        view._project_manager = SimpleNamespace(
+            auto_assign_permaculture_layers=True,
+        )
+        assert view.auto_assign_permaculture_layers is True
+
     def test_toggle_snap(self, qtbot) -> None:
         """Test toggling snap."""
         scene = CanvasScene()

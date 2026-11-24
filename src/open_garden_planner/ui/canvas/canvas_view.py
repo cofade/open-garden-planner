@@ -962,6 +962,17 @@ class CanvasView(QGraphicsView):
         return self._object_snap_enabled
 
     @property
+    def auto_assign_permaculture_layers(self) -> bool:
+        """Whether a new plant gets its species' permaculture layer.
+
+        One view-level seam for the window's project manager: the drop path
+        and the Plant Grid both ask here instead of each reaching through
+        ``window()._project_manager`` (#1005).
+        """
+        manager = getattr(self.window(), "_project_manager", None)
+        return bool(getattr(manager, "auto_assign_permaculture_layers", False))
+
+    @property
     def grid_size(self) -> float:
         """Current grid size in centimeters."""
         return self._grid_size
@@ -2740,11 +2751,10 @@ class CanvasView(QGraphicsView):
         self.set_active_tool(tool_type)
         if self._snap_enabled:
             scene_pos = self.snap_point(scene_pos)
-        manager = getattr(self.window(), "_project_manager", None)
         item = build_plant(self._canvas_scene, scene_pos, obj_type, radius,
                            species_name=species_name, plant_category=plant_category,
                            species_dict=species_dict,
-                           auto_assign=bool(manager and manager.auto_assign_permaculture_layers))
+                           auto_assign=self.auto_assign_permaculture_layers)
 
         # One undo step with auto-parenting (CreateItemCommand handles _auto_parent_plant)
         cmd = CreateItemCommand(self._canvas_scene, item)
@@ -4145,7 +4155,10 @@ class CanvasView(QGraphicsView):
             return
 
         # Include child plants of any selected beds (including group child beds)
+        from open_garden_planner.core.commands import carried_by_moved_item
+
         selected_set = {id(i) for i in selected}
+        moved_items = set(selected)
         extra_children: list[QGraphicsItem] = []
         for parent in iter_plant_parents(selected):
             for child_id in parent.child_item_ids:
@@ -4153,10 +4166,12 @@ class CanvasView(QGraphicsView):
                 if (
                     child is not None
                     and id(child) not in selected_set
+                    and not carried_by_moved_item(child, moved_items)
                     and not bed_child_has_constraints(self._canvas_scene, child_id)
                 ):
                     extra_children.append(child)
                     selected_set.add(id(child))
+                    moved_items.add(child)
         selected.extend(extra_children)
 
         # Determine move distance: 1cm precision with Shift, otherwise grid size
@@ -4213,6 +4228,7 @@ class CanvasView(QGraphicsView):
                 command = AlignItemsCommand(
                     all_deltas,
                     QCoreApplication.translate("Commands", "Move items (constrained)"),
+                    delta_frame="local",
                 )
                 self._command_manager.execute(command)
                 return
@@ -4279,12 +4295,19 @@ class CanvasView(QGraphicsView):
                 item_deltas.append((item, delta))
 
         # Propagate parent (bed/container/trellis) movement to child plants
+        from open_garden_planner.core.commands import carried_by_moved_item
+
+        moved_items = {item for item, _delta in item_deltas}
         child_start_positions: dict[QGraphicsItem, QPointF] = {}
         for item, delta in list(item_deltas):
             for parent in iter_plant_parents([item]):
                 for child_id in parent.child_item_ids:
                     child = self._canvas_scene.find_item_by_id(child_id)
-                    if child is None or bed_child_has_constraints(self._canvas_scene, child_id):
+                    if (
+                        child is None
+                        or bed_child_has_constraints(self._canvas_scene, child_id)
+                        or carried_by_moved_item(child, moved_items)
+                    ):
                         continue
                     # Skip if child is already being dragged independently
                     if child in self._drag_start_positions:
@@ -4298,6 +4321,7 @@ class CanvasView(QGraphicsView):
                     child_start_pos = self._child_drag_origins.get(child, child.pos())
                     child_start_positions[child] = child_start_pos
                     item_deltas.append((child, delta))
+                    moved_items.add(child)
 
         # Bound reference points moved with a parent are reset here and moved
         # again by the command's own expansion, so the whole gesture is one
@@ -4344,7 +4368,7 @@ class CanvasView(QGraphicsView):
                 # Single item, uniform delta - use simple MoveItemsCommand
                 command = MoveItemsCommand([item_deltas[0][0]], item_deltas[0][1])
             else:
-                command = AlignItemsCommand(item_deltas, desc)
+                command = AlignItemsCommand(item_deltas, desc, delta_frame="local")
             # A plant dragged into (or out of) a bed is linked in the SAME step:
             # two stack entries made the first Ctrl+Z undo only the link (#627).
             if links:
@@ -4377,8 +4401,10 @@ class CanvasView(QGraphicsView):
         if not self._drag_start_positions:
             return
 
+        from open_garden_planner.core.commands import carried_by_moved_item
         from open_garden_planner.core.reference_points import carried_by_moved, carried_delta
 
+        moved_items = set(self._drag_start_positions)
         if not self._drag_carried_points_built:
             self._drag_carried_points = dict(
                 carried_by_moved(self._canvas_scene, list(self._drag_start_positions))
@@ -4394,6 +4420,7 @@ class CanvasView(QGraphicsView):
                     if (
                         child is None
                         or child in self._drag_start_positions
+                        or carried_by_moved_item(child, moved_items)
                         or bed_child_has_constraints(self._canvas_scene, child_id)
                     ):
                         continue
@@ -6289,7 +6316,7 @@ class CanvasView(QGraphicsView):
         desc = align_labels.get(
             mode.name, QCoreApplication.translate("Commands", "Align items")
         )
-        command = AlignItemsCommand(non_zero, desc)
+        command = AlignItemsCommand(non_zero, desc, delta_frame="scene")
         self._command_manager.execute(command)
         self.set_status_message(desc)
 
@@ -6344,7 +6371,7 @@ class CanvasView(QGraphicsView):
         desc = distribute_labels.get(
             mode.name, QCoreApplication.translate("Commands", "Distribute items")
         )
-        command = AlignItemsCommand(non_zero, desc)
+        command = AlignItemsCommand(non_zero, desc, delta_frame="scene")
         self._command_manager.execute(command)
         self.set_status_message(desc)
 

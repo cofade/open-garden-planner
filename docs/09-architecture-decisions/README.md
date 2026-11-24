@@ -14507,3 +14507,25 @@ multi-press tool reuses the hook and needs no change to the view. Tests:
 not move during a paint but follows zoom, scrolling and a resize, and a pinch keeps the
 draft in both phases).
 Cross-refs: §8.9.12, §8.9.21, FR-PLANT-25, FR-CANVAS-04.
+
+**Addendum (2026-11-24, #1003/#1005)**: the draft's local arithmetic moved to
+Qt-free `core/plant_grid.py` (cell centres, resize edges, whole-centimetre span
+snapping, local handle positions) so it is unit-tested without a QApplication.
+Decision 2's placement now has one owner: `ui/canvas/viewport_overlay.ViewportOverlay`
+subscribes to `zoom_changed`, both scroll bars and the deferred viewport-resize
+event, and places the control strip from a tool-supplied anchor rect. The tool
+no longer connects those signals or repeats the clamp arithmetic. The strip's
+size, spacing, width and height are `LengthSpinBox` fields, so they follow the
+units profile (ADR-078/081) while the model stays in centimetres; the field
+labelled **Column spacing** shows the column pitch, typing it sets both axes,
+and the row pitch is `Height ÷ rows`. Typing an extent updates the column
+spacing. Snapping is
+part of the drag contract: move snaps the centre, resize snaps the edge and
+rounds the per-cell spacing to whole centimetres, rotation sticks within 3° of
+a 15° step when snap is on (Shift always snaps), and the size handle rounds to
+whole centimetres. Tests: `tests/unit/test_plant_grid.py` and
+`tests/integration/test_plant_grid_tool.py`.
+
+The toolbar placement is unchanged: the button stays in the main toolbar. The
+owner call recorded in #1003 (main toolbar vs the Plants category toolbar) is
+still open; this addendum records the current state, not a decision.

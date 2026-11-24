@@ -9,7 +9,7 @@ from collections.abc import Callable, Sequence
 from contextlib import AbstractContextManager, nullcontext, suppress
 from copy import deepcopy
 from dataclasses import replace
-from typing import TYPE_CHECKING, Any, cast
+from typing import TYPE_CHECKING, Any, Literal, cast
 from uuid import UUID
 
 from PyQt6.QtCore import QCoreApplication, QObject, QPointF, pyqtSignal
@@ -33,6 +33,11 @@ if TYPE_CHECKING:
 
 class Command(ABC):
     """Abstract base class for all undoable commands."""
+
+    #: A command that knows it changes nothing may say so; ``CommandManager``
+    #: then runs nothing and records no empty undo step. Commands default to
+    #: doing work (a command double without the attribute is treated the same).
+    is_noop: bool = False
 
     #: Whether executing or undoing this command can change an item's ground band
     #: (``canvas_scene.on_ground``: its object type, height metadata, or group
@@ -134,8 +139,12 @@ class CommandManager(QObject):
     def execute(self, command: Command) -> None:
         """Execute a command and add it to the undo stack.
 
-        Clears the redo stack since we've branched off.
+        Clears the redo stack since we've branched off. A command that declares
+        itself a no-op returns first: it is not a branch, so it neither records
+        an undo step nor clears the redo stack.
         """
+        if getattr(command, "is_noop", False):
+            return
         self._mutation_serial += 1
         command.execute()
         self._undo_stack.append(command)
@@ -163,6 +172,8 @@ class CommandManager(QObject):
         every "already applied" call site in sync with :meth:`execute`; do NOT
         hand-roll ``_undo_stack.append`` + signal emits at call sites (issue #209).
         """
+        if getattr(command, "is_noop", False):
+            return
         self._mutation_serial += 1
         self._undo_stack.append(command)
         had_redo = len(self._redo_stack) > 0
@@ -398,6 +409,26 @@ def scene_plants(scene: QGraphicsScene) -> list[QGraphicsItem]:
     return [
         item
         for item in items
+        if isinstance(item, GardenItemMixin) and is_plant_type(item.object_type)
+    ]
+
+
+def plants_in_items(items: Sequence[QGraphicsItem]) -> list[QGraphicsItem]:
+    """Every plant in *items*, descending into Qt item groups (#1001).
+
+    A group is not a plant, so a move of the group moved its plants without
+    telling the membership tracker: their own ``ItemPositionHasChanged`` never
+    fires (their local positions did not change). Walking the one shared
+    selection tree finds exactly the plants a group move carries, without a
+    second selection model.
+    """
+    from open_garden_planner.core.plant_renderer import is_plant_type
+    from open_garden_planner.ui.canvas.items import GardenItemMixin
+    from open_garden_planner.ui.canvas.items.group_item import selection_tree
+
+    return [
+        item
+        for item in selection_tree(list(items))
         if isinstance(item, GardenItemMixin) and is_plant_type(item.object_type)
     ]
 
@@ -1056,15 +1087,9 @@ def _membership_change_for_move(
     """
     if scene is None:
         return None
-    from open_garden_planner.core.plant_renderer import is_plant_type
-    from open_garden_planner.ui.canvas.items import GardenItemMixin
 
     parents = iter_plant_parents(items)
-    plants: list[QGraphicsItem] = [
-        item
-        for item in items
-        if isinstance(item, GardenItemMixin) and is_plant_type(item.object_type)
-    ]
+    plants: list[QGraphicsItem] = plants_in_items(items)
     if parents:
         # The moved plants are ALWAYS re-decided (a moved plant's link follows
         # it); the focus only widens the set to plants the moved beds can affect.
@@ -1180,6 +1205,21 @@ def bed_child_has_constraints(scene: QGraphicsScene, child_id: UUID) -> bool:
     return graph is not None and bool(graph.get_item_constraints(child_id))
 
 
+def carried_by_moved_item(item: QGraphicsItem, moved: set[QGraphicsItem]) -> bool:
+    """Whether *item* already moves because a Qt ancestor of it is in *moved*.
+
+    A group move carries its Qt children; a bed inside the group also lists
+    linked plants as children, and adding a second delta to a plant the group
+    already carries would move it twice (#1001's review).
+    """
+    parent = item.parentItem()
+    while parent is not None:
+        if parent in moved:
+            return True
+        parent = parent.parentItem()
+    return False
+
+
 def expand_with_bed_children(
     scene: QGraphicsScene,
     item_deltas: list[tuple[QGraphicsItem, QPointF]],
@@ -1192,6 +1232,7 @@ def expand_with_bed_children(
     from open_garden_planner.core.reference_points import carried_by_moved, carried_delta
 
     deltas = dict(item_deltas)
+    moved = set(deltas)
     finder = getattr(scene, "find_item_by_id", None)
     if not callable(finder):
         return item_deltas, set()
@@ -1199,9 +1240,15 @@ def expand_with_bed_children(
         for parent in iter_plant_parents([item]):
             for child_id in parent.child_item_ids:
                 child = finder(child_id)
-                if child is None or child in deltas or bed_child_has_constraints(scene, child_id):
+                if (
+                    child is None
+                    or child in deltas
+                    or carried_by_moved_item(child, moved)
+                    or bed_child_has_constraints(scene, child_id)
+                ):
                     continue
                 deltas[child] = QPointF(delta)
+                moved.add(child)
 
     carries = carried_by_moved(scene, list(deltas), exclude_moved=False)
     for point, carrier in carries:
@@ -1210,12 +1257,55 @@ def expand_with_bed_children(
     return list(deltas.items()), {point for point, _ in carries}
 
 
-class _MoveItemDeltasCommand(Command):
-    """Replay translated items and capture reference points after projection."""
+def _moved_ancestor(
+    item: QGraphicsItem, moved: dict[QGraphicsItem, QPointF],
+) -> QGraphicsItem | None:
+    """The nearest Qt ancestor of *item* that is moving, if any."""
+    parent = item.parentItem()
+    while parent is not None:
+        if parent in moved:
+            return parent
+        parent = parent.parentItem()
+    return None
 
-    def __init__(self, item_deltas: list[tuple[QGraphicsItem, QPointF]]) -> None:
+
+class _MoveItemDeltasCommand(Command):
+    """Replay translated items and capture reference points after projection.
+
+    ``delta_frame`` says what the listed deltas are measured in. ``"scene"``
+    (the default) is align/distribute and a uniform move: a listed child of a
+    moved Qt ancestor contributes only the residual scene delta. ``"local"``
+    is the live-drag finalizer, where a constrained child's correction is
+    already parent-local and must be applied as listed.
+    """
+
+    def __init__(
+        self,
+        item_deltas: list[tuple[QGraphicsItem, QPointF]],
+        *,
+        delta_frame: Literal["scene", "local"] = "scene",
+    ) -> None:
         from open_garden_planner.core.reference_points import is_reference_point
 
+        if delta_frame not in ("scene", "local"):
+            raise ValueError("delta_frame must be 'scene' or 'local'")
+        if not item_deltas:
+            raise ValueError("move needs at least one item delta")
+        by_item: dict[QGraphicsItem, QPointF] = {}
+        for item, delta in item_deltas:
+            if item in by_item:
+                raise ValueError("duplicate item in move deltas")
+            by_item[item] = delta
+        adjusted: list[tuple[QGraphicsItem, QPointF]] = []
+        for item, delta in item_deltas:
+            if delta_frame == "scene":
+                ancestor = _moved_ancestor(item, by_item)
+                if ancestor is not None:
+                    delta = delta - by_item[ancestor]
+            if delta.x() != 0 or delta.y() != 0:
+                adjusted.append((item, delta))
+        self.is_noop = not adjusted
+        item_deltas = adjusted
         scene = item_deltas[0][0].scene() if item_deltas else None
         self._item_deltas, self._carried = (
             expand_with_bed_children(scene, item_deltas) if scene is not None else (item_deltas, set())
@@ -1294,6 +1384,8 @@ class CompoundCommand(Command):
         if not self._commands:
             raise ValueError("CompoundCommand needs at least one command")
         self._description = description
+        # a compound of no-ops records nothing, like a single no-op command
+        self.is_noop = all(getattr(command, "is_noop", False) for command in self._commands)
         # the scene's restack scans ask these of the ONE command it ran: a step that
         # can move, link or re-type anything must keep asking for them
         self.changes_ground_band = any(command.changes_ground_band for command in self._commands)
@@ -2186,8 +2278,10 @@ class AlignItemsCommand(_MoveItemDeltasCommand):
         self,
         item_deltas: list[tuple[QGraphicsItem, QPointF]],
         description_text: str | None = None,
+        *,
+        delta_frame: Literal["scene", "local"] = "scene",
     ) -> None:
-        super().__init__(list(item_deltas))
+        super().__init__(list(item_deltas), delta_frame=delta_frame)
         self._description_text = description_text
 
     @property

@@ -19,9 +19,9 @@ from open_garden_planner.ui.widgets.trait_filters import trait_label
 
 def add_to_guild(item: Any, view: Any) -> None:
     scene = item.scene()
-    generation = getattr(scene, "_document_generation", 0)
     if scene is None:
         return
+    generation = scene.document_generation
     centres = [plant for plant in scene.items() if isinstance(getattr(plant, "metadata", {}).get("guild"), dict)
                and plant.metadata["guild"].get("role") == "centre" and plant is not item]
     dialog = QDialog(view)
@@ -43,7 +43,7 @@ def add_to_guild(item: Any, view: Any) -> None:
     if ok is not None:
         ok.setEnabled(bool(centres))
     layout.addWidget(buttons)
-    if not dialog.exec() or generation != getattr(scene, "_document_generation", 0) or item.scene() is not scene:
+    if not dialog.exec() or generation != scene.document_generation or item.scene() is not scene:
         return
     gid = guild_combo.currentData()
     if not guild_members(scene, gid):
@@ -68,13 +68,13 @@ def build_guild_actions(menu: Any, item: Any) -> None:
     add = menu.addAction(QCoreApplication.translate("GuildActions", "Add to guild…"))
     identity = item.item_id
     scene = item.scene()
-    generation = getattr(scene, "_document_generation", 0)
+    generation = scene.document_generation
     def defer_add() -> None:
         timer = QTimer(view)
         timer.setSingleShot(True)
         def navigate() -> None:
             try:
-                if generation != getattr(scene, "_document_generation", 0):
+                if generation != scene.document_generation:
                     return
                 current = scene.find_item_by_id(UUID(str(identity)))
                 if current is not None:

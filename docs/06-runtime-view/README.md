@@ -181,19 +181,26 @@ command; selection toggles do not create history entries.
 The first canvas click captures the anchor and opens the dimensions and plant
 dialogs. The next click fixes the initial extent. The view paints the draft and
 its handles in the foreground while the tool keeps the rectangle, orientation,
-and plant size in memory. Switching tools, pressing Escape on the canvas, or
-replacing the plan ends the draft without creating any items. A pinch during
-an existing draft cancels only the pending pointer edit. A modal reply from
-a replaced document is discarded.
+and plant size in memory. The control strip's size, column-spacing, width and
+height fields are units-aware and typed; a snapped move, resize, rotation or
+size drag updates the same draft (whole-centimetre spacing on resize). The
+strip is placed by `ViewportOverlay` from the draft's anchor, never from the
+paint. Switching tools, pressing Escape on the canvas, or replacing the plan
+ends the draft without creating any items. A pinch during an existing draft
+cancels only the pending pointer edit and restores the strip's values. A modal
+reply from a replaced document is discarded.
 
 On confirmation the tool maps each cell centre from grid coordinates to the
 scene. If all centres fit the plan, the grouping question offers Yes, No, or
 Cancel. Cancel returns to the draft. Yes or No creates the plants through
 `CreateItemsCommand`, which reconciles bed membership at the resulting centres.
 Yes adds `GroupCommand` to the same undo step. The new plants, or their group,
-are then selected, as after a single drop. Escape is handled by the view's single
-Esc rule (#829): the view returns to Select, and the tool's `cancel()` discards the
-draft. The draft is painted through `BaseTool.paint_foreground` (ADR-082).
+are then selected, as after a single drop. Moving that group reconciles every
+plant's bed link in the same undo step, and a bed inside the group keeps its
+linked plants without a second move delta. Escape is handled by the view's
+single Esc rule (#829): the view returns to Select, and the tool's `cancel()`
+discards the draft. The draft is painted through `BaseTool.paint_foreground`
+(ADR-082).
 
 ## 6.2 Save/Load Flow
 

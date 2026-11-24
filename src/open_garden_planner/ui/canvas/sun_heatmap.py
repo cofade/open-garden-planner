@@ -618,7 +618,7 @@ class SunHeatmapController(QObject):
         self._grid = grid
         self.last_grid = grid
         self._computed_day = day
-        self._document_generation = getattr(self._scene, "_document_generation", 0)
+        self._document_generation = getattr(self._scene, "document_generation", 0)
         self._success_seen = False
         self._result_wanted = True
         self.run_count += 1
@@ -699,7 +699,7 @@ class SunHeatmapController(QObject):
         # A clear() may land between the worker's success emission and this
         # queued slot — the result is no longer wanted, don't paint it.
         if (grid is None or self._computed_day is None or not self._result_wanted
-                or self._document_generation != getattr(self._scene, "_document_generation", 0)):
+                or self._document_generation != getattr(self._scene, "document_generation", 0)):
             return
         if self.snapshot != collect_exposure_snapshot(
             self._scene, self._location_provider(), self._computed_day,

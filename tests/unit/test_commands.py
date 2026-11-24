@@ -45,6 +45,101 @@ class TestCommandManager:
         assert manager.undo_description is None
         assert manager.redo_description is None
 
+    def test_a_noop_command_records_nothing_and_keeps_redo(self, manager) -> None:
+        """#1001 review: a no-op is not a branch and records no undo step."""
+
+        class _Recording(Command):
+            def __init__(self, *, noop: bool = False) -> None:
+                self.is_noop = noop
+                self.ran = 0
+                self.undone = 0
+
+            @property
+            def description(self) -> str:
+                return "recording"
+
+            def execute(self) -> None:
+                self.ran += 1
+
+            def undo(self) -> None:
+                self.undone += 1
+
+        real = _Recording()
+        manager.execute(real)
+        assert manager.undo_depth == 1
+        manager.undo()
+        assert manager.can_redo
+
+        noop = _Recording(noop=True)
+        executed: list[str] = []
+        changed: list[bool] = []
+        manager.command_executed.connect(executed.append)
+        manager.stack_changed.connect(lambda: changed.append(True))
+        serial = manager.mutation_serial
+        manager.execute(noop)
+
+        assert noop.ran == 0
+        assert manager.undo_depth == 0
+        assert manager.can_redo  # the no-op did not branch off the redo stack
+        assert manager.mutation_serial == serial
+        assert executed == []
+        assert changed == []
+        registered = _Recording(noop=True)
+        manager.register_applied(registered)
+        assert registered.ran == 0
+        assert manager.undo_depth == 0
+        assert manager.mutation_serial == serial
+        assert manager.can_redo
+        assert executed == []
+        assert changed == []
+
+    def test_move_commands_reject_empty_and_duplicate_input(self, manager, scene) -> None:
+        """A move names distinct items; empty and duplicate lists are contract errors."""
+        item = QGraphicsRectItem(0, 0, 10, 10)
+        scene.addItem(item)
+        with pytest.raises(ValueError):
+            MoveItemsCommand([], QPointF(1.0, 0.0))
+        with pytest.raises(ValueError):
+            MoveItemsCommand([item, item], QPointF(1.0, 0.0))
+        from open_garden_planner.core.commands import AlignItemsCommand
+
+        with pytest.raises(ValueError):
+            AlignItemsCommand([])
+        with pytest.raises(ValueError):
+            AlignItemsCommand([(item, QPointF(1.0, 0.0)), (item, QPointF(2.0, 0.0))])
+
+    def test_a_compound_of_noops_records_nothing_but_a_link_still_runs(
+        self, manager
+    ) -> None:
+        """A compound is no-op only when every step is; a real step still records."""
+
+        class _Recording(Command):
+            def __init__(self, *, noop: bool = False) -> None:
+                self.is_noop = noop
+                self.ran = 0
+
+            @property
+            def description(self) -> str:
+                return "recording"
+
+            def execute(self) -> None:
+                self.ran += 1
+
+            def undo(self) -> None:
+                pass
+
+        noop = _Recording(noop=True)
+        manager.execute(CompoundCommand([noop]))
+        assert noop.ran == 0
+        assert manager.undo_depth == 0
+
+        noop = _Recording(noop=True)
+        real = _Recording()
+        manager.execute(CompoundCommand([noop, real]))
+        assert noop.ran == 1
+        assert real.ran == 1
+        assert manager.undo_depth == 1
+
     def test_execute_enables_undo(self, manager, scene) -> None:
         """Test that executing a command enables undo."""
         item = QGraphicsRectItem(0, 0, 100, 100)

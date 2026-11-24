@@ -169,11 +169,10 @@ class CircleTool(BaseTool):
 
             scene = self._view.scene()
             if is_plant_type(self._object_type):
-                manager = getattr(self._view.window(), "_project_manager", None)
                 item = build_plant(
                     scene, self._center_point, self._object_type, radius,
                     species_name=self._plant_species, plant_category=cast("PlantCategory | None", self._plant_category),
-                    auto_assign=bool(manager and manager.auto_assign_permaculture_layers),
+                    auto_assign=self._view.auto_assign_permaculture_layers,
                 )
             else:
                 layer_id = scene.active_layer.id if scene.active_layer else None

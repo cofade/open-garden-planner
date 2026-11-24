@@ -254,8 +254,10 @@ Full how-to (step-by-step, `.ts` format, recompile command): see `docs/08-crossc
   "Current work" section, then `git status` and `git log --oneline -20`.
 - Current release: **v1.42.1** (2026-11-24). No roadmap phase is active.
   See the roadmap's Current work table and the open issues for the next change.
-  Open follow-ups: #1012-#1015, #1017 and #1018 (3D gates, flaky tests), #1003 and
-  #1005 (Plant Grid), #1001 (stale group bed links), #1006 (a flaky forge test).
+- Draft PR open: Plant Grid follow-ups (#1001, #1003, #1005, #1017), waiting for the owner's
+  manual test. #1004 (native-pixel repaint oracle; fails at 5fbc8620, passes 4/4 on
+  0d2d8972) and #1020 (agent grouped-child scene/local frame) remain open. #1012-#1015 and
+  #1018 are 3D follow-ups; #1006 is a flaky forge test.
 - Live decisions that constrain the next change:
   - 3D Model reuse (#531, ADR-069 addendum): a regrown part loads new buffers into the
     geometry object its live Model already has (`BufferGeometry.reload`); never a new
@@ -263,6 +265,16 @@ Full how-to (step-by-step, `.ts` format, recompile command): see `docs/08-crossc
     Plant seasons cross as ids + one float64 buffer (`host.season_payload`, #598).
     A lawn's colour is held while the date keeps changing (`_season_date_for`, ADR-069
     addendum 2); a recorded tour sets `hold_season = False`.
+  - Plant Grid typed values and snapping (#1003, ADR-082 addendum, §8.9.21): size, column
+    spacing, width and height are `LengthSpinBox` fields (units profile; the model stays in
+    cm; the column field shows the column pitch and the row pitch is Height ÷ rows);
+    `core/plant_grid.py` owns the Qt-free geometry; `ui/canvas/viewport_overlay.py` owns
+    the control strip's placement; a snap-enabled resize rounds per-cell spacing to whole
+    centimetres. The tool has `plant_grid.svg`.
+  - Group moves and bed links (#1001, PF-CAN-70): `core/commands.plants_in_items()` walks
+    the Qt child tree; membership changes undo in the group-move step.
+  - Native-pixel oracle (#1017, PF-CAN-67): `canvas_native_pixels.settled_grab()` waits for
+    two identical frames before comparing a partial repaint.
   - Tool drafts (#1002, ADR-082, §8.9.21): a multi-press tool draft paints through
     `BaseTool.paint_foreground` (a paint only reads); a pinch calls
     `cancel_pointer_press()`; Esc stays the view's single rule. Plant searches use

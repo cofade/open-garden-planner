@@ -41,7 +41,7 @@ class InsertGuildDialog(QDialog):
     def __init__(self, scene: Any, *, auto_assign: bool = False, library: GuildLibrary | None = None, parent: QWidget | None = None) -> None:
         super().__init__(parent)
         self.scene = scene
-        self._document_generation = getattr(scene, "_document_generation", 0)
+        self._document_generation = scene.document_generation
         self._closed = False
         scene.document_replaced.connect(self._document_replaced)
         self.auto_assign = auto_assign
@@ -175,7 +175,7 @@ class InsertGuildDialog(QDialog):
     def prepare(self) -> InsertGuildCommand:
         from uuid import UUID
 
-        if self._closed or self._document_generation != getattr(self.scene, "_document_generation", 0):
+        if self._closed or self._document_generation != self.scene.document_generation:
             raise GuildValidationError("document_changed")
         identity = self.existing_combo.currentData()
         existing = self.scene.find_item_by_id(UUID(identity)) if identity else None

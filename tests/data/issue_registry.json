@@ -19,6 +19,11 @@
     "state": "OPEN",
     "title": "Plant Grid precision: typed size/spacing, snapping handle drags, own icon"
   },
+  "1004": {
+    "is_pr": false,
+    "state": "OPEN",
+    "title": "Shed-to-glasshouse partial repaint differs from a full repaint on the dev machine (local-only test failure)"
+  },
   "1005": {
     "is_pr": false,
     "state": "OPEN",
@@ -53,6 +58,11 @@
     "is_pr": false,
     "state": "OPEN",
     "title": "Flaky: test_a_heavy_build_is_prepared_on_the_geometry_lane fails once in a full -n auto run"
+  },
+  "1020": {
+    "is_pr": false,
+    "state": "OPEN",
+    "title": "Agent writes: a grouped object's scene move is applied in the group frame"
   },
   "114": {
     "is_pr": true,
@@ -1128,11 +1138,6 @@
     "is_pr": false,
     "state": "CLOSED",
     "title": "Reference-point object for survey stakes and measurement datums"
-  },
-  "667": {
-    "is_pr": false,
-    "state": "CLOSED",
-    "title": "G7 soak: fix QT_HASH_SEED in the soak child so the QTBUG-151940 leak share is repeatable"
   },
   "670": {
     "is_pr": false,

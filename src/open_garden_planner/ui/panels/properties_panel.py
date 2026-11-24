@@ -2894,6 +2894,7 @@ class PropertiesPanel(QWidget):
                                 QCoreApplication.translate(
                                     "Commands", "Move item (constrained)"
                                 ),
+                                delta_frame="local",
                             )
                             if self._command_manager:
                                 self._command_manager.execute(command)

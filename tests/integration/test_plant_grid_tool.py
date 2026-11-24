@@ -366,6 +366,169 @@ def test_control_strip_follows_view_changes_but_never_moves_in_a_paint(qtbot, mo
     qtbot.waitUntil(lambda: controls.pos() != placed)
 
 
+def test_typed_values_keep_the_grid_exact(qtbot, monkeypatch):
+    """#1003: size, spacing, width and height are typed in display units."""
+    from open_garden_planner.ui.widgets.unit_spin_box import LengthSpinBox
+
+    _scene, view = _grid_view(qtbot)
+    AppSettings().plant_grid_dimensions = (2, 3)
+    _accept_setup(monkeypatch)
+    grid = _start_draft(qtbot, view)
+    fields = grid._fields
+    assert set(fields) == {"size", "spacing", "width", "height"}
+    assert all(isinstance(field, LengthSpinBox) for field in fields.values())
+    assert grid._width == pytest.approx(300.0)
+    assert grid._height == pytest.approx(400.0)
+
+    fields["spacing"].setValue(60.0)
+    assert grid._width == pytest.approx(180.0)
+    assert grid._height == pytest.approx(120.0)
+    assert fields["width"].value() == pytest.approx(180.0)
+    assert fields["height"].value() == pytest.approx(120.0)
+
+    fields["width"].setValue(240.0)
+    assert grid._width == pytest.approx(240.0)
+    assert fields["spacing"].value() == pytest.approx(80.0)
+
+    fields["height"].setValue(200.0)
+    assert grid._height == pytest.approx(200.0)
+    assert fields["spacing"].value() == pytest.approx(80.0)
+    rows, columns = grid._dimensions
+    assert grid._width / columns == pytest.approx(80.0)
+    assert grid._height / rows == pytest.approx(100.0)
+
+    fields["size"].setValue(75.0)
+    assert grid._diameter == pytest.approx(75.0)
+    assert grid._size_slider.value() == 75
+    centers = grid._centers()
+    assert len(centers) == 6
+    assert (centers[0].x(), centers[0].y()) == pytest.approx((-80.0, -50.0))
+    assert (centers[-1].x(), centers[-1].y()) == pytest.approx((80.0, 50.0))
+
+
+def test_a_second_draft_resyncs_the_fields(qtbot, monkeypatch):
+    """#1003 review: existing controls must show the new draft's geometry."""
+    _scene, view = _grid_view(qtbot)
+    AppSettings().plant_grid_dimensions = (2, 3)
+    _accept_setup(monkeypatch)
+    grid = _start_draft(qtbot, view)
+    assert grid._fields["width"].value() == pytest.approx(300.0)
+    assert grid._fields["height"].value() == pytest.approx(400.0)
+
+    view.set_active_tool(ToolType.SELECT)
+    view.set_active_tool(ToolType.PLANT_GRID)
+    _click(qtbot, view, QPointF(100, 100))
+    _click(qtbot, view, QPointF(400, 600))
+    assert grid._width == pytest.approx(300.0)
+    assert grid._height == pytest.approx(500.0)
+    assert grid._fields["width"].value() == pytest.approx(300.0)
+    assert grid._fields["height"].value() == pytest.approx(500.0)
+    assert grid._fields["spacing"].value() == pytest.approx(100.0)
+
+
+def test_a_pinch_cancelled_resize_restores_the_fields(qtbot, monkeypatch):
+    """#1003 review: the strip must show the restored geometry after a pinch."""
+    _scene, view = _grid_view(qtbot)
+    AppSettings().plant_grid_dimensions = (2, 3)
+    _accept_setup(monkeypatch)
+    grid = _start_draft(qtbot, view)
+    fields = grid._fields
+    assert fields["width"].value() == pytest.approx(300.0)
+    viewport = view.viewport()
+    edge = grid._handles()[(1, 0)]
+    press = view.mapFromScene(edge)
+    qtbot.mousePress(viewport, Qt.MouseButton.LeftButton, pos=press)
+    qtbot.mouseMove(viewport, view.mapFromScene(edge + QPointF(100.0, 0.0)))
+    assert grid._width > 300.0
+    view._touch_mouse_press = (QPointF(press), Qt.MouseButton.LeftButton)
+    view._cancel_touch_press()
+    assert grid._width == pytest.approx(300.0)
+    assert fields["width"].value() == pytest.approx(300.0)
+    assert fields["height"].value() == pytest.approx(400.0)
+    assert fields["spacing"].value() == pytest.approx(100.0)
+
+
+def test_typed_values_follow_the_units_profile(qtbot, monkeypatch):
+    """#1003 review: the risky imperial parse path, not only setValue()."""
+    from open_garden_planner.core.unit_preference import get_unit_preference
+    from open_garden_planner.core.units import UnitSystem
+
+    _scene, view = _grid_view(qtbot)
+    AppSettings().plant_grid_dimensions = (2, 3)
+    _accept_setup(monkeypatch)
+    grid = _start_draft(qtbot, view)
+    preference = get_unit_preference()
+    try:
+        preference.set_system(UnitSystem.IMPERIAL)
+        field = grid._fields["width"]
+        field.lineEdit().setText("10'")
+        field.interpretText()
+        assert grid._width == pytest.approx(304.8)
+        assert grid._fields["spacing"].value() == pytest.approx(101.6)
+    finally:
+        preference.set_system(UnitSystem.METRIC)
+
+
+def test_a_focused_field_is_authoritative_until_focus_leaves(qtbot, monkeypatch):
+    """#1003 review: a field being typed in is not overwritten by a sync."""
+    _scene, view = _grid_view(qtbot)
+    AppSettings().plant_grid_dimensions = (2, 3)
+    _accept_setup(monkeypatch)
+    grid = _start_draft(qtbot, view)
+    field = grid._fields["width"]
+    qtbot.waitExposed(view)
+    field.setFocus(Qt.FocusReason.OtherFocusReason)
+    qtbot.waitUntil(field.hasFocus)
+    assert field.hasFocus()
+    grid._width = 500.0
+    grid._sync_fields()
+    assert field.value() == pytest.approx(300.0)
+    field.clearFocus()
+    grid._sync_fields()
+    assert field.value() == pytest.approx(500.0)
+
+
+def test_snapped_handles_leave_whole_centimetre_spacing(qtbot, monkeypatch):
+    """#1003: snapping applies to move, resize, rotate and the size handle."""
+    _scene, view = _grid_view(qtbot)
+    view.set_snap_enabled(True)
+    AppSettings().plant_grid_dimensions = (2, 3)
+    _accept_setup(monkeypatch)
+    grid = _start_draft(qtbot, view)
+    viewport = view.viewport()
+
+    def drag(start: QPointF, finish: QPointF) -> None:
+        qtbot.mousePress(viewport, Qt.MouseButton.LeftButton, pos=view.mapFromScene(start))
+        qtbot.mouseMove(viewport, view.mapFromScene(finish))
+        qtbot.mouseRelease(viewport, Qt.MouseButton.LeftButton, pos=view.mapFromScene(finish))
+
+    center = QPointF(grid._center)
+    move = grid._handles()["move"]
+    drag(move, move + QPointF(37.0, 23.0))
+    assert grid._center.x() % 50.0 == pytest.approx(0.0)
+    assert grid._center.y() % 50.0 == pytest.approx(0.0)
+    assert grid._center != center
+
+    edge = grid._handles()[(1, 0)]
+    drag(edge, edge + QPointF(13.0, 0.0))
+    rows, columns = grid._dimensions
+    assert (grid._width / columns) == pytest.approx(round(grid._width / columns))
+    assert (grid._height / rows) == pytest.approx(round(grid._height / rows))
+
+    rotate = grid._handles()["rotate"]
+    offset = rotate - grid._center
+    drag(rotate, grid._center + QTransform().rotate(17.0 - grid._angle).map(offset))
+    assert grid._angle == pytest.approx(15.0)
+    rotate = grid._handles()["rotate"]
+    offset = rotate - grid._center
+    drag(rotate, grid._center + QTransform().rotate(22.0 - grid._angle).map(offset))
+    assert grid._angle == pytest.approx(22.0, abs=1.0)
+
+    size = grid._handles()["diameter"]
+    drag(size, size + QPointF(20.3, 0.0))
+    assert grid._diameter == pytest.approx(round(grid._diameter))
+
+
 def test_a_pinch_while_the_extent_is_completed_returns_to_the_rubber_band(qtbot, monkeypatch):
     """The second finger takes over the press that fixed the extent."""
     _scene, view = _grid_view(qtbot)

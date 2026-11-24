@@ -94,7 +94,7 @@ class LiveSunMap(QObject):
                 shown.generation, shown.latitude, shown.longitude, shown.bounds,
                 shown.north_angle_deg,
         ) != (
-                getattr(self.scene, "_document_generation", 0), location.get("latitude"),
+                self.scene.document_generation, location.get("latitude"),
                 location.get("longitude"), bounds,
                 self._north(),
         ):

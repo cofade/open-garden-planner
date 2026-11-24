@@ -2,20 +2,16 @@
 
 from __future__ import annotations
 
-from collections.abc import Callable
 from math import atan2, degrees, isfinite
 from typing import TYPE_CHECKING, Any
 
 from PyQt6.QtCore import (
     QCoreApplication,
-    QEvent,
     QLineF,
-    QObject,
     QPointF,
     QRectF,
     QSignalBlocker,
     Qt,
-    QTimer,
 )
 from PyQt6.QtGui import QColor, QMouseEvent, QPainter, QPen, QTransform
 from PyQt6.QtWidgets import (
@@ -24,7 +20,9 @@ from PyQt6.QtWidgets import (
     QFormLayout,
     QFrame,
     QGraphicsItem,
+    QGridLayout,
     QHBoxLayout,
+    QLabel,
     QMessageBox,
     QSlider,
     QSpinBox,
@@ -35,7 +33,14 @@ from PyQt6.QtWidgets import (
 
 from open_garden_planner.app.settings import AppSettings, get_settings
 from open_garden_planner.core.commands import CompoundCommand, CreateItemsCommand, GroupCommand
-from open_garden_planner.core.grid_offsets import grid_offsets
+from open_garden_planner.core.plant_grid import (
+    MIN_SPAN_CM,
+    cell_centers,
+    first_cell_center,
+    handle_positions,
+    resize_edges,
+    snap_cell_span,
+)
 from open_garden_planner.core.plant_renderer import paint_plant
 from open_garden_planner.core.plant_sizing import species_drop_diameter_cm
 from open_garden_planner.core.tools.base_tool import BaseTool, ToolType
@@ -53,42 +58,21 @@ from open_garden_planner.ui.canvas.items.resize_handle import (
     ROTATION_HANDLE_SIZE,
     ROTATION_SNAP_ANGLE,
 )
+from open_garden_planner.ui.canvas.viewport_overlay import ViewportOverlay
 from open_garden_planner.ui.dialogs.plant_search_dialog import PlantSearchDialog
 from open_garden_planner.ui.icons import get_icon
 from open_garden_planner.ui.plant_creation import build_species_plant, species_object_type
+from open_garden_planner.ui.widgets.unit_spin_box import LengthSpinBox
 
 if TYPE_CHECKING:
     from open_garden_planner.ui.canvas.canvas_scene import CanvasScene
     from open_garden_planner.ui.canvas.canvas_view import CanvasView
 
 _ACCENT = "#e38127"
-_MIN_SPAN = 2.0  # cm
+_MIN_SPAN = MIN_SPAN_CM  # cm
 _MAX_PLANT_DIAMETER = 5000.0  # cm
-_HANDLES = ((-1, -1), (0, -1), (1, -1), (1, 0), (1, 1), (0, 1), (-1, 1), (-1, 0))
-
-
-class _ViewportResizeWatcher(QObject):
-    """Calls back when the viewport is resized.
-
-    An ``AnchorViewCenter`` re-centre after a resize moves the scene through
-    the view's alignment, not the scroll bars, so no scroll signal reports it.
-    The viewport's Resize event also arrives *before* ``QGraphicsView`` has
-    re-centred, so the callback runs one event-loop turn later. The timer is
-    a child of this watcher, which is a child of the viewport: it dies with it.
-    """
-
-    def __init__(self, viewport: QWidget, callback: Callable[[], None]) -> None:
-        super().__init__(viewport)
-        self._timer = QTimer(self)
-        self._timer.setSingleShot(True)
-        self._timer.setInterval(0)
-        self._timer.timeout.connect(callback)
-        viewport.installEventFilter(self)
-
-    def eventFilter(self, _watched: QObject | None, event: QEvent | None) -> bool:
-        if event is not None and event.type() == QEvent.Type.Resize:
-            self._timer.start()
-        return False
+_MAX_SPAN = 100000.0  # cm
+_ROTATION_SNAP_WINDOW = 3.0  # degrees; snap-enabled rotation sticks near a step
 
 
 class PlantGridTool(BaseTool):
@@ -125,14 +109,11 @@ class PlantGridTool(BaseTool):
         self._size_button: QToolButton | None = None
         self._size_slider: QSlider | None = None
         self._preview_button: QToolButton | None = None
-        # The control strip follows the draft on screen. It is placed from the
-        # input and view-change paths (zoom, scrolling, viewport resize),
-        # never from a paint (ADR-082).
-        view.zoom_changed.connect(self._place_controls)
-        for bar in (view.horizontalScrollBar(), view.verticalScrollBar()):
-            if bar is not None:
-                bar.valueChanged.connect(self._place_controls)
-        self._resize_watcher = _ViewportResizeWatcher(self._viewport, self._place_controls)
+        self._fields: dict[str, LengthSpinBox] = {}
+        # The control strip follows the draft on screen. The overlay owns the
+        # subscription to zoom, scrolling and viewport geometry and places the
+        # strip from ``_controls_anchor``; a paint never moves it (ADR-082).
+        self._overlay: ViewportOverlay | None = None
 
     @property
     def _viewport(self) -> QWidget:
@@ -158,6 +139,7 @@ class PlantGridTool(BaseTool):
             settings = get_settings()
             settings.plant_grid_dimensions = self._dimensions
             settings.sync()
+            self._sync_fields()
             self._place_controls()
             self._viewport.update()
         dialog.deleteLater()
@@ -188,6 +170,7 @@ class PlantGridTool(BaseTool):
             )
             self._size_edited = self._diameter != diameter
             self._sync_size_slider()
+            self._sync_fields()
             self._place_controls()
             self._viewport.update()
             return True
@@ -215,10 +198,82 @@ class PlantGridTool(BaseTool):
     def _slide_plant_size(self, value: int) -> None:
         self._diameter = float(value)
         self._size_edited = True
+        self._sync_fields()
+        self._viewport.update()
+
+    def _length_field(
+        self, key: str, label: str, minimum: float, maximum: float,
+    ) -> LengthSpinBox:
+        """A units-aware numeric field bound to one piece of the draft."""
+        field = LengthSpinBox(parent=self._controls)
+        field.setObjectName(f"{key}_field")
+        field.setRange(minimum, maximum)
+        field.setDecimals(1)
+        field.setSingleStep(1.0)
+        field.setSuffix(" cm")
+        field.setAccessibleName(label)
+        field.setToolTip(QCoreApplication.translate(
+            "PlantGridTool",
+            "Typing a value updates the draft. Units follow Preferences.",
+        ))
+        field.valueChanged.connect(
+            lambda value, name=key: self._field_changed(name, value)
+        )
+        return field
+
+    def _sync_fields(self) -> None:
+        """Show the draft's current values without re-entering the handlers.
+
+        A field that currently has focus is the authoritative editor: it is not
+        overwritten while the user types. The next sync after focus leaves
+        updates it; the canvas click and hide paths move focus out first.
+        """
+        fields = self._fields
+        if not fields:
+            return
+        rows, columns = self._dimensions
+        width, height = self._width, self._height
+        with (
+            QSignalBlocker(fields["size"]),
+            QSignalBlocker(fields["spacing"]),
+            QSignalBlocker(fields["width"]),
+            QSignalBlocker(fields["height"]),
+        ):
+            # Never overwrite the field the user is typing in: a drag or a
+            # sibling field updates the others, and the typed text already
+            # names the value the model holds.
+            values = {
+                "size": self._diameter,
+                "spacing": width / columns,
+                "width": width,
+                "height": height,
+            }
+            for key, value in values.items():
+                if not fields[key].hasFocus():
+                    fields[key].setValue(value)
+
+    def _field_changed(self, name: str, value: float) -> None:
+        if name == "size":
+            self._diameter = max(_MIN_SPAN, min(_MAX_PLANT_DIAMETER, value))
+            self._size_edited = True
+            self._sync_size_slider()
+        elif name == "spacing":
+            rows, columns = self._dimensions
+            self._width = max(_MIN_SPAN, min(_MAX_SPAN, value * columns))
+            self._height = max(_MIN_SPAN, min(_MAX_SPAN, value * rows))
+        elif name == "width":
+            self._width = max(_MIN_SPAN, min(_MAX_SPAN, value))
+        elif name == "height":
+            self._height = max(_MIN_SPAN, min(_MAX_SPAN, value))
+        else:
+            return
+        self._sync_fields()
+        self._place_controls()
         self._viewport.update()
 
     def _ensure_controls(self) -> QFrame:
         if self._controls is not None:
+            self._sync_fields()
             return self._controls
         controls = QFrame(self._viewport)
         controls.setFrameShape(QFrame.Shape.StyledPanel)
@@ -258,6 +313,33 @@ class PlantGridTool(BaseTool):
                 button.setText(tip)
             button.clicked.connect(action)
             buttons.addWidget(button)
+        values = QGridLayout()
+        values.setContentsMargins(0, 0, 0, 0)
+        values.setHorizontalSpacing(4)
+        values.setVerticalSpacing(2)
+        specs = (
+            ("size", QCoreApplication.translate("PlantGridTool", "Plant size"),
+             _MIN_SPAN, _MAX_PLANT_DIAMETER),
+            ("spacing", QCoreApplication.translate("PlantGridTool", "Column spacing"),
+             1.0, _MAX_SPAN),
+            ("width", QCoreApplication.translate("PlantGridTool", "Width"),
+             _MIN_SPAN, _MAX_SPAN),
+            ("height", QCoreApplication.translate("PlantGridTool", "Height"),
+             _MIN_SPAN, _MAX_SPAN),
+        )
+        for index, (key, label, minimum, maximum) in enumerate(specs):
+            row, column = divmod(index, 2)
+            values.addWidget(QLabel(label, controls), row, column * 2)
+            field = self._length_field(key, label, minimum, maximum)
+            if key == "spacing":
+                field.setToolTip(QCoreApplication.translate(
+                    "PlantGridTool",
+                    "Typing a value sets both directions. The field shows the column spacing.",
+                ))
+            field.setMaximumWidth(110)
+            self._fields[key] = field
+            values.addWidget(field, row, column * 2 + 1)
+        layout.addLayout(values)
         slider = QSlider(Qt.Orientation.Horizontal, controls)
         slider.setAccessibleName(QCoreApplication.translate("PlantGridTool", "Plant size slider"))
         slider.setMinimum(round(_MIN_SPAN))
@@ -266,7 +348,9 @@ class PlantGridTool(BaseTool):
         layout.addWidget(slider)
         self._size_slider = slider
         self._sync_size_slider()
+        self._sync_fields()
         self._controls = controls
+        self._overlay = ViewportOverlay(self.view, controls, self._controls_anchor)
         controls.adjustSize()
         return controls
 
@@ -278,10 +362,9 @@ class PlantGridTool(BaseTool):
 
     def _centers(self) -> list[QPointF]:
         rows, columns = self._dimensions
-        first = self._first_plant()
         return [
-            first + QPointF(x, y)
-            for _, _, x, y in grid_offsets(rows, columns, self._height / rows, self._width / columns)
+            QPointF(x, y)
+            for x, y in cell_centers(rows, columns, self._width, self._height)
         ]
 
     def _set_extent(self, point: QPointF) -> None:
@@ -291,6 +374,7 @@ class PlantGridTool(BaseTool):
         self._center = rect.center()
         self._width = max(_MIN_SPAN, rect.width())
         self._height = max(_MIN_SPAN, rect.height())
+        self._sync_fields()
 
     def _pixel_scale(self) -> float:
         transform = self.view.transform()
@@ -298,20 +382,24 @@ class PlantGridTool(BaseTool):
 
     def _handles(self) -> dict[str | tuple[int, int], QPointF]:
         transform = self._transform()
-        handles: dict[str | tuple[int, int], QPointF] = {
-            (x, y): transform.map(QPointF(x * self._width / 2, y * self._height / 2))
-            for x, y in _HANDLES
-        }
+        rows, columns = self._dimensions
         offset = ROTATION_HANDLE_OFFSET / self._pixel_scale()
-        handles["rotate"] = transform.map(QPointF(0, -self._height / 2 - offset))
-        handles["move"] = self._center
-        handles["diameter"] = transform.map(self._first_plant() + QPointF(self._diameter / 2, 0))
-        return handles
+        return {
+            key: transform.map(QPointF(x, y))
+            for key, (x, y) in handle_positions(
+                self._width,
+                self._height,
+                rows=rows,
+                columns=columns,
+                diameter=self._diameter,
+                rotation_offset=offset,
+            ).items()
+        }
 
     def _first_plant(self) -> QPointF:
         rows, columns = self._dimensions
-        return QPointF(-self._width / 2 + self._width / (2 * columns),
-                       -self._height / 2 + self._height / (2 * rows))
+        x, y = first_cell_center(rows, columns, self._width, self._height)
+        return QPointF(x, y)
 
     def _handle_at(self, point: QPointF) -> str | tuple[int, int] | None:
         nearest = None
@@ -391,19 +479,27 @@ class PlantGridTool(BaseTool):
 
     def _transform_drag(self, point: QPointF, modifiers: Qt.KeyboardModifier) -> None:
         center, width, height, angle = self._before
+        snapping = self.view.snap_enabled
         if self._drag == "move":
-            self._center = center + point - self._drag_start
+            target = center + point - self._drag_start
+            self._center = self.view.snap_point(target) if snapping else target
         elif self._drag == "rotate":
             start, end = self._drag_start - center, point - center
             if not end.isNull():
                 self._angle = angle + degrees(atan2(end.y(), end.x()) - atan2(start.y(), start.x()))
                 if modifiers & Qt.KeyboardModifier.ShiftModifier:
                     self._angle = round(self._angle / ROTATION_SNAP_ANGLE) * ROTATION_SNAP_ANGLE
+                elif snapping:
+                    nearest = round(self._angle / ROTATION_SNAP_ANGLE) * ROTATION_SNAP_ANGLE
+                    if abs(self._angle - nearest) <= _ROTATION_SNAP_WINDOW:
+                        self._angle = nearest
         elif self._drag == "diameter":
             plant = self._transform().map(self._first_plant())
             delta = QLineF(plant, point).length() - QLineF(plant, self._drag_start).length()
             diameter = max(_MIN_SPAN, min(_MAX_PLANT_DIAMETER,
                                           self._diameter_before + 2 * delta))
+            if snapping:
+                diameter = round(diameter)
             if abs(diameter - self._diameter_before) > 1e-6:
                 self._size_edited = True
             self._diameter = diameter
@@ -412,20 +508,27 @@ class PlantGridTool(BaseTool):
             sx, sy = self._drag
             transform = QTransform().translate(center.x(), center.y()).rotate(angle)
             inverse = transform.inverted()[0]
-            local_delta = inverse.map(point) - inverse.map(self._drag_start)
-            start_x, end_x = self._resize_edges(width, sx, sx * width / 2 + local_delta.x())
-            start_y, end_y = self._resize_edges(height, sy, sy * height / 2 + local_delta.y())
+            target = self.view.snap_point(point) if snapping else point
+            local_delta = inverse.map(target) - inverse.map(self._drag_start)
+            start_x, end_x = resize_edges(width, sx, sx * width / 2 + local_delta.x())
+            start_y, end_y = resize_edges(height, sy, sy * height / 2 + local_delta.y())
+            if snapping:
+                rows, columns = self._dimensions
+                if sx:
+                    span = snap_cell_span(end_x - start_x, columns)
+                    if sx < 0:
+                        start_x = end_x - span
+                    else:
+                        end_x = start_x + span
+                if sy:
+                    span = snap_cell_span(end_y - start_y, rows)
+                    if sy < 0:
+                        start_y = end_y - span
+                    else:
+                        end_y = start_y + span
             self._width, self._height = end_x - start_x, end_y - start_y
             self._center = transform.map(QPointF((start_x + end_x) / 2, (start_y + end_y) / 2))
-
-    @staticmethod
-    def _resize_edges(span: float, direction: int, position: float) -> tuple[float, float]:
-        low, high = -span / 2, span / 2
-        if direction < 0:
-            low = min(position, high - _MIN_SPAN)
-        elif direction > 0:
-            high = max(position, low + _MIN_SPAN)
-        return low, high
+        self._sync_fields()
 
     def mouse_release(self, event: QMouseEvent, scene_pos: QPointF) -> bool:
         if event.button() != Qt.MouseButton.LeftButton or self._origin is None:
@@ -502,19 +605,21 @@ class PlantGridTool(BaseTool):
                 painter.drawRect(bounds)
         painter.restore()
 
-    def _place_controls(self, *_args: object) -> None:
-        """Keep the control strip just below the draft's handles on screen."""
-        controls = self._controls
-        if controls is None or not self._editing or not controls.isVisible():
-            return
-        viewport = self._viewport
+    def _controls_anchor(self) -> QRectF | None:
+        """The draft's screen rect, for the overlay's placement (ADR-082)."""
+        if self._controls is None or not self._editing:
+            return None
         points = [QPointF(self.view.mapFromScene(point)) for point in self._handles().values()]
-        x = round(max(p.x() for p in points)) - controls.width()
-        y = round(max(p.y() for p in points)) + 12
-        if y + controls.height() > viewport.height():
-            y = round(min(p.y() for p in points)) - controls.height() - 12
-        controls.move(max(0, min(x, viewport.width() - controls.width())),
-                      max(0, min(y, viewport.height() - controls.height())))
+        left = min(point.x() for point in points)
+        top = min(point.y() for point in points)
+        right = max(point.x() for point in points)
+        bottom = max(point.y() for point in points)
+        return QRectF(left, top, max(1.0, right - left), max(1.0, bottom - top))
+
+    def _place_controls(self, *_args: object) -> None:
+        """Ask the overlay to place the strip from the draft's anchor."""
+        if self._overlay is not None:
+            self._overlay.place()
 
     def _commit(self) -> None:
         if not self._editing or self._species is None:
@@ -544,12 +649,11 @@ class PlantGridTool(BaseTool):
                 return
             group = choice == QMessageBox.StandardButton.Yes
 
-        manager = getattr(self.view.window(), "_project_manager", None)
         items: list[QGraphicsItem] = [
             build_species_plant(
                 self._scene, position, self._species,
                 diameter_cm=self._diameter if self._size_edited else None,
-                auto_assign=bool(manager and manager.auto_assign_permaculture_layers),
+                auto_assign=self.view.auto_assign_permaculture_layers,
             )
             for position in positions
         ]
@@ -583,6 +687,7 @@ class PlantGridTool(BaseTool):
             self._diameter = self._diameter_before
             self._size_edited = self._size_edited_before
             self._sync_size_slider()
+            self._sync_fields()
         self._drag = self._hover = None
         if self._editing:
             self._update_cursor(None)

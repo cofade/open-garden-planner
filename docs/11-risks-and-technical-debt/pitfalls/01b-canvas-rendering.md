@@ -224,9 +224,9 @@ Passing 16,000 tightly packed vertices inside a 300 cm clip into Qt's non-cosmet
 
 ### PF-CAN-67
 
-- **Rule:** Compare the settled native viewport with two full repaints.
+- **Rule:** Compare the settled native viewport with two full repaints. "Settled" means the viewport produced two identical grabs 100 ms apart; the forced full repaint is the negative control for completeness.
 - **Pinned by:** `tests/integration/test_canvas_native_pixels.py::test_selected_shed_replacement_repaints_in_the_main_window`
-- **Source:** #879
+- **Source:** #879, #1017
 - **Status:** standing
 - **Legacy:** none (new entry)
 
@@ -235,6 +235,21 @@ store without asking the widget to redraw, then capture a second full repaint
 as a stability control. The first undo capture differed by 810 pixels, all
 inside the minimap. Seven settled main-window edits matched on v1.40.8,
 including replacing the selected shed with a glasshouse.
+
+Under a 20-worker full-suite load the fixed 500 ms wait after the edit's first
+paint was sometimes shorter than the type-change rebuild's queued paint
+(#1017): the partial frame was compared before it was complete and a 33 x 222
+px strip differed. `settled_grab()` now grabs every 100 ms until two frames
+match (bounded at 3 s). That wait only ensures no paint is still queued; a
+region the partial frame never painted produces two identical stale grabs, so
+the loop cannot detect it. The forced full repaint does: the partial and full
+frames stay different, and the assertion fails. The 3 s bound only stops an
+endlessly animating viewport.
+
+`#1004` is a separate, still-open report: the same test fails alone at
+`5fbc8620` (today: `move`, diff 4524, bounds [187, 65, 349, 287],
+`repeat_noise` 0) and passes 4/4 alone on `0d2d8972` (v1.42.0). No root cause
+is claimed, and this change does not close it.
 
 ### PF-CAN-68
 
@@ -257,3 +272,18 @@ Measured on the bundled examples at a 30 cm page (#850): the canvas's raster lev
 A requested −20 cm move from x=106 cm stopped at the edge endpoint x=100 cm.
 Adding 20 cm during undo restored x=120 cm. Move and Align capture the first
 actual result. The reference properties command likewise replays exact coordinates.
+
+### PF-CAN-70
+
+- **Rule:** A command that moves a Qt item group must reconcile bed membership for every plant in the group's child tree, and must not add a bed-child delta to a plant a moved Qt ancestor already carries. Filtering the moved selection for plant types is not the set of plants it carries.
+- **Pinned by:** `tests/integration/test_bed_membership_reconciliation.py::test_a_mouse_drag_of_a_group_with_its_bed_moves_and_undoes_once`; `tests/integration/test_bed_membership_reconciliation.py::test_live_bed_propagation_skips_a_plant_the_group_carries`
+- **Source:** #1001
+- **Status:** standing; narrative in [debug-verbose: Case study: a group moved out of a bed kept every plant's bed link (#1001)](../../../.claude/skills/debug-verbose/references/287-case-study-group-move-left-bed-links-1001.md)
+- **Legacy:** none (new entry)
+
+`_membership_change_for_move` saw the `GroupItem` only. `is_plant_type()` is
+false for a group, so no `BedMembershipChange` was built, while Qt moved every
+member as a child. `plants_in_items()` now walks the child tree; the move and
+its link changes undo as one step. `expand_with_bed_children` also skips a bed
+child whose Qt ancestor is already moved, or a group that contains its bed
+would move every linked plant twice.

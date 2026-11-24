@@ -219,6 +219,248 @@ class TestMovesReconcileMembership:
         assert loner.item_id not in bed.child_item_ids
         assert _base(canvas, loner) == 0.0
 
+    def test_moving_a_group_out_of_a_bed_unlinks_its_plants_in_one_step(
+        self, canvas: CanvasView
+    ) -> None:
+        """#1001: a group is not a plant, but its members are."""
+        from open_garden_planner.core.commands import GroupCommand
+        from open_garden_planner.ui.canvas.items.group_item import GroupItem
+
+        bed = _bed(canvas)
+        plants = [_plant(canvas, 450.0 + 50.0 * i, 350.0) for i in range(3)]
+        assert all(plant.parent_bed_id == bed.item_id for plant in plants)
+        canvas.command_manager.execute(GroupCommand(canvas.scene(), plants))
+        group = next(item for item in canvas.scene().items()
+                     if isinstance(item, GroupItem))
+        undo_before = canvas.command_manager.undo_depth
+
+        canvas.command_manager.execute(
+            MoveItemsCommand([group], QPointF(3000.0, 0.0))
+        )
+
+        assert canvas.command_manager.undo_depth == undo_before + 1
+        for plant in plants:
+            assert plant.parent_bed_id is None
+            assert plant.item_id not in bed.child_item_ids
+        canvas.command_manager.undo()
+        for plant in plants:
+            assert plant.parent_bed_id == bed.item_id
+            assert plant.item_id in bed.child_item_ids
+
+    def test_moving_a_group_that_contains_its_bed_carries_each_plant_once(
+        self, canvas: CanvasView
+    ) -> None:
+        """A bed inside the group already carries its linked plants.
+
+        The bed-child expansion must not add a second delta to plants the
+        group's Qt move already carries (#1001 review).
+        """
+        from open_garden_planner.core.commands import GroupCommand
+        from open_garden_planner.ui.canvas.items.group_item import GroupItem
+
+        bed = _bed(canvas)
+        plants = [_plant(canvas, 450.0 + 50.0 * i, 350.0) for i in range(3)]
+        before = [plant.scenePos() for plant in plants]
+        before_bed = bed.scenePos()
+        canvas.command_manager.execute(GroupCommand(canvas.scene(), [bed, *plants]))
+        group = next(item for item in canvas.scene().items()
+                     if isinstance(item, GroupItem))
+        undo_before = canvas.command_manager.undo_depth
+
+        canvas.command_manager.execute(
+            MoveItemsCommand([group], QPointF(100.0, 50.0))
+        )
+
+        assert canvas.command_manager.undo_depth == undo_before + 1
+        assert (bed.scenePos().x(), bed.scenePos().y()) == pytest.approx(
+            (before_bed.x() + 100.0, before_bed.y() + 50.0)
+        )
+        for plant, start in zip(plants, before, strict=True):
+            assert (plant.scenePos().x(), plant.scenePos().y()) == pytest.approx(
+                (start.x() + 100.0, start.y() + 50.0)
+            )
+            assert plant.parent_bed_id == bed.item_id
+            assert plant.item_id in bed.child_item_ids
+        canvas.command_manager.undo()
+        for plant, start in zip(plants, before, strict=True):
+            assert (plant.scenePos().x(), plant.scenePos().y()) == pytest.approx(
+                (start.x(), start.y())
+            )
+            assert plant.parent_bed_id == bed.item_id
+
+    def test_a_move_that_lists_a_group_and_its_plant_moves_it_once(
+        self, canvas: CanvasView
+    ) -> None:
+        """A caller listing a group and its child must not add the child delta twice."""
+        from open_garden_planner.core.commands import GroupCommand
+        from open_garden_planner.ui.canvas.items.group_item import GroupItem
+
+        bed = _bed(canvas)
+        plant = _plant(canvas, 450.0, 350.0)
+        canvas.command_manager.execute(GroupCommand(canvas.scene(), [bed, plant]))
+        group = next(item for item in canvas.scene().items()
+                     if isinstance(item, GroupItem))
+        before = QPointF(plant.scenePos())
+
+        canvas.command_manager.execute(
+            MoveItemsCommand([group, plant], QPointF(50.0, 0.0))
+        )
+
+        assert (plant.scenePos().x(), plant.scenePos().y()) == pytest.approx(
+            (before.x() + 50.0, before.y())
+        )
+        canvas.command_manager.undo()
+        assert (plant.scenePos().x(), plant.scenePos().y()) == pytest.approx(
+            (before.x(), before.y())
+        )
+
+    def test_aligning_a_group_and_its_child_keeps_the_child_delta(
+        self, canvas: CanvasView
+    ) -> None:
+        """Align has per-item deltas; a carried child keeps its distinct scene delta."""
+        from open_garden_planner.core.commands import AlignItemsCommand, GroupCommand
+        from open_garden_planner.ui.canvas.items.group_item import GroupItem
+
+        bed = _bed(canvas)
+        plant = _plant(canvas, 450.0, 350.0)
+        canvas.command_manager.execute(GroupCommand(canvas.scene(), [bed, plant]))
+        group = next(item for item in canvas.scene().items()
+                     if isinstance(item, GroupItem))
+        before_bed = QPointF(bed.scenePos())
+        before_plant = QPointF(plant.scenePos())
+
+        canvas.command_manager.execute(AlignItemsCommand([
+            (group, QPointF(100.0, 0.0)),
+            (plant, QPointF(0.0, 0.0)),
+        ]))
+
+        assert (bed.scenePos().x(), bed.scenePos().y()) == pytest.approx(
+            (before_bed.x() + 100.0, before_bed.y())
+        )
+        assert (plant.scenePos().x(), plant.scenePos().y()) == pytest.approx(
+            (before_plant.x(), before_plant.y())
+        )
+        canvas.command_manager.undo()
+        assert (bed.scenePos().x(), bed.scenePos().y()) == pytest.approx(
+            (before_bed.x(), before_bed.y())
+        )
+        assert (plant.scenePos().x(), plant.scenePos().y()) == pytest.approx(
+            (before_plant.x(), before_plant.y())
+        )
+
+    def test_aligning_an_outer_group_keeps_a_grandchild_scene_delta(
+        self, canvas: CanvasView
+    ) -> None:
+        """The nearest LISTED ancestor supplies the residual; a skipped level still moves."""
+        from open_garden_planner.core.commands import AlignItemsCommand, GroupCommand
+        from open_garden_planner.ui.canvas.items.group_item import GroupItem
+
+        bed = _bed(canvas)
+        plant = _plant(canvas, 450.0, 350.0)
+        canvas.command_manager.execute(GroupCommand(canvas.scene(), [bed, plant]))
+        inner = next(item for item in canvas.scene().items()
+                     if isinstance(item, GroupItem))
+        canvas.command_manager.execute(GroupCommand(canvas.scene(), [inner]))
+        outer = next(item for item in canvas.scene().items()
+                     if isinstance(item, GroupItem) and item is not inner)
+        before_plant = QPointF(plant.scenePos())
+
+        canvas.command_manager.execute(AlignItemsCommand([
+            (outer, QPointF(100.0, 0.0)),
+            (plant, QPointF(0.0, 0.0)),
+        ]))
+
+        assert (plant.scenePos().x(), plant.scenePos().y()) == pytest.approx(
+            (before_plant.x(), before_plant.y())
+        )
+
+    def test_a_constraint_propagated_child_in_a_group_keeps_its_local_delta(
+        self, canvas: CanvasView
+    ) -> None:
+        """The finalizer passes local deltas; a child's solver correction is additive."""
+        from open_garden_planner.core.commands import GroupCommand
+        from open_garden_planner.ui.canvas.items.group_item import GroupItem
+
+        bed = _bed(canvas)
+        plant = _plant(canvas, 450.0, 350.0)
+        canvas.command_manager.execute(GroupCommand(canvas.scene(), [bed, plant]))
+        group = next(item for item in canvas.scene().items()
+                     if isinstance(item, GroupItem))
+        before_group = QPointF(group.scenePos())
+        before_plant = QPointF(plant.scenePos())
+
+        canvas._drag_start_positions = {group: QPointF(group.pos())}
+        group.moveBy(100.0, 0.0)
+        local_start = QPointF(plant.pos())
+        plant.moveBy(20.0, 0.0)
+        canvas._constraint_propagated_starts = {plant: local_start}
+        canvas._drag_start_undo_depth = canvas.command_manager.undo_depth
+        canvas._finalize_drag_move()
+
+        assert (group.scenePos().x(), group.scenePos().y()) == pytest.approx(
+            (before_group.x() + 100.0, before_group.y())
+        )
+        assert (plant.scenePos().x(), plant.scenePos().y()) == pytest.approx(
+            (before_plant.x() + 120.0, before_plant.y())
+        )
+        canvas.command_manager.undo()
+        assert (group.scenePos().x(), group.scenePos().y()) == pytest.approx(
+            (before_group.x(), before_group.y())
+        )
+        assert (plant.scenePos().x(), plant.scenePos().y()) == pytest.approx(
+            (before_plant.x(), before_plant.y())
+        )
+
+    def test_a_zero_move_is_not_recorded(
+        self, canvas: CanvasView
+    ) -> None:
+        """#1001 review: an empty residual move is an explicit no-op, not an undo step."""
+        from open_garden_planner.core.commands import GroupCommand
+        from open_garden_planner.ui.canvas.items.group_item import GroupItem
+
+        bed = _bed(canvas)
+        plant = _plant(canvas, 450.0, 350.0)
+        canvas.command_manager.execute(GroupCommand(canvas.scene(), [bed, plant]))
+        group = next(item for item in canvas.scene().items()
+                     if isinstance(item, GroupItem))
+        before = QPointF(plant.scenePos())
+        undo_before = canvas.command_manager.undo_depth
+
+        canvas.command_manager.execute(
+            MoveItemsCommand([group, plant], QPointF(0.0, 0.0))
+        )
+
+        assert canvas.command_manager.undo_depth == undo_before
+        assert (plant.scenePos().x(), plant.scenePos().y()) == pytest.approx(
+            (before.x(), before.y())
+        )
+
+    def test_a_ui_nudge_of_a_group_with_its_bed_moves_plants_once(
+        self, qtbot: object, canvas: CanvasView
+    ) -> None:
+        """The arrow-key path expands bed children too; it must skip carried ones."""
+        from open_garden_planner.core.commands import GroupCommand
+        from open_garden_planner.ui.canvas.items.group_item import GroupItem
+
+        bed = _bed(canvas)
+        plants = [_plant(canvas, 450.0 + 50.0 * i, 350.0) for i in range(2)]
+        before = [plant.scenePos() for plant in plants]
+        canvas.command_manager.execute(GroupCommand(canvas.scene(), [bed, *plants]))
+        group = next(item for item in canvas.scene().items()
+                     if isinstance(item, GroupItem))
+        canvas.scene().clearSelection()
+        group.setSelected(True)
+        undo_before = canvas.command_manager.undo_depth
+
+        qtbot.keyClick(canvas, Qt.Key.Key_Right)  # type: ignore[attr-defined]
+
+        assert canvas.command_manager.undo_depth == undo_before + 1
+        for plant, start in zip(plants, before, strict=True):
+            assert (plant.scenePos().x(), plant.scenePos().y()) == pytest.approx(
+                (start.x() + 50.0, start.y())
+            )
+            assert plant.parent_bed_id == bed.item_id
+
     def test_a_bed_moved_over_a_plant_links_it(self, canvas: CanvasView) -> None:
         bed = _bed(canvas)
         loner = _plant(canvas, 1000.0, 400.0)
@@ -951,3 +1193,130 @@ def test_implicit_bed_move_preserves_constrained_child(
     canvas.command_manager.redo()
     assert bed.pos() == after
     assert plant.pos() == plant_before
+
+
+def test_the_arrow_constraint_path_keeps_a_group_child_s_local_delta(
+    canvas: CanvasView, monkeypatch
+) -> None:
+    """A constrained correction is parent-local; the nudge command must say so."""
+    from PyQt6.QtCore import QEvent
+    from PyQt6.QtGui import QKeyEvent
+
+    from open_garden_planner.core.commands import GroupCommand
+    from open_garden_planner.core.constraints import AnchorRef, ConstraintType
+    from open_garden_planner.core.measure_snapper import AnchorType
+    from open_garden_planner.ui.canvas.items.group_item import GroupItem
+
+    bed = _bed(canvas)
+    plants = [_plant(canvas, 450.0 + 50.0 * i, 350.0) for i in range(2)]
+    canvas.command_manager.execute(GroupCommand(canvas.scene(), [bed, *plants]))
+    group = next(item for item in canvas.scene().items()
+                 if isinstance(item, GroupItem))
+    before_group = QPointF(group.scenePos())
+    before_plant = QPointF(plants[0].scenePos())
+
+    # The nudge path only enters its constraint branch when the graph has a
+    # constraint; the solver itself is replaced by the local correction this
+    # test needs (a real solver-driven frame would be another scenario).
+    ref = AnchorRef(plants[0].item_id, AnchorType.CENTER)
+    canvas._canvas_scene.constraint_graph.add_constraint(
+        ref, ref, 0.0, constraint_type=ConstraintType.FIXED,
+        target_x=plants[0].pos().x(), target_y=plants[0].pos().y(),
+    )
+    monkeypatch.setattr(
+        canvas, "_compute_constraint_propagation",
+        lambda _items, _delta: [(plants[0], QPointF(20.0, 0.0))],
+    )
+    canvas.scene().clearSelection()
+    group.setSelected(True)
+    event = QKeyEvent(
+        QEvent.Type.KeyPress, Qt.Key.Key_Right, Qt.KeyboardModifier.NoModifier
+    )
+    canvas._move_selected_items(event)
+
+    assert (group.scenePos().x(), group.scenePos().y()) == pytest.approx(
+        (before_group.x() + 50.0, before_group.y())
+    )
+    assert (plants[0].scenePos().x(), plants[0].scenePos().y()) == pytest.approx(
+        (before_plant.x() + 70.0, before_plant.y())
+    )
+
+
+def test_a_mouse_drag_of_a_group_with_its_bed_moves_and_undoes_once(
+    qtbot: object, canvas: CanvasView
+) -> None:
+    """The live drag expansion must not add a second delta to a carried plant."""
+    from open_garden_planner.core.commands import GroupCommand
+    from open_garden_planner.ui.canvas.items.group_item import GroupItem
+
+    bed = _bed(canvas)
+    plants = [_plant(canvas, 450.0 + 50.0 * i, 350.0) for i in range(2)]
+    canvas.command_manager.execute(GroupCommand(canvas.scene(), [bed, *plants]))
+    group = next(item for item in canvas.scene().items()
+                 if isinstance(item, GroupItem))
+    canvas.scene().clearSelection()
+    group.setSelected(True)
+    before_bed = QPointF(bed.scenePos())
+    before_plants = [QPointF(plant.scenePos()) for plant in plants]
+    canvas.set_zoom(1.0)
+    canvas.resize(1000, 800)
+    canvas.show()
+    qtbot.waitExposed(canvas)  # type: ignore[attr-defined]
+    canvas.centerOn(550, 400)
+    viewport = canvas.viewport()
+    start = bed.mapToScene(bed.rect().center())
+    finish = start + QPointF(100.0, 0.0)
+
+    qtbot.mousePress(  # type: ignore[attr-defined]
+        viewport, Qt.MouseButton.LeftButton, pos=canvas.mapFromScene(start)
+    )
+    qtbot.mouseMove(viewport, canvas.mapFromScene(finish))  # type: ignore[attr-defined]
+    qtbot.mouseRelease(  # type: ignore[attr-defined]
+        viewport, Qt.MouseButton.LeftButton, pos=canvas.mapFromScene(finish)
+    )
+
+    assert (bed.scenePos().x(), bed.scenePos().y()) == pytest.approx(
+        (before_bed.x() + 100.0, before_bed.y())
+    )
+    for plant, start_pos in zip(plants, before_plants, strict=True):
+        assert (plant.scenePos().x(), plant.scenePos().y()) == pytest.approx(
+            (start_pos.x() + 100.0, start_pos.y())
+        )
+    canvas.command_manager.undo()
+    assert (bed.scenePos().x(), bed.scenePos().y()) == pytest.approx(
+        (before_bed.x(), before_bed.y())
+    )
+    for plant, start_pos in zip(plants, before_plants, strict=True):
+        assert (plant.scenePos().x(), plant.scenePos().y()) == pytest.approx(
+            (start_pos.x(), start_pos.y())
+        )
+
+
+def test_live_bed_propagation_skips_a_plant_the_group_carries(
+    canvas: CanvasView,
+) -> None:
+    """The live drag expansion must not setPos a plant the group already carries."""
+    from open_garden_planner.core.commands import GroupCommand
+    from open_garden_planner.ui.canvas.items.group_item import GroupItem
+
+    bed = _bed(canvas)
+    plants = [_plant(canvas, 450.0 + 50.0 * i, 350.0) for i in range(2)]
+    canvas.command_manager.execute(GroupCommand(canvas.scene(), [bed, *plants]))
+    group = next(item for item in canvas.scene().items()
+                 if isinstance(item, GroupItem))
+    before = [QPointF(plant.pos()) for plant in plants]
+
+    canvas._drag_start_positions = {group: QPointF(group.pos())}
+    canvas._drag_start_undo_depth = canvas.command_manager.undo_depth
+    group.moveBy(100.0, 0.0)
+    canvas._propagate_bed_children_during_drag()
+
+    for plant, start_pos in zip(plants, before, strict=True):
+        assert plant.pos() == start_pos
+
+    canvas._finalize_drag_move()
+    for plant, start_pos in zip(plants, before, strict=True):
+        assert plant.pos() == start_pos
+    canvas.command_manager.undo()
+    for plant, start_pos in zip(plants, before, strict=True):
+        assert plant.pos() == start_pos
