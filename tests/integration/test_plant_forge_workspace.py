@@ -480,8 +480,9 @@ def test_a_far_crop_and_a_dormant_bulb_render(tmp_path):
 #: cross as one float64 buffer, the scene visits only the seasonal parts and writes
 #: only what changed): worst date medians on the dev box fell from 13.2-13.8 to
 #: 5.9-6.3 ms (RTX 4070) and from 14.0-15.3 to 6.8-7.6 ms (WARP), three runs each.
-#: So CI is held to the documented 16 ms again. The 20 ms negative control stays
-#: above it.
+#: So CI asserts the documented 16 ms again (llvmpipe and the Windows runner were not
+#: measured on the dev box; their render3d runs are the evidence). The 20 ms negative
+#: control stays above it.
 FRAME_BUDGET_MS = 16.0
 
 

@@ -211,7 +211,7 @@ def main(out: Path, *, slow_refresh: bool = False) -> int:
             day: {name: round(statistics.median(values), 4) for name, values in split.items()}
             for day, split in stages.items()}
         result["scrub300_runner"] = _runner_identity(host)
-        result["scrub300_season_parts"] = host.part_count()
+        result["scrub300_models"] = host.part_count()
         result["scrub300_p95_ms"] = float(np.percentile(raw, 95))
         result["scrub300_max_ms"] = max(raw)
         result["scrub300_plants"] = len(records)

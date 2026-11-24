@@ -631,6 +631,76 @@ class TestSinkCallsReachTheQmlScene:
         deliver_deferred_deletes()
         assert models_alive() == 0
 
+    def test_the_season_index_follows_every_reload_switch_and_destroy(self, host) -> None:
+        """#598: ``setPlantSeasons`` visits only the indexed seasonal parts and writes
+        only what changed since its last write, so the index must follow every way a
+        part can change. A fruit Model reloaded as wood leaves it and shows the defaults.
+        Reloaded as fruit again, it is re-indexed with a full write. A lawn-blade switch
+        rewrites the blades, and a destroyed part leaves the index."""
+        from types import SimpleNamespace
+
+        from open_garden_planner.core.scene3d import engine_pose
+        from open_garden_planner.ui.view3d.quick3d.host import _set
+
+        def state(ripeness: float = 0.0, density: float = 1.0) -> Any:
+            return SimpleNamespace(
+                leaf_density=density, foliage_snow_tint_linear=(1.0, 1.0, 1.0), bloom=0.0,
+                ripeness=ripeness, snow=0.0, accent_tint_linear=(0.5, 0.5, 0.5),
+                autumn_color=0.0, summer_dark_linear=(0.0, 0.0, 0.0),
+                summer_light_linear=(1.0, 1.0, 1.0), autumn_dark_linear=(0.0, 0.0, 0.0),
+                autumn_light_linear=(1.0, 1.0, 1.0))
+
+        def shown(handle: Any) -> tuple[bool, float, float]:
+            model = handle.model
+            return (bool(model.property("visible")), round(model.property("seasonOpacity"), 3),
+                    round(model.property("seasonDensity"), 3))
+
+        def index() -> dict[str, list[str]]:
+            value = host._root.property("seasonalParts")  # noqa: SLF001
+            value = value.toVariant() if hasattr(value, "toVariant") else value
+            return {item: sorted(entry["name"] for entry in entries)
+                    for item, entries in (value or {}).items()}
+
+        buffers = engine_buffers(prism_mesh([SQUARE], 10.0))
+        pose = engine_pose(Transform())
+
+        def spec(index_: int, kind: str, name: str) -> PartSpec:
+            return PartSpec("p", index_, kind, buffers, kind != "grass", name)
+
+        fruit = host.create_part(spec(0, "vc", "fruits"), pose, RED)
+        leaves = host.create_part(spec(1, "foliage", "leaves"), pose, RED)
+        wood = host.create_part(spec(2, "vc", "wood"), pose, RED)
+        blades = host.create_part(spec(3, "grass", "lawn_blades"), pose, RED)
+        assert index() == {"p": ["fruits", "lawn_blades", "leaves"]}, "wood takes no season"
+
+        host.set_plant_seasons({"p": state(ripeness=0.0, density=0.3)})
+        assert shown(fruit)[:2] == (False, 0.0), "unripe fruit is hidden"
+        assert shown(leaves)[2] == 0.3 and shown(wood) == (True, 1.0, 1.0)
+
+        host.reload_part(fruit, spec(0, "vc", "wood"))
+        assert shown(fruit) == (True, 1.0, 1.0), "a part that left the index shows the defaults"
+        assert index() == {"p": ["lawn_blades", "leaves"]}
+        host.set_plant_seasons({"p": state(ripeness=0.0, density=0.5)})
+        assert shown(fruit) == (True, 1.0, 1.0) and shown(leaves)[2] == 0.5
+
+        host.reload_part(fruit, spec(0, "vc", "fruits"))
+        assert shown(fruit)[:2] == (False, 0.0), "re-indexed with a full write of the state"
+        host.set_plant_seasons({"p": state(ripeness=1.0, density=0.5)})
+        assert shown(fruit)[:2] == (True, 1.0), "a write after the reload is not skipped"
+        host.set_plant_seasons({})
+        assert shown(leaves)[2] == 1.0 and shown(fruit)[:2] == (True, 1.0)
+
+        _set(host._root, "lawnBlades", False)  # noqa: SLF001 - what a preset switch sets
+        assert shown(blades)[0] is False
+        host.set_plant_seasons({"p": state()})
+        assert shown(blades)[0] is False, "a date step keeps the preset's blades off"
+        _set(host._root, "lawnBlades", True)  # noqa: SLF001
+        assert shown(blades)[0] is True
+
+        for handle in (fruit, leaves, wood, blades):
+            host.destroy_part(handle)
+        assert index() == {}
+
     def test_the_host_owns_every_model_and_clear_destroys_them_all(self, host) -> None:
         """One owner of Model lifetime (review P1-3): also parts no sink knows about."""
         from open_garden_planner.core.scene3d import engine_pose

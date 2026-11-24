@@ -33,7 +33,7 @@ No roadmap phase is active. Open work is tracked in GitHub issues; the current t
 | Theme | Open issues | Why it matters |
 |-------|-------------|----------------|
 | Store/MSIX readiness | #767, #375 | Distribution and user-data safety on the second channel. |
-| 3D rendering quality and performance | #744, #804 | The 3D view's trust and frame budget; #804 (a smooth year lapse) is unblocked by #531. |
+| 3D rendering quality and performance | #744, #804, #1012, #1013 | The 3D view's trust and frame budget; #804 (a smooth year lapse) depends on #1013, the committed memory a regrowth still keeps after #531's Model reuse. |
 | CAD and drawing tools | — | Precision and editing depth. |
 | Documentation before advertising | #939 | The user-facing documents describe today's product before it is shared. |
 | 2D canvas follow-ups | #845, #852, #855 | First-zoom sprite rasterization cost; sun-map contour/label repaint overhead; open-frame weighted-path grazing-sun and food-forest performance. |

@@ -253,6 +253,9 @@ def test_replace_geometry_changes_the_silhouette(run: Run) -> None:
     # proof that this one draws the new silhouette.
     assert step["reused_delta"] == 2 and step["destroyed_delta"] == 0, step
     assert step["picks"]["a"]["hit"] == "a"
+    # ...and picks it: the ends of the widened box, outside the old footprint, hit "a"
+    assert step["picks"]["a_east"]["hit"] == "a", step["picks"]
+    assert step["picks"]["a_west"]["hit"] == "a", step["picks"]
 
 
 def test_remove_clears_the_item(run: Run) -> None:

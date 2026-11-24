@@ -8875,8 +8875,9 @@ reads it (600 writes: 10.2 ms, against 1.2 for a plain number). So now
 
 Worst date medians, three alternating runs per tree: RTX 4070 13.2–13.8 → **5.9–6.3 ms**
 (the scene's hop 2.5–3.9), WARP 14.0–15.3 → **6.8–7.6 ms**; p95 7.6–14.7 ms. CI's
-software rasterisers, gated at 25 ms since PR #596 (16.1–21.8 measured there), are held
-to the 16 ms of this protocol again. Reference hardware for the numbers: Intel 64
+software rasterisers, gated at 25 ms since PR #596 (16.1–21.8 measured there), are asserted
+against the 16 ms of this protocol again; the render3d job's first runs on llvmpipe and
+Windows are the evidence for that (not measured on the dev box). Reference hardware for the numbers: Intel 64
 Family 6 Model 183 (20 logical CPUs), Windows 11, Python 3.11.9, Qt 6.12.0, Direct3D 11.
 
 
@@ -9442,7 +9443,9 @@ delivered file.
 
 Known limits: the view must be open for an agent (ADR-072); a tour's keys live in the session;
 a capture has the view's quality preset; an agent's picture from another camera has the plant
-detail of the view's camera; a year's time-lapse spends #531's 2 MB per regrowth; the H.264
+detail of the view's camera; a year's time-lapse spent #531's 2 MB per regrowth before the Model reuse of 2026-11-24 (about
+13 kB of committed memory per regrown tree since, measured on date playback; the tour is not
+re-measured, #1013); the H.264
 profile is Constrained Baseline (no Qt API for another); a year tour started within an hour of midnight uses the nearest reading within the
 missing hour on the frame's date at a DST change (the dates the dialog names are kept, and the
 sun moves by at most that hour).

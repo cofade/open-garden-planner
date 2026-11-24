@@ -155,7 +155,9 @@ class EngineScene(Protocol):
     def reload_part(self, handle: object, spec: PartSpec) -> None:
         """Load ``spec``'s buffers into the LIVE Model's own geometry object and take its
         index, name, shadow flag and sway (#531). Only for a Model of the same
-        ``_reuse_key``; the pose stays, the caller re-tints and re-fills."""
+        ``_reuse_key``: the scene checks kind and surface, and the CALLER guarantees ground
+        detail and fill picture (what a Model is fixed to for life). The pose stays; the
+        caller re-tints and re-fills."""
 
     def destroy_part(self, handle: object) -> None:
         """Destroy the Model (and its geometry) for good. A no-op when the engine is gone."""
@@ -426,7 +428,7 @@ class Quick3DSink:
         """The item's new meshes, in the Models it has where they fit (#531).
 
         A new piece takes the first old Model of the same ``_reuse_key`` (kind, surface,
-        ground detail): the engine loads the new buffers into that Model's own geometry
+        ground detail, fill picture): the engine loads the new buffers into that Model's own geometry
         object (``EngineScene.reload_part``). Old Models nothing takes are destroyed
         first; pieces nothing old fits get new Models. Qt Quick 3D keeps 15-20 kB of
         every Model it destroys, so a regrowth that keeps its Models leaves nothing."""
