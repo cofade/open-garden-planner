@@ -8418,7 +8418,7 @@ single pick (the first step of a key applies at once). The held answer books a t
 pass (`_season_timer`). The meadow's uniform follows the same date
 (`Workspace._show_ground_season` reads `controller.season_date`), so lawn and meadow never
 disagree in colour; the plants and the light are not held. A recording tour switches the
-hold off (`Scene3DController.hold_season`, set by `Workspace.start_tour`): every frame of a
+hold off (`Scene3DController.hold_season`, set by the capture coordinator's `start_tour`): every frame of a
 video shows the plan date's lawns, and `idle` waits for a held lawn's trailing pass. The
 hold reduces the re-bakes, it does not end them: one lawn re-bake every 10 s at most remains
 while a key is held. The in-place alternative does not
@@ -8426,7 +8426,7 @@ work: a tile's texture of 256 x 256 pixels or more does not show data loaded int
 (the `ground_tiles` docstring has the measurement).
 
 > **Rule: a timer that books a pass is part of "idle".** `Scene3DController.idle` and the
-> tests' `pipeline_settled` wait for the posted pass, the tick timer AND the date timer.
+> tests' `pipeline_settled` wait for the posted pass, the tick timer, the date timer AND the season timer.
 
 **The wind's clock is unchanged.** FU-L14-2 (memory growing while the wind runs) did not
 reproduce on 2026-10-19: six alternating soaks of 4–5 minutes, three with the `FrameAnimation`

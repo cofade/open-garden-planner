@@ -209,9 +209,10 @@ def pipeline_settled(workspace: Workspace) -> bool:
     controller = workspace.controller
     if controller is None or not controller.active:
         return True
-    # (L1.9) a regrowth booked for a date that kept changing is a pass on its way too
+    # (L1.9) a regrowth booked for a date that kept changing is a pass on its way too,
+    # and so is the pass that ends a held lawn colour (SEASON PLAYBACK)
     return not (controller._posted or controller._timer.isActive()
-                or controller._date_timer.isActive())
+                or controller._date_timer.isActive() or controller._season_timer.isActive())
 
 
 def wait_for_pipeline(workspace: Workspace, qtbot: Any, ms: int = 80) -> None:
@@ -1852,12 +1853,9 @@ def test_a_held_date_moves_lawn_and_meadow_together_and_the_real_timer_ends_the_
     bench.settle(30)
     assert controller.season_date == first
     bench.clock.set_date(second)         # the key repeats, well inside SEASON_REST_MS
-    bench.settle(30)
-    shown = controller.season_date
-    assert shown in (first, second)      # the first step applied at once
-    if shown == first:                   # held (a slow machine may have rested already)
-        assert controller.season_deferrals >= 1
-    assert bench.hosts[-1].meadow_seasons[-1] == seasonal_ground_tint(shown, 52.0)
+    qtbot.waitUntil(lambda: controller.season_deferrals >= 1, timeout=SEASON_REST_MS)
+    assert controller.season_date == first, "the lawns keep the colour they showed"
+    assert bench.hosts[-1].meadow_seasons[-1] == seasonal_ground_tint(first, 52.0)
     assert controller.sync.records[lawn_id].material.fill_rgba != lawn_before
     qtbot.waitUntil(lambda: controller.season_date == second, timeout=SEASON_REST_MS + 5000)
     bench.settle()

@@ -695,11 +695,11 @@ class WorkspaceCaptureCoordinator(QObject):
                                 self._tour_settled, realtime=realtime,
                                 view_showing=self._is_pane_showing, parent=self)
         recorder.start()   # raises before anything moved
+        host.begin_captures()
         # every frame of a recording shows the plan date's lawns: no hold (SEASON PLAYBACK)
         controller = self._get_controller()
         if controller is not None:
             controller.hold_season = False
-        host.begin_captures()
         self.clock_wanted.emit()
         # ONE hold, and only a tour that moves the clock takes it (issue #730). A tour
         # with no date and no time range is a flight: it never writes the clock, so it

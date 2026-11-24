@@ -148,7 +148,7 @@ from dataclasses import dataclass, replace
 from datetime import date
 from typing import TYPE_CHECKING, Any, Final
 
-from PyQt6.QtCore import QCoreApplication, QEvent, QObject, QTimer, pyqtSignal
+from PyQt6.QtCore import QCoreApplication, QEvent, QObject, Qt, QTimer, pyqtSignal
 from PyQt6.QtWidgets import QGraphicsScene
 
 from open_garden_planner.core.plain_text import log_text
@@ -578,6 +578,7 @@ class Scene3DController(QObject):
         self._date_moving = False
         self._season_timer = QTimer(self)
         self._season_timer.setSingleShot(True)
+        self._season_timer.setTimerType(Qt.TimerType.PreciseTimer)   # a coarse early fire re-holds
         self._season_timer.timeout.connect(self.mark_dirty)
         self._season_held = False   # the pass being read shows an earlier date's lawns
         #: Passes that kept the lawns' colour of an earlier date (an instrument).
@@ -671,7 +672,8 @@ class Scene3DController(QObject):
     @property
     def pass_date(self) -> date | None:
         """The plan date the last records pass read (None before the first): the
-        growth jump's after-picture waits for the pass that read ITS date (L2.3)."""
+        growth jump's after-picture waits for the pass that read ITS date (L2.3). The lawns
+        of that pass may show an earlier date's colour (``season_date``, SEASON PLAYBACK)."""
         return self._pass_date
 
     @property

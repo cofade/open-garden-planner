@@ -11776,8 +11776,7 @@ lawns keep the colour of the date they last showed (`SEASON_REST_MS`, `SEASON_MA
 and the light still follow every step. Consequence: during a held key or a year animation the
 lawns' colour changes at most every 10 s and settles 0.8 s after the date does
 (FR-3D-GROUND-09). A recorded tour never holds (`Scene3DController.hold_season = False`
-while `Workspace.start_tour` runs; found in review round 5, where a tour's date steps, under
-800 ms apart, left the lawn on an old colour in 57 of 60 steps), and `idle` waits for the
+while a tour records: its date steps, under 800 ms apart, would leave the lawn on an old colour), and `idle` waits for the
 trailing pass of a held lawn, so a rendered picture an agent asks for is exact.
 
 ## ADR-070: The living garden — playback, weather, particles and garden lights (Phase 17 L5, #389)
