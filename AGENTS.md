@@ -263,6 +263,9 @@ Full how-to (step-by-step, `.ts` format, recompile command): see `docs/08-crossc
     geometry object its live Model already has (`BufferGeometry.reload`); never a new
     geometry object on a live Model. Cache releases count `Quick3DSink.items_retired`.
     Plant seasons cross as ids + one float64 buffer (`host.season_payload`, #598).
+    A re-baked ground tile stays a new Model (a tile's texture of 256 px or more cannot be
+    reloaded in place), so a lawn's colour is held while the date keeps changing
+    (`Scene3DController._season_date_for`, ADR-069 addendum 2).
   - Tool drafts (#1002, ADR-082, §8.9.21): a multi-press tool draft paints through
     `BaseTool.paint_foreground` (a paint only reads); a pinch calls
     `cancel_pointer_press()`; Esc stays the view's single rule. Plant searches use

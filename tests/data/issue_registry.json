@@ -29,6 +29,11 @@
     "state": "OPEN",
     "title": "Flaky on llvmpipe: live-regrowth forge test times out waiting for the forged wood"
   },
+  "1013": {
+    "is_pr": false,
+    "state": "OPEN",
+    "title": "3D date playback: ~13 kB committed per regrown tree remains after #531's Model reuse"
+  },
   "114": {
     "is_pr": true,
     "state": "MERGED",

@@ -134,7 +134,8 @@ def _add_dated_plants(window: Any, count: int) -> list[str]:
 def scenario_date_playback(window: Any, args: dict[str, Any]) -> Iterator[Any]:
     """#531 — ``seconds`` of a held date key, a step every ``step_ms``; ``interval_ms``
     replaces the controller's ``DATE_REGROW_MIN_MS`` for the run (0 = the behaviour
-    before L1.9: a regrowth on every step)."""
+    before L1.9: a regrowth on every step). ``start`` (ISO date) is the first day;
+    ``plants=0`` plays the plan as it is (#531: run with a bundled example as the plan)."""
     from open_garden_planner.ui.view3d import sync_controller
 
     if "interval_ms" in args:
@@ -146,7 +147,8 @@ def scenario_date_playback(window: Any, args: dict[str, Any]) -> Iterator[Any]:
     workspace = window._workspace
     controller = workspace.controller
     clock = window._sim_clock
-    clock.set_date(date(2025, 1, 1))
+    first = date.fromisoformat(str(args.get("start", "2025-01-01")))
+    clock.set_date(first)
     yield hook._settled(window)
     yield 3000                                  # warm: the first regrowths, the sky, a release
     regrown: list[int] = []
@@ -157,10 +159,13 @@ def scenario_date_playback(window: Any, args: dict[str, Any]) -> Iterator[Any]:
     controller.applied.connect(count)
     seconds = float(args.get("seconds", 60))
     step_ms = int(args.get("step_ms", 33))
+    from open_garden_planner.ui.view3d.quick3d.ground_tiles import TileTexture
+
+    tiles_before = getattr(TileTexture, "uploads", 0)
     start = _memory()
     curve: list[float] = []
     gpu_curve: list[float | None] = []
-    day = date(2025, 1, 2)
+    day = first + timedelta(days=1)
     started = time.perf_counter()
     next_sample = started + 5.0
     steps = 0
@@ -195,6 +200,10 @@ def scenario_date_playback(window: Any, args: dict[str, Any]) -> Iterator[Any]:
          gpu_slope_mb_per_min=round(measure.theil_sen(gpu_values) * 12.0, 2)
          if len(gpu_values) > 2 else None,
          cache_releases=getattr(workspace.host, "cache_releases", None),
+         # #531: ground tiles uploaded (each one a new Model and texture) and the passes
+         # that kept the lawns' colour of an earlier date
+         tile_uploads=getattr(TileTexture, "uploads", 0) - tiles_before,
+         season_deferrals=getattr(controller, "season_deferrals", None),
          # #531: how the regrowths reached the engine (None: a sink that does not count)
          models_reused=getattr(controller.sync.sink, "models_reused", None),
          models_destroyed=getattr(controller.sync.sink, "models_destroyed", None),

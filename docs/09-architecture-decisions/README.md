@@ -11756,6 +11756,24 @@ which #804 depends. The 500 ms regrowth interval
 (`DATE_REGROW_MIN_MS`) and the time-lapse's `DATE_STEPS_PER_S` were chosen for the old
 cost; they stay until #804 re-measures them.
 
+**Addendum 2 (2026-11-24, the owner's manual test of #531): a held date still grew the
+process, through the ground.** Holding the date field's arrow key from today to July 2031
+on the food-forest example grew the process from about 950 MB to over 1.4 GB. The cause was
+not the plants: a lawn's fill follows the date on a four-day grid, every change re-baked every
+tile under the lawn, and a re-baked tile is a new Model with a new texture, which the engine
+keeps memory of (#532). Stubbing the host's `set_ground` left a second-half slope of 0.0 and
++25 MB in 240 s, against 58-66 MB a minute for three unstubbed runs (RTX 4070). Held, the
+lawns made 619 and 648 tile uploads in two 300 s runs where the unchanged code made 1223 and
+7779, and the process grew 104 and 98 MB against 122 and 218 (private bytes swing by 100 MB
+and every run has a warm-up of about 100 MB, so the upload count is the firmer number). The alternative that mirrors this ADR - load the
+re-baked picture into the tile's own `QQuick3DTextureData` - does not draw for a texture of
+256 x 256 pixels or more (it shows the old picture; 128 x 128 and below work), so it was
+dropped (`ground_tiles.py` docstring). **Decision:** while the date keeps changing the
+lawns keep the colour of the date they last showed (`SEASON_REST_MS`, `SEASON_MAX_HOLD_MS`,
+`Scene3DController._season_date_for`); the meadow's tint follows the same date. The plants
+and the light still follow every step. Consequence: during a held key or a time-lapse the
+lawns' colour changes at most every 10 s and settles 0.8 s after the date does.
+
 ## ADR-070: The living garden — playback, weather, particles and garden lights (Phase 17 L5, #389)
 
 **Status**: Accepted (issue #389, epic #383) — all four slices, the two optional ones included. Shipped in v1.35.0 ([PR #699](https://github.com/cofade/open-garden-planner/pull/699)) after the owner's manual acceptance (two rounds; 2026-11-02).

@@ -898,7 +898,7 @@
         {
           "path": ".agents/skills/ogp-3d-renderer/references/005-5-ground-texture.md",
           "sha256": "3def0764e4d835760575810cae7e2c419e223f329fe1d7c23a021fe9e4af3040",
-          "current_sha256": "dd7b963e195cb17d2e61a449f2f7e66bf8144ca995051f01583b43700ddcac96"
+          "current_sha256": "9c5a0a235c971053541aab24c04148945776044b9e7587fa6d0d4ffcfe1bf3f7"
         },
         {
           "path": ".agents/skills/ogp-3d-renderer/references/006-6-hosts.md",
@@ -2298,7 +2298,7 @@
         {
           "path": ".claude/skills/ogp-3d-renderer/references/005-5-ground-texture.md",
           "sha256": "3def0764e4d835760575810cae7e2c419e223f329fe1d7c23a021fe9e4af3040",
-          "current_sha256": "dd7b963e195cb17d2e61a449f2f7e66bf8144ca995051f01583b43700ddcac96"
+          "current_sha256": "9c5a0a235c971053541aab24c04148945776044b9e7587fa6d0d4ffcfe1bf3f7"
         },
         {
           "path": ".claude/skills/ogp-3d-renderer/references/006-6-hosts.md",

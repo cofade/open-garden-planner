@@ -171,3 +171,10 @@
   compared naively and 0.98 after linearising the bake and averaging the texels a pixel covers
   (flips: 0.08 / −0.11 / −0.07 either way).
 
+- **A tile's texture cannot be reloaded in place (#531).** `setTextureData(...)` + `update()` on
+  the `QQuick3DTextureData` a live tile already shows loads a new picture only up to 128 x 128
+  pixels; at 256 x 256 and above the OLD picture stays, also when the data is cleared first or
+  the size is changed and changed back (RTX 4070, D3D11, Qt 6.12.0; a tile is 512 x 512). So a
+  re-bake stays a new Model and texture, each of which the engine keeps memory of (#532): do not
+  re-bake at the rate of a held date key. The lawns' colour is held while the date moves
+  (`SEASON_REST_MS`); the probe is case study 286 of `debug-verbose`.

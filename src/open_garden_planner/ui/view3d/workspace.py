@@ -1275,9 +1275,9 @@ class Workspace(QWidget):
             self._controller.refresh_sun()
             # #943: a hemisphere switch changes seasonal_ground_tint, so baked LAWN
             # tiles and 3D blades must re-snapshot alongside the meadow shader uniform.
-            if (self._controller.pass_date is not None
+            if (self._controller.season_date is not None
                     and seasonal_ground_tint(
-                        self._controller.pass_date, plan_latitude(self._location()),
+                        self._controller.season_date, plan_latitude(self._location()),
                     ) != self._ground_season):
                 self._controller.mark_dirty()
         if self._analysis is not None:
@@ -1357,9 +1357,10 @@ class Workspace(QWidget):
     def _show_ground_season(self) -> None:
         """Give the ground the plan date's grass colour (#943), when it changed."""
         host, controller = self._host, self._controller
-        if host is None or controller is None or controller.pass_date is None:
+        if host is None or controller is None or controller.season_date is None:
             return
-        tint = seasonal_ground_tint(controller.pass_date, plan_latitude(self._location()))
+        # #531: the date the lawns show - the plan date's, but not while it keeps changing
+        tint = seasonal_ground_tint(controller.season_date, plan_latitude(self._location()))
         if tint == self._ground_season:
             return
         self._ground_season = tint

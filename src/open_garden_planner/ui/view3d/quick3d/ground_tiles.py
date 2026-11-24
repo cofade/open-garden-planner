@@ -53,6 +53,18 @@ more slowly changes nothing. THE RULE for whoever drives a host: no repeated
 the offscreen path (``offscreen.render_records``: a hidden view of its own,
 closed after its one frame, which gives everything back).
 
+Known limit - a re-baked tile cannot be loaded into its own texture (#531). The twin of
+``BufferGeometry.reload`` (``setTextureData`` again on the tile's ``QQuick3DTextureData``,
+then ``update()``) would keep every Model and texture alive across a re-bake, and the
+engine counts the upload - but a texture of 256 x 256 pixels or more keeps showing its
+OLD picture, in every variant tried (the data cleared first, the size changed and changed
+back); one of 128 x 128 or less shows the new one. Measured on the dev box (RTX 4070,
+Direct3D 11, Qt 6.12.0; a tile is 512 x 512): red, then blue, then green on one tile - the
+frame after the third load was red at 256 and 512, green at 64 and 128. So a re-baked tile
+stays a new Model with a new texture; what keeps the process from growing under repeated
+re-bakes is that the controller does not re-bake a lawn at the rate of a held date key
+(``sync_controller.SEASON_REST_MS``).
+
 Failures. A function of the scene file that is missing raises in PyQt; one that
 THROWS returns nothing, silently (the QML engine only warns). Both are a
 ``GroundTileError`` here — the host reports it as its ``EngineError`` — and the

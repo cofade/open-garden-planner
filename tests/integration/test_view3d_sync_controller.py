@@ -1898,6 +1898,137 @@ def test_the_old_plans_outlines_are_gone_with_the_plan_and_with_the_view(rig: Ri
     assert _outlines_held() == 0
 
 
+# ── SEASON PLAYBACK (#531): a held date does not re-bake the lawns at its own rate ──
+
+
+class _SeasonRig:
+    """A lawn, a controller whose monotonic clock the test moves, and the two timers that
+    book a trailing pass kept from firing (the test fires their passes by hand)."""
+
+    def __init__(self, canvas: CanvasView, qtbot, monkeypatch: pytest.MonkeyPatch) -> None:
+        self.now = [10.0]
+        monkeypatch.setattr(sync_controller, "time", SimpleNamespace(
+            monotonic=lambda: self.now[0], perf_counter=sync_controller.time.perf_counter))
+        self.rig = Rig(canvas, qtbot, location=dict(BERLIN))
+        layer = self.rig.scene.active_layer.id
+        lawn = RectangleItem(0.0, 0.0, 2000.0, 1500.0, object_type=ObjectType.LAWN, layer_id=layer)
+        self.rig.commands.execute(CreateItemCommand(self.rig.scene, lawn, "lawn"))
+        self.lawn_id = str(lawn.item_id)
+        self.canvas = canvas
+        self.booked: list[int] = []
+        controller = self.rig.controller
+        for timer in (controller._date_timer, controller._season_timer):
+            start = timer.start
+
+            def book(interval_ms: int, start=start, timer=timer) -> None:
+                if timer is controller._season_timer:
+                    self.booked.append(interval_ms)
+                start(2_147_483_647)  # never delivered: the test fires the pass itself
+
+            monkeypatch.setattr(timer, "start", book)
+        controller.set_active(True)
+        _until_idle(self.rig)
+
+    def fill(self) -> tuple[int, ...]:
+        return tuple(self.rig.controller.sync.records[self.lawn_id].material.fill_rgba)
+
+    def wanted(self, day: date) -> tuple[int, ...]:
+        """The lawn's fill on ``day`` - what a from-scratch read of the scene gives."""
+        records = snapshot_records(self.canvas.scene(), day, latitude_deg=BERLIN["latitude"])
+        return tuple(records[self.lawn_id].material.fill_rgba)
+
+    def pass_now(self) -> None:
+        controller = self.rig.controller
+        controller._date_timer.stop()
+        controller._season_timer.stop()
+        controller.mark_dirty()
+        _until_idle(self.rig)
+
+
+SUMMER, AUTUMN, LATE_AUTUMN = date(2027, 7, 1), date(2027, 9, 28), date(2027, 11, 12)
+
+
+def test_a_single_date_pick_re_colours_the_lawns_at_once(
+        canvas: CanvasView, qtbot, monkeypatch: pytest.MonkeyPatch) -> None:
+    rig = _SeasonRig(canvas, qtbot, monkeypatch)
+    assert len({rig.wanted(SUMMER), rig.wanted(AUTUMN), rig.wanted(LATE_AUTUMN)}) == 3
+    rig.rig.clock.set_date(SUMMER)
+    rig.pass_now()
+    assert rig.fill() == rig.wanted(SUMMER)
+    rig.now[0] += 5.0                                    # a pick, not a held key
+    rig.rig.clock.set_date(AUTUMN)
+    rig.pass_now()
+    assert rig.fill() == rig.wanted(AUTUMN)
+    assert rig.rig.controller.season_deferrals == 0
+    assert rig.rig.controller.season_date == AUTUMN
+
+
+def test_a_held_date_keeps_the_lawns_colour_until_it_rests(
+        canvas: CanvasView, qtbot, monkeypatch: pytest.MonkeyPatch) -> None:
+    """A re-coloured lawn is a re-bake of every tile under it, and each tile Model Qt Quick
+    3D destroys keeps memory (#531/#532): a held arrow key grew the process by 60 MB a
+    minute. While the date keeps changing the lawns show the date they showed; the pass
+    after it rests shows the plan date's - and the meadow's tint follows the SAME date."""
+    rig = _SeasonRig(canvas, qtbot, monkeypatch)
+    controller = rig.rig.controller
+    rig.rig.clock.set_date(SUMMER)
+    rig.pass_now()
+    rig.now[0] += 5.0
+    rig.rig.clock.set_date(AUTUMN)                       # the first step of a held key
+    rig.pass_now()
+    rig.now[0] += 0.1
+    rig.rig.clock.set_date(LATE_AUTUMN)                  # the key repeats
+    rig.now[0] += 0.5
+    rig.pass_now()                                       # the throttled regrowth of that step
+    assert controller.pass_date == LATE_AUTUMN, "the plants and the light follow the date"
+    assert rig.fill() == rig.wanted(AUTUMN), "the lawns keep the colour they showed"
+    assert controller.season_date == AUTUMN
+    assert controller.season_deferrals == 1
+    assert rig.booked and rig.booked[-1] <= sync_controller.SEASON_REST_MS, "the end of the hold is booked"
+    rig.now[0] += 1.0                                    # the key is let go
+    rig.pass_now()
+    assert rig.fill() == rig.wanted(LATE_AUTUMN)
+    assert controller.season_date == LATE_AUTUMN
+    assert controller.season_deferrals == 1
+
+
+def test_a_date_that_never_rests_still_re_colours_the_lawns_once_in_a_while(
+        canvas: CanvasView, qtbot, monkeypatch: pytest.MonkeyPatch) -> None:
+    rig = _SeasonRig(canvas, qtbot, monkeypatch)
+    controller = rig.rig.controller
+    rig.rig.clock.set_date(SUMMER)
+    rig.pass_now()
+    rig.now[0] += 5.0
+    rig.rig.clock.set_date(AUTUMN)
+    rig.pass_now()
+    shown_at = rig.now[0]
+    day = AUTUMN
+    while rig.now[0] - shown_at < sync_controller.SEASON_MAX_HOLD_MS / 1000.0 - 0.5:
+        rig.now[0] += 0.4                                # a key that never lets go
+        day += timedelta(days=3)
+        rig.rig.clock.set_date(day)
+    rig.pass_now()
+    assert rig.fill() == rig.wanted(AUTUMN), "still held, a moment before the longest hold"
+    while rig.now[0] - shown_at < sync_controller.SEASON_MAX_HOLD_MS / 1000.0 + 0.1:
+        rig.now[0] += 0.4
+        day += timedelta(days=3)
+        rig.rig.clock.set_date(day)
+    rig.pass_now()
+    assert rig.fill() == rig.wanted(day), "after the longest hold the lawns take the date"
+    assert controller.season_date == day
+
+
+def test_a_new_plan_shows_its_own_dates_lawns(
+        canvas: CanvasView, qtbot, monkeypatch: pytest.MonkeyPatch) -> None:
+    rig = _SeasonRig(canvas, qtbot, monkeypatch)
+    controller = rig.rig.controller
+    rig.rig.clock.set_date(SUMMER)
+    rig.pass_now()
+    assert controller._season_date == SUMMER
+    controller._drop_plan_memories()                     # a document change
+    assert controller._season_date is None, "a new plan forgets the held date"
+
+
 # ── L4: a drag over a lawn re-cuts its blades at most once per interval (#388) ──
 
 
