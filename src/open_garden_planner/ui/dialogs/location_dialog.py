@@ -523,7 +523,8 @@ class LocationDialog(QDialog):
         self._status_label.setText(msg)
 
     def _lookup_matches_location(self) -> bool:
-        return self._lookup_coordinates in (None, (self._lat_spin.value(), self._lon_spin.value()))
+        coordinates = (self._lat_spin.value(), self._lon_spin.value())
+        return not self._map_link_pending and self._lookup_coordinates in (None, coordinates)
 
     def _on_lookup_error(self, error_msg: str) -> None:
         """Show an error message when the lookup fails."""

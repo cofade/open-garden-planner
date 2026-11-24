@@ -72,3 +72,21 @@ def test_reject_cancels_pending_short_link(qtbot):
     dialog.reject()
     assert not dialog._map_link_timer.isActive()
     assert dialog._ok_button.isEnabled()
+
+
+
+def test_pending_short_link_ignores_frost_result_for_previous_location(qtbot):
+    from open_garden_planner.services.climate_service import FrostData
+
+    dialog = LocationDialog()
+    qtbot.addWidget(dialog)
+    dialog._lookup_coordinates = (0.0, 0.0)
+    dialog._map_link_edit.setText(_SHORT)
+    dialog._on_lookup_success(FrostData(
+        last_spring_frost="04-15", first_fall_frost="10-20", hardiness_zone="7b",
+        data_source="open-meteo", latitude=0.0, longitude=0.0,
+    ))
+    assert not dialog._spring_frost_edit.text()
+    assert not dialog._fall_frost_edit.text()
+    assert not dialog._zone_edit.text()
+    dialog.reject()
