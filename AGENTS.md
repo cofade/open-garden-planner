@@ -254,10 +254,8 @@ Full how-to (step-by-step, `.ts` format, recompile command): see `docs/08-crossc
   "Current work" section, then `git status` and `git log --oneline -20`.
 - Current release: **v1.42.1** (2026-11-24). No roadmap phase is active.
   See the roadmap's Current work table and the open issues for the next change.
-  GPU memory and frame budget (#531, #534, #598, #667) shipped in v1.42.1; its
-  follow-ups are #1012-#1015, #1017 and #1018. PR #1000 (Plant Grid, contributed by
-  tanclin) is released; follow-ups #1003 and #1005; related #1001 (stale group bed
-  links) and #1006 (a flaky forge test).
+  Open follow-ups: #1012-#1015, #1017 and #1018 (3D gates, flaky tests), #1003 and
+  #1005 (Plant Grid), #1001 (stale group bed links), #1006 (a flaky forge test).
 - Live decisions that constrain the next change:
   - 3D Model reuse (#531, ADR-069 addendum): a regrown part loads new buffers into the
     geometry object its live Model already has (`BufferGeometry.reload`); never a new
