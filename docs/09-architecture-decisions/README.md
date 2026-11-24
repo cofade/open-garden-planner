@@ -14383,7 +14383,8 @@ preferences suites. Cross-refs: ADR-078, FR-MEAS-07..10, §8.3 (locale), issue #
 
 ## ADR-082: A tool's multi-press draft is painted by the view through one `BaseTool` hook (#1002)
 
-**Status**: Accepted with the Plant Grid tool (issue #1002;
+**Status**: Shipped in [v1.42.0](https://github.com/cofade/open-garden-planner/releases/tag/v1.42.0)
+after owner acceptance (2026-11-23; issue #1002;
 [PR #1000](https://github.com/cofade/open-garden-planner/pull/1000), contributed by tanclin).
 
 **Context**: Drawing tools preview their gesture with scene items at the `preview_z`

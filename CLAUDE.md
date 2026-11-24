@@ -252,11 +252,17 @@ Full how-to (step-by-step, `.ts` format, recompile command): see `docs/08-crossc
 
 - The issue tracker is the only work list. Read the issue and the roadmap's
   "Current work" section, then `git status` and `git log --oneline -20`.
-- Current release: **v1.41.3** (2026-11-23). No roadmap phase is active.
+- Current release: **v1.42.0** (2026-11-23). No roadmap phase is active.
   See the roadmap's Current work table and the open issues for the next change.
 - No draft PR is open. The next change starts from the open issues in the roadmap's
-  Current work table; PR #998 (3D showcase) is merged and released.
+  Current work table; PR #1000 (Plant Grid, contributed by tanclin) is merged and
+  released. Follow-ups #1003 and #1005; related #1001 (stale group bed links) and #1006
+  (a flaky forge test).
 - Live decisions that constrain the next change:
+  - Tool drafts (#1002, ADR-082, §8.9.21): a multi-press tool draft paints through
+    `BaseTool.paint_foreground` (a paint only reads); a pinch calls
+    `cancel_pointer_press()`; Esc stays the view's single rule. Plant searches use
+    `PlantAPIManager.from_settings()`.
   - Bloom hardiness & CAN pitfall index (ADR-014 addendum, ADR-061 addendum, PF-CAN-68):
     `frost_hardy_bloom` lives on `plant_species.json`; CAN pitfalls PF-CAN-49+
     belong in `pitfalls/01b-canvas-rendering.md` and `index/01b-canvas-rendering.md`.
