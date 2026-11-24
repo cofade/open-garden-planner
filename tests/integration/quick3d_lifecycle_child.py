@@ -76,6 +76,7 @@ def _register_calls() -> None:
     spec = PartSpec("x", 0, "vc", engine_buffers(prism_mesh([RING], 10.0)), True)
     HOST_CALLS.update({
         "create_part": lambda host, _part: host.create_part(spec, pose, (255, 255, 255, 255)),
+        "reload_part": lambda host, part: host.reload_part(part, spec),   # #531
         "pose_part": lambda host, part: host.pose_part(part, pose),
         "tint_part": lambda host, part: host.tint_part(part, (1, 2, 3, 255)),
         "set_part_fill": lambda host, part: host.set_part_fill(part, "GRASS", (90, 160, 60, 255)),

@@ -105,8 +105,9 @@ def gate_extra_environment(
     a destroyed Model held is given back at the end of a PRESENTED frame (its
     ``frames="withheld"`` variant takes the frames away on purpose). ``False`` runs
     the child as the product starts: paced by the display.
-    ``hash_seed``: ``QT_HASH_SEED`` for the child. The G7 soak pins it to 0 so the
-    QTBUG-151940 leak share is repeatable (#667); the shipped app is unchanged.
+    ``hash_seed``: ``QT_HASH_SEED`` for the child - a measuring switch (QTBUG-151940's
+    leak share depends on the seed). The G7 soak does NOT use it: #667 measured that a
+    fixed seed does not narrow the gate's spread, so the soak runs the app's random seed.
     """
     extra: dict[str, str] = {}
     if software:

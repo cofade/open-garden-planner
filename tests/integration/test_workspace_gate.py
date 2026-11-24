@@ -178,15 +178,19 @@ def test_nothing_in_the_test_tree_imports_the_hook_into_the_test_process() -> No
 
 
 def test_the_gate_environment_pins_qt_hash_seed_only_when_asked() -> None:
-    """#667: the soak's fixed seed is the gate's own switch, not a product change."""
+    """#667: a fixed seed is a measuring switch of the gate's own, never a product change."""
     from tests.integration.workspace_gate_support import gate_extra_environment
 
     assert "QT_HASH_SEED" not in gate_extra_environment()
     assert gate_extra_environment(hash_seed=0)["QT_HASH_SEED"] == "0"
 
 
-def test_the_memory_soak_asks_its_child_for_a_fixed_hash_seed(tmp_path: Path) -> None:
-    """#667: the wiring, not just the helper - ``_soak`` is what starts every G7 run."""
+def test_the_memory_soak_runs_its_child_with_the_products_random_hash_seed(
+        tmp_path: Path) -> None:
+    """#667: the wiring, not just the helper - ``_soak`` is what starts every G7 run. Five
+    runs with ``QT_HASH_SEED=0`` and five without did not narrow the GPU slope's spread,
+    and the fixed seed sampled a smaller leak share than the product's random seeds: the
+    gate measures the seeds the app runs with."""
     from tests.integration import test_view3d_workspace_render as render
     from tests.integration.workspace_gate_support import GateRun
 
@@ -220,7 +224,7 @@ def test_the_memory_soak_asks_its_child_for_a_fixed_hash_seed(tmp_path: Path) ->
         render._soak(tmp_path, "rebuild_on", ground="on")
     finally:
         render.run_gate = original  # type: ignore[assignment]
-    assert seen["hash_seed"] == 0
+    assert seen.get("hash_seed") is None
     assert seen["reloads"] == render.RELOADS
 
 

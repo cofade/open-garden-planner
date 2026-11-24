@@ -51,7 +51,11 @@ test patterns: docs §8.10.9. What the ENGINE taught once it ran inside the real
   collector called every round: 0.78 kB per `QtObject`, 2.2 per `Model`, 3.4 per `Model`
   with a `PrincipledMaterial` — straight lines over 120 rounds. So: do not design a feature
   around replacing many Models per tick (a date played back regrows every dated plant).
-  Untried ways out: keep the Model and hand it a new geometry; scale instead of rebuilding.
+  The way out taken (#531, 2026-11-24): keep the Model and load the new buffers into the
+  geometry object it ALREADY has (`BufferGeometry.reload`) — a new geometry object on a live
+  Model draws nothing (ADR-069). A held date key, a regrowth on every step: 0.27 MB per step
+  instead of 2.2, GPU −7.9 to 3.5 MB/min instead of 66 to 79 (ADR-069 addendum). Untried: scale
+  instead of rebuilding.
 - **Never take a frame from a live, shown host by yourself — a readback is a frame that is
   never presented.** `grab()` (and `wait_ready()`, `pick()`, `project()`, which need a frame)
   renders a frame of its own: `grabWindow()` emitted `afterFrameEnd` 0 times in 40 grabs.

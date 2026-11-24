@@ -102,6 +102,7 @@ from PyQt6 import sip
 from PyQt6.QtCore import (
     Q_ARG,
     Q_RETURN_ARG,
+    QByteArray,
     QCoreApplication,
     QEvent,
     QEventLoop,
@@ -650,6 +651,24 @@ class Quick3DHost:
             raise
         return part
 
+    def reload_part(self, handle: object, spec: PartSpec) -> None:
+        """Give a LIVE Model new geometry in the geometry object it already has (#531)."""
+        self._open("reload_part")
+        part = self._part(handle)
+        model = self._model(part)
+        if (spec.kind, spec.surface) != (part.kind, part.surface) or part.geometry is None:
+            raise EngineError(
+                f"reload_part(): a {part.kind}/{part.surface or '-'} Model cannot take a "
+                f"{spec.kind}/{spec.surface or '-'} part")
+        part.geometry.reload(spec.buffers)
+        _set(model, "partIndex", spec.part_index)
+        _set(model, "partName", spec.name)
+        _set(model, "castsShadows", spec.casts_shadow)
+        meta = model.metaObject()
+        if meta is not None and meta.indexOfProperty("swayFrame") >= 0:
+            _set(model, "swayFrame", QVector3D(*spec.sway))  # #800: the kinds that sway
+        self._call("applyPlantSeason", model)
+
     def destroy_part(self, handle: object) -> None:
         """Destroy one Model. On a closed host: a no-op — it is gone already."""
         if self.state is HostState.CLOSED:
@@ -882,16 +901,14 @@ class Quick3DHost:
         self.request_frame()
 
     def set_plant_seasons(self, states: Mapping[str, PhenologyState]) -> None:
-        """Update seasonal material values in one QML hop, with no Model/geometry churn."""
+        """Update seasonal material values in one QML hop, with no Model/geometry churn.
+
+        #598: the states cross as the item ids and ONE buffer of float64
+        (``season_payload``) - a dict of 300 lists took 2.15 ms to become a JS object,
+        the buffer 0.11 ms."""
         self._open("set_plant_seasons")
-        values = {
-            item_id: [state.leaf_density, *state.foliage_snow_tint_linear,
-                      state.bloom, state.ripeness, state.snow, *state.accent_tint_linear,
-                      state.autumn_color, *state.summer_dark_linear, *state.summer_light_linear,
-                      *state.autumn_dark_linear, *state.autumn_light_linear]
-            for item_id, state in states.items()
-        }
-        self._call("setPlantSeasons", values)
+        ids, data = season_payload(states)
+        self._call("setPlantSeasons", ids, data, SEASON_STRIDE)
         self.request_frame()
 
     # ── the endless meadow (#388) ────────────────────────────────────────────
@@ -2015,6 +2032,35 @@ class Quick3DHost:
         if model is None:  # _part() checked it; this narrows the type
             raise EngineError(f"not a live part of this host: {handle!r}")
         return model
+
+
+#: The numbers of one plant's season in ``Garden.qml``'s ``setPlantSeasons`` (#598):
+#: density, snow-tint xyz, bloom, ripeness, snow, accent tint xyz, autumn, summer dark xyz,
+#: summer light xyz, autumn dark xyz, autumn light xyz - the indices its
+#: ``seasonTargets`` reads.
+SEASON_STRIDE: Final = 23
+
+
+def season_values(state: PhenologyState) -> list[float]:
+    """One plant's season as the scene reads it (``SEASON_STRIDE`` numbers). #941: the
+    autumn hue travels as its two anchors; the foliage tint carries snow only."""
+    values = [state.leaf_density, *state.foliage_snow_tint_linear, state.bloom,
+              state.ripeness, state.snow, *state.accent_tint_linear, state.autumn_color,
+              *state.summer_dark_linear, *state.summer_light_linear,
+              *state.autumn_dark_linear, *state.autumn_light_linear]
+    if len(values) != SEASON_STRIDE:
+        raise EngineError(f"a plant season has {len(values)} numbers, not {SEASON_STRIDE}")
+    return [float(value) for value in values]
+
+
+def season_payload(states: Mapping[str, PhenologyState]) -> tuple[list[str], QByteArray]:
+    """``states`` as ``setPlantSeasons`` takes them: the item ids, and their
+    ``season_values`` back to back as native float64 - the JS side reads them through a
+    ``Float64Array`` (#598)."""
+    ids = list(states)
+    flat = np.array([season_values(states[item_id]) for item_id in ids],
+                    dtype=np.float64).reshape(-1)
+    return ids, QByteArray(flat.tobytes())
 
 
 def shown_quick_windows() -> int:

@@ -538,9 +538,27 @@ def scenario_wind_soak(ctx: Context) -> dict[str, Any]:
         look = look_for(sun, "high")
         host.set_look(look)
         host.set_sky(look.sky)
-        host.set_wind_running(True)              # the default steady state: shown, wind on
+        # #534's diagnostic arms. ``frames_only``: the wind rests and a 16 ms timer asks
+        # for frames instead - the same frames, no clock (per frame or per tick?).
+        # ``tracemalloc``: what Python itself kept over the loop (the top lines).
+        frames_only, traced = ctx.flag("frames_only"), ctx.flag("tracemalloc")
+        ticker = None
+        if frames_only:
+            from PyQt6.QtCore import QTimer
+
+            ticker = QTimer()
+            ticker.setInterval(16)
+            ticker.timeout.connect(host._view.update)  # noqa: SLF001 - a diagnostic arm
+            ticker.start()
+        else:
+            host.set_wind_running(True)          # the default steady state: shown, wind on
         pump(5000)                                # warm up: shaders, the probe, the first frames
         gc.collect()
+        if traced:
+            import tracemalloc
+
+            tracemalloc.start(8)
+            traced_before = tracemalloc.take_snapshot()
         frames_at_start, clock_at_start = host.health().frames_presented, float(
             host.scene_property("windTime"))
         start_mb = round(private_mb(), 2)
@@ -559,12 +577,23 @@ def scenario_wind_soak(ctx: Context) -> dict[str, Any]:
             gpu_curve.append(gpu.get("process_dedicated_mb") if gpu.get("available") else None)
         frames = host.health().frames_presented - frames_at_start
         clock_moved = float(host.scene_property("windTime")) - clock_at_start
+        python_kept: list[str] = []
+        if traced:
+            diff = tracemalloc.take_snapshot().compare_to(traced_before, "traceback")
+            python_kept = [f"{stat.size_diff / 1024:.1f} kB in {stat.count_diff} blocks: "
+                           + " <- ".join(f"{frame.filename.rsplit(os.sep, 1)[-1]}:{frame.lineno}"
+                                         for frame in stat.traceback[:4])
+                           for stat in diff[:12]]
+            tracemalloc.stop()
+        if ticker is not None:
+            ticker.stop()
         host.rest_wind()
         half = curve[len(curve) // 2:]
         gpu_values = [value for value in gpu_curve if value is not None]
         per_sample = theil_sen(half)
         return {
-            "minutes": minutes, "js_gc": js_gc, "start_mb": start_mb, "curve_mb": curve,
+            "minutes": minutes, "js_gc": js_gc, "frames_only": frames_only,
+            "python_kept": python_kept, "start_mb": start_mb, "curve_mb": curve,
             "slope_second_half_mb_per_min": round(per_sample * 12.0, 3),
             "gpu_curve_mb": gpu_curve,
             "gpu_slope_second_half_mb_per_min": (

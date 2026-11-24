@@ -624,6 +624,7 @@ def scenario_soak(window: Any, args: dict[str, Any]) -> Iterator[Any]:
                 "moving": workspace.camera.moving,
                 "pending": worker.pending_count if worker else 0,
                 "timer": workspace._forge_timer.isActive(),
+                "shadow_fit": workspace._shadow_fit_timer.isActive(),
                 "showing": workspace._pane_is_showing(), "host": host.state.value,
                 "workspace": workspace.view3d_state.value}
 

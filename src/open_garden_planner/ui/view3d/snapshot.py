@@ -1018,7 +1018,8 @@ def _regions_of(outline: ItemOutline, frame: LocalFrame, made: list[Ring] | None
 
 
 def _record_of(item: Any, object_type: Any, item_id: str, at_date: date | None,
-               lookup: ItemLookup, latitude_deg: float = DEFAULT_LATITUDE_DEG) -> Record | None:
+               lookup: ItemLookup, latitude_deg: float = DEFAULT_LATITUDE_DEG,
+               season_date: date | None = None) -> Record | None:
     """One item → its record; None when it covers no ground (not an error).
     Anything it raises is contained by ``snapshot_records``. ``lookup`` finds
     another item by id (a HOUSE's ridge)."""
@@ -1156,7 +1157,8 @@ def _record_of(item: Any, object_type: Any, item_id: str, at_date: date | None,
         footprints=tuple(outer for outer, _holes in regions),
         transform=frame.transform(quantize_cm(base)),
         material=_material(kind, _seasonal_fill(
-                               kind, _rgba(getattr(item, "fill_color", None)), at_date, latitude_deg,
+                               kind, _rgba(getattr(item, "fill_color", None)),
+                               season_date if season_date is not None else at_date, latitude_deg,
                                pattern.name if pattern is not None else None),
                            _rgba(stroke),
                            pattern.name if pattern is not None else None, paint),
@@ -1194,6 +1196,7 @@ def snapshot_steps(
     *,
     latitude_deg: float = DEFAULT_LATITUDE_DEG,
     skipped: list[SkippedItem] | None = None,
+    season_date: date | None = None,
 ) -> Generator[int, None, dict[str, Record]]:
     """Every visible item with a footprint → one contract-v2 ``Record``, ONE ITEM PER STEP.
 
@@ -1258,6 +1261,8 @@ def snapshot_steps(
       An item whose parent got NO record here — left out for any of the reasons
       above — stands on the ground: nothing stands on a solid the scene does
       not hold (``_ground_items_without_a_parent_record``).
+    - ``season_date`` (#531) is the date a lawn's seasonal fill is read at; None: ``at_date``.
+      The sync controller holds it back while the date keeps changing (``SEASON_REST_MS``).
     - ``at_date`` (US-E8) grows dated plants: canopy radius and height. Lifetime
       presence comes from the scene's combined layer/date visibility (US-F4),
       applied before this snapshot. The workspace passes the same
@@ -1291,7 +1296,7 @@ def snapshot_steps(
             item_id = str(item_uuid)
             try:
                 record = _record_of(item, object_type, item_id, at_date, lookup,
-                                    latitude_deg)
+                                    latitude_deg, season_date)
             except RecordRangeError as error:  # a length beyond what a plan can hold
                 _report(SkippedItem(item_id, kind, SkipReason.OUT_OF_RANGE,
                                     type(error).__name__, str(error)), skipped)

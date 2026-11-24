@@ -29,6 +29,11 @@
     "state": "OPEN",
     "title": "Flaky on llvmpipe: live-regrowth forge test times out waiting for the forged wood"
   },
+  "1013": {
+    "is_pr": false,
+    "state": "OPEN",
+    "title": "3D date playback: ~13 kB committed per regrown tree remains after #531's Model reuse"
+  },
   "114": {
     "is_pr": true,
     "state": "MERGED",
@@ -789,6 +794,11 @@
     "state": "CLOSED",
     "title": "perf-marker guard misses a median kept in an attribute and flags a test that times nothing"
   },
+  "531": {
+    "is_pr": false,
+    "state": "OPEN",
+    "title": "3D: about 15-20 kB per destroyed Qt Quick 3D Model is never returned (date playback churns Models)"
+  },
   "532": {
     "is_pr": false,
     "state": "CLOSED",
@@ -923,6 +933,11 @@
     "is_pr": true,
     "state": "MERGED",
     "title": "chore: sync version to v1.32.0 after PR #593"
+  },
+  "598": {
+    "is_pr": false,
+    "state": "OPEN",
+    "title": "FU-L3: Seasonal callback budget has limited headroom across Windows/WARP runners"
   },
   "600": {
     "is_pr": false,
@@ -1093,6 +1108,11 @@
     "is_pr": false,
     "state": "CLOSED",
     "title": "Reference-point object for survey stakes and measurement datums"
+  },
+  "667": {
+    "is_pr": false,
+    "state": "OPEN",
+    "title": "G7 soak: fix QT_HASH_SEED in the soak child so the QTBUG-151940 leak share is repeatable"
   },
   "670": {
     "is_pr": false,

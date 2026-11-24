@@ -898,7 +898,7 @@
         {
           "path": ".agents/skills/ogp-3d-renderer/references/005-5-ground-texture.md",
           "sha256": "3def0764e4d835760575810cae7e2c419e223f329fe1d7c23a021fe9e4af3040",
-          "current_sha256": "dd7b963e195cb17d2e61a449f2f7e66bf8144ca995051f01583b43700ddcac96"
+          "current_sha256": "9c5a0a235c971053541aab24c04148945776044b9e7587fa6d0d4ffcfe1bf3f7"
         },
         {
           "path": ".agents/skills/ogp-3d-renderer/references/006-6-hosts.md",
@@ -938,12 +938,12 @@
         {
           "path": ".agents/skills/ogp-3d-renderer/references/013-13-the-engine-inside-the-app-the-workspace-l1-3.md",
           "sha256": "a46c5bc6719e779608f6f725c9eeee4e8e9f35c0ceb8eb552b30ec5100296da0",
-          "current_sha256": "8462a40192f100526f00c0b6cb3bf3245f32bd6523c9c76604255c90b1f612b5"
+          "current_sha256": "2a0d94a8d7ca10814362667c679a7138cf04615d88dcc8e3c5e15857e83bdb33"
         },
         {
           "path": ".agents/skills/ogp-3d-renderer/references/014-14-looks-sky-and-wind-on-the-engine-l1-4.md",
           "sha256": "d76102f36d3b11b54bcb18a134c06b2bc4c31e58ad78092c0362e74d597162de",
-          "current_sha256": "54c2b2311c008b4a0e17f32973fbbf2cff584dbda7e5a9916fd30762d3212d38"
+          "current_sha256": "bd2ffd66bb1eef6f967283058a3bc39224fecf91b29d665a483ab19a088c37d6"
         },
         {
           "path": ".agents/skills/ogp-3d-renderer/references/015-15-selection-picking-in-perspective-walk-mode-l1-8.md",
@@ -2298,7 +2298,7 @@
         {
           "path": ".claude/skills/ogp-3d-renderer/references/005-5-ground-texture.md",
           "sha256": "3def0764e4d835760575810cae7e2c419e223f329fe1d7c23a021fe9e4af3040",
-          "current_sha256": "dd7b963e195cb17d2e61a449f2f7e66bf8144ca995051f01583b43700ddcac96"
+          "current_sha256": "9c5a0a235c971053541aab24c04148945776044b9e7587fa6d0d4ffcfe1bf3f7"
         },
         {
           "path": ".claude/skills/ogp-3d-renderer/references/006-6-hosts.md",
@@ -2338,12 +2338,12 @@
         {
           "path": ".claude/skills/ogp-3d-renderer/references/013-13-the-engine-inside-the-app-the-workspace-l1-3.md",
           "sha256": "a46c5bc6719e779608f6f725c9eeee4e8e9f35c0ceb8eb552b30ec5100296da0",
-          "current_sha256": "8462a40192f100526f00c0b6cb3bf3245f32bd6523c9c76604255c90b1f612b5"
+          "current_sha256": "2a0d94a8d7ca10814362667c679a7138cf04615d88dcc8e3c5e15857e83bdb33"
         },
         {
           "path": ".claude/skills/ogp-3d-renderer/references/014-14-looks-sky-and-wind-on-the-engine-l1-4.md",
           "sha256": "d76102f36d3b11b54bcb18a134c06b2bc4c31e58ad78092c0362e74d597162de",
-          "current_sha256": "54c2b2311c008b4a0e17f32973fbbf2cff584dbda7e5a9916fd30762d3212d38"
+          "current_sha256": "bd2ffd66bb1eef6f967283058a3bc39224fecf91b29d665a483ab19a088c37d6"
         },
         {
           "path": ".claude/skills/ogp-3d-renderer/references/015-15-selection-picking-in-perspective-walk-mode-l1-8.md",

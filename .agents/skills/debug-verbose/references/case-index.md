@@ -282,3 +282,5 @@
 | Case study: Edit handles refreshed after their canvas scene was destroyed (#666 review) | [Read](282-edit-handle-refresh-closed-scene.md) |
 | Case study: a far crown lost its spread, and pinning it before the fit shrank its leaves (#970) | [Read](283-case-study-far-crown-spread-pinned-after-the-fit-970.md) |
 | Case study: live year animation flashed v0 silhouettes and bare trunk stumps and froze for 4-5 s (#995, #996) | [Read](284-case-study-year-animation-v0-silhouette-flash-and-5s-freezes-995-996.md) |
+| Case study: a regrowth that destroyed Models, a release that leaked textures, and a season hop that paid for reads (#531, #598, #534) | [Read](285-case-study-regrowth-reuse-release-leak-and-season-hop-531-598-534.md) |
+| Case study: a held date key re-baked the lawns twice a second, and a re-baked tile cannot be reloaded (#531) | [Read](286-case-study-held-date-rebaked-the-lawns-and-a-tile-cannot-be-reloaded-531.md) |

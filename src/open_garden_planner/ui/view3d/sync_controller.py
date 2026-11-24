@@ -148,7 +148,7 @@ from dataclasses import dataclass, replace
 from datetime import date
 from typing import TYPE_CHECKING, Any, Final
 
-from PyQt6.QtCore import QCoreApplication, QEvent, QObject, QTimer, pyqtSignal
+from PyQt6.QtCore import QCoreApplication, QEvent, QObject, Qt, QTimer, pyqtSignal
 from PyQt6.QtWidgets import QGraphicsScene
 
 from open_garden_planner.core.plain_text import log_text
@@ -238,6 +238,16 @@ NET_SETTLE_MS: Final = 50
 #: at 30 steps a second were an estimated 0.7 GB a minute; at two a second it is a
 #: fifteenth of that (the measured numbers are in §8.29.9).
 DATE_REGROW_MIN_MS: Final = 500
+#: SEASON PLAYBACK (#531). A lawn's colour follows the plan date on a four-day grid, and
+#: a re-coloured lawn is re-baked: every tile under it is a new Model with a new picture,
+#: and each Model Qt Quick 3D destroys keeps memory (#531, #532). A held arrow key re-baked
+#: a whole lawn twice a second and grew the process by about 60 MB a minute (measured on
+#: the RTX 4070, the food-forest example). While the date keeps changing - a change within
+#: ``SEASON_REST_MS`` of the one before - the lawns keep the colour of the date they
+#: last showed, and take the plan date's when the date has rested that long, or when
+#: they have shown the old one ``SEASON_MAX_HOLD_MS``. A single pick of a date applies at once.
+SEASON_REST_MS: Final = 800
+SEASON_MAX_HOLD_MS: Final = 10000
 #: CONTEXT PLAYBACK (L4, #388). A drag over a lawn changes the lawn's cut-outs (the
 #: other items' outlines in its frame: ``core.scene3d.context``) at every step, and a
 #: changed cut-out rebuilds the lawn's blades — up to 36,000, a re-mask and an upload,
@@ -560,6 +570,22 @@ class Scene3DController(QObject):
         self._date_timer.timeout.connect(self._regrow_if_the_date_moved)
         #: Date changes that did not regrow at once (an instrument).
         self.date_deferrals = 0
+        # SEASON PLAYBACK (#531): the date the lawns' colours show, since when, when the
+        # date last changed, whether it keeps changing, and the timer of the trailing pass
+        self._season_date: date | None = None
+        self._season_at = -math.inf
+        self._date_changed_at = -math.inf
+        self._date_moving = False
+        self._season_timer = QTimer(self)
+        self._season_timer.setSingleShot(True)
+        self._season_timer.setTimerType(Qt.TimerType.PreciseTimer)   # a coarse early fire re-holds
+        self._season_timer.timeout.connect(self.mark_dirty)
+        self._season_held = False   # the pass being read shows an earlier date's lawns
+        #: Passes that kept the lawns' colour of an earlier date (an instrument).
+        self.season_deferrals = 0
+        #: False: the lawns always show the plan date's colour. A caller that needs every
+        #: picture exact (a tour being recorded, ``workspace_capture``) switches the hold off.
+        self.hold_season = True
         # CONTEXT PLAYBACK (#388): when context params were last applied, and the one
         # timer that books the trailing pass of a change held back
         self._context_at = -math.inf
@@ -603,7 +629,8 @@ class Scene3DController(QObject):
     @property
     def idle(self) -> bool:
         """Nothing is on its way: no pass owed, none posted, the net's quiet timer is
-        not running and no regrowth of a date is booked. (An instrument for tests and
+        not running, no regrowth of a date is booked and no lawn is held back from the plan
+        date's colour (SEASON PLAYBACK). (An instrument for tests and
         gates; a paused controller with a flag set is not idle. One that gave a pass up
         is, until the next change: its records are dirty, but nothing runs before a
         change asks.)"""
@@ -612,7 +639,7 @@ class Scene3DController(QObject):
             return not (owed or self._posted or self._net_owed
                         or self._timer.isActive() or self._net.isActive()
                         or self._net_settle.isActive()
-                        or self._date_timer.isActive())
+                        or self._date_timer.isActive() or self._season_timer.isActive())
         return True
 
     @property
@@ -645,7 +672,8 @@ class Scene3DController(QObject):
     @property
     def pass_date(self) -> date | None:
         """The plan date the last records pass read (None before the first): the
-        growth jump's after-picture waits for the pass that read ITS date (L2.3)."""
+        growth jump's after-picture waits for the pass that read ITS date (L2.3). The lawns
+        of that pass may show an earlier date's colour (``season_date``, SEASON PLAYBACK)."""
         return self._pass_date
 
     @property
@@ -695,6 +723,9 @@ class Scene3DController(QObject):
                 if self._context_timer.isActive():
                     self._context_timer.stop()
                     self._records_dirty = True  # the catch-up pass applies what was held
+                if self._season_timer.isActive():
+                    self._season_timer.stop()
+                    self._records_dirty = True  # ... and the lawns' colour of the date
             return
         if self.dirty or self._selection_dirty:
             self._schedule(max(self._tick_ms, CATCH_UP_MS))  # … and that pass reads everything
@@ -859,6 +890,10 @@ class Scene3DController(QObject):
         self._context_at = -math.inf
         with contextlib.suppress(RuntimeError):  # the #230 teardown guard
             self._context_timer.stop()
+        # SEASON PLAYBACK belongs to the plan too: a new one shows its own date's lawns
+        self._season_date = None
+        with contextlib.suppress(RuntimeError):
+            self._season_timer.stop()
 
     def _change_came(self, *, plan: bool) -> None:
         """A change arrived. A pass that was given up is tried again (``idle``); a
@@ -1000,6 +1035,9 @@ class Scene3DController(QObject):
         ``DATE_REGROW_MIN_MS`` while the date keeps changing (DATE PLAYBACK, #531): the
         first change at once, the last one when the interval is over. The light follows
         every change on its own (``_on_instant_changed``)."""
+        now = time.monotonic()
+        self._date_moving = (now - self._date_changed_at) * 1000.0 < SEASON_REST_MS
+        self._date_changed_at = now
         if not self._active:
             self.mark_dirty()  # paused: the flag is all that happens
             return
@@ -1014,6 +1052,49 @@ class Scene3DController(QObject):
                 return
         self._regrown_at = time.monotonic()
         self.mark_dirty()
+
+    @property
+    def season_date(self) -> date | None:
+        """The date the lawns' colours show (SEASON PLAYBACK): the plan date the last pass
+        read - or an earlier one while the date keeps changing."""
+        return self._season_date if self._season_date is not None else self._pass_date
+
+    def _season_date_for(self, day: date) -> date:
+        """The date a pass reads the lawns' colours at: ``day`` - or, while the date keeps
+        changing, the date the lawns showed (SEASON PLAYBACK: ``SEASON_REST_MS``,
+        ``SEASON_MAX_HOLD_MS``). A held answer books the trailing pass that ends the hold."""
+        held = self._season_date
+        now = time.monotonic()
+        quiet_ms = (now - self._date_changed_at) * 1000.0
+        waited_ms = (now - self._season_at) * 1000.0
+        if (not self.hold_season or held is None or held == day or not self._date_moving
+                or quiet_ms >= SEASON_REST_MS or waited_ms >= SEASON_MAX_HOLD_MS):
+            self._season_date, self._season_at = day, now
+            self._season_held = False
+            with contextlib.suppress(RuntimeError):  # the #230 teardown guard
+                self._season_timer.stop()
+            return day
+        self._season_held = True
+        return held
+
+    def _settle_season(self, records: Mapping[str, Record]) -> None:
+        """After a read that kept an earlier date's lawns: book the pass that ends the hold -
+        but only when the plan HAS a lawn. Without one there is nothing to hold: the meadow and
+        ``idle`` follow the plan date as before."""
+        if not self._season_held:
+            return
+        if not any(record.kind == "LAWN" for record in records.values()):
+            self._season_date, self._season_at = self._pass_date, time.monotonic()
+            self._season_held = False
+            return
+        self.season_deferrals += 1
+        now = time.monotonic()
+        quiet_ms = (now - self._date_changed_at) * 1000.0
+        waited_ms = (now - self._season_at) * 1000.0
+        with contextlib.suppress(RuntimeError):
+            if not self._season_timer.isActive():
+                self._season_timer.start(max(1, math.ceil(min(SEASON_REST_MS - quiet_ms,
+                                                              SEASON_MAX_HOLD_MS - waited_ms))))
 
     def _hold_context(self, records: dict[str, Record]) -> dict[str, Record]:
         """``records`` — or, while their context params change faster than once per
@@ -1220,7 +1301,8 @@ class Scene3DController(QObject):
 
             self._capture = snapshot_steps(self._scene, self._capture_date,
                                            latitude_deg=plan_latitude(self._location()),
-                                           skipped=self._capture_skipped)
+                                           skipped=self._capture_skipped,
+                                           season_date=self._season_date_for(self._pass_date))
             try:
                 next(self._capture)  # the scene's items are listed HERE, on this turn
             except StopIteration as done:
@@ -1303,6 +1385,7 @@ class Scene3DController(QObject):
         self.snapshot_count += 1
         snapshot = records
         records = self._hold_context(snapshot)
+        self._settle_season(records)
         width, depth = self._plan_size()
         changes = diff(self._sync.records, records)
         build_ids = tuple(item_id for item_id in (*changes.added, *changes.geometry)

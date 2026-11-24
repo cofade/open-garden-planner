@@ -385,11 +385,12 @@ def _beyond(soak: dict[str, Any], curve: str) -> str:
 
 
 def _soak(scratch: Path, variant: str, **options: Any) -> dict[str, Any]:
-    # #667: a fixed QHash seed makes the QTBUG-151940 leak share repeatable. It is
-    # the GATE's own environment only; the shipped app keeps Qt's random seed.
-    run = _clean(
-        run_gate(scratch, "soak", variant=variant, reloads=RELOADS, hash_seed=0, **options)
-    )
+    # #667 (measured 2026-11-24, RTX 4070, five runs each): a fixed QHash seed did NOT
+    # narrow the GPU slope's spread (QT_HASH_SEED=0: -7.1 to +9.0 MB per reload, random
+    # seeds +6.6 to +10.6) - DXGI's own run-to-run noise dominates - and it sampled a
+    # smaller leak share than the product's random seeds (medians 7.1 against 10.3). So
+    # the child runs with the product's random seed, as the app does.
+    run = _clean(run_gate(scratch, "soak", variant=variant, reloads=RELOADS, **options))
     step = run.step("soak")
     keys = ("variant", "frames", "grabs", "release", "ground", "ground_baker", "ground_tiles",
             "ground_tile_px", "ground_texture_mb", "reloads", "start_mb", "curve_mb",

@@ -407,42 +407,143 @@ Item {
     }
 
     // Plant Forge: material state only. A date scrub keeps every Model and buffer.
+    //
+    // #598: a date step is ONE call of setPlantSeasons - 85 % of the step's callback
+    // (300 climbers, 900 Models: 10.5-11.7 ms of 12.3-13.4 on the RTX 4070). Measured
+    // in the engine: with NO value changing it still cost 7.3 ms - 4.6 of them reading
+    // the Models' properties back through generic lookups (``part[name]``, a vector3d
+    // wrapper per read) - and a seasonTint write re-evaluates every material binding
+    // that reads it. So a date step now
+    // - visits the SEASONAL parts alone (``seasonalParts``: leaves, grass, flowers,
+    //   fruit, a lawn's blades, by item) - every other part's season values are the
+    //   defaults whatever the state;
+    // - compares against what it last WROTE, kept as plain numbers in the index entry,
+    //   and writes only a value that changed (a Model's own properties are written by
+    //   nothing else while it is indexed; ``destroyPart`` takes it out first).
+    // A part's birth, a reload (#531) and a lawn-blade switch write everything once.
     property var plantSeasons: ({})
-    function applyPlantSeason(part) {
-        var state = plantSeasons[part.itemId]
-        var foliage = part.kind === "foliage" || part.kind === "grass"
-        var fruit = part.partName === "fruits"
-        part.seasonDensity = state && foliage ? state[0] : 1.0
-        part.seasonSnow = state && foliage ? state[6] : 0.0
-        part.seasonTint = state && foliage ? Qt.vector3d(state[1], state[2], state[3]) :
-                          state && fruit ? Qt.vector3d(state[7], state[8], state[9]) : Qt.vector3d(1, 1, 1)
-        // #941: the two-anchor autumn ramp, for a plant's leaves only
-        if (foliage) {
-            part.seasonAutumn = state ? state[10] : 0.0
-            part.seasonSummerDark = state ? Qt.vector3d(state[11], state[12], state[13]) : Qt.vector3d(0, 0, 0)
-            part.seasonSummerLight = state ? Qt.vector3d(state[14], state[15], state[16]) : Qt.vector3d(1, 1, 1)
-            part.seasonAutumnDark = state ? Qt.vector3d(state[17], state[18], state[19]) : Qt.vector3d(0, 0, 0)
-            part.seasonAutumnLight = state ? Qt.vector3d(state[20], state[21], state[22]) : Qt.vector3d(1, 1, 1)
+    property var seasonalParts: ({})
+    function isSeasonalPart(part) {
+        return part.kind === "foliage" || part.kind === "grass" || part.partName === "flowers"
+               || part.partName === "fruits" || part.partName === "lawn_blades"
+    }
+    // The part's entry in the index - added, refreshed or dropped - or null when the
+    // part takes no season. A (re)indexed entry forgets what was written: next write is full.
+    function indexSeasonal(part) {
+        var list = seasonalParts[part.itemId]
+        var at = -1
+        if (list) {
+            for (var i = 0; i < list.length; ++i) {
+                if (list[i].part === part) {
+                    at = i
+                    break
+                }
+            }
         }
-        part.seasonOpacity = !state ? 1.0 : part.partName === "flowers" ? state[4] :
-                             part.partName === "fruits"
-                             // #973: ripeness begins at 0.55 (phenology._harvest_ripeness)
-                             // and reaches 1 at the window's end; fruit appears one by one
-                             // over that ramp, each by its own phase (accents.with_phase),
-                             // never all at once on the harvest window's first day.
-                             ? Math.max(0.0, Math.min(1.0, (state[5] - 0.55) / 0.45)) : 1.0
+        if (isSeasonalPart(part) && !part.retired) {
+            var entry = at >= 0 ? list[at] : {"part": part}
+            entry.foliage = part.kind === "foliage" || part.kind === "grass"
+            entry.name = part.partName
+            entry.last = null
+            if (at < 0) {
+                if (!list) {
+                    list = []
+                    seasonalParts[part.itemId] = list
+                }
+                list.push(entry)
+            }
+            return entry
+        }
+        if (at >= 0) {
+            list.splice(at, 1)
+            if (list.length === 0)
+                delete seasonalParts[part.itemId]
+        }
+        return null
+    }
+    // What ``state`` (or none) makes of a part's season values, as plain numbers:
+    // [density, snow, tint xyz, opacity, visible, autumn, summer dark xyz, summer light
+    // xyz, autumn dark xyz, autumn light xyz] - the last 13 for leaves only.
+    function seasonTargets(part, foliage, name, state) {
+        var fruit = name === "fruits"
+        var t = [state && foliage ? state[0] : 1.0, state && foliage ? state[6] : 0.0]
+        if (state && foliage)
+            t.push(state[1], state[2], state[3])
+        else if (state && fruit)
+            t.push(state[7], state[8], state[9])
+        else
+            t.push(1.0, 1.0, 1.0)
+        var opacity = !state ? 1.0 : name === "flowers" ? state[4] :
+                      fruit
+                      // #973: ripeness begins at 0.55 (phenology._harvest_ripeness)
+                      // and reaches 1 at the window's end; fruit appears one by one
+                      // over that ramp, each by its own phase (accents.with_phase),
+                      // never all at once on the harvest window's first day.
+                      ? Math.max(0.0, Math.min(1.0, (state[5] - 0.55) / 0.45)) : 1.0
+        t.push(opacity)
         // Seasonal absence removes its shadow too. X-ray's independent fade keeps it.
         // A lawn's blades show only at the presets that draw them (lawnBlades).
-        part.visible = !part.retired && part.seasonOpacity > 0.0
-                       && (part.partName !== "lawn_blades" || root.lawnBlades)
+        t.push(!part.retired && opacity > 0.0 && (name !== "lawn_blades" || root.lawnBlades) ? 1 : 0)
+        // #941: the two-anchor autumn ramp, for a plant's leaves only
+        if (foliage) {
+            if (state)
+                t.push(state[10], state[11], state[12], state[13], state[14], state[15],
+                       state[16], state[17], state[18], state[19], state[20], state[21], state[22])
+            else
+                t.push(0.0, 0, 0, 0, 1, 1, 1, 0, 0, 0, 1, 1, 1)
+        }
+        return t
+    }
+    // Write ``t`` onto ``part``; with ``last`` (what was written before) only what changed.
+    function writeSeason(part, t, last) {
+        var all = last === null
+        if (all || t[0] !== last[0]) part.seasonDensity = t[0]
+        if (all || t[1] !== last[1]) part.seasonSnow = t[1]
+        if (all || t[2] !== last[2] || t[3] !== last[3] || t[4] !== last[4])
+            part.seasonTint = Qt.vector3d(t[2], t[3], t[4])
+        if (all || t[5] !== last[5]) part.seasonOpacity = t[5]
+        if (all || t[6] !== last[6]) part.visible = t[6] === 1
+        if (t.length > 7) {
+            if (all || t[7] !== last[7]) part.seasonAutumn = t[7]
+            if (all || t[8] !== last[8] || t[9] !== last[9] || t[10] !== last[10])
+                part.seasonSummerDark = Qt.vector3d(t[8], t[9], t[10])
+            if (all || t[11] !== last[11] || t[12] !== last[12] || t[13] !== last[13])
+                part.seasonSummerLight = Qt.vector3d(t[11], t[12], t[13])
+            if (all || t[14] !== last[14] || t[15] !== last[15] || t[16] !== last[16])
+                part.seasonAutumnDark = Qt.vector3d(t[14], t[15], t[16])
+            if (all || t[17] !== last[17] || t[18] !== last[18] || t[19] !== last[19])
+                part.seasonAutumnLight = Qt.vector3d(t[17], t[18], t[19])
+        }
+    }
+    function applyPlantSeason(part) {
+        var entry = indexSeasonal(part)
+        var foliage = part.kind === "foliage" || part.kind === "grass"
+        var t = seasonTargets(part, foliage, part.partName, plantSeasons[part.itemId])
+        writeSeason(part, t, null)
+        if (entry)
+            entry.last = t
         return true
     }
-    function setPlantSeasons(states) {
+    // ``ids`` and ``data``: the item ids, and ``stride`` float64 numbers per item back to
+    // back (``host.season_payload``; a buffer crosses into JS 20x faster than a dict).
+    function setPlantSeasons(ids, data, stride) {
+        var numbers = new Float64Array(data)
+        var states = {}
+        for (var k = 0; k < ids.length; ++k)
+            states[ids[k]] = numbers.subarray(k * stride, (k + 1) * stride)
         plantSeasons = states
-        for (var i = 0; i < parts.children.length; ++i) {
-            var part = parts.children[i]
-            if (!part.retired)
-                applyPlantSeason(part)
+        for (var itemId in seasonalParts) {
+            var list = seasonalParts[itemId]
+            var state = states[itemId]
+            for (var i = 0; i < list.length; ++i) {
+                var entry = list[i]
+                var part = entry.part
+                if (part.retired)
+                    continue
+                var t = seasonTargets(part, entry.foliage, entry.name, state)
+                writeSeason(part, t, entry.last)
+                entry.last = t
+            }
         }
         return true
     }
@@ -451,6 +552,7 @@ Item {
         // retired first: destroy() is deferred, and until the delete arrives the Model
         // must be neither drawn, nor picked, nor listed
         part.retired = true
+        indexSeasonal(part)   // a retired part leaves the seasonal index
         part.visible = false
         part.pickable = false
         part.geometry = null

@@ -3117,7 +3117,7 @@ snapshots (beside the register); this addendum supersedes it: future snapshots g
    - **Projection:** the click pixels come from the engine's `mapFrom3DScene`, so a wrong engine projection could aim and pick consistently wrong. An orthographic projection of our own agrees with it to **0.0 px**, and the picked point lies 0.0 cm from the target, on both backends (container; v6 frozen).
    - **Engine rule found on the way:** Windows v3 picked 0/20, reproduced on OpenGL. Once the Model using a `QQuick3DGeometry` is destroyed, handing that geometry to a new Model renders and picks nothing; the frame equals an empty scene's. `update()` does not restore it; a full re-upload of the data does. A `Repeater3D` over a JS array recreates **every** delegate on any array change, so a model present both before and after the change came back blank too. The spike re-uploads every previously shown geometry, and the probe compares the frame before the detach with the frame after the re-attach: mean absolute difference 0.0 on both backends (container; v6 frozen).
    - **Its texture twin** (caught by `--second-window`, diagnosed in senior review, pass 4): a `QQuick3DTextureData` detached from its `Texture` and attached again renders **white**. The IoU and orientation probes clear `groundTexture` for their measurement, and the restore set the same texture object back, so from then until the next project reload the plan ground drew white: mean difference 13.1 against the frame before the probe, all of it in the ground half (llvmpipe, 640×360). `update()` alone changes nothing; `setTextureData(textureData())` plus `update()`, or a fresh texture object, restores it (0.0). `preserved_state` re-uploads a detached ground, and every run checks the restore in pixels (`probe_restore_frame_diff` < 1, measured 9.83 before the fix and 0.0 after, with the IoU and orientation probes in the run; 0.0 in all three render-tier runs that probe at 479d78c, at 100 % and 150 % display scale, and 0.0 on D3D11 in Windows run v11; the render tier and the Windows driver both assert it).
-   - **For L1.1/L1.3:** one geometry per Model lifetime, and per-item Model creation (or a list model with incremental inserts and removes) instead of re-assigning one array. **Reuse of a live Model was tried and WITHDRAWN (ADR-069, #531, 2026-11-01):** assigning a new geometry to a Model that is already drawing, or re-loading new data into the geometry it already has, renders NOTHING while the item still picks on both render tiers (0.0 IoU against its own mask). One geometry per Model lifetime therefore stands, and a changed part gets a new Model. (The cost measured here — handing one geometry object to a SECOND Model — still never happens.) A texture is re-uploaded whenever it is re-attached.
+   - **For L1.1/L1.3:** one geometry per Model lifetime, and per-item Model creation (or a list model with incremental inserts and removes) instead of re-assigning one array. **Reuse of a live Model (ADR-069, #531):** the first attempt (2026-11-01) assigned a NEW geometry object to a Model that was already drawing; that renders NOTHING while the item still picks, on both render tiers (0.0 IoU against its own mask), and was withdrawn. Loading new buffers into the geometry object the Model already has draws correctly (2026-11-24, ADR-069 addendum: the same frame as a fresh Model, 0 channels differ, D3D11 and WARP). So: one geometry object per Model lifetime, never a second one on a live Model; a regrown part reloads its own. (The cost measured here — handing one geometry object to a SECOND Model — still never happens.) A texture is re-uploaded whenever it is re-attached.
 5. *Python geometry path (criterion 6)*: replacing a 100k-vertex geometry (`NumpyGeometry.set_mesh`: frame mapping, interleave, `QByteArray` copy) takes **10.5 ms median** in the container (n = 10, max 25 ms). On the Windows runners the same code took 14.4 ms (v3), 27.3 ms (v4) and 36.4 ms (v6, max 71.5 ms); runner instances differ by up to 2.5×. That is borderline against ≤ 10 ms; the owner's hardware decides, and the interleave copy is the first optimisation target.
    - **Scope of the number** (senior review): `set_mesh` covers the Python side only. The GUI thread also blocks during the next scene-graph sync, and with `QSG_RENDER_LOOP=basic` the whole render runs on it, so the criterion's main-thread budget is larger than this; L1.1 measures the full edit-to-frame path (≤ 50 ms p95).
    - The time to the next presented frame is recorded but is not a criterion number: on a software rasteriser it is the frame's own render cost.
@@ -10128,6 +10128,18 @@ reporting and injected 20 ms negative control. The statistical guarantee has
 changed explicitly; no absolute deadline or presented-FPS guarantee is claimed.
 This correction changes tests and documentation, not the released runtime.
 
+**Addendum (2026-11-24, #598 — the seasonal callback's headroom).** Measured per stage,
+the scene's `setPlantSeasons` was 85 % of the 300-plant callback, and most of it did not
+depend on what changed (the payload's conversion to JS, generic property reads). Decided:
+the season values cross the host boundary as item ids plus one native float64 buffer of
+`SEASON_STRIDE` numbers per plant (`host.season_payload`); the scene keeps an index of its
+seasonal parts with what it last wrote and writes only what changed. *Rejected:* sending
+only the plants whose state changed (a date step changes nearly all of them — no gain on
+the measured case); moving the tints into the materials' uniforms from Python (a second
+write path beside the QML bindings that X-ray, Cutaway and the surfaces read). Result and
+protocol: §8.29.11 — worst date medians 5.9–6.3 ms on the RTX 4070 and 6.8–7.6 ms on WARP
+(13.2–15.3 before); CI asserts 16 ms again, which its render3d runs must confirm.
+
 **Addendum (plant seasonal truth and forge stability, issues #948, #963, #969, #970, #973, #995, #996).**
 **Status**: Shipped in [v1.41.2](https://github.com/cofade/open-garden-planner/releases/tag/v1.41.2) after owner acceptance (2026-11-22; [PR #994](https://github.com/cofade/open-garden-planner/pull/994)).
 Seven follow-ups to #940 settled how a plant's season survives growth, distance, live year
@@ -11589,14 +11601,13 @@ exclusion are required.
 ## ADR-069: Native triangulation and off-the-GUI-thread 3D preparation (#452, #531, #598)
 
 **Status**: Accepted; shipped in v1.34.11 (PR #676) for #452: native triangulation, the
-cooperative sliced read and the geometry lane. The decision's #531 half — persistent
-Models with in-place geometry reload — was built, measured on both render tiers and
-WITHDRAWN: a new geometry object assigned to a live Model, and new data loaded into the
-object it already has, both render nothing while still picking. #598's sparse
-seasonal-parts index was built on the same engine files and withdrawn with it, with no
-measurement of its own. A changed part therefore gets a new Model, as before, and both
-issues stay open. #475 (raster lane, padded tiles) and #534 (wind memory)
-are NOT covered by this decision and stay open.
+cooperative sliced read and the geometry lane. The decision's #531 half was first built
+with a NEW geometry object assigned to each live Model; that renders nothing while still
+picking, and it was WITHDRAWN on 2026-11-01 together with #598's seasonal-parts index.
+**Superseded on 2026-11-24:** a regrown part loads new buffers into the geometry object its
+live Model already has (#531, the addendum below), and the seasonal index is back (#598,
+ADR-064's addendum "the seasonal callback's headroom"). Release counting: #1014.
+#475 (raster lane, padded tiles) is NOT covered by this decision.
 
 **Date**: 2026-11-01.
 
@@ -11703,6 +11714,70 @@ lane, and the late-timer settle
 `tests/unit/test_scene3d_polygon.py` pins the pricing, the capacity
 and the refusals; `tests/perf/test_scene3d_snapshot_budget.py` pins the read's budget.
 The golden meshes still match below the threshold.
+
+### Addendum (2026-11-24, #531 — a regrown part keeps its Model)
+
+**Decision.** `Quick3DSink.replace_geometry` keeps every Model that a new piece of the
+same `_reuse_key` (material kind, surface, ground detail, fill picture — what a Model is
+fixed to for life) can take, and loads the new buffers into **the geometry object that
+Model already has** (`EngineScene.reload_part` → `BufferGeometry.reload`). Old Models no
+piece takes are destroyed first; pieces no old Model fits get new Models. The sink counts
+`models_reused`, `models_destroyed` and `items_retired` (an item that lost at least one
+Model), and the workspace counts a cache release from `items_retired` instead of
+"every item whose geometry changed" — a release lets Qt keep about half of the ground's
+same-size tile textures (#532), so a release nothing needs is itself a leak.
+
+**Why it works now when the withdrawn path did not.** The withdrawn code built a NEW
+`BufferGeometry` for the live Model and dropped the old one; this one never gives a live
+Model a second geometry object, and never gives a geometry object a second Model (the L0
+rule stands). Proven in pixels on Direct3D 11 (RTX 4070) and WARP:
+`test_replace_geometry_changes_the_silhouette` now asserts the replaced item's two Models
+were reused (none destroyed) and its silhouette IoU ≥ 0.95; a forged tree regrown in place
+from LOD0 to LOD1 (custom foliage material, shadows) draws the same frame as fresh Models
+with the same parts — 0 channels differ, 60,549 differ from LOD0
+(`test_a_forged_tree_regrown_in_place_draws_what_a_fresh_build_draws`). The Linux render
+tier (OpenGL, llvmpipe) runs both in CI.
+
+**Measured** (the held date key of `workspace_default_measure.date_playback`, 20 dated
+apple trees, a regrowth on EVERY step — `interval_ms=0` — 60 s, RTX 4070, branch and
+`master` alternating, 2026-11-24):
+
+| Tree | Steps in 60 s | Committed MB per step | GPU MB/min | Cache releases | Models destroyed |
+|---|---|---|---|---|---|
+| `master` (three runs) | 121, 123, 123 | 2.23, 2.77, 3.38 | 71.5, 65.9, 78.9 | 6, 6, 6 | every regrowth's |
+| reuse, the old release count (one run) | 151 | 1.87 | 95.7 | 7 | — |
+| reuse + `items_retired` (two runs) | 429, 384 | 0.27, 0.25 | 3.5, −7.9 | 0, 0 | 67 of 36,031 / 32,179 |
+
+Most of the old cost was the cache releases the regrowths triggered (each keeps about half of
+the ground's tile textures, #532); reuse is what lets the count drop them. The steps are
+faster too (3.5x in the same minute) because a regrowth no longer creates Models. What
+remains (about 13 kB a regrowth, committed only) is not resolved by this measurement: #1013, on
+which #804 depends. The 500 ms regrowth interval
+(`DATE_REGROW_MIN_MS`) and the time-lapse's `DATE_STEPS_PER_S` were chosen for the old
+cost; they stay until #804 re-measures them.
+
+**Addendum 2 (2026-11-24, the owner's manual test of #531): a held date still grew the
+process, through the ground.** Holding the date field's arrow key from today to July 2031
+on the food-forest example grew the process from about 950 MB to over 1.4 GB. The cause was
+not the plants: a lawn's fill follows the date on a four-day grid, every change re-baked every
+tile under the lawn, and a re-baked tile is a new Model with a new texture, which the engine
+keeps memory of (#532). Stubbing the host's `set_ground` left a second-half slope of 0.0 and
++25 MB in 240 s, against 58-66 MB a minute for three unstubbed runs (RTX 4070). Held, the
+lawns made 619 and 648 tile uploads in two 300 s runs where the unchanged code made 1223 and
+7779, and the process grew 104 and 98 MB against 122 and 218 (private bytes swing by 100 MB
+and every run has a warm-up of about 100 MB: the two light runs, 122 against 104 MB, are inside
+that noise, so the upload count is the firmer number). The hold reduces the re-bakes, it
+does not end them: at most one lawn re-bake every 10 s remains while a key is held. The alternative that mirrors this ADR - load the
+re-baked picture into the tile's own `QQuick3DTextureData` - does not draw for a texture of
+256 x 256 pixels or more (it shows the old picture; 128 x 128 and below work), so it was
+dropped (`ground_tiles.py` docstring). **Decision:** while the date keeps changing the
+lawns keep the colour of the date they last showed (`SEASON_REST_MS`, `SEASON_MAX_HOLD_MS`,
+`Scene3DController._season_date_for`); the meadow's tint follows the same date. The plants
+and the light still follow every step. Consequence: during a held key or a year animation the
+lawns' colour changes at most every 10 s and settles 0.8 s after the date does
+(FR-3D-GROUND-09). A recorded tour never holds (`Scene3DController.hold_season = False`
+while a tour records: its date steps, under 800 ms apart, would leave the lawn on an old colour), and `idle` waits for the
+trailing pass of a held lawn, so a rendered picture an agent asks for is exact.
 
 ## ADR-070: The living garden — playback, weather, particles and garden lights (Phase 17 L5, #389)
 
@@ -11920,7 +11995,7 @@ the life by hand. `test_living_garden.py` now drives a lavender in flower and an
 through the PRODUCTION Plant Forge to the engine (June butterflies, October leaves, January
 nothing; it fails when `season_sink` bypasses the coordinator), and the render tier reloads
 the ambient buffer into the same live host (glow A, nothing, glow B — on the GPU and on WARP:
-ADR-069's withdrawn reload drew a replaced geometry as nothing). The living-garden host calls
+ADR-069's withdrawn first attempt, a new geometry object on a live Model, drew it as nothing). The living-garden host calls
 (`set_plant_seasons`, `set_ambient`, `set_life_enabled`, `set_lamps`) are declared in
 `EngineHost` — no silent fallback for a host without them. Today's Weather now works in the
 default flow: the 3D view ASKS for the forecast (`Workspace.forecast_wanted` →
@@ -12633,7 +12708,9 @@ view on any steady path.
   the forge for that camera's detail, and let the next call find it ready).
 - Keys of a tour live in the session: closing the app loses them, and the plan stays free of 3D
   data (follow-up: keep tours in the file as additive metadata).
-- A year's time-lapse still spends #531's 2 MB per regrowth; a 12 s video about 200 MB.
+- A year's time-lapse spent #531's 2 MB per regrowth; a 12 s video about 200 MB. *(Since the
+  ADR-069 addendum of 2026-11-24 a regrowth reloads its Models in place: date playback measured
+  about 13 kB of committed memory per regrown tree, #1013. A tour is not re-measured.)*
 - An MP4 carries no colour tag: the writer relies on the HD convention (decision 9), which the
   owner's manual test confirms in real players. Qt offers no way to set the tag. *(Superseded by
   the addendum "review-grade video" (#807): the app writes the tags into the finished file.)*

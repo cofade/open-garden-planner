@@ -209,9 +209,10 @@ def pipeline_settled(workspace: Workspace) -> bool:
     controller = workspace.controller
     if controller is None or not controller.active:
         return True
-    # (L1.9) a regrowth booked for a date that kept changing is a pass on its way too
+    # (L1.9) a regrowth booked for a date that kept changing is a pass on its way too,
+    # and so is the pass that ends a held lawn colour (SEASON PLAYBACK)
     return not (controller._posted or controller._timer.isActive()
-                or controller._date_timer.isActive())
+                or controller._date_timer.isActive() or controller._season_timer.isActive())
 
 
 def wait_for_pipeline(workspace: Workspace, qtbot: Any, ms: int = 80) -> None:
@@ -682,6 +683,42 @@ def test_a_flood_of_destroyed_models_is_released_at_once(
     rig.idle()
     bench.poll()
     assert bench.host.releases == 1
+
+
+class CountingSink(RecordingSink):
+    """A recording sink that counts retired items as ``Quick3DSink`` does (#531): an
+    item whose regrowth reloads its Models in place retires nothing; a remove does."""
+
+    def __init__(self) -> None:
+        super().__init__()
+        self.items_retired = 0
+
+    def remove(self, item_id: str) -> None:
+        super().remove(item_id)
+        self.items_retired += 1
+
+
+def test_a_regrowth_that_keeps_its_models_owes_no_release(
+        bench: Bench, monkeypatch: pytest.MonkeyPatch) -> None:
+    """#531: the workspace counts what the SINK says was retired, not every item whose
+    geometry changed - a release lets Qt keep about half of the ground's tile textures
+    (#532), so a release nothing needs is a leak, not hygiene."""
+    import sys
+
+    monkeypatch.setattr(sys.modules[__name__], "RecordingSink", CountingSink)
+    rig = Releases(bench, monkeypatch, after=2, at_once=3)
+    assert isinstance(bench.sink, CountingSink)
+    for index, bed in enumerate(rig.beds[:4]):
+        old, new = build_rect_resize(bed, 320.0 + 10 * index, 200.0, keep_center=True)
+        bench.commands.execute(ResizeItemCommand(bed, old, new, apply_rect_like_geometry))
+        bench.settle()
+    rig.idle()
+    bench.poll()
+    assert bench.host.releases == 0, "four regrowths, no Model lost: nothing owed"
+    rig.delete(2)
+    rig.idle()
+    bench.poll()
+    assert bench.host.releases == 1, "two removed items are owed a release"
 
 
 def test_a_new_document_releases_what_the_old_one_left(
@@ -1778,6 +1815,55 @@ def test_hemisphere_location_change_updates_lawns_and_meadow_together(
     summer_meadow = bench.hosts[-1].meadow_seasons[-1]
     assert summer_meadow == (1.0, 1.0, 1.0)
     assert summer_lawn[:3] == (100, 160, 80)
+    bench.workspace.shutdown()
+
+
+def test_a_held_date_moves_lawn_and_meadow_together_and_the_real_timer_ends_the_hold(
+        canvas: CanvasView, qtbot, tmp_path: Path) -> None:
+    """SEASON PLAYBACK: while the date keeps changing the lawns keep the colour of the date
+    they showed - and the meadow's tint follows the SAME date, so lawn and meadow never
+    disagree. The trailing pass is the controller's own (real) timer."""
+    from datetime import date
+
+    from PyQt6.QtCore import QPointF
+    from PyQt6.QtGui import QColor, QPolygonF
+
+    from open_garden_planner.core.object_types import ObjectType
+    from open_garden_planner.core.phenology import seasonal_ground_tint
+    from open_garden_planner.ui.canvas.items import PolygonItem
+    from open_garden_planner.ui.view3d.sync_controller import SEASON_REST_MS
+
+    lawn = PolygonItem(
+        QPolygonF([QPointF(0, 0), QPointF(400, 0), QPointF(400, 300), QPointF(0, 300)]),
+        object_type=ObjectType.LAWN, name="Lawn")
+    recolour_fill(lawn, QColor(100, 160, 80, 255)).execute()
+    canvas.scene().addItem(lawn)
+    lawn_id = str(lawn.item_id)
+    bench = Bench(canvas, qtbot, tmp_path, location={"latitude": 52.0, "longitude": 10.0})
+    bench.clock.set_date(date(2026, 7, 1))
+    bench.workspace.set_mode(VIEW3D)
+    bench.settle()
+    controller = bench.workspace.controller
+    lawn_before = controller.sync.records[lawn_id].material.fill_rgba
+    first, second = date(2026, 9, 28), date(2026, 11, 12)
+    assert (seasonal_ground_tint(first, 52.0) != seasonal_ground_tint(second, 52.0)
+            and seasonal_ground_tint(date(2026, 7, 1), 52.0) != seasonal_ground_tint(first, 52.0))
+    qtbot.wait(SEASON_REST_MS + 100)     # the date has rested: the next step is a pick
+    bench.clock.set_date(first)          # the first step of a key: applied at once
+    bench.settle(30)
+    assert controller.season_date == first
+    bench.clock.set_date(second)         # the key repeats, well inside SEASON_REST_MS
+    qtbot.waitUntil(lambda: controller.season_deferrals >= 1, timeout=SEASON_REST_MS)
+    assert controller.season_date == first, "the lawns keep the colour they showed"
+    assert bench.hosts[-1].meadow_seasons[-1] == seasonal_ground_tint(first, 52.0)
+    assert controller.sync.records[lawn_id].material.fill_rgba != lawn_before
+    qtbot.waitUntil(lambda: controller.season_date == second, timeout=SEASON_REST_MS + 5000)
+    bench.settle()
+    assert controller.idle
+    assert bench.hosts[-1].meadow_seasons[-1] == seasonal_ground_tint(second, 52.0)
+    ratio = controller.sync.records[lawn_id].material.fill_rgba
+    wanted = seasonal_ground_tint(second, 52.0)
+    assert ratio[1] == min(255, max(0, round(160 * wanted[1])))
     bench.workspace.shutdown()
 
 

@@ -7,19 +7,24 @@ import pytest
 from tests.integration.workspace_render_state import workspace_settled
 
 
-@pytest.mark.parametrize("pending,timer,moving,dirty,ground", [
-    (1, False, False, False, False), (0, True, False, False, False),
-    (0, False, True, False, False), (0, False, False, True, False),
-    (0, False, False, False, True), (0, False, False, False, False),
+@pytest.mark.parametrize("pending,timer,moving,dirty,ground,fit", [
+    (1, False, False, False, False, False), (0, True, False, False, False, False),
+    (0, False, True, False, False, False), (0, False, False, True, False, False),
+    (0, False, False, False, True, False), (0, False, False, False, False, True),
+    (0, False, False, False, False, False),
 ])
-def test_rest_includes_forge_admission_and_camera_lod(pending, timer, moving, dirty, ground):
+def test_rest_includes_forge_admission_camera_lod_and_shadow_fit(
+        pending, timer, moving, dirty, ground, fit):
+    """A resting view also has its shadow fit in (#894): a frame read inside the
+    250 ms after a camera change sees the unfitted map (#531's soak)."""
     workspace = SimpleNamespace(
         controller=SimpleNamespace(dirty=dirty, ground_owed=ground),
         camera=SimpleNamespace(moving=moving),
         _forge_worker=SimpleNamespace(pending_count=pending),
         _forge_timer=SimpleNamespace(isActive=lambda: timer),
+        _shadow_fit_timer=SimpleNamespace(isActive=lambda: fit),
     )
-    assert workspace_settled(workspace) is not any((pending, timer, moving, dirty, ground))
+    assert workspace_settled(workspace) is not any((pending, timer, moving, dirty, ground, fit))
 
 
 def test_memory_sample_waits_for_presented_frames_without_readback(monkeypatch):

@@ -83,10 +83,12 @@ class FakeScene:
     sun: Any = "unset"
     ground: Any = "unset"
     fail_on_create: int | None = None  # raise on the n-th create_part (1-based)
+    fail_on_reload: int | None = None  # raise on the n-th reload_part (1-based)
     fail_on_clear: bool = False        # a LIVE engine that cannot clear
     fail_once: str | None = None       # the next call of that name raises (then it works again)
     dead: bool = False                 # the engine is gone (closed host, destroyed window)
     created: int = 0
+    reloaded: int = 0
 
     def _alive(self, call: str = "") -> None:
         if self.dead:
@@ -122,6 +124,17 @@ class FakeScene:
         self.parts.append(part)
         self.calls.append(("create", spec.item_id, spec.kind))
         return part
+
+    def reload_part(self, handle: object, spec: PartSpec) -> None:
+        self._alive("reload_part")
+        assert isinstance(handle, FakePart) and handle.alive, "reloaded after its destroy"
+        assert (spec.kind, spec.surface, spec.ground_detail) == (
+            handle.spec.kind, handle.spec.surface, handle.spec.ground_detail), "a Model is fixed to its kind"
+        self.reloaded += 1
+        if self.fail_on_reload == self.reloaded:
+            raise RuntimeError("engine refused the reload")
+        handle.spec = spec
+        self.calls.append(("reload", spec.item_id, spec.kind))
 
     def destroy_part(self, handle: object) -> None:
         if self.dead:
@@ -364,8 +377,10 @@ class TestUpdates:
         assert sink.geometry_uploads == uploads
         assert sink.item("a").material == BLUE
 
-    def test_replace_geometry_swaps_the_models_and_keeps_pose_and_tint(
+    def test_replace_geometry_reuses_the_models_and_keeps_pose_and_tint(
             self, rig: tuple[Quick3DSink, FakeScene]) -> None:
+        """#531: a regrown part loads its new buffers into the Model it has; a piece
+        with no old Model of its kind gets a new one."""
         sink, scene = rig
         transform = Transform(east_cm=7.0, north_cm=8.0, rotation_deg=45.0)
         sink.begin()
@@ -374,11 +389,58 @@ class TestUpdates:
         taller = (_prism(300.0), _prism(20.0, kind="roof"))
         sink.replace_geometry("a", taller)
         new = scene.of("a")
-        assert not old.alive and len(new) == 2 and old not in new  # fresh Models, never a reuse
+        assert old.alive and new[0] is old and len(new) == 2, "the vc Model is kept"
+        assert scene.reloaded == 1 and scene.created == 2, "only the roof is a new Model"
         assert new[0].spec.buffers == engine_buffers(taller[0].mesh)
         assert all(p.pose == EnginePose((7.0, 0.0, -8.0), 45.0) for p in new)
         assert new[0].tint == (200, 30, 30, 255)
         assert sink.item("a").parts == taller and sink.geometry_uploads == 3
+
+    def test_replace_geometry_destroys_the_models_nothing_takes(
+            self, rig: tuple[Quick3DSink, FakeScene]) -> None:
+        sink, scene = rig
+        sink.begin()
+        sink.add("a", (_prism(100.0), _prism(20.0, kind="roof")), Transform(), RED)
+        vc, roof = scene.of("a")
+        sink.replace_geometry("a", (_prism(50.0, kind="foliage"), _prism(80.0)))
+        foliage, kept = scene.of("a")[1], scene.of("a")[0]
+        assert kept is vc and vc.alive and not roof.alive, "the roof had no taker"
+        assert foliage.spec.kind == "foliage" and scene.created == 3 and scene.reloaded == 1
+        assert [p.spec.part_index for p in scene.of("a")] == [1, 0]
+        assert sink.part_count("a") == 2
+
+    def test_only_an_item_that_lost_a_model_counts_as_retired(
+            self, rig: tuple[Quick3DSink, FakeScene]) -> None:
+        """#531: the workspace releases the engine's caches by ``items_retired``. A
+        regrowth that reloads every Model in place retires nothing; one that destroys a
+        Model, a remove and a clear do (one per item)."""
+        sink, scene = rig
+        sink.begin()
+        sink.add("a", (_prism(100.0),), Transform(), RED)
+        sink.add("b", (_prism(100.0), _prism(20.0, kind="roof")), Transform(), RED)
+        sink.replace_geometry("a", (_prism(300.0),))
+        assert (sink.items_retired, sink.models_reused, sink.models_destroyed) == (0, 1, 0)
+        sink.replace_geometry("b", (_prism(50.0),))
+        assert (sink.items_retired, sink.models_reused, sink.models_destroyed) == (1, 2, 1)
+        sink.remove("a")
+        assert (sink.items_retired, sink.models_destroyed) == (2, 2)
+        sink.add("c", (_prism(),), Transform(), RED)
+        sink.clear()
+        assert sink.items_retired == 4, "b and c went with the clear"
+
+    @pytest.mark.parametrize("change", ["fill", "ground_detail"])
+    def test_replace_geometry_never_hands_a_model_a_part_it_is_not_fixed_to(
+            self, rig: tuple[Quick3DSink, FakeScene], change: str) -> None:
+        """A Model shows a fill picture, or is ground detail, for life (``_reuse_key``)."""
+        sink, scene = rig
+        sink.begin()
+        sink.add("a", (_prism(100.0),), Transform(), RED)
+        (old,) = scene.of("a")
+        part = (_prism(100.0, fill=True, tinted=False) if change == "fill" else
+                MeshPart(prism_mesh([SQUARE], 100.0), "vc", casts_shadow=False,
+                         ground_detail=True))
+        sink.replace_geometry("a", (part,))
+        assert not old.alive and scene.reloaded == 0 and scene.created == 2
 
     def test_remove_destroys_every_part(self, rig: tuple[Quick3DSink, FakeScene]) -> None:
         sink, scene = rig
@@ -816,7 +878,7 @@ class TestThroughSceneSync:
         assert (scene.ground not in nothing) == (expected.ground is not None)
 
     @pytest.mark.parametrize(("call", "trigger"), [
-        ("create_part", "add"), ("create_part", "replace"), ("pose_part", "move"),
+        ("create_part", "add"), ("reload_part", "replace"), ("pose_part", "move"),
         ("set_part_fill", "recolour"), ("release_fill", "recolour"),
         ("set_sun", "sun"), ("set_ground", "ground"),
         ("request_frame", "move"),
@@ -847,7 +909,8 @@ class TestThroughSceneSync:
             scene.fail_on_create = scene.created + 2   # c is built, d fails
         elif trigger == "replace":
             after.update(a=self._record("a", height=250.0), b=self._record("b", 300.0, height=50.0))
-            scene.fail_on_create = scene.created + 2   # a is rebuilt, b is destroyed and fails
+            # #531: both keep their Models - a is reloaded, b's reload fails
+            scene.fail_on_reload = scene.reloaded + 2
         elif trigger == "move":
             after.update(a=self._record("a", east=40.0), b=self._record("b", 340.0))
         elif trigger == "recolour":
@@ -859,7 +922,7 @@ class TestThroughSceneSync:
             new_sun = SunState(55.0, 200.0)
         else:
             new_ground = GroundSpec(900.0, 700.0)
-        if call != "create_part":
+        if call not in ("create_part", "reload_part"):
             scene.fail_once = call
 
         with pytest.raises(RuntimeError, match="engine"):
@@ -870,7 +933,7 @@ class TestThroughSceneSync:
         if call != "request_frame":
             assert sink.in_transaction, "the failure left the transaction open"
 
-        scene.fail_on_create = None
+        scene.fail_on_create = scene.fail_on_reload = None
         sync.reset()
         assert not sync.poisoned and not sink.in_transaction
         assert scene.parts == [] and scene.sun is None and scene.ground is None
