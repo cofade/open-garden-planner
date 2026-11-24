@@ -248,6 +248,10 @@ def test_replace_geometry_changes_the_silhouette(run: Run) -> None:
     assert iou(yellow, footprint_mask(driver.EDIT_A_WIDE, driver.TOP, rgb.shape, dpr)) >= 0.95
     assert iou(yellow, footprint_mask(driver.EDIT_A_YELLOW, driver.TOP, rgb.shape, dpr)) < 0.5
     assert step["uploads_delta"] == 2  # the replaced item's sides and cap
+    # #531: both Models took the new geometry in place - none was destroyed. ADR-069
+    # withdrew an in-place path that drew such a part as NOTHING; the IoU above is the
+    # proof that this one draws the new silhouette.
+    assert step["reused_delta"] == 2 and step["destroyed_delta"] == 0, step
     assert step["picks"]["a"]["hit"] == "a"
 
 

@@ -12,6 +12,59 @@ from pathlib import Path
 import numpy as np
 
 
+def _runner_identity(host) -> dict:
+    """#598: what a callback median was measured on - CPU, cores, Python, Qt, graphics
+    API (the adapter's name is in Qt's own log: the test adds ``driver_messages``)."""
+    import os
+    import platform
+
+    from PyQt6.QtCore import QT_VERSION_STR
+
+    try:
+        api = host.graphics_api()
+    except Exception as error:  # noqa: BLE001 - an identity field, never a failure
+        api = f"unknown ({error})"
+    return {"cpu": platform.processor() or platform.machine(), "logical_cpus": os.cpu_count(),
+            "platform": platform.platform(), "python": platform.python_version(),
+            "qt": QT_VERSION_STR, "graphics_api": str(api)}
+
+
+def _pixels(image) -> np.ndarray:
+    bits = image.constBits()
+    bits.setsize(image.sizeInBytes())
+    return np.frombuffer(bits, np.uint8).copy()
+
+
+def _regrow_in_place(host, sink, record, before: np.ndarray, out: Path) -> dict:
+    """#531: a forged tree regrown IN PLACE (LOD0 -> LOD1: its Models take the new
+    buffers) draws exactly what the same parts draw in fresh Models. ADR-069 withdrew an
+    in-place path that drew a replaced part as nothing while it still picked."""
+    from open_garden_planner.core.plant_forge import LOD1, forge_record
+
+    parts = forge_record(record, lod=LOD1)
+    reused, destroyed = sink.models_reused, sink.models_destroyed
+    sink.begin()
+    sink.replace_geometry(record.item_id, parts)
+    sink.commit()
+    counts = {"regrow_reused": sink.models_reused - reused,
+              "regrow_destroyed": sink.models_destroyed - destroyed,
+              "regrow_models": sink.part_count(record.item_id)}
+    image = host.grab("forge-regrow-in-place")
+    assert image.save(str(out / "regrow_in_place.png"))
+    in_place = _pixels(image)
+    held = sink.item(record.item_id)
+    sink.begin()
+    sink.remove(record.item_id)
+    sink.add(record.item_id, parts, held.transform, held.material)
+    sink.commit()
+    image = host.grab("forge-regrow-fresh")
+    assert image.save(str(out / "regrow_fresh.png"))
+    fresh = _pixels(image)
+    return {**counts,
+            "regrow_fresh_diff_channels": int(np.count_nonzero(in_place != fresh)),
+            "regrow_changed_channels": int(np.count_nonzero(in_place != before))}
+
+
 def main(out: Path, *, slow_refresh: bool = False) -> int:
     from open_garden_planner.core.scene3d import GroundSpec, SunState
     from open_garden_planner.core.scene3d.builders import production_registry
@@ -57,6 +110,7 @@ def main(out: Path, *, slow_refresh: bool = False) -> int:
         result["restored_equal"] = bool(np.array_equal(images[0], images[2]))
         result["uploads_unchanged"] = sink.geometry_uploads == shapes
         result["models_unchanged"] = {id(part.model) for part in host._parts} == model_ids
+        result.update(_regrow_in_place(host, sink, record, images[2], out))
         # Measure the production workspace admission route, including support
         # dependencies: the old evaluator-only probe missed a 500 ms search.
         from types import SimpleNamespace
@@ -81,11 +135,30 @@ def main(out: Path, *, slow_refresh: bool = False) -> int:
         for rec in records:
             sink.add(rec.item_id, parts, rec.transform, rec.material)
         sink.commit()
+        # #598: where the callback's time goes - per stage, per sample. The QML hop is
+        # timed around the host's own call into the scene; the rest of the season sink
+        # is the Python marshalling; the rest of the callback is the worker's states.
+        stage = {"sink_ms": 0.0, "qml_ms": 0.0}
+        host_call = host._call
+
+        def timed_call(name, *args):
+            if name != "setPlantSeasons":
+                return host_call(name, *args)
+            begun = time.perf_counter()
+            try:
+                return host_call(name, *args)
+            finally:
+                stage["qml_ms"] += (time.perf_counter() - begun) * 1000.
+
+        host._call = timed_call
+
         def season_sink(states):
+            begun = time.perf_counter()
             if slow_refresh:
                 # Negative control inside the actual production uniform hop.
                 time.sleep(0.020)
             host.set_plant_seasons(states)
+            stage["sink_ms"] += (time.perf_counter() - begun) * 1000.
 
         timing_worker = ForgeWorker(season_sink=season_sink)
         scene_records = {r.item_id: r for r in (*records, *supports)}
@@ -112,20 +185,33 @@ def main(out: Path, *, slow_refresh: bool = False) -> int:
         shapes_before = sink.geometry_uploads
         models_before = {id(part.model) for part in host._parts}
         durations = {day.isoformat(): [] for day in days}
+        stages = {day.isoformat(): {"states_ms": [], "marshal_ms": [], "qml_ms": []}
+                  for day in days}
         # Predeclared samples, interleaved so every call changes the date. No
         # adaptive retries: gate the worst per-date median, and retain all tails.
         for _ in range(15):
             for day in days:
                 host.grab("forge-budget-settle")
+                stage["sink_ms"] = stage["qml_ms"] = 0.0
                 started = time.perf_counter()
                 controller.pass_date = day
                 Workspace._refresh_forge(workspace)
-                durations[day.isoformat()].append((time.perf_counter() - started) * 1000.)
+                total = (time.perf_counter() - started) * 1000.
+                durations[day.isoformat()].append(total)
+                split = stages[day.isoformat()]
+                split["states_ms"].append(total - stage["sink_ms"])
+                split["marshal_ms"].append(stage["sink_ms"] - stage["qml_ms"])
+                split["qml_ms"].append(stage["qml_ms"])
         medians = {day: statistics.median(values) for day, values in durations.items()}
         raw = [value for values in durations.values() for value in values]
         result["scrub300_ms"] = max(medians.values())
         result["scrub300_medians_ms"] = medians
         result["scrub300_samples_ms"] = durations
+        result["scrub300_stage_medians_ms"] = {
+            day: {name: round(statistics.median(values), 4) for name, values in split.items()}
+            for day, split in stages.items()}
+        result["scrub300_runner"] = _runner_identity(host)
+        result["scrub300_season_parts"] = host.part_count()
         result["scrub300_p95_ms"] = float(np.percentile(raw, 95))
         result["scrub300_max_ms"] = max(raw)
         result["scrub300_plants"] = len(records)

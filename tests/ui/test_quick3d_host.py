@@ -272,10 +272,14 @@ def test_the_plant_season_payload_keeps_the_autumn_hue_out_of_the_multiplier() -
     host = object.__new__(Quick3DHost)
     sent: dict[str, Any] = {}
     host._open = lambda _name: None                # type: ignore[method-assign]
-    host._call = lambda name, values: sent.update({name: values})  # type: ignore[method-assign]
+    host._call = lambda name, *values: sent.update({name: values})  # type: ignore[method-assign]
     host.request_frame = lambda: None              # type: ignore[method-assign]
     host.set_plant_seasons({"p": state})           # type: ignore[dict-item]
-    values = sent["setPlantSeasons"]["p"]
+    ids, data, stride = sent["setPlantSeasons"]
+    import numpy as np
+
+    values = np.frombuffer(bytes(data), dtype=np.float64).tolist()
+    assert ids == ["p"] and stride == len(values) == 23, "#598: ids, float64 buffer, stride"
     assert values[1:4] == [1.0, 1.0, 1.0], "the autumn multiplier was sent a second time"
     assert values[10] == 0.8 and values[17:20] == [0.1, 0.0, 0.0]
 
@@ -2609,13 +2613,25 @@ class TestGeometry:
                           semantic.ColorSemantic: 24, semantic.TexCoordSemantic: 40,
                           semantic.IndexSemantic: 0}
 
-    def test_there_is_no_way_to_refill_a_geometry(self) -> None:
-        """One geometry per Model lifetime, structurally: the class offers no method that
-        uploads again (``ogp-3d-renderer`` §2 — a reused geometry rendered nothing)."""
+    def test_a_geometry_is_refilled_only_for_the_model_that_already_has_it(self) -> None:
+        """One geometry OBJECT per Model lifetime, structurally. The class's one way to
+        upload again is ``reload`` (#531), and the one caller is ``reload_part``, which
+        loads into the geometry the live Model already has: a geometry handed to a second
+        Model rendered nothing (``ogp-3d-renderer`` §2), and so did a second geometry
+        handed to a live Model (ADR-069). The render tier proves the reload draws."""
+        import inspect
+
+        from open_garden_planner.ui.view3d.quick3d import host as host_module
         from open_garden_planner.ui.view3d.quick3d.geometry import BufferGeometry
 
         own = {name for name, value in vars(BufferGeometry).items() if callable(value)}
-        assert own == {"__init__"}
+        assert own == {"__init__", "reload"}
+        source = inspect.getsource(host_module)
+        assert source.count(".reload(") == 1
+        assert "part.geometry.reload(spec.buffers)" in inspect.getsource(
+            host_module.Quick3DHost.reload_part)
+        assert '"geometry"' not in inspect.getsource(host_module.Quick3DHost.reload_part), (
+            "a live Model is never handed a new geometry object")
 
 
 # ── the positive control for the canary (review P1-2) ────────────────────────

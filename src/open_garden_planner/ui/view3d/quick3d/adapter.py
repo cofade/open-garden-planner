@@ -28,12 +28,17 @@ What the sink guarantees:
   somebody else: the constructor and ``attach`` refuse it
   (``SinkProtocolError``). Two sinks on one scene would draw both sinks' items,
   and the first ``clear()`` would destroy the other one's Models.
-- **One Model per mesh part and surface, one geometry per Model lifetime.** ``add``
-  creates the Models, ``remove`` destroys them, ``replace_geometry`` destroys and
-  creates. A part made of several surfaces (``MeshPart.surface_runs``, #803) is drawn
-  as one Model per surface (``mesh.surface_pieces``): a Model has one material. A
-  geometry object is never handed to a second Model: the L0 spike measured a blank
-  frame and 0/20 picks for that (``ogp-3d-renderer`` §2).
+- **One Model per mesh part and surface, one geometry OBJECT per Model lifetime.**
+  ``add`` creates the Models, ``remove`` destroys them, ``replace_geometry`` keeps
+  every Model a new piece of the same ``_reuse_key`` takes and loads the new buffers
+  into that Model's own geometry object (``EngineScene.reload_part``, #531) — Qt
+  Quick 3D keeps 15-20 kB of every Model it destroys, for good. A part made of several
+  surfaces (``MeshPart.surface_runs``, #803) is drawn as one Model per surface
+  (``mesh.surface_pieces``): a Model has one material. A geometry object is never
+  handed to a second Model, nor a second geometry object to a live Model: the L0 spike
+  measured a blank frame and 0/20 picks for the first, and ADR-069 withdrew the second
+  (it drew nothing); loading into the object the Model already has draws (render tier:
+  ``test_replace_geometry_changes_the_silhouette``, a forged tree regrown in place).
 - **A move or a recolour uploads nothing.** ``update_transform`` re-poses,
   ``update_material`` re-colours (``materials.part_tint`` — the one rule a fill part
   changes: its picture carries the colour); ``geometry_uploads`` counts every buffer
@@ -62,7 +67,7 @@ GUI thread only, like everything that touches the scene.
 
 from __future__ import annotations
 
-from collections.abc import Sequence
+from collections.abc import Iterator, Sequence
 from dataclasses import dataclass, field
 from typing import Protocol
 
@@ -146,6 +151,11 @@ class EngineScene(Protocol):
 
     def create_part(self, spec: PartSpec, pose: EnginePose, tint_rgba: Rgba) -> object:
         """Create one Model with fresh geometry; return the handle that names it."""
+
+    def reload_part(self, handle: object, spec: PartSpec) -> None:
+        """Load ``spec``'s buffers into the LIVE Model's own geometry object and take its
+        index, name, shadow flag and sway (#531). Only for a Model of the same
+        ``_reuse_key``; the pose stays, the caller re-tints and re-fills."""
 
     def destroy_part(self, handle: object) -> None:
         """Destroy the Model (and its geometry) for good. A no-op when the engine is gone."""
@@ -241,6 +251,17 @@ class Quick3DSink:
         #: show it): a picture is released with its last user, so recolouring a raised
         #: lawn does not leave a texture per colour behind.
         self._fills: dict[FillKey, int] = {}
+        #: #531: Models that took new geometry in place (``replace_geometry``), and
+        #: Models the sink destroyed one by one (``remove``, ``replace_geometry``'s
+        #: leftovers; a ``clear()`` is counted by its caller). Qt Quick 3D keeps 15-20 kB
+        #: of every destroyed Model for good, and its graphics state until a cache
+        #: release: the instruments behind "a regrowth destroys no Model".
+        self.models_reused = 0
+        self.models_destroyed = 0
+        #: Items that lost at least one Model: every ``remove``, every item a ``clear()``
+        #: dropped, and a ``replace_geometry`` that destroyed one (one that only reloaded
+        #: does not). What the workspace counts towards a cache release (ADR-060).
+        self.items_retired = 0
 
     # ── what the sink holds (the same questions ``RecordingSink`` answers) ────
 
@@ -311,6 +332,7 @@ class Quick3DSink:
         built on that.
         """
         self._engine_unknown = True
+        self.items_retired += sum(1 for held in self._items.values() if held.handles)
         try:
             self._scene.clear()  # the ONE owner of the Models destroys them all (and hides the ring)
             self._engine_unknown = False
@@ -363,6 +385,8 @@ class Quick3DSink:
     def remove(self, item_id: str) -> None:
         held = self._require_known("remove", item_id)
         keys = self._fill_keys(held)
+        if held.handles:
+            self.items_retired += 1
         self._destroy(held)  # the Models first: no live Model may point at a released picture
         for key in keys:
             self._release(key)
@@ -399,14 +423,51 @@ class Quick3DSink:
             self._release(key)
 
     def replace_geometry(self, item_id: str, parts: Sequence[MeshPart]) -> None:
+        """The item's new meshes, in the Models it has where they fit (#531).
+
+        A new piece takes the first old Model of the same ``_reuse_key`` (kind, surface,
+        ground detail): the engine loads the new buffers into that Model's own geometry
+        object (``EngineScene.reload_part``). Old Models nothing takes are destroyed
+        first; pieces nothing old fits get new Models. Qt Quick 3D keeps 15-20 kB of
+        every Model it destroys, so a regrowth that keeps its Models leaves nothing."""
         held = self._require_known("replace_geometry", item_id)
         checked = _checked(parts)
-        keys = self._fill_keys(held)
-        self._destroy(held)  # the old Models first: no live Model may point at a freed picture
-        for key in keys:
-            self._release(key)
+        old_keys = self._fill_keys(held)
+        old_handles, held.handles = held.handles, []
         held.parts = checked
-        self._create(item_id, held)
+        pieces = list(self._pieces(item_id, held))
+        spare: dict[tuple[str, str, bool, bool], list[object]] = {}
+        for old_part, handle in old_handles:
+            spare.setdefault(_reuse_key(old_part), []).append(handle)
+        reuse: list[object | None] = []
+        for part, _spec in pieces:
+            free = spare.get(_reuse_key(part))
+            reuse.append(free.pop(0) if free else None)
+        # the Models nothing takes go first (a failure below is cleaned up by the
+        # sync's reset: the scene owns every Model, clear() destroys them all)
+        leftovers = [handle for handles in spare.values() for handle in handles]
+        if leftovers:
+            self.items_retired += 1
+        for handle in leftovers:
+            self._scene.destroy_part(handle)
+            self.models_destroyed += 1
+        pose = engine_pose(held.transform)
+        for (part, spec), handle in zip(pieces, reuse, strict=True):
+            tint = part_tint(part, held.material)
+            if handle is None:
+                handle = self._scene.create_part(spec, pose, tint)
+            else:
+                self._scene.reload_part(handle, spec)
+                self._scene.tint_part(handle, tint)
+                self.models_reused += 1
+            held.handles.append((part, handle))
+            self.geometry_uploads += 1
+            key = _fill_key(part, held.material)
+            if key is not None:
+                self._acquire(key)  # in the books before a Model shows it
+                self._scene.set_part_fill(handle, *key)
+        for key in old_keys:  # after every Model shows its new picture
+            self._release(key)
 
     def set_sun(self, sun: SunState) -> None:
         self._require_open("set_sun")
@@ -441,8 +502,9 @@ class Quick3DSink:
 
     # ── internals ────────────────────────────────────────────────────────────
 
-    def _create(self, item_id: str, held: _Held) -> None:
-        pose = engine_pose(held.transform)
+    def _pieces(self, item_id: str, held: _Held) -> Iterator[tuple[MeshPart, PartSpec]]:
+        """Every engine Model *held*'s parts make: the piece and what is fixed for it —
+        the ONE place a ``PartSpec`` is made (``_create`` and ``replace_geometry``)."""
         # #800: an item with leaves sways as a whole - every part takes the same frame
         frame = sway_frame(item_id, held.parts)
         for index, whole in enumerate(held.parts):
@@ -452,15 +514,20 @@ class Quick3DSink:
                 buffers = engine_buffers(part.mesh)
                 if buffers.is_empty:
                     continue
-                spec = PartSpec(item_id, index, part.material_kind, buffers, part.casts_shadow,
-                                part.name, part.ground_detail, surface=part.surface, sway=sway)
-                handle = self._scene.create_part(spec, pose, part_tint(part, held.material))
-                held.handles.append((part, handle))  # before the fill: clear() can destroy it
-                self.geometry_uploads += 1
-                key = _fill_key(part, held.material)
-                if key is not None:
-                    self._scene.set_part_fill(handle, *key)
-                    self._acquire(key)
+                yield part, PartSpec(item_id, index, part.material_kind, buffers,
+                                     part.casts_shadow, part.name, part.ground_detail,
+                                     surface=part.surface, sway=sway)
+
+    def _create(self, item_id: str, held: _Held) -> None:
+        pose = engine_pose(held.transform)
+        for part, spec in self._pieces(item_id, held):
+            handle = self._scene.create_part(spec, pose, part_tint(part, held.material))
+            held.handles.append((part, handle))  # before the fill: clear() can destroy it
+            self.geometry_uploads += 1
+            key = _fill_key(part, held.material)
+            if key is not None:
+                self._scene.set_part_fill(handle, *key)
+                self._acquire(key)
 
     def _fill_keys(self, held: _Held) -> list[FillKey]:
         """The fill pictures *held*'s Models show, in part order (released after the
@@ -487,6 +554,7 @@ class Quick3DSink:
         handles, held.handles = held.handles, []
         for _piece, handle in handles:
             self._scene.destroy_part(handle)
+            self.models_destroyed += 1
 
     def _require_open(self, op: str) -> None:
         if not self._open:
@@ -498,6 +566,13 @@ class Quick3DSink:
         if held is None:
             raise SinkProtocolError(f"{op}(): unknown item {item_id!r}")
         return held
+
+
+def _reuse_key(part: MeshPart) -> tuple[str, str, bool, bool]:
+    """What a Model is fixed to for life, so a new piece may take an old Model only when
+    it is equal (#531): its part component (kind), its surface look (#803), ground
+    detail (never picked) and whether it shows the item's fill picture."""
+    return (part.material_kind, part.surface, part.ground_detail, part.fill_texture)
 
 
 def _tile_placement(tile: GroundTile) -> TilePlacement:

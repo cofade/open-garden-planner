@@ -2688,6 +2688,18 @@ thread once the main window exists.
   its GPU slope +0.8); the GPU slope is the stable reading. And "the same picture" before
   and after a soak allows 2 of 255 per pixel (`SAME_IMAGE_TOLERANCE`): since the L1.4 sky,
   six sky pixels differ by 1 in about half the runs, at the story's head as well.
+- **A fixed `QT_HASH_SEED` does not make the leak share repeatable enough to tighten G7**
+  (#667, decided from the numbers on 2026-11-24). QTBUG-151940's leaked share depends on the
+  process's `QHash` seed, so the soak child was started with `QT_HASH_SEED=0` (PR #989). Five
+  bake-on runs with the fixed seed and five with random seeds, alternating, on the RTX 4070
+  (bench_small, 20 rebuilds, 20 cache releases in every run): the GPU slope read −7.1, +8.0,
+  +1.7, +7.1, +9.0 MB per reload with the fixed seed (spread 16.1, median 7.1) and +7.2, +6.6,
+  +10.6, +10.6, +10.3 with random seeds (spread 4.0, median 10.3); committed memory 10.4 to 15.3
+  and 10.0 to 16.6. DXGI's own run-to-run noise dominates, and the fixed seed sampled a
+  SMALLER leak than the product's seeds. So the tripwire stays non-strict, `KNOWN_532_SHARE`
+  stays 0.6, and the soak child runs the app's random seed again (`gate_extra_environment`
+  keeps `hash_seed` as a measuring switch). Every one of the ten runs stayed under the
+  bound (21.7).
 - **Compare two modes along the same path, in alternating short blocks.** The 2D pan cost in
   Split against Plan: six rounds of 60 steps each, every block from the same scroll position
   along the same pixels, the canvas at the same size in both, every step checked to have
@@ -3074,6 +3086,10 @@ How §8.29.9 is tested. The seam is still the workspace's (`Workspace.engine_fac
   A/B a change against a soak alternately, three runs per arm at least, the same machine and
   session, and compare the spread, not one number. And do not read six quiet runs as "gone":
   a seventh run the same day (the final render tier on the L1.9/L1.10 tree) read a second-half slope of 2.637 MB a minute, so the gate is a non-strict xfail again (#534).
+  The same rule closed it (2026-11-24, Qt 6.12.0): the gate five times in a row at 0.0, plus
+  four diagnostic arms of 3–6 minutes (the product; frames without the wind's clock; the QML
+  collector every 5 s; `tracemalloc`) at 0.29, 0.70, 0.84 and −0.04 MB a minute — every run,
+  not one, before the xfail became an assertion again.
 - **Measure what a deleted component cost while it still exists.** The old window's numbers
   (`scenario_budget_old_view`, called through its own slot because no menu reaches it after the
   flip) were taken on the L1.9 tree, before L1.10 deleted it; afterwards there is nothing left
@@ -6338,14 +6354,18 @@ Importing the package itself is free (`__init__` is a docstring); the engine loa
 `offscreen` is imported. Measured in the running app on the dev box: the package 1 ms, the sink
 with `core/scene3d` 17 ms, the engine bindings 17 ms.
 
-**One Model per mesh part, one geometry per Model lifetime.** `Quick3DSink.add` creates one
-engine `Model` per `MeshPart` (a part without triangles gets none), each with its OWN geometry
-object and its own material instance. `remove` destroys them; `replace_geometry` destroys and
-creates; `clear()` destroys everything. A geometry is never handed to a second Model and never
-re-filled — `BufferGeometry` has no method to do it — because the spike measured what reuse
-costs: a blank frame and 0 of 20 picks. (Reusing the Model with a new geometry, or with new data
-in the same geometry, was measured on both render tiers in 2026-11: the item still picks and
-draws NOTHING. #531 is open; ADR-069 records the finding.)
+**One Model per mesh part, one geometry object per Model lifetime.** `Quick3DSink.add` creates
+one engine `Model` per `MeshPart` (a part without triangles gets none), each with its OWN
+geometry object and its own material instance. `remove` destroys them; `clear()` destroys
+everything. `replace_geometry` keeps every Model a new piece of the same reuse key (kind,
+surface, ground detail, fill picture) takes and loads the new buffers into that Model's own
+geometry object (`BufferGeometry.reload`, #531); only the Models no piece takes are destroyed,
+and only the pieces no Model fits get new ones. A geometry object is never handed to a second
+Model (the spike: a blank frame and 0 of 20 picks), and a live Model is never handed a second
+geometry object (ADR-069: it draws NOTHING while it still picks). Loading into the object the
+Model already has draws — pinned in pixels on every render tier (the ADR-069 addendum of
+2026-11-24). The sink counts `models_reused`, `models_destroyed` and `items_retired`; the
+workspace releases the engine's caches by `items_retired`.
 
 **A move or a recolour uploads nothing.** `update_transform` sets the Models' `position` and
 `eulerRotation.y`; `update_material` sets their tint. The upload counter (`BufferGeometry.uploads`,
@@ -7459,7 +7479,9 @@ A STILL PICTURE of a live view goes that way too, never through repeated `host.g
     6.12.0 as on 6.11.0 — a bump to 6.11.3 or 6.12.0 does not fix it. How much leaks depends on
     the process's `QHash` seed: 6 to 8 of 16 same-size 512² textures per release
     (`QT_HASH_SEED=0`: 6 in every run), 26 to 32 of 64 same-size 256² textures — below the
-    gate's 0.6 share.
+    gate's 0.6 share. A fixed seed in the G7 soak child did not narrow the gate's spread
+    (#667, §8.10.9: five runs each way), so the gate keeps the share, the non-strict
+    tripwire and the app's random seed.
     *Re-checked on the bump to 6.12.0* (Phase 17 L7, #391, 2026-11-03): the reproducer on the
     PyQt6-Qt6 6.12.0 wheels (WARP, frames presented) still leaks — 16 → 96 textures over 10
     cycles, 8 a cycle.
@@ -8365,9 +8387,11 @@ the start marker and compatibility mode (`ui/view3d/init_guard.py`, FR-3D-WS-07)
 > `test_view3d_default_render.py`). A change that imports Qt Quick, QML or `quick3d` at
 > start-up — or makes the workspace build its pane before it is asked — fails both.
 
-**Date playback is throttled** (#531). Each date regrows the dated plants, and every Model
-Qt Quick 3D destroys leaves 15 to 20 kB behind (ADR-060 decision 16): an arrow key held in the
-date field (about 30 steps a second) regrew all of them on every step. `Scene3DController._on_date_changed` regrows at once if
+**Date playback is throttled** (#531). Each date regrows the dated plants. Until #531 every
+regrowth destroyed their Models, and every Model Qt Quick 3D destroys leaves 15 to 20 kB behind
+(ADR-060 decision 16): an arrow key held in the date field (about 30 steps a second) regrew all
+of them on every step. Since #531 a regrowth reloads the Models in place (the ADR-069 addendum
+has the measured cost); the interval stays until #804 re-measures it. `Scene3DController._on_date_changed` regrows at once if
 `DATE_REGROW_MIN_MS` (500) has passed since the last regrowth for a date, and otherwise books ONE
 trailing regrowth for the end of the interval, which runs only if the clock's date is not the
 one the last records pass read. The light follows every step (a light-only pass, no snapshot).
@@ -8388,7 +8412,14 @@ and three with a C++ `NumberAnimation` (no JavaScript per frame), read 0.46–2.
 from the first sample to the last, second-half slopes 0.0–1.51 — the two clocks inside each
 other's spread, dedicated GPU memory flat. The clock change was reverted. But a seventh run the same day (the final render tier on the L1.9/L1.10 tree) read a second-half slope of 2.637
 MB a minute against the registered bound of 2.0: the growth is intermittent, not gone. The gate
-is a non-strict `xfail` citing #534 until the growth is fixed.
+was a non-strict `xfail` citing #534. **Not reproduced on Qt 6.12.0** (#534, 2026-11-24, RTX
+4070, timer-paced): the gate five times in a row at 0.0 MB a minute (GPU 0.0, about 7,190
+frames each); 6-minute arms of the product (21,634 frames: 1,132.5 → 1,133.9 MB, slope 0.29),
+of frames WITHOUT the clock (a 16 ms timer asks for them: 0.70) and of the QML collector every
+5 s (0.84); a 3-minute `tracemalloc` arm −0.04, with nothing of the product's Python kept (the
+kept blocks were the driver's own memory readings). Whether the bump to 6.12.0 or a later
+change removed it is not isolated; the earlier growth was measured on 6.11. The gate is a plain
+assertion again; the product's vblank-paced path is still unmeasured.
 
 #### FR-SUN-06 / 07 / 08, clause by clause
 
@@ -8819,6 +8850,34 @@ published in the render artifacts. No adaptive retries select a passing round.
 A negative control adds 20 ms inside the production uniform hop and must fail
 the same budget. Geometry-job and Model/buffer-churn checks are independent.
 The mixed-species phenology unit budget remains an additional gate.
+
+**Where the callback's time goes, and the headroom (#598, 2026-11-24).** The driver
+now reports every sample split into three stages — the worker's states (Python), the
+marshalling of the season sink, and the scene's `setPlantSeasons` (timed around the
+host's own call) — and the runner's identity (CPU, logical cores, OS, Python, Qt, graphics
+API; the adapter is in Qt's log). On the RTX 4070 the scene's hop was 10.5–11.7 ms of a
+12.3–13.4 ms step (900 Models, 600 of them seasonal). Measured inside the engine
+(`QQmlExpression` probes): with NO value changing it still cost 7.3 ms — 2.7 to turn a
+dict of 300 lists into a JS object, 4.6 reading the Models' properties back through
+generic lookups — and a `seasonTint` write re-evaluates every material binding that
+reads it (600 writes: 10.2 ms, against 1.2 for a plain number). So now
+(`host.season_payload`, `Garden.qml`):
+
+- the states cross as the item ids and ONE native float64 buffer (`SEASON_STRIDE` = 23
+  numbers per plant), read through `Float64Array` views: 0.11 ms instead of 2.15;
+- the scene visits only the seasonal parts (`seasonalParts`, by item: leaves, grass,
+  flowers, fruit, lawn blades) — every other part's season values are defaults
+  whatever the state;
+- it compares against what it last WROTE, kept as numbers in the index entry, and writes
+  only what changed (nothing else writes those properties of an indexed Model;
+  `destroyPart` unindexes first). A birth, a reload (#531) and a lawn-blade switch write
+  everything once.
+
+Worst date medians, three alternating runs per tree: RTX 4070 13.2–13.8 → **5.9–6.3 ms**
+(the scene's hop 2.5–3.9), WARP 14.0–15.3 → **6.8–7.6 ms**; p95 7.6–14.7 ms. CI's
+software rasterisers, gated at 25 ms since PR #596 (16.1–21.8 measured there), are held
+to the 16 ms of this protocol again. Reference hardware for the numbers: Intel 64
+Family 6 Model 183 (20 logical CPUs), Windows 11, Python 3.11.9, Qt 6.12.0, Direct3D 11.
 
 
 ### 8.29.12 The built world complete — objects, roofs, facades, surfaces, ground detail (L4, #388, ADR-065)

@@ -64,7 +64,7 @@ machine):
   compatibility mode.
 - **Committed memory grew while the wind ran** (FU-L14-2, L1.4): 2.1–2.6 MB per minute,
   linear over 6 minutes (21,594 frames), dedicated GPU memory flat; 0.8 with the QML engine's
-  `collectGarbage()` every 5 s. Not isolated. **Re-measured 2026-10-19 (L1.9): not reproduced** — six alternating 4–5 min soaks, three with this `FrameAnimation` and three with a C++ `NumberAnimation` as the clock: 0.46–2.03 MB a minute overall, second-half slopes 0.0–1.51, the two clocks inside each other's spread. The clock change was reverted. But the final render tier the same day read 2.637 (bound 2.0): intermittent, not gone — `test_the_wind_running_for_two_minutes_leaves_nothing_behind` is a non-strict xfail citing #534.
+  `collectGarbage()` every 5 s. Not isolated. **Re-measured 2026-10-19 (L1.9): not reproduced** — six alternating 4–5 min soaks, three with this `FrameAnimation` and three with a C++ `NumberAnimation` as the clock: 0.46–2.03 MB a minute overall, second-half slopes 0.0–1.51, the two clocks inside each other's spread. The clock change was reverted. But the final render tier the same day read 2.637 (bound 2.0): intermittent, not gone — the gate became a non-strict xfail citing #534. **Not reproduced on Qt 6.12.0 (2026-11-24, #534 closed by measurement):** the gate five times at 0.0 MB/min, four 3–6 min arms (product, frames without the clock, QML collector every 5 s, `tracemalloc`) at 0.29 / 0.70 / 0.84 / −0.04; the gate is an assertion again (docs §8.29.9).
 - **A software adapter presents frames while the GPU's display sleeps**: with the display
   asleep the GPU host presented 0 frames (only readbacks measure there), the WARP host 30–60 in
   5 s. Say which a frame-rate number is.

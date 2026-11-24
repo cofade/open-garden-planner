@@ -684,6 +684,42 @@ def test_a_flood_of_destroyed_models_is_released_at_once(
     assert bench.host.releases == 1
 
 
+class CountingSink(RecordingSink):
+    """A recording sink that counts retired items as ``Quick3DSink`` does (#531): an
+    item whose regrowth reloads its Models in place retires nothing; a remove does."""
+
+    def __init__(self) -> None:
+        super().__init__()
+        self.items_retired = 0
+
+    def remove(self, item_id: str) -> None:
+        super().remove(item_id)
+        self.items_retired += 1
+
+
+def test_a_regrowth_that_keeps_its_models_owes_no_release(
+        bench: Bench, monkeypatch: pytest.MonkeyPatch) -> None:
+    """#531: the workspace counts what the SINK says was retired, not every item whose
+    geometry changed - a release lets Qt keep about half of the ground's tile textures
+    (#532), so a release nothing needs is a leak, not hygiene."""
+    import sys
+
+    monkeypatch.setattr(sys.modules[__name__], "RecordingSink", CountingSink)
+    rig = Releases(bench, monkeypatch, after=2, at_once=3)
+    assert isinstance(bench.sink, CountingSink)
+    for index, bed in enumerate(rig.beds[:4]):
+        old, new = build_rect_resize(bed, 320.0 + 10 * index, 200.0, keep_center=True)
+        bench.commands.execute(ResizeItemCommand(bed, old, new, apply_rect_like_geometry))
+        bench.settle()
+    rig.idle()
+    bench.poll()
+    assert bench.host.releases == 0, "four regrowths, no Model lost: nothing owed"
+    rig.delete(2)
+    rig.idle()
+    bench.poll()
+    assert bench.host.releases == 1, "two removed items are owed a release"
+
+
 def test_a_new_document_releases_what_the_old_one_left(
         bench: Bench, monkeypatch: pytest.MonkeyPatch) -> None:
     rig = Releases(bench, monkeypatch, after=5)

@@ -987,22 +987,18 @@ def test_the_wind_soak_runs_the_default_steady_state(wind_soak) -> None:
     assert gpu is None or gpu <= driver.WIND_SOAK_BOUND_MB_PER_MIN, wind_soak["gpu_curve_mb"]
 
 
-@pytest.mark.xfail(strict=False, raises=AssertionError, reason=(
-    "#534 (FU-L14-2): committed memory grows while the wind runs, intermittently - L1.4 "
-    "2.6 MB/min over 2 min and 2.09 over 6; L1.9's six 4-5 min soaks 0.0-1.51 second-half; "
-    "the final render tier of 2026-10-19 2.637. Neither strict nor an assertion is honest "
-    "while a run can land on either side of the bound."))
 def test_the_wind_running_for_two_minutes_leaves_nothing_behind(wind_soak) -> None:
-    """FU-L14-2 (#534), at the bound registered before L1.4's first run. L1.4 measured 2.6
-    MB/min over 2 min and 2.09 over 6 min and kept this a strict xfail. L1.9 re-measured on
-    2026-10-19 (RTX 4070, timer-paced frames): six alternating 4-5 min soaks, three with
-    L1.4's FrameAnimation and three with a C++ NumberAnimation driving the clock — 0.46 to
-    2.03 MB/min from the first sample to the last, a second-half slope of 0.0 to 1.51; the
-    two clocks inside each other's spread — and dropped the xfail. The final render tier the
-    same day read 2.637: the growth is intermittent, not gone, so this is a non-strict xfail
-    until #534 is fixed; then it becomes an assertion again. (§8.29.9; the product's
-    vblank-paced path is still unmeasured.)"""
-    assert wind_soak["slope_second_half_mb_per_min"] <= driver.WIND_SOAK_BOUND_MB_PER_MIN,         wind_soak["curve_mb"]
+    """FU-L14-2 (#534), at the bound registered before L1.4's first run: committed memory
+    flat while the wind runs. L1.4 (Qt 6.11) measured 2.6 MB/min over 2 min and 2.09 over
+    6; L1.9 0.0 to 1.51 second-half in six soaks and 2.637 in the final render tier, so
+    this was a non-strict xfail. Re-measured on Qt 6.12.0 (RTX 4070, timer-paced frames,
+    2026-11-24): this gate five times in a row at 0.0 MB/min (and 0.0 on the GPU, about
+    7,190 frames each), and four 3-6 min diagnostic arms - the product, frames without the
+    wind's clock, the QML collector every 5 s, tracemalloc - at 0.29, 0.70, 0.84 and -0.04
+    with nothing of the product's Python kept. An assertion again (#534's acceptance).
+    (§8.29.9; the product's vblank-paced path is still unmeasured.)"""
+    assert wind_soak["slope_second_half_mb_per_min"] <= driver.WIND_SOAK_BOUND_MB_PER_MIN, (
+        wind_soak["curve_mb"])
 
 
 def test_the_soak_sees_a_sky_that_is_not_released(tmp_path: Path) -> None:

@@ -659,6 +659,7 @@ def scenario_edits(ctx: Context) -> dict[str, Any]:
         def step(name: str, records: dict[str, Record] | None, *, picks: tuple[str, ...] = (),
                  at: Mapping[str, tuple[float, float]] | None = None) -> None:
             before = _uploads()
+            reused, destroyed = sink.models_reused, sink.models_destroyed
             started = time.perf_counter()
             if records is not None:
                 sync.apply(records)
@@ -667,6 +668,8 @@ def scenario_edits(ctx: Context) -> dict[str, Any]:
             row.update({"name": name, "edit_to_readback_ms": round(
                 (time.perf_counter() - started) * 1000.0, 2),
                 "uploads_delta": _uploads() - before, "sink_uploads": sink.geometry_uploads,
+                "reused_delta": sink.models_reused - reused,
+                "destroyed_delta": sink.models_destroyed - destroyed,
                 "engine_parts": _parts(host), "build_count": sync.build_count, "picks": {}})
             for label in picks:
                 x, y = (at or {})[label]

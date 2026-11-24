@@ -33,9 +33,8 @@ No roadmap phase is active. Open work is tracked in GitHub issues; the current t
 | Theme | Open issues | Why it matters |
 |-------|-------------|----------------|
 | Store/MSIX readiness | #767, #375 | Distribution and user-data safety on the second channel. |
-| 3D rendering quality and performance | #744, #534, #531 | The 3D view's trust and frame budget. |
+| 3D rendering quality and performance | #744, #804 | The 3D view's trust and frame budget; #804 (a smooth year lapse) is unblocked by #531. |
 | CAD and drawing tools | — | Precision and editing depth. |
-| Architecture and tech debt | #667 | Remove redundant surfaces and make tests repeatable; its seed wiring shipped, the owner-run soak measurement is still owed. |
 | Documentation before advertising | #939 | The user-facing documents describe today's product before it is shared. |
 | 2D canvas follow-ups | #845, #852, #855 | First-zoom sprite rasterization cost; sun-map contour/label repaint overhead; open-frame weighted-path grazing-sun and food-forest performance. |
 
@@ -45,6 +44,7 @@ This table is a pointer, not a tracker. Each issue owns its scope and acceptance
 
 | Status | ID | Scope | Version / reference |
 |--------|----|-------|---------------------|
+| 🔄 | GPU memory and frame budget (#531, #534, #598, #667) | A regrown 3D part keeps its Model (in-place geometry reload) and only items that lost a Model count towards a cache release; the seasonal scrub sends one float64 buffer and touches only changed seasonal parts; the wind soak is an assertion again; the G7 soak keeps the product's random hash seed | Draft PR; ADR-069 addendum, ADR-064 addendum; §8.10.9, §8.29.11 |
 | ✅ | Plant Grid (#1002) | Toolbar tool that places a rectangular species grid with move, resize, rotate, one plant size and a species preview, committed in one undo step and optionally grouped; contributed by tanclin (Discussion #983) | v1.42.0; [PR #1000](https://github.com/cofade/open-garden-planner/pull/1000); ADR-082; FR-PLANT-25; §8.9.21 |
 | ✅ | 3D showcase follow-ups (#941, #943, #944, #949, #954, #955, #956, #960, #966, #992) | Two-anchor autumn colours, year-round seasonal grass, a stored plan weather, domed rocks, moss and raked sand with per-stone cuts, a board fence, umbrella Scots pine and a long-hedge leaf budget, a dwarf palm, a pergola climber, part-turn orbits and Ultra window reflections | v1.41.3; [PR #998](https://github.com/cofade/open-garden-planner/pull/998); ADR-059 addendum, ADR-064 addendum 2, ADR-070/072 addenda; FR-3D-PLANT-05–08, FR-3D-GROUND-09, FR-3D-BUILT-10–13, FR-3D-LOOK-09, FR-3D-LIVE-10, FR-3D-TOUR-05 |
 | ✅ | Plant seasonal truth & forge stability (#948, #963, #969, #970, #973, #995, #996) | Green canopy tip weight, post-fit LOD2 spread pin, bulb leaf windows and scapes, 2 % size-bucketed forge cache with exact scaling, ripening phases, far crop patches, synchronous regrowth meshes without v0 downgrade, and smooth playback guards | v1.41.2; [PR #994](https://github.com/cofade/open-garden-planner/pull/994); ADR-064 addendum; FR-3D-FORGE-01/02/03/05/06/07, FR-3D-LIVE-01; §8.29.11; PF-L3D-37/38 |

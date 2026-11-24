@@ -3,15 +3,14 @@
 All the thinking is in ``core/scene3d/interleave.py`` (Qt-free, tested byte for
 byte): this class only hands the buffers to Qt and declares the layout.
 
-One upload per object, on purpose — there is no method to load new data into an
-existing ``BufferGeometry``. The L0 spike measured what reuse costs: once the
-Model using a ``QQuick3DGeometry`` is destroyed, the same geometry given to a
-new Model renders nothing and picks nothing, and ``update()`` does not help
-(``ogp-3d-renderer`` §2). A geometry therefore lives exactly as long as its
-Model; new geometry means a new object.
-
-The one exception has a class of its own, ``ReloadableGeometry`` (L1.8): the
-selection ring's Model is never destroyed, so its geometry is re-loaded in place.
+A ``BufferGeometry`` lives exactly as long as its Model and never meets another
+one. The L0 spike measured what handing it on costs: once the Model using a
+``QQuick3DGeometry`` is destroyed, the same geometry given to a new Model renders
+nothing and picks nothing, and ``update()`` does not help (``ogp-3d-renderer`` §2).
+ADR-069 measured the twin: a NEW geometry object assigned to a live Model draws
+nothing either. What works is loading new data into the object the live Model
+already has — ``BufferGeometry.reload`` (#531, a regrown part keeps its Model) and
+``ReloadableGeometry.load`` (L1.8: the selection ring's Model, never destroyed).
 """
 
 from __future__ import annotations
@@ -48,7 +47,8 @@ def _declare_layout(geometry: QQuick3DGeometry) -> None:
 
 
 class BufferGeometry(QQuick3DGeometry):
-    """One mesh part on the GPU: ``buffers`` uploaded once, at construction."""
+    """One mesh part on the GPU: ``buffers`` at construction, new ones through ``reload``
+    while the same Model shows it (module docstring)."""
 
     #: Uploads made in this process — the Qt-level instrument behind "a move or a
     #: recolour uploads nothing" (the render tier reads it around each edit).
@@ -63,6 +63,17 @@ class BufferGeometry(QQuick3DGeometry):
         self.setBounds(QVector3D(*buffers.bounds_min), QVector3D(*buffers.bounds_max))
         # QQuick3DObject.update() exists at runtime; PyQt6 6.11's stubs do not declare it
         self.update()  # type: ignore[attr-defined]
+        BufferGeometry.uploads += 1
+
+    def reload(self, buffers: EngineBuffers) -> None:
+        """Load new data into this object, for the SAME live Model (#531): the Model
+        keeps its geometry object, so no Model and no geometry is destroyed. Counted in
+        ``uploads`` like a new geometry (it IS an upload)."""
+        self.vertex_count = buffers.vertex_count
+        self.setVertexData(QByteArray(buffers.vertex_data))
+        self.setIndexData(QByteArray(buffers.index_data))
+        self.setBounds(QVector3D(*buffers.bounds_min), QVector3D(*buffers.bounds_max))
+        self.update()  # type: ignore[attr-defined]  # as above
         BufferGeometry.uploads += 1
 
 

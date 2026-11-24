@@ -254,11 +254,15 @@ Full how-to (step-by-step, `.ts` format, recompile command): see `docs/08-crossc
   "Current work" section, then `git status` and `git log --oneline -20`.
 - Current release: **v1.42.0** (2026-11-23). No roadmap phase is active.
   See the roadmap's Current work table and the open issues for the next change.
-- No draft PR is open. The next change starts from the open issues in the roadmap's
-  Current work table; PR #1000 (Plant Grid, contributed by tanclin) is merged and
-  released. Follow-ups #1003 and #1005; related #1001 (stale group bed links) and #1006
+- Draft PR open: GPU memory and frame budget (#531, #534, #598, #667), waiting for the
+  owner's manual test. Otherwise the next change starts from the roadmap's Current
+  work table; PR #1000 (Plant Grid, contributed by tanclin) is merged and released. Follow-ups #1003 and #1005; related #1001 (stale group bed links) and #1006
   (a flaky forge test).
 - Live decisions that constrain the next change:
+  - 3D Model reuse (#531, ADR-069 addendum): a regrown part loads new buffers into the
+    geometry object its live Model already has (`BufferGeometry.reload`); never a new
+    geometry object on a live Model. Cache releases count `Quick3DSink.items_retired`.
+    Plant seasons cross as ids + one float64 buffer (`host.season_payload`, #598).
   - Tool drafts (#1002, ADR-082, §8.9.21): a multi-press tool draft paints through
     `BaseTool.paint_foreground` (a paint only reads); a pinch calls
     `cancel_pointer_press()`; Esc stays the view's single rule. Plant searches use

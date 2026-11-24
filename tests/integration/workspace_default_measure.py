@@ -195,6 +195,10 @@ def scenario_date_playback(window: Any, args: dict[str, Any]) -> Iterator[Any]:
          gpu_slope_mb_per_min=round(measure.theil_sen(gpu_values) * 12.0, 2)
          if len(gpu_values) > 2 else None,
          cache_releases=getattr(workspace.host, "cache_releases", None),
+         # #531: how the regrowths reached the engine (None: a sink that does not count)
+         models_reused=getattr(controller.sync.sink, "models_reused", None),
+         models_destroyed=getattr(controller.sync.sink, "models_destroyed", None),
+         items_retired=getattr(controller.sync.sink, "items_retired", None),
          shown_date=str(controller._pass_date), clock_date=str(clock.plan_date))
     yield 100
 

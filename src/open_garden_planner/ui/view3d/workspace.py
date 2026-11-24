@@ -64,9 +64,10 @@ WHAT A DESTROYED MODEL LEAVES BEHIND (ADR-060, measured). Qt Quick 3D keeps
 graphics state for every Model it once drew — about 0.2 MB each on Direct3D 11
 with the sun's shadow passes — until ``QQuickWindow.releaseResources()`` is
 called; nothing else gives it back (20 rebuilds of the small bench plan in a
-presenting view, no readback: 19 MB per rebuild without, 2 with). The
-pipeline's passes say how many items lost
-their Models (``TickReport.retired``); the workspace counts them and tells the
+presenting view, no readback: 19 MB per rebuild without, 2 with). The sink says
+how many items really lost a Model (``Quick3DSink.items_retired``, #531: a regrowth
+that reloads its Models in place loses none; a sink without the count falls back on
+the passes' ``TickReport.retired``); the workspace counts them and tells the
 host to let go — when the pipeline has been quiet for a moment
 (``RELEASE_AFTER_RETIRED``), or at once when a flood of them piles up
 (``RELEASE_NOW_RETIRED``: an animated date regrows every dated plant per tick).
@@ -473,6 +474,8 @@ class Workspace(QWidget):
         self._window_watched: QWidget | None = None
         self._build_pending = False   # a first pass waits for its notice to be painted
         self._retired = 0             # items that lost their Models since the last release
+        self._retire_source: Any = None   # the sink that counts them (#531), when it does
+        self._retire_seen = 0
         self._applied_at = 0.0        # when the pipeline last worked (``_now``)
         self._playback_active = False  # toolbar time/date animation running (#996)
         #: What the status line has to say, by kind (``_NOTICE_ORDER``); the first kind
@@ -926,6 +929,11 @@ class Workspace(QWidget):
             self._update_compat_notice()
             return
         self._host, self._controller, self._input = host, controller, orbit
+        # #531: the sink says which items really lost Models (a regrowth that reloads
+        # its Models in place loses none); a sink without the count (a test's
+        # recording sink) keeps the passes' own estimate
+        self._retire_source = sink if isinstance(getattr(sink, "items_retired", None), int) else None
+        self._retire_seen = self._retire_source.items_retired if self._retire_source else 0
         self._ground_season = None
         self._look = look
         look.set_southern(self._southern())  # L5: where the place's noon stands
@@ -1330,7 +1338,7 @@ class Workspace(QWidget):
             self._look.set_sun(self._controller.sync.sun)
         self._show_ground_season()
         self._applied_at = _now()
-        self._retired += report.retired
+        self._count_retired(report.retired)
         if self._retired >= RELEASE_NOW_RETIRED and not self._playback_active:
             self._release_engine_caches()  # a flood: not worth waiting for quiet
         if report.snapshot and self._forge_worker is not None:
@@ -1399,11 +1407,22 @@ class Workspace(QWidget):
             if self._look is not None:
                 self._look.pause_auto_sample()
             self._applied_at = _now()
-            self._retired += len(upgraded)
+            self._count_retired(len(upgraded))
             if self._retired >= RELEASE_NOW_RETIRED and not self._playback_active:
                 self._release_engine_caches()
         if worker.pending_count > 0 and self._pane_is_showing():
             self._forge_timer.start(10)
+
+    def _count_retired(self, estimate: int) -> None:
+        """Add the items that lost their Models since the last count: the sink's own
+        ``items_retired`` (#531), or ``estimate`` for a sink that does not count."""
+        source = self._retire_source
+        if source is None:
+            self._retired += estimate
+            return
+        now = source.items_retired
+        self._retired += max(0, now - self._retire_seen)
+        self._retire_seen = now
 
     def _release_engine_caches(self) -> None:
         """Tell the engine to let go of the graphics state Qt keeps for Models that
@@ -1660,6 +1679,7 @@ class Workspace(QWidget):
             self._forge_worker = None
         self._drop_held_build()
         self._retired = 0  # the host goes, and what it cached with it
+        self._retire_source, self._retire_seen = None, 0
         self._notices.clear()  # … and whatever the status line said about it
         self._refresh_notices()
         look, self._look = self._look, None

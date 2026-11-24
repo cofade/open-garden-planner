@@ -408,8 +408,6 @@ def _run_forge_renderer(tmp_path, *, slow_refresh=False):
     result = json.loads((tmp_path / "result.json").read_text(encoding="utf-8"))
     result["qt"] = driver_messages(proc.stderr)
     assert result["qt"]["counts"]["error"] == result["qt"]["counts"]["warning"] == 0, result["qt"]
-    import os
-
     artifacts = os.environ.get("OGP_RENDER3D_ARTIFACTS")
     if artifacts:
         directory = Path(artifacts)
@@ -426,6 +424,17 @@ def test_real_engine_scrubs_the_same_forged_models(tmp_path):
     assert result["changed_channels"] > 3000
     assert result["restored_equal"]
     assert result["uploads_unchanged"] and result["models_unchanged"]
+
+
+def test_a_forged_tree_regrown_in_place_draws_what_a_fresh_build_draws(tmp_path):
+    """#531 on the engine: LOD0 -> LOD1 keeps the tree's Models (their geometry objects
+    take the new buffers) and the frame equals the frame of fresh Models with the same
+    parts, channel for channel. ADR-069 withdrew an in-place path that drew nothing."""
+    result = _run_forge_renderer(tmp_path)
+    assert result["regrow_reused"] >= 2 and result["regrow_reused"] == result["regrow_models"]
+    assert result["regrow_destroyed"] == 0, result
+    assert result["regrow_changed_channels"] > 1000, "LOD1 must look different from LOD0"
+    assert result["regrow_fresh_diff_channels"] == 0, result
 
 
 def _run_far_renderer(tmp_path):
@@ -465,18 +474,21 @@ def test_a_far_crop_and_a_dormant_bulb_render(tmp_path):
     assert result["tulip_july_pixels"] <= 0.05 * result["tulip_april_pixels"], result
 
 
-#: The 16 ms production frame budget on a hardware GPU. CI's render tier runs
-#: on software rasterisers (WARP on Windows, llvmpipe on Linux), where the same
-#: 300-model scrub measured 16.1-21.8 ms across runners; gate a frame-scale
-#: 25 ms there instead. The 20 ms negative control stays above either budget.
+#: The 16 ms budget of the 300-plant scrub callback (§8.29.11), on every adapter.
+#: CI's software rasterisers measured 16.1-21.8 ms across runners and PR #596 gated
+#: them at 25 ms instead; #598 made the callback itself cheaper (the season values
+#: cross as one float64 buffer, the scene visits only the seasonal parts and writes
+#: only what changed): worst date medians on the dev box fell from 13.2-13.8 to
+#: 5.9-6.3 ms (RTX 4070) and from 14.0-15.3 to 6.8-7.6 ms (WARP), three runs each.
+#: So CI is held to the documented 16 ms again. The 20 ms negative control stays
+#: above it.
 FRAME_BUDGET_MS = 16.0
-CI_FRAME_BUDGET_MS = 25.0
 
 
 @pytest.mark.perf
 @pytest.mark.parametrize("slow_refresh", (False, True), ids=("production", "negative-control"))
 def test_real_engine_scrubs_300_models_within_frame_budget(tmp_path, slow_refresh):
-    budget = CI_FRAME_BUDGET_MS if os.environ.get("CI") else FRAME_BUDGET_MS
+    budget = FRAME_BUDGET_MS
     result = _run_forge_renderer(tmp_path, slow_refresh=slow_refresh)
     assert result["scrub300_plants"] == 300 and result["scrub300_supports"] == 100
     assert len(result["scrub300_samples_ms"]) == 3

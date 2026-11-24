@@ -10128,6 +10128,18 @@ reporting and injected 20 ms negative control. The statistical guarantee has
 changed explicitly; no absolute deadline or presented-FPS guarantee is claimed.
 This correction changes tests and documentation, not the released runtime.
 
+**Addendum (2026-11-24, #598 — the seasonal callback's headroom).** Measured per stage,
+the scene's `setPlantSeasons` was 85 % of the 300-plant callback, and most of it did not
+depend on what changed (the payload's conversion to JS, generic property reads). Decided:
+the season values cross the host boundary as item ids plus one native float64 buffer of
+`SEASON_STRIDE` numbers per plant (`host.season_payload`); the scene keeps an index of its
+seasonal parts with what it last wrote and writes only what changed. *Rejected:* sending
+only the plants whose state changed (a date step changes nearly all of them — no gain on
+the measured case); moving the tints into the materials' uniforms from Python (a second
+write path beside the QML bindings that X-ray, Cutaway and the surfaces read). Result and
+protocol: §8.29.11 — worst date medians 5.9–6.3 ms on the RTX 4070 and 6.8–7.6 ms on WARP
+(13.2–15.3 before); CI is held to 16 ms again.
+
 **Addendum (plant seasonal truth and forge stability, issues #948, #963, #969, #970, #973, #995, #996).**
 **Status**: Shipped in [v1.41.2](https://github.com/cofade/open-garden-planner/releases/tag/v1.41.2) after owner acceptance (2026-11-22; [PR #994](https://github.com/cofade/open-garden-planner/pull/994)).
 Seven follow-ups to #940 settled how a plant's season survives growth, distance, live year
@@ -11703,6 +11715,46 @@ lane, and the late-timer settle
 `tests/unit/test_scene3d_polygon.py` pins the pricing, the capacity
 and the refusals; `tests/perf/test_scene3d_snapshot_budget.py` pins the read's budget.
 The golden meshes still match below the threshold.
+
+### Addendum (2026-11-24, #531 — a regrown part keeps its Model)
+
+**Decision.** `Quick3DSink.replace_geometry` keeps every Model that a new piece of the
+same `_reuse_key` (material kind, surface, ground detail, fill picture — what a Model is
+fixed to for life) can take, and loads the new buffers into **the geometry object that
+Model already has** (`EngineScene.reload_part` → `BufferGeometry.reload`). Old Models no
+piece takes are destroyed first; pieces no old Model fits get new Models. The sink counts
+`models_reused`, `models_destroyed` and `items_retired` (an item that lost at least one
+Model), and the workspace counts a cache release from `items_retired` instead of
+"every item whose geometry changed" — a release lets Qt keep about half of the ground's
+same-size tile textures (#532), so a release nothing needs is itself a leak.
+
+**Why it works now when the withdrawn path did not.** The withdrawn code built a NEW
+`BufferGeometry` for the live Model and dropped the old one; this one never gives a live
+Model a second geometry object, and never gives a geometry object a second Model (the L0
+rule stands). Proven in pixels on Direct3D 11 (RTX 4070) and WARP:
+`test_replace_geometry_changes_the_silhouette` now asserts the replaced item's two Models
+were reused (none destroyed) and its silhouette IoU ≥ 0.95; a forged tree regrown in place
+from LOD0 to LOD1 (custom foliage material, shadows) draws the same frame as fresh Models
+with the same parts — 0 channels differ, 60,549 differ from LOD0
+(`test_a_forged_tree_regrown_in_place_draws_what_a_fresh_build_draws`). The Linux render
+tier (OpenGL, llvmpipe) runs both in CI.
+
+**Measured** (the held date key of `workspace_default_measure.date_playback`, 20 dated
+apple trees, a regrowth on EVERY step — `interval_ms=0` — 60 s, RTX 4070, branch and
+`master` alternating, 2026-11-24):
+
+| Tree | Steps in 60 s | Committed MB per step | GPU MB/min | Cache releases | Models destroyed |
+|---|---|---|---|---|---|
+| `master` (three runs) | 121, 123, 123 | 2.23, 2.77, 3.38 | 71.5, 65.9, 78.9 | 6, 6, 6 | every regrowth's |
+| reuse, the old release count (one run) | 151 | 1.87 | 95.7 | 7 | — |
+| reuse + `items_retired` (two runs) | 429, 384 | 0.27, 0.25 | 3.5, −7.9 | 0, 0 | 67 of 36,031 / 32,179 |
+
+Most of the old cost was the cache releases the regrowths triggered (each keeps about half of
+the ground's tile textures, #532); reuse is what lets the count drop them. The steps are
+faster too (3.5x in the same minute) because a regrowth no longer creates Models. What
+remains (about 13 kB a regrowth, committed only) is not resolved by this measurement. The 500 ms regrowth interval
+(`DATE_REGROW_MIN_MS`) and the time-lapse's `DATE_STEPS_PER_S` were chosen for the old
+cost; they stay until #804 re-measures them.
 
 ## ADR-070: The living garden — playback, weather, particles and garden lights (Phase 17 L5, #389)
 
