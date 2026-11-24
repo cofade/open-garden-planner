@@ -11765,14 +11765,20 @@ keeps memory of (#532). Stubbing the host's `set_ground` left a second-half slop
 +25 MB in 240 s, against 58-66 MB a minute for three unstubbed runs (RTX 4070). Held, the
 lawns made 619 and 648 tile uploads in two 300 s runs where the unchanged code made 1223 and
 7779, and the process grew 104 and 98 MB against 122 and 218 (private bytes swing by 100 MB
-and every run has a warm-up of about 100 MB, so the upload count is the firmer number). The alternative that mirrors this ADR - load the
+and every run has a warm-up of about 100 MB: the two light runs, 122 against 104 MB, are inside
+that noise, so the upload count is the firmer number). The hold reduces the re-bakes, it
+does not end them: at most one lawn re-bake every 10 s remains while a key is held. The alternative that mirrors this ADR - load the
 re-baked picture into the tile's own `QQuick3DTextureData` - does not draw for a texture of
 256 x 256 pixels or more (it shows the old picture; 128 x 128 and below work), so it was
 dropped (`ground_tiles.py` docstring). **Decision:** while the date keeps changing the
 lawns keep the colour of the date they last showed (`SEASON_REST_MS`, `SEASON_MAX_HOLD_MS`,
 `Scene3DController._season_date_for`); the meadow's tint follows the same date. The plants
-and the light still follow every step. Consequence: during a held key or a time-lapse the
-lawns' colour changes at most every 10 s and settles 0.8 s after the date does.
+and the light still follow every step. Consequence: during a held key or a year animation the
+lawns' colour changes at most every 10 s and settles 0.8 s after the date does
+(FR-3D-GROUND-09). A recorded tour never holds (`Scene3DController.hold_season = False`
+while `Workspace.start_tour` runs; found in review round 5, where a tour's date steps, under
+800 ms apart, left the lawn on an old colour in 57 of 60 steps), and `idle` waits for the
+trailing pass of a held lawn, so a rendered picture an agent asks for is exact.
 
 ## ADR-070: The living garden — playback, weather, particles and garden lights (Phase 17 L5, #389)
 

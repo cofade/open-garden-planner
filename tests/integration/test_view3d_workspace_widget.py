@@ -1817,6 +1817,58 @@ def test_hemisphere_location_change_updates_lawns_and_meadow_together(
     bench.workspace.shutdown()
 
 
+def test_a_held_date_moves_lawn_and_meadow_together_and_the_real_timer_ends_the_hold(
+        canvas: CanvasView, qtbot, tmp_path: Path) -> None:
+    """SEASON PLAYBACK: while the date keeps changing the lawns keep the colour of the date
+    they showed - and the meadow's tint follows the SAME date, so lawn and meadow never
+    disagree. The trailing pass is the controller's own (real) timer."""
+    from datetime import date
+
+    from PyQt6.QtCore import QPointF
+    from PyQt6.QtGui import QColor, QPolygonF
+
+    from open_garden_planner.core.object_types import ObjectType
+    from open_garden_planner.core.phenology import seasonal_ground_tint
+    from open_garden_planner.ui.canvas.items import PolygonItem
+    from open_garden_planner.ui.view3d.sync_controller import SEASON_REST_MS
+
+    lawn = PolygonItem(
+        QPolygonF([QPointF(0, 0), QPointF(400, 0), QPointF(400, 300), QPointF(0, 300)]),
+        object_type=ObjectType.LAWN, name="Lawn")
+    recolour_fill(lawn, QColor(100, 160, 80, 255)).execute()
+    canvas.scene().addItem(lawn)
+    lawn_id = str(lawn.item_id)
+    bench = Bench(canvas, qtbot, tmp_path, location={"latitude": 52.0, "longitude": 10.0})
+    bench.clock.set_date(date(2026, 7, 1))
+    bench.workspace.set_mode(VIEW3D)
+    bench.settle()
+    controller = bench.workspace.controller
+    lawn_before = controller.sync.records[lawn_id].material.fill_rgba
+    first, second = date(2026, 9, 28), date(2026, 11, 12)
+    assert (seasonal_ground_tint(first, 52.0) != seasonal_ground_tint(second, 52.0)
+            and seasonal_ground_tint(date(2026, 7, 1), 52.0) != seasonal_ground_tint(first, 52.0))
+    qtbot.wait(SEASON_REST_MS + 100)     # the date has rested: the next step is a pick
+    bench.clock.set_date(first)          # the first step of a key: applied at once
+    bench.settle(30)
+    assert controller.season_date == first
+    bench.clock.set_date(second)         # the key repeats, well inside SEASON_REST_MS
+    bench.settle(30)
+    shown = controller.season_date
+    assert shown in (first, second)      # the first step applied at once
+    if shown == first:                   # held (a slow machine may have rested already)
+        assert controller.season_deferrals >= 1
+    assert bench.hosts[-1].meadow_seasons[-1] == seasonal_ground_tint(shown, 52.0)
+    assert controller.sync.records[lawn_id].material.fill_rgba != lawn_before
+    qtbot.waitUntil(lambda: controller.season_date == second, timeout=SEASON_REST_MS + 5000)
+    bench.settle()
+    assert controller.idle
+    assert bench.hosts[-1].meadow_seasons[-1] == seasonal_ground_tint(second, 52.0)
+    ratio = controller.sync.records[lawn_id].material.fill_rgba
+    wanted = seasonal_ground_tint(second, 52.0)
+    assert ratio[1] == min(255, max(0, round(160 * wanted[1])))
+    bench.workspace.shutdown()
+
+
 def test_lawn_seasonal_fill_is_quantised_so_year_playback_avoids_daily_rebakes(
         canvas: CanvasView, qtbot, tmp_path: Path) -> None:
     """#943 / PF-L3D-38: day-by-day year stepping must keep LAWN Record.material stable

@@ -1905,15 +1905,18 @@ class _SeasonRig:
     """A lawn, a controller whose monotonic clock the test moves, and the two timers that
     book a trailing pass kept from firing (the test fires their passes by hand)."""
 
-    def __init__(self, canvas: CanvasView, qtbot, monkeypatch: pytest.MonkeyPatch) -> None:
+    def __init__(self, canvas: CanvasView, qtbot, monkeypatch: pytest.MonkeyPatch,
+                 *, lawn: bool = True) -> None:
         self.now = [10.0]
         monkeypatch.setattr(sync_controller, "time", SimpleNamespace(
             monotonic=lambda: self.now[0], perf_counter=sync_controller.time.perf_counter))
         self.rig = Rig(canvas, qtbot, location=dict(BERLIN))
         layer = self.rig.scene.active_layer.id
-        lawn = RectangleItem(0.0, 0.0, 2000.0, 1500.0, object_type=ObjectType.LAWN, layer_id=layer)
-        self.rig.commands.execute(CreateItemCommand(self.rig.scene, lawn, "lawn"))
-        self.lawn_id = str(lawn.item_id)
+        item = RectangleItem(0.0, 0.0, 2000.0, 1500.0,
+                             object_type=ObjectType.LAWN if lawn else ObjectType.RAISED_BED,
+                             layer_id=layer)
+        self.rig.commands.execute(CreateItemCommand(self.rig.scene, item, "lawn"))
+        self.lawn_id = str(item.item_id)
         self.canvas = canvas
         self.booked: list[int] = []
         controller = self.rig.controller
@@ -1938,11 +1941,15 @@ class _SeasonRig:
         return tuple(records[self.lawn_id].material.fill_rgba)
 
     def pass_now(self) -> None:
+        """One pass, now: wait for its report - not for ``idle``, which a held lawn's booked
+        (here never delivered) trailing timer keeps false."""
         controller = self.rig.controller
         controller._date_timer.stop()
         controller._season_timer.stop()
+        before = len(self.rig.reports)
         controller.mark_dirty()
-        _until_idle(self.rig)
+        self.rig.qtbot.waitUntil(lambda: len(self.rig.reports) > before, timeout=5000)
+        self.rig.qtbot.waitUntil(lambda: not controller.capturing, timeout=5000)
 
 
 SUMMER, AUTUMN, LATE_AUTUMN = date(2027, 7, 1), date(2027, 9, 28), date(2027, 11, 12)
@@ -1985,11 +1992,34 @@ def test_a_held_date_keeps_the_lawns_colour_until_it_rests(
     assert controller.season_date == AUTUMN
     assert controller.season_deferrals == 1
     assert rig.booked and rig.booked[-1] <= sync_controller.SEASON_REST_MS, "the end of the hold is booked"
+    assert not controller.idle, "a lawn held back from the plan date is work on its way"
     rig.now[0] += 1.0                                    # the key is let go
     rig.pass_now()
     assert rig.fill() == rig.wanted(LATE_AUTUMN)
     assert controller.season_date == LATE_AUTUMN
     assert controller.season_deferrals == 1
+    assert controller.idle
+
+
+def test_a_recording_never_holds_the_lawns_colour(
+        canvas: CanvasView, qtbot, monkeypatch: pytest.MonkeyPatch) -> None:
+    """A tour's date steps come under ``SEASON_REST_MS`` apart, and every frame of a video
+    must show the plan date's lawns (review round 5: 57 stale steps of 60)."""
+    rig = _SeasonRig(canvas, qtbot, monkeypatch)
+    controller = rig.rig.controller
+    assert controller.hold_season is True
+    controller.hold_season = False
+    rig.rig.clock.set_date(SUMMER)
+    rig.pass_now()
+    day = SUMMER
+    for _ in range(12):
+        rig.now[0] += 0.3
+        day += timedelta(days=11)
+        rig.rig.clock.set_date(day)
+        rig.pass_now()
+        assert rig.fill() == rig.wanted(day), day
+        assert controller.season_date == day
+    assert controller.season_deferrals == 0
 
 
 def test_a_date_that_never_rests_still_re_colours_the_lawns_once_in_a_while(
@@ -2016,6 +2046,25 @@ def test_a_date_that_never_rests_still_re_colours_the_lawns_once_in_a_while(
     rig.pass_now()
     assert rig.fill() == rig.wanted(day), "after the longest hold the lawns take the date"
     assert controller.season_date == day
+
+
+def test_a_plan_without_a_lawn_holds_nothing(
+        canvas: CanvasView, qtbot, monkeypatch: pytest.MonkeyPatch) -> None:
+    """Nothing to hold: no trailing pass is booked, ``idle`` does not wait for one, and the
+    meadow's date is the plan date's even while the date keeps changing."""
+    rig = _SeasonRig(canvas, qtbot, monkeypatch, lawn=False)
+    controller = rig.rig.controller
+    rig.rig.clock.set_date(SUMMER)
+    rig.pass_now()
+    rig.now[0] += 5.0
+    rig.rig.clock.set_date(AUTUMN)
+    rig.pass_now()
+    rig.now[0] += 0.1
+    rig.rig.clock.set_date(LATE_AUTUMN)
+    rig.now[0] += 0.5
+    rig.pass_now()
+    assert controller.pass_date == LATE_AUTUMN and controller.season_date == LATE_AUTUMN
+    assert controller.season_deferrals == 0 and not controller._season_timer.isActive()
 
 
 def test_a_new_plan_shows_its_own_dates_lawns(

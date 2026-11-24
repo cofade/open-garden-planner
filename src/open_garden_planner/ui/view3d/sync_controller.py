@@ -579,8 +579,12 @@ class Scene3DController(QObject):
         self._season_timer = QTimer(self)
         self._season_timer.setSingleShot(True)
         self._season_timer.timeout.connect(self.mark_dirty)
+        self._season_held = False   # the pass being read shows an earlier date's lawns
         #: Passes that kept the lawns' colour of an earlier date (an instrument).
         self.season_deferrals = 0
+        #: False: the lawns always show the plan date's colour. A caller that needs every
+        #: picture exact (a tour being recorded, ``workspace_capture``) switches the hold off.
+        self.hold_season = True
         # CONTEXT PLAYBACK (#388): when context params were last applied, and the one
         # timer that books the trailing pass of a change held back
         self._context_at = -math.inf
@@ -624,7 +628,8 @@ class Scene3DController(QObject):
     @property
     def idle(self) -> bool:
         """Nothing is on its way: no pass owed, none posted, the net's quiet timer is
-        not running and no regrowth of a date is booked. (An instrument for tests and
+        not running, no regrowth of a date is booked and no lawn is held back from the plan
+        date's colour (SEASON PLAYBACK). (An instrument for tests and
         gates; a paused controller with a flag set is not idle. One that gave a pass up
         is, until the next change: its records are dirty, but nothing runs before a
         change asks.)"""
@@ -633,7 +638,7 @@ class Scene3DController(QObject):
             return not (owed or self._posted or self._net_owed
                         or self._timer.isActive() or self._net.isActive()
                         or self._net_settle.isActive()
-                        or self._date_timer.isActive())
+                        or self._date_timer.isActive() or self._season_timer.isActive())
         return True
 
     @property
@@ -1060,18 +1065,34 @@ class Scene3DController(QObject):
         now = time.monotonic()
         quiet_ms = (now - self._date_changed_at) * 1000.0
         waited_ms = (now - self._season_at) * 1000.0
-        if (held is None or held == day or not self._date_moving
+        if (not self.hold_season or held is None or held == day or not self._date_moving
                 or quiet_ms >= SEASON_REST_MS or waited_ms >= SEASON_MAX_HOLD_MS):
             self._season_date, self._season_at = day, now
+            self._season_held = False
             with contextlib.suppress(RuntimeError):  # the #230 teardown guard
                 self._season_timer.stop()
             return day
+        self._season_held = True
+        return held
+
+    def _settle_season(self, records: Mapping[str, Record]) -> None:
+        """After a read that kept an earlier date's lawns: book the pass that ends the hold -
+        but only when the plan HAS a lawn. Without one there is nothing to hold: the meadow and
+        ``idle`` follow the plan date as before."""
+        if not self._season_held:
+            return
+        if not any(record.kind == "LAWN" for record in records.values()):
+            self._season_date, self._season_at = self._pass_date, time.monotonic()
+            self._season_held = False
+            return
         self.season_deferrals += 1
+        now = time.monotonic()
+        quiet_ms = (now - self._date_changed_at) * 1000.0
+        waited_ms = (now - self._season_at) * 1000.0
         with contextlib.suppress(RuntimeError):
             if not self._season_timer.isActive():
                 self._season_timer.start(max(1, math.ceil(min(SEASON_REST_MS - quiet_ms,
                                                               SEASON_MAX_HOLD_MS - waited_ms))))
-        return held
 
     def _hold_context(self, records: dict[str, Record]) -> dict[str, Record]:
         """``records`` — or, while their context params change faster than once per
@@ -1362,6 +1383,7 @@ class Scene3DController(QObject):
         self.snapshot_count += 1
         snapshot = records
         records = self._hold_context(snapshot)
+        self._settle_season(records)
         width, depth = self._plan_size()
         changes = diff(self._sync.records, records)
         build_ids = tuple(item_id for item_id in (*changes.added, *changes.geometry)

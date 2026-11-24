@@ -695,6 +695,10 @@ class WorkspaceCaptureCoordinator(QObject):
                                 self._tour_settled, realtime=realtime,
                                 view_showing=self._is_pane_showing, parent=self)
         recorder.start()   # raises before anything moved
+        # every frame of a recording shows the plan date's lawns: no hold (SEASON PLAYBACK)
+        controller = self._get_controller()
+        if controller is not None:
+            controller.hold_season = False
         host.begin_captures()
         self.clock_wanted.emit()
         # ONE hold, and only a tour that moves the clock takes it (issue #730). A tour
@@ -774,6 +778,9 @@ class WorkspaceCaptureCoordinator(QObject):
         moment = self._clock_hold
         self._tour_utc_time = None
         self._tour_holds_utc = False
+        controller = self._get_controller()
+        if controller is not None:
+            controller.hold_season = True
         try:
             try:
                 self._aim_lamps(None)   # the view's own lamps again (#687)

@@ -8409,22 +8409,19 @@ the date steps.
 fill follows the plan date on a four-day grid (`seasonal_ground_tint`), so every fourth day a
 held key re-coloured every lawn and the ground baker re-baked every tile under it. A re-baked
 tile is a new Model with a new texture, and each one the engine destroys keeps memory (#531,
-#532): on the food-forest example (RTX 4070) three unstubbed runs of 150-180 s read second-half
-slopes of 58-66 MB a minute, and two of 300 s grew 122 and 218 MB with 1223 and 7779 ground
-tile uploads (private bytes swing by 100 MB and every arm has a warm-up of about 100 MB in
-its first minute, so slopes and upload counts are the evidence, not one growth figure).
-Bisected by stubbing the host calls: with `set_ground` stubbed, 240 s of stepping grew 25 MB
-and the second-half slope was 0.0; the seasons, reloads, sun and look calls contributed
-nothing measurable; a garbage collection of the QML engine after every call changed nothing. `Scene3DController._season_date_for` therefore reads the lawns'
+#532); stubbing `set_ground` alone flattened the process on the food-forest example. The
+measurements are in the ADR-069 addendum 2 and case study 286 of `debug-verbose`. `Scene3DController._season_date_for` therefore reads the lawns'
 colour at the date they last showed while the date keeps changing (a change within
 `SEASON_REST_MS` = 800 ms of the one before), and at the plan date when the date has rested
 that long, when they have shown the old date for `SEASON_MAX_HOLD_MS` = 10 s, or for a
 single pick (the first step of a key applies at once). The held answer books a trailing
 pass (`_season_timer`). The meadow's uniform follows the same date
 (`Workspace._show_ground_season` reads `controller.season_date`), so lawn and meadow never
-disagree in colour; the plants and the light are not held. After the change the same two
-300 s runs made 619 and 648 tile uploads (7779 before in the heavy one) and grew 104 and
-98 MB, the warm-up included. The in-place alternative does not
+disagree in colour; the plants and the light are not held. A recording tour switches the
+hold off (`Scene3DController.hold_season`, set by `Workspace.start_tour`): every frame of a
+video shows the plan date's lawns, and `idle` waits for a held lawn's trailing pass. The
+hold reduces the re-bakes, it does not end them: one lawn re-bake every 10 s at most remains
+while a key is held. The in-place alternative does not
 work: a tile's texture of 256 x 256 pixels or more does not show data loaded into it again
 (the `ground_tiles` docstring has the measurement).
 

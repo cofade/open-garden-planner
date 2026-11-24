@@ -159,6 +159,26 @@ def test_closing_during_tagging_names_the_eventual_destination_and_the_retained_
     assert read_stream(writer.path).samples == 6 and not writer.part_path.exists()
 
 
+def test_a_recorded_tour_never_holds_the_lawns_colour_and_gives_the_hold_back(
+        canvas, qtbot, tmp_path, monkeypatch) -> None:
+    """SEASON PLAYBACK holds a lawn's colour while the date keeps changing; the date steps
+    of a recording come 4 frames apart, and every frame must show the plan date's lawns."""
+    rig = TourRig(canvas, qtbot, tmp_path)
+    rig.open_3d()
+    capture = rig.workspace.capture
+    controller = rig.workspace.controller
+    writer = Mp4Writer(tmp_path / "tour.mp4", (1280, 720), 30)
+    data = mp4(samples_of(MEDIA_FOUNDATION_SPS))
+    monkeypatch.setattr(writer, "start", lambda: writer.part_path.write_bytes(data))
+    monkeypatch.setattr(writer, "write", lambda _image: True)
+    monkeypatch.setattr(writer, "finish", lambda: writer._close(True))
+    assert controller.hold_season is True
+    capture.start_tour(TourSpec(HeldCamera(capture.camera_key()), MIN_DURATION_S), (64, 36), writer)
+    assert controller.hold_season is False
+    qtbot.waitUntil(lambda: capture._recorder is None, timeout=20000)
+    assert controller.hold_season is True
+
+
 @pytest.mark.parametrize("fov", [0.0, 180.0])
 def test_loading_a_plan_skips_an_unflyable_orbit_and_still_offers_the_good_tour(
         canvas, qtbot, tmp_path, fov) -> None:
