@@ -11604,8 +11604,9 @@ exclusion are required.
 cooperative sliced read and the geometry lane. The decision's #531 half was first built
 with a NEW geometry object assigned to each live Model; that renders nothing while still
 picking, and it was WITHDRAWN on 2026-11-01 together with #598's seasonal-parts index.
-**Superseded by the 2026-11-24 addenda below:** a regrown part loads new buffers into the
-geometry object its live Model already has (#531), and the seasonal index is back (#598).
+**Superseded on 2026-11-24:** a regrown part loads new buffers into the geometry object its
+live Model already has (#531, the addendum below), and the seasonal index is back (#598,
+ADR-064's addendum "the seasonal callback's headroom"). Release counting: #1014.
 #475 (raster lane, padded tiles) is NOT covered by this decision.
 
 **Date**: 2026-11-01.

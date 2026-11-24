@@ -642,9 +642,9 @@ class TestSinkCallsReachTheQmlScene:
         from open_garden_planner.core.scene3d import engine_pose
         from open_garden_planner.ui.view3d.quick3d.host import _set
 
-        def state(ripeness: float = 0.0, density: float = 1.0) -> Any:
+        def state(ripeness: float = 0.0, density: float = 1.0, bloom: float = 0.0) -> Any:
             return SimpleNamespace(
-                leaf_density=density, foliage_snow_tint_linear=(1.0, 1.0, 1.0), bloom=0.0,
+                leaf_density=density, foliage_snow_tint_linear=(1.0, 1.0, 1.0), bloom=bloom,
                 ripeness=ripeness, snow=0.0, accent_tint_linear=(0.5, 0.5, 0.5),
                 autumn_color=0.0, summer_dark_linear=(0.0, 0.0, 0.0),
                 summer_light_linear=(1.0, 1.0, 1.0), autumn_dark_linear=(0.0, 0.0, 0.0),
@@ -687,6 +687,13 @@ class TestSinkCallsReachTheQmlScene:
         assert shown(fruit)[:2] == (False, 0.0), "re-indexed with a full write of the state"
         host.set_plant_seasons({"p": state(ripeness=1.0, density=0.5)})
         assert shown(fruit)[:2] == (True, 1.0), "a write after the reload is not skipped"
+        # a regrowth from harvest to bloom hands the fruit Model to the flowers (the reuse
+        # key leaves the name out): re-indexed under its new name, it shows the bloom
+        host.reload_part(fruit, spec(0, "vc", "flowers"))
+        host.set_plant_seasons({"p": state(ripeness=0.0, density=0.5, bloom=1.0)})
+        assert shown(fruit)[:2] == (True, 1.0), "flowers in bloom read as unripe fruit"
+        assert index() == {"p": ["flowers", "lawn_blades", "leaves"]}
+        host.reload_part(fruit, spec(0, "vc", "fruits"))
         host.set_plant_seasons({})
         assert shown(leaves)[2] == 1.0 and shown(fruit)[:2] == (True, 1.0)
 
