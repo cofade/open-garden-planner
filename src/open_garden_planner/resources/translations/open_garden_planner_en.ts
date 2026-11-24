@@ -8555,6 +8555,30 @@ Please save your project to a permanent location.</translation>
     <context>
         <name>LocationDialog</name>
         <message>
+            <source>Map link:</source>
+            <translation>Map link:</translation>
+        </message>
+        <message>
+            <source>Paste a map link or coordinates</source>
+            <translation>Paste a map link or coordinates</translation>
+        </message>
+        <message>
+            <source>Coordinates filled from map link.</source>
+            <translation>Coordinates filled from map link.</translation>
+        </message>
+        <message>
+            <source>No coordinates found in this map link.</source>
+            <translation>No coordinates found in this map link.</translation>
+        </message>
+        <message>
+            <source>Resolving map link…</source>
+            <translation>Resolving map link…</translation>
+        </message>
+        <message>
+            <source>Could not resolve this map link. Try the full link.</source>
+            <translation>Could not resolve this map link. Try the full link.</translation>
+        </message>
+        <message>
             <location filename="../../ui/dialogs/location_dialog.py" line="140" />
             <source>(−180 to 180, E positive)</source>
             <translation>(−180 to 180, E positive)</translation>

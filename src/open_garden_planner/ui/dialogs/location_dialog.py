@@ -2,7 +2,8 @@
 
 from typing import Any
 
-from PyQt6.QtCore import Qt, QThread, pyqtSignal
+from PyQt6.QtCore import Qt, QThread, QTimer, QUrl, pyqtSignal
+from PyQt6.QtNetwork import QNetworkAccessManager, QNetworkReply, QNetworkRequest
 from PyQt6.QtWidgets import (
     QComboBox,
     QCompleter,
@@ -20,6 +21,7 @@ from PyQt6.QtWidgets import (
 )
 
 from open_garden_planner.core.frost_dates import is_valid_frost_date
+from open_garden_planner.core.map_links import map_link_coordinates, short_map_url
 from open_garden_planner.core.plan_time import (
     LOCATION_TIMEZONE_KEY,
     plan_timezone,
@@ -81,6 +83,7 @@ class LocationDialog(QDialog):
         self.setMinimumWidth(450)
 
         self._worker: _FrostLookupWorker | None = None
+        self._lookup_coordinates: tuple[float, float] | None = None
         #: The zone the plan arrived with (#945). An unknown stored name may be
         #: kept as it is: the plan already loaded it as "no plan zone", so
         #: blocking other location edits on it would trap the user.
@@ -103,6 +106,71 @@ class LocationDialog(QDialog):
     def _on_timezone_chosen(self, *_args: object) -> None:
         self._timezone_touched = True
 
+    def _cancel_map_link_request(self) -> None:
+        self._map_link_timer.stop()
+        previous, self._map_link_reply = self._map_link_reply, None
+        if previous is not None:
+            previous.abort()
+
+    def done(self, result: int) -> None:
+        self._cancel_map_link_request()
+        self._set_map_link_pending(False)
+        super().done(result)
+
+    def _set_map_link_pending(self, pending: bool) -> None:
+        self._map_link_pending = pending
+        if self._ok_button is not None:
+            self._ok_button.setEnabled(not pending)
+        self._lookup_btn.setEnabled(not pending and self._worker is None)
+
+    def _map_link_changed(self, value: str) -> None:
+        self._cancel_map_link_request()
+        self._set_map_link_pending(False)
+        self._map_link_status.clear()
+        if not value.strip():
+            return
+        coordinates = map_link_coordinates(value)
+        if coordinates is not None:
+            self._set_map_link_coordinates(coordinates)
+        elif short_map_url(value) is not None:
+            self._set_map_link_pending(True)
+            self._map_link_status.setText(self.tr("Resolving map link…"))
+            self._map_link_timer.start()
+        else:
+            self._map_link_status.setText(self.tr("No coordinates found in this map link."))
+
+    def _set_map_link_coordinates(self, coordinates: tuple[float, float]) -> None:
+        self._lat_spin.setValue(coordinates[0])
+        self._lon_spin.setValue(coordinates[1])
+        self._map_link_status.setText(self.tr("Coordinates filled from map link."))
+
+    def _resolve_map_link(self) -> None:
+        url = short_map_url(self._map_link_edit.text())
+        if url is None:
+            return
+        request = QNetworkRequest(QUrl(url))
+        request.setAttribute(
+            QNetworkRequest.Attribute.RedirectPolicyAttribute,
+            QNetworkRequest.RedirectPolicy.ManualRedirectPolicy,
+        )
+        request.setTransferTimeout(8000)
+        reply = self._map_link_network.head(request)
+        self._map_link_reply = reply
+        reply.finished.connect(lambda: self._map_link_finished(reply))
+
+    def _map_link_finished(self, reply: QNetworkReply) -> None:
+        reply.deleteLater()
+        if reply is not self._map_link_reply:
+            return
+        self._map_link_reply = None
+        self._set_map_link_pending(False)
+        target = reply.attribute(QNetworkRequest.Attribute.RedirectionTargetAttribute)
+        coordinates = map_link_coordinates(target.toString()) if isinstance(target, QUrl) else None
+        if coordinates is None:
+            self._map_link_status.setText(self.tr("Could not resolve this map link. Try the full link."))
+        else:
+            self._set_map_link_coordinates(coordinates)
+
     def _setup_ui(self) -> None:
         """Set up the dialog UI."""
         layout = QVBoxLayout(self)
@@ -110,6 +178,22 @@ class LocationDialog(QDialog):
         # GPS coordinates group
         coords_group = QGroupBox(self.tr("GPS Coordinates"))
         coords_layout = QFormLayout(coords_group)
+
+        self._map_link_network = QNetworkAccessManager(self)
+        self._map_link_network.setRedirectPolicy(QNetworkRequest.RedirectPolicy.ManualRedirectPolicy)
+        self._map_link_reply: QNetworkReply | None = None
+        self._map_link_pending = False
+        self._map_link_timer = QTimer(self)
+        self._map_link_timer.setSingleShot(True)
+        self._map_link_timer.setInterval(350)
+        self._map_link_timer.timeout.connect(self._resolve_map_link)
+        self._map_link_edit = QLineEdit()
+        self._map_link_edit.setPlaceholderText(self.tr("Paste a map link or coordinates"))
+        coords_layout.addRow(self.tr("Map link:"), self._map_link_edit)
+        self._map_link_status = QLabel()
+        self._map_link_status.setWordWrap(True)
+        coords_layout.addRow(self._map_link_status)
+        self._map_link_edit.textChanged.connect(self._map_link_changed)
 
         # Latitude
         lat_row = QHBoxLayout()
@@ -272,6 +356,7 @@ class LocationDialog(QDialog):
         button_box = QDialogButtonBox(
             QDialogButtonBox.StandardButton.Ok | QDialogButtonBox.StandardButton.Cancel
         )
+        self._ok_button = button_box.button(QDialogButtonBox.StandardButton.Ok)
         button_box.accepted.connect(self._on_accept)
         button_box.rejected.connect(self.reject)
         layout.addWidget(button_box)
@@ -343,6 +428,8 @@ class LocationDialog(QDialog):
 
     def _on_accept(self) -> None:
         """Validate inputs before accepting."""
+        if self._map_link_pending:
+            return
         spring = self._spring_frost_edit.text().strip()
         fall = self._fall_frost_edit.text().strip()
 
@@ -391,6 +478,7 @@ class LocationDialog(QDialog):
         self._status_label.setText(self.tr("Looking up frost dates…"))
         self._status_label.setStyleSheet("")  # restore hint colour from global rule
 
+        self._lookup_coordinates = (lat, lon)
         self._worker = _FrostLookupWorker(lat, lon)
         self._worker.success.connect(self._on_lookup_success)
         self._worker.error.connect(self._on_lookup_error)
@@ -401,7 +489,7 @@ class LocationDialog(QDialog):
         """Populate frost date fields with data returned by the worker."""
         from open_garden_planner.services.climate_service import FrostData
 
-        if not isinstance(frost_data, FrostData):
+        if not isinstance(frost_data, FrostData) or not self._lookup_matches_location():
             return
 
         if frost_data.last_spring_frost:
@@ -434,8 +522,13 @@ class LocationDialog(QDialog):
         self._status_label.setStyleSheet("")
         self._status_label.setText(msg)
 
+    def _lookup_matches_location(self) -> bool:
+        return self._lookup_coordinates in (None, (self._lat_spin.value(), self._lon_spin.value()))
+
     def _on_lookup_error(self, error_msg: str) -> None:
         """Show an error message when the lookup fails."""
+        if not self._lookup_matches_location():
+            return
         self._status_label.setText(
             self.tr("Lookup failed: {error}").format(error=error_msg)
         )
@@ -445,7 +538,10 @@ class LocationDialog(QDialog):
 
     def _on_lookup_finished(self) -> None:
         """Re-enable the lookup button after the worker finishes."""
-        self._lookup_btn.setEnabled(True)
+        if not self._lookup_matches_location():
+            self._status_label.clear()
+        self._lookup_coordinates = None
+        self._lookup_btn.setEnabled(not self._map_link_pending)
         if self._worker:
             self._worker.deleteLater()
             self._worker = None

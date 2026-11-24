@@ -314,6 +314,7 @@ Pre-defined object types for common property elements:
 - **FR-UI-05**: Context menus (right-click) for relevant actions
 - **FR-UI-06**: Tooltips on all toolbar buttons
 - **FR-UI-07**: Status bar: cursor coordinates, zoom %, selection count, current tool
+- **FR-UI-MAP-LINK**: Set Garden Location accepts decimal latitude/longitude pairs and Google Maps, Google Earth, Apple Maps, and OpenStreetMap links with coordinates. A Google Maps place pin takes precedence over the viewport centre. Short Google Maps and Apple Maps links resolve over the network. A successful import fills latitude and longitude; OK saves the location.
 - **FR-UI-08**: Welcome screen with recent files
 - **FR-UI-09**: Remember window size, position, panel states between sessions
 - **FR-UI-10**: The category toolbar opens visual thumbnail galleries for browsing and placing objects and plants.

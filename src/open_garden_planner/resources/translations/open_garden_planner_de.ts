@@ -8659,6 +8659,30 @@ Bitte speichern Sie Ihr Projekt an einem dauerhaften Speicherort.</translation>
     <context>
         <name>LocationDialog</name>
         <message>
+            <source>Map link:</source>
+            <translation>Kartenlink:</translation>
+        </message>
+        <message>
+            <source>Paste a map link or coordinates</source>
+            <translation>Kartenlink oder Koordinaten einfügen</translation>
+        </message>
+        <message>
+            <source>Coordinates filled from map link.</source>
+            <translation>Koordinaten aus dem Kartenlink übernommen.</translation>
+        </message>
+        <message>
+            <source>No coordinates found in this map link.</source>
+            <translation>Dieser Kartenlink enthält keine erkennbaren Koordinaten.</translation>
+        </message>
+        <message>
+            <source>Resolving map link…</source>
+            <translation>Kartenlink wird aufgelöst…</translation>
+        </message>
+        <message>
+            <source>Could not resolve this map link. Try the full link.</source>
+            <translation>Dieser Kartenlink konnte nicht aufgelöst werden. Versuchen Sie es mit dem vollständigen Link.</translation>
+        </message>
+        <message>
             <location filename="../../ui/dialogs/location_dialog.py" line="140" />
             <source>(−180 to 180, E positive)</source>
             <translation>(−180 bis 180, O positiv)</translation>

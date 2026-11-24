@@ -8511,6 +8511,30 @@ Please save your project to a permanent location.</source>
     <context>
         <name>LocationDialog</name>
         <message>
+            <source>Map link:</source>
+            <translation>Ссылка на карту:</translation>
+        </message>
+        <message>
+            <source>Paste a map link or coordinates</source>
+            <translation>Вставьте ссылку на карту или координаты</translation>
+        </message>
+        <message>
+            <source>Coordinates filled from map link.</source>
+            <translation>Координаты заполнены по ссылке.</translation>
+        </message>
+        <message>
+            <source>No coordinates found in this map link.</source>
+            <translation>В этой ссылке не найдены координаты.</translation>
+        </message>
+        <message>
+            <source>Resolving map link…</source>
+            <translation>Получение координат по ссылке…</translation>
+        </message>
+        <message>
+            <source>Could not resolve this map link. Try the full link.</source>
+            <translation>Не удалось обработать ссылку на карту. Попробуйте полную ссылку.</translation>
+        </message>
+        <message>
             <location filename="../../ui/dialogs/location_dialog.py" line="140" />
             <source>(−180 to 180, E positive)</source>
             <translation>(от −180 до 180, восток — положительное значение)</translation>

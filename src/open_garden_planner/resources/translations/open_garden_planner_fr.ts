@@ -8177,6 +8177,30 @@ Enregistrer le projet dans un emplacement permanent.</translation>
     <context>
         <name>LocationDialog</name>
         <message>
+            <source>Map link:</source>
+            <translation>Lien cartographique :</translation>
+        </message>
+        <message>
+            <source>Paste a map link or coordinates</source>
+            <translation>Collez un lien cartographique ou des coordonnées</translation>
+        </message>
+        <message>
+            <source>Coordinates filled from map link.</source>
+            <translation>Coordonnées renseignées à partir du lien.</translation>
+        </message>
+        <message>
+            <source>No coordinates found in this map link.</source>
+            <translation>Aucune coordonnée trouvée dans ce lien.</translation>
+        </message>
+        <message>
+            <source>Resolving map link…</source>
+            <translation>Résolution du lien cartographique…</translation>
+        </message>
+        <message>
+            <source>Could not resolve this map link. Try the full link.</source>
+            <translation>Impossible de résoudre ce lien cartographique. Essayez le lien complet.</translation>
+        </message>
+        <message>
             <location filename="../../ui/dialogs/location_dialog.py" line="140" />
             <source>(−180 to 180, E positive)</source>
             <translation>(−180 à 180, E positif)</translation>

@@ -8384,6 +8384,30 @@ Por favor, guarde su proyecto en una ubicación permanente.</translation>
     <context>
         <name>LocationDialog</name>
         <message>
+            <source>Map link:</source>
+            <translation>Enlace al mapa:</translation>
+        </message>
+        <message>
+            <source>Paste a map link or coordinates</source>
+            <translation>Pega un enlace al mapa o las coordenadas</translation>
+        </message>
+        <message>
+            <source>Coordinates filled from map link.</source>
+            <translation>Coordenadas tomadas del enlace al mapa.</translation>
+        </message>
+        <message>
+            <source>No coordinates found in this map link.</source>
+            <translation>No se encontraron coordenadas en este enlace.</translation>
+        </message>
+        <message>
+            <source>Resolving map link…</source>
+            <translation>Resolviendo el enlace al mapa…</translation>
+        </message>
+        <message>
+            <source>Could not resolve this map link. Try the full link.</source>
+            <translation>No se pudo resolver este enlace al mapa. Prueba con el enlace completo.</translation>
+        </message>
+        <message>
             <location filename="../../ui/dialogs/location_dialog.py" line="140" />
             <source>(−180 to 180, E positive)</source>
             <translation>(−180 a 180, E positivo)</translation>
