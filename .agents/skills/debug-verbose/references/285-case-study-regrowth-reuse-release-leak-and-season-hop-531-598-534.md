@@ -26,3 +26,11 @@ payload shapes (one QML call)           dict of 300 lists 2.15 ms, ids + flat li
 - `replace_geometry` reuses a Model of the same kind/surface/ground-detail/fill and calls `BufferGeometry.reload` on the object the Model already has; the sink counts `items_retired`, and the workspace releases by that count. Proven in pixels: a forged tree regrown in place equals fresh Models channel for channel.
 - Seasons cross as ids + one float64 buffer; the scene indexes its seasonal parts and compares against the numbers it last wrote.
 - Lessons: a withdrawn approach is only as dead as the variants that were actually measured - read the withdrawn diff, not its summary. Measure the cost of a QML call with no state change before optimising its writes. When a soak suspect goes quiet, run the gate every time in a row before turning an xfail back into an assertion.
+
+## Follow-on: the soak's "same picture" failed after the fix
+`test_identical_reloads_re_admit_only_forged_plants_and_stay_flat` passed on master and failed on the branch: about 70,000 pixels differed after 20 identical reloads, all of them on shadow edges (stair-stepped long shadows in the last frame).
+- Wrong theory: a reloaded geometry leaves Qt's shadow fit with stale caster bounds. Ruled out by measurement: every Model's `bounds` and vertex count were equal at both ends.
+- Key evidence: with `lockShadowmapTexels: true` forced, the frames matched. `fittedShadows` was `True` at the first frame and `False` at the last.
+- Root cause: a plan load moves the camera, which unfits the shadow map and re-fits it 250 ms later (#894). On master, every reload waited for a cache release, so the re-fit always came first. With Model reuse there are no releases, so the gate grabbed the frame before the re-fit.
+- Fix: in the gate, not the product. `workspace_settled` now also waits for the shadow-fit timer.
+- Lesson: when a speed-up makes a gate fail on a picture, first check which timers the old slowness had been waiting out. Read the view's own state flags at both frames before suspecting the engine.
