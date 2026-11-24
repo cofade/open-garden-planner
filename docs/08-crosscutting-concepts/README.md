@@ -2699,7 +2699,9 @@ thread once the main window exists.
   SMALLER leak than the product's seeds. So the tripwire stays non-strict, `KNOWN_532_SHARE`
   stays 0.6, and the soak child runs the app's random seed again (`gate_extra_environment`
   keeps `hash_seed` as a measuring switch). Every one of the ten runs stayed under the
-  bound (21.7).
+  bound (21.7). These runs predate the soak's settle including the shadow fit (#531,
+  `workspace_settled`, about 250 ms more per reload), so a later comparison must not mix the
+  two timings.
 - **Compare two modes along the same path, in alternating short blocks.** The 2D pan cost in
   Split against Plan: six rounds of 60 steps each, every block from the same scroll position
   along the same pixels, the canvas at the same size in both, every step checked to have
