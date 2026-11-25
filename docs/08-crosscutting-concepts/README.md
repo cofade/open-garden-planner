@@ -2632,8 +2632,9 @@ How the workspace (§8.29.3, ADR-060) is tested, and the patterns worth reusing.
   to it; a new deferred step is one line there, where the timer is booked.
 - **A fixed settle is a duration, not a state (#1018).** `Rig.settle()` used 70 ms; on a
   loaded box the geometry lane's answer arrived later, so a pass that asked the lane was
-  counted before its apply. It now waits for `controller.idle` (bounded) and then drains
-  the turn it settled in. The bound is an instrument guard, not the wait.
+  counted before its apply. It now waits for the controller's owed work (`dirty` /
+  `ground_owed`, or a given-up pass) with a bounded Qt elapsed timer, then drains the turn
+  it settled in. The bound is an instrument guard, not the wait.
 - **A cap on a state wait is a hang guard, not a measurement (#1006).** The forge-upgrade
   wait polls the sink's own vertex count; llvmpipe under a loaded CI runner needed more
   than the old 10 s cap, so it is 60 s. A fast machine returns at once.

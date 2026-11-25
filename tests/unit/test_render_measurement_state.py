@@ -7,26 +7,35 @@ import pytest
 from tests.integration.workspace_render_state import workspace_settled
 
 
-@pytest.mark.parametrize("pending,timer,moving,dirty,ground,fit,build", [
-    (1, False, False, False, False, False, False),
-    (0, True, False, False, False, False, False),
-    (0, False, True, False, False, False, False),
-    (0, False, False, True, False, False, False),
-    (0, False, False, False, True, False, False),
-    (0, False, False, False, False, True, False),
-    (0, False, False, False, False, False, True),
-    (0, False, False, False, False, False, False),
+@pytest.mark.parametrize("pending,timer,moving,dirty,ground,fit,build,camera,xray,sky,noise", [
+    (1, False, False, False, False, False, False, False, False, False, False),
+    (0, True, False, False, False, False, False, False, False, False, False),
+    (0, False, True, False, False, False, False, False, False, False, False),
+    (0, False, False, True, False, False, False, False, False, False, False),
+    (0, False, False, False, True, False, False, False, False, False, False),
+    (0, False, False, False, False, True, False, False, False, False, False),
+    (0, False, False, False, False, False, True, False, False, False, False),
+    (0, False, False, False, False, False, False, True, False, False, False),
+    (0, False, False, False, False, False, False, False, True, False, False),
+    (0, False, False, False, False, False, False, False, False, True, False),
+    (0, False, False, False, False, False, False, False, False, False, True),
+    (0, False, False, False, False, False, False, False, False, False, False),
 ])
 def test_rest_includes_forge_admission_camera_lod_and_shadow_fit(
-        pending, timer, moving, dirty, ground, fit, build):
+        pending, timer, moving, dirty, ground, fit, build, camera, xray, sky, noise):
     """The REAL ``Workspace.at_rest`` pins every deferred step (#1015).
 
     A resting view also has its shadow fit in (#894): a frame read inside the
-    250 ms after a camera change sees the unfitted map (#531's soak), and the
-    first pass may still be held for its notice (``_build_timer``). The rule
-    lives on the workspace so a new step cannot be added without this list.
+    250 ms after a camera change sees the unfitted map (#531's soak), the first
+    pass may still be held for its notice (``_build_timer``), and the analysis
+    X-ray and the look's sky/cloud-noise passes are deferred pictures too (#1015
+    review). The rule lives on the workspace so a new step cannot be added
+    without this list.
     """
     from open_garden_planner.ui.view3d.workspace import Workspace
+
+    def timer_state(active):
+        return SimpleNamespace(isActive=lambda: active)
 
     workspace = SimpleNamespace(
         _controller=SimpleNamespace(
@@ -34,17 +43,41 @@ def test_rest_includes_forge_admission_camera_lod_and_shadow_fit(
             dirty=dirty, ground_owed=ground,
         ),
         _camera=SimpleNamespace(moving=moving),
-        _camera_timer=SimpleNamespace(isActive=lambda: False),
+        _camera_timer=timer_state(camera),
         _forge_worker=SimpleNamespace(pending_count=pending),
-        _forge_timer=SimpleNamespace(isActive=lambda: timer),
-        _shadow_fit_timer=SimpleNamespace(isActive=lambda: fit),
-        _build_timer=SimpleNamespace(isActive=lambda: build),
+        _forge_timer=timer_state(timer),
+        _shadow_fit_timer=timer_state(fit),
+        _build_timer=timer_state(build),
+        _analysis_coordinator=SimpleNamespace(_xray_timer=timer_state(xray)),
+        _look=SimpleNamespace(_sky_timer=timer_state(sky),
+                              _noise_timer=timer_state(noise)),
     )
     at_rest = Workspace.at_rest(workspace)
-    assert at_rest is not any((pending, timer, moving, dirty, ground, fit, build))
+    assert at_rest is not any((pending, timer, moving, dirty, ground, fit, build,
+                               camera, xray, sky, noise))
     # The render helper delegates to that one rule.
     workspace.at_rest = lambda: at_rest
     assert workspace_settled(workspace) is at_rest
+
+
+def test_rest_is_false_before_there_is_a_controller():
+    """#1015 review: a view that has not opened 3D yet is not "at rest" — the
+    previous helper returned False, and a measurement must not read a pane that
+    has no plan at all."""
+    from open_garden_planner.ui.view3d.workspace import Workspace
+
+    workspace = SimpleNamespace(
+        _controller=None,
+        _camera=SimpleNamespace(moving=False),
+        _camera_timer=SimpleNamespace(isActive=lambda: False),
+        _forge_worker=None,
+        _forge_timer=SimpleNamespace(isActive=lambda: False),
+        _shadow_fit_timer=SimpleNamespace(isActive=lambda: False),
+        _build_timer=SimpleNamespace(isActive=lambda: False),
+        _analysis_coordinator=None,
+        _look=None,
+    )
+    assert Workspace.at_rest(workspace) is False
 
 
 def test_memory_sample_waits_for_presented_frames_without_readback(monkeypatch):

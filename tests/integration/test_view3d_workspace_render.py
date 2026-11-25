@@ -420,15 +420,12 @@ def _soak(scratch: Path, variant: str, **options: Any) -> dict[str, Any]:
 def _uploads_per_reload(soak: dict[str, Any]) -> int:
     """The Models one rebuild's first apply creates (#1012).
 
-    Measured 5080 = 20 x 254, the final part count: the forge cache now hands the
-    forged plants to the reset's first apply, so the v0 plant pieces are never
-    uploaded. The v0 pieces the forge does not take (the bushes, the built world)
-    still are. The difference between the gate's two stage counts and the final
-    part count is exactly the v0 plant pieces.
+    Measured 5080 = 20 x 254 = ``RELOADS`` x the settled part count: the forge
+    cache now hands the forged plants to the reset's first apply, so every reset
+    uploads exactly the Models the scene ends up with, once. The old expectation
+    added the v0 plant pieces that are never uploaded.
     """
-    v0_plant_parts = soak["v0_parts"] + soak["forged_parts"] - soak["parts"]
-    assert 0 <= v0_plant_parts <= soak["v0_parts"], soak
-    return soak["v0_parts"] - v0_plant_parts + soak["forged_parts"]
+    return int(soak["parts"])
 
 
 def _took_no_frame(soak: dict[str, Any]) -> None:

@@ -519,7 +519,7 @@ class Scene3DController(QObject):
         self._skipped: tuple[SkippedItem, ...] = ()
         self._failures: dict[str, BuildFailure] = {}
         self._last_error: str | None = None
-        self._retired_seen = 0  # the sink's counter as of the last report (#1014)
+        self._retired_seen = sink.items_retired  # the sink's counter as of the last report (#1014)
         #: Failures of the current outage that were logged at ERROR already, and
         #: whether the work that is running has failed at anything — a records or a
         #: light pass and the ground passes that continue it (module docstring).
@@ -639,7 +639,8 @@ class Scene3DController(QObject):
             return not (owed or self._posted or self._net_owed
                         or self._timer.isActive() or self._net.isActive()
                         or self._net_settle.isActive()
-                        or self._date_timer.isActive() or self._season_timer.isActive())
+                        or self._date_timer.isActive() or self._season_timer.isActive()
+                        or self._context_timer.isActive())
         return True
 
     @property

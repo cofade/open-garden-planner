@@ -129,6 +129,11 @@ class Rig:
                 and not clock.hasExpired(15_000)
             ):
                 self.qtbot.wait(10)
+            assert not (
+                self.controller.active
+                and not getattr(self.controller, "_given_up", False)
+                and (self.controller.dirty or self.controller.ground_owed)
+            ), "Rig.settle timed out waiting for the pipeline"
         self.qtbot.wait(70)
         calls = self.recorder.ops()
         self.recorder.clear_calls()
@@ -2509,6 +2514,7 @@ def test_a_document_change_and_a_pause_end_a_held_context(
         terrace.setPos(terrace.pos() + QPointF(40.0, 0.0))
         rig.settle()
     assert rig.controller._context_timer.isActive()   # noqa: SLF001 - a change is held
+    assert not rig.controller.idle                     # … and the view is not at rest
     rig.controller.document_changed()
     assert not rig.controller._context_timer.isActive()   # noqa: SLF001
     rig.settle()

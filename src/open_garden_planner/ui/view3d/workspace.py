@@ -638,23 +638,36 @@ class Workspace(QWidget):
         #894's unfitted window).
 
         The steps: the pipeline's own owed work (a pass, a read, the net's quiet
-        timer, a held date/season regrowth — ``Scene3DController.idle``), the forge's
-        admission queue and its timer, the camera's animation, the held first pass
-        and the resting view's shadow fit. The health poll is periodic, not a
-        deferred picture.
+        timer, a held date/season/context regrowth — ``Scene3DController.idle``), the
+        forge's admission queue and its timer, the camera's animation, the held first
+        pass, the resting view's shadow fit, the analysis X-ray pass and the look's
+        deferred sky/fog and cloud-noise rebuilds (#1015 review). The health poll is
+        periodic, not a deferred picture.
         """
-        controller = self._controller
-        if controller is not None and not controller.idle:
+        try:
+            controller = self._controller
+            if controller is None or not controller.idle:
+                return False
+            analysis = getattr(self, "_analysis_coordinator", None)
+            if analysis is not None and analysis._xray_timer.isActive():
+                return False
+            look = self._look
+            if look is not None and (
+                look._sky_timer.isActive() or look._noise_timer.isActive()
+            ):
+                return False
+            worker = self._forge_worker
+            return not (
+                self._camera.moving
+                or self._camera_timer.isActive()
+                or self._build_timer.isActive()
+                or self._forge_timer.isActive()
+                or self._shadow_fit_timer.isActive()
+                or (worker is not None and worker.pending_count > 0)
+            )
+        except RuntimeError:
+            # A destroyed widget tree is not at rest (#1015 review, P2).
             return False
-        worker = self._forge_worker
-        return not (
-            self._camera.moving
-            or self._camera_timer.isActive()
-            or self._build_timer.isActive()
-            or self._forge_timer.isActive()
-            or self._shadow_fit_timer.isActive()
-            or (worker is not None and worker.pending_count > 0)
-        )
 
     @property
     def look(self) -> LookController | None:
