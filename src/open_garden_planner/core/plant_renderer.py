@@ -228,9 +228,14 @@ def paint_plant(
     return paint_sprite(
         painter,
         rect,
-        ("plant", str(svg_path), int(rotation)),
-        lambda p, r: _draw_plant(p, r, renderer, rotation),
+        ("plant", str(svg_path)),
+        lambda p, r: _draw_plant(p, r, renderer, 0.0),
         tint=tint_color,
+        # The turn is applied when the cached bitmap is laid down (#845), so a
+        # species' picture is shared by every instance whatever its angle. The
+        # oversized path does not cache, so it bakes the turn in there.
+        rotate_degrees=rotation,
+        oversized_draw=lambda p, r: _draw_plant(p, r, renderer, rotation),
     )
 
 

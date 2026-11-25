@@ -62,7 +62,7 @@ single `README.md` — there are no per-ADR or per-chapter sub-files.
 | Building block view | `docs/05-building-block-view/README.md` | Module structure, project tree, black-box descriptions of every component |
 | Runtime view | `docs/06-runtime-view/README.md` | Sequence diagrams, runtime behavior |
 | Deployment view | `docs/07-deployment-view/README.md` | CI/CD, installer, release process |
-| Crosscutting concepts | `docs/08-crosscutting-concepts/README.md` | §8.1–§8.25: coordinate system, commands, **i18n (§8.3)**, **QGraphicsView patterns (§8.9)**, **integration-test policy (§8.10)**, **SAST (§8.11)**, **bed-only features (§8.14)**, sidebar accordion (§8.17), smart symbols (§8.18), agent API (§8.19), icon/sprite/texture pipelines (§8.21–§8.24), stacking order (§8.25) |
+| Crosscutting concepts | `docs/08-crosscutting-concepts/README.md` | §8.1–§8.25: coordinate system, commands, **i18n (§8.3)**, **QGraphicsView patterns (§8.9)**, **integration-test policy (§8.10)**, **SAST (§8.11)**, **bed-only features (§8.14)**, sidebar accordion (§8.17), retired Smart Symbols (§8.18), agent API (§8.19), icon/sprite/texture pipelines (§8.21–§8.24), stacking order (§8.25) |
 | ADR register | `docs/09-architecture-decisions/README.md` | **All** ADRs (ADR-001…043) in this ONE file — append new ADRs here, never create a separate file |
 | Quality requirements | `docs/10-quality-requirements/README.md` | Quality scenarios |
 | Risks & technical debt | `docs/11-risks-and-technical-debt/README.md` | §11.1 open questions, §11.2 risks, §11.3 TD-* debt register (living: Status + Issue columns, ADR-047; dated audit snapshots under `audits/YYYY-MM/`), **§11.4 navigation table to the pitfall area indexes** (`pitfalls/index/NN-*.md`, ADR-061) |

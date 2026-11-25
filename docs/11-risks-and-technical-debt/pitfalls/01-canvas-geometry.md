@@ -462,7 +462,7 @@ group. The first fix filtered only GroupItem children, not every child, so the
 menu still counted the plain members Qt reports as selected and offered Group on a
 single selected group; a second grouping then emptied the first. Both filters now
 keep only `parentItem() is None` for EVERY item (`groupable_selection` and
-`ungroupable_groups`), and `ungroupable_groups` still excludes a smart symbol. A
+`ungroupable_groups`). A
 child's `isSelected()` is a fact about its group, not evidence that the user chose
 the child.
 

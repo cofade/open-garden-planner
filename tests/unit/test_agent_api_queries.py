@@ -438,7 +438,7 @@ class TestBboxNormaliserPerShape:
         assert queries.object_bbox(bg) == (100.0, 200.0, 0.0, 0.0)
 
     def test_group_unions_child_boxes_in_group_frame(self) -> None:
-        # Group/smart-symbol children serialise in the group's LOCAL frame; the
+        # Group children serialise in the group's LOCAL frame; the
         # group dict has only x/y, so the bbox must union the offset child boxes
         # (not collapse to a zero-size point at the origin).
         group = {

@@ -47,7 +47,7 @@ def object_bbox(obj: dict[str, Any]) -> tuple[float, float, float, float]:
 
     Indeterminate shapes collapse to a zero-size box at their anchor point.
     """
-    children = obj.get("children")  # group / smart symbol
+    children = obj.get("children")  # group
     if children:
         # Children serialise in the group's LOCAL frame; the group dict carries
         # only x/y (no width/height), so union the child boxes offset by (x, y).

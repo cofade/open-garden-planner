@@ -522,16 +522,7 @@ US-B7 (Paper Space MVP) and the FR-LAYOUT-01 … FR-LAYOUT-06 entries that previ
 
 ## FR-25: Parametric Blocks / Smart Symbols (Phase 13, Package C, US-C4, issue #188)
 
-> **UI status (retired, #770):** the Smart Symbols sidebar panel and the bundled starter set were removed in #770. The engine, persistence, properties-panel parameter editing, and DXF export below still ship and are tested: symbols already present in a loaded `.ogp` regenerate/export normally, and user definitions in `<app-data>/smart_symbols/` still load. The five former bundled templates are test fixtures now (`tests/fixtures/smart_symbols/`). New fixed symbols are not offered as a library: the parametric structure tools (#768 glasshouse, #769 pergola) are the product direction. FR-SYMBOL-01 is retired with the panel.
-
-- **FR-SYMBOL-01** *(retired #770)*: The Smart Symbols sidebar panel and its Insert action no longer exist. Existing symbol instances remain editable through the Properties panel.
-- **FR-SYMBOL-02**: A symbol instance stores `symbol_id + version + params`, NOT the expanded geometry — it **regenerates** its child primitives from a versioned JSON definition. Editing a parameter (typed widget in the properties panel: spin for number/length, combo for choice) regenerates the geometry while preserving position, rotation, and layer; the change is a single undoable command.
-- **FR-SYMBOL-03**: Definitions are versioned **JSON** files under `<app-data>/smart_symbols/` (user); a user drops a file there and it loads on next launch. The former bundled directory no longer ships. Geometry is a declarative element list (`rect`/`line`/`polyline`/`polygon`/`circle` + a `repeat` loop) whose coordinates are arithmetic expressions over the parameters, evaluated by a safe (no-`eval`) evaluator. See ADR-032 + §8.18.
-- **FR-SYMBOL-04** *(retired #770)*: The former ≥5-symbol starter set (`raised_bed_rows`, `greenhouse_gabled`, `pergola`, `fence_panel`, `compost_bay_3`) is no longer bundled; the definitions are the DSL's regression fixtures in `tests/fixtures/smart_symbols/`.
-- **FR-SYMBOL-05**: `.ogp` persistence is backwards-compatible (no `FILE_VERSION` bump): a symbol is stored as a `group` + a `smart_symbol` metadata key + its generated children as a cached snapshot. An older app loads it as a plain group; a current app regenerates if the live definition's version matches, else uses the cached geometry and logs a warning. A missing/unknown symbol likewise falls back to the cached geometry.
-- **FR-SYMBOL-06**: DXF export emits each symbol as a **BLOCK + INSERT** (block geometry in symbol-local coords; insert at the symbol's position/rotation; identical params reuse a block); the symbol's children are never exported as duplicate flat entities.
-- **FR-SYMBOL-07**: A CI test validates every fixture symbol file (loads, validates, expressions parse, generates ≥1 primitive). Symbol/parameter display names are localized via `name`/`name_de` + `label`/`label_de` data fields.
-- **FR-SYMBOL-08** (issue #599): Typed smart-symbol members and definition versioning. Smart symbol element definitions declare canonical `object_type` names, instantiated as real typed canvas items (e.g. `RAISED_BED`, `GREENHOUSE`, `COMPOST`, `FENCE`). Members marked with `role: "guide"` (or `is_guide: true`) serve as 2D layout references and are excluded from 3D record snapshotting and shadow casting. Generated children receive deterministic stable UUIDs derived from the symbol's UUID and element index/repeat counter, ensuring plant parenting links survive parameter edits. Parameter edits and bed membership reconciliation execute in a single atomic command (`ChangeSmartSymbolParamCommand`). When an instance's definition version in a loaded plan is older than the library version, the instance retains its saved geometry without silent regeneration, and parameters are marked read-only with a translated explanation in the Properties panel.
+**Retired (#1009).** Smart Symbols are removed: the engine, persistence, Properties-panel parameter editing, DXF block export and the `<app-data>/smart_symbols/` loader are gone. A plan that contains a saved symbol opens as a plain group with its serialized children unchanged and typed members preserved; the next save writes a group without the `smart_symbol` key. No `FILE_VERSION` bump. The record is ADR-032 and its #1009 addendum; the parametric structure tools (#768 glasshouse, #769 pergola) are the product path.
 
 ## FR-26: Agent API — Embedded MCP Server (Phase 13, Package D, US-D1.1, epic #237)
 
@@ -1534,10 +1525,17 @@ Owner accepted the chart on 28 October 2026 ("perfect"); section 7.4 owns Pages 
   edit is one undo step and moves the member in its group's frame, never the group.
   The member's layer cannot change, movement of a constrained member or ancestor is
   refused, and Cut/Delete are refused until the focus is cleared.
-- **FR-DRILL-03:** Smart symbols are not drillable because their members are generated
-  from parameters. Nested groups drill one level per click; the focused member's inner
+- **FR-DRILL-03:** Nested groups drill one level per click; the focused member's inner
   outline is drawn by `GroupItem.paint` and disappears with the selection (exports clear
   it first).
+- **FR-GROUP-01** *(issue #1022)*: A selected group draws one standard rotation handle
+  above its own selection frame. Dragging it turns the whole group about that frame's
+  centre; members keep their relative arrangement, `Shift` snaps to 15°, and one
+  `Ctrl+Z` restores the group angle and every member position. A drilled-down member
+  shows its own handle and hides the group's. A grouped bed keeps its plant links and
+  carries them on a later move through the net-scene-delta rule; a grouped house's
+  ridge follows. The group angle is additive `.ogp` data (a group `rotation` key, no
+  `FILE_VERSION` bump). See ADR-075 addendum 6 and §8.9.22.
 
 - **FR-TOOL-ESC-01:** **Esc always returns to the Select tool**, from every drawing,
   object-placing, CAD and constraint tool. A gesture in progress is cancelled with no

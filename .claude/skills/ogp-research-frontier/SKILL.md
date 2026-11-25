@@ -209,8 +209,8 @@ tests against independent precomputed solar numbers. A shadow that merely
 
 ## Frontier 3 — Declarative parametric-symbol ecosystem (ADR-032)
 
-Status: engine **shipped**, ecosystem **OPEN**. The UI is deliberately hidden
-today.
+Status: the Smart-Symbol engine was **removed** (#1009); the open format is
+greenfield again.
 
 ### (a) Why the state of the art falls short
 
@@ -224,26 +224,20 @@ evaluator — but zero ecosystem around it.
 
 ### (b) This project's specific asset (verified in-repo)
 
-- `src/open_garden_planner/core/parametric_eval.py` — a strict AST-whitelist
-  arithmetic evaluator ("evaluated **without** Python's `eval()` — a dropped
-  JSON file is untrusted input", module docstring), with a node-count cap
-  (`_MAX_NODES = 250`) against stack-exhaustion, whitelisted funcs
-  (`min/max/abs/round/floor/ceil/sqrt`). Qt-free.
-- The five template definitions (`raised_bed_rows`, `pergola`, `fence_panel`,
-  `greenhouse_gabled`, `compost_bay_3`) moved to
-  `tests/fixtures/smart_symbols/` when #770 retired the app's bundled set and
-  the sidebar panel: they are the DSL's real-file regression corpus now. User
-  drop-a-file extensibility via `<app-data>/smart_symbols/` still works (§8.18).
-- §8.18 (`docs/08-crosscutting-concepts/README.md` ~line 806) is already a
-  near-complete authoring guide, and
-  `tests/unit/test_smart_symbol_schema.py` validates every fixture file in CI.
-  Note: validation today is a **pytest test, not a formal JSON Schema** — the
-  schema artifact is candidate work, not an existing asset.
-- The sidebar panel and bundled templates were retired by #770; the engine,
-  persistence, properties editing and DXF BLOCK/INSERT export still ship and are
-  tested (FR-31 / §8.18), and existing `.ogp` files keep working from their
-  cached children. Reviving the DSL means a parametric TOOL (as #768/#769 did
-  for the glasshouse and pergola), not re-showing a library panel.
+- `src/open_garden_planner/models/parametric_eval.py` (re-exported by
+  `core/parametric_eval.py`) — a strict AST-whitelist arithmetic evaluator
+  ("evaluated **without** Python's `eval()` — a dropped JSON file is untrusted
+  input", module docstring), with a node-count cap (`_MAX_NODES = 250`) against
+  stack-exhaustion and whitelisted funcs (`min/max/abs/round/floor/ceil/sqrt`).
+  Qt-free, and pinned by `tests/unit/test_parametric_eval.py`.
+- Smart Symbols, the only production consumer of that evaluator, were removed
+  completely in #1009 (engine, persistence, properties editing, DXF block export
+  and the loader). There is no component format to build on today: the evaluator
+  is a reusable primitive, and the format is greenfield again. A plan that
+  contains an old symbol still opens as a plain group.
+- A future component format should be a **parametric tool** (as #768/#769 did for
+  the glasshouse and pergola), not a re-shown library panel: #770 was the verdict
+  on a library of fixed symbols.
 
 ### (c) First three concrete steps in this repo
 
@@ -463,7 +457,7 @@ one-liners from repo root; expected hits noted):
 - Token-auth prerequisite: FR-AGENT-03 and ADR-036; recheck the issue tracker if a token lands, then rewrite Frontier 1(c) step 1
 - Location dict: `grep -n "latitude, longitude, elevation_m" src/open_garden_planner/core/project.py`
 - Safe evaluator + cap: `grep -n "_MAX_NODES\|without.*eval" src/open_garden_planner/core/parametric_eval.py`
-- Smart Symbols retired (#770): `ls tests/fixtures/smart_symbols/ && ! grep -rn 'set_panel_visible("smart_symbols"' src/`
+- Smart Symbols removed (#1009): `! git grep -n "SmartSymbol\|smart_symbol" -- src/ scripts/ tests/` (only the loader's ignore path and its removal test may match)
 - Solver debt: `grep -n "TD-007\|TD-008" docs/11-risks-and-technical-debt/README.md` (if gone, Frontier 4 milestones may be met — update this file)
 - Qt-free engines: `head -25 src/open_garden_planner/services/task_generator.py`
 - Boolean vs offset kernels: `head -1 src/open_garden_planner/core/shape_boolean.py && grep -rn pyclipper src/open_garden_planner/core/tools/offset_tool.py pyproject.toml`

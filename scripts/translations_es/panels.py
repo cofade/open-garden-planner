@@ -537,10 +537,6 @@ TRANSLATIONS = {
         "Year:": "Año:",
         "this packet": "este sobre",
     },
-    "SmartSymbolsPanel": {
-        "Insert": "Insertar",
-        "Search symbols…": "Buscar símbolos…",
-    },
     "SoilSparklineWidget": {
         "No history yet": "Sin historial aún",
     },

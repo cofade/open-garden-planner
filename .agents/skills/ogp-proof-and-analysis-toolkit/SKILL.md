@@ -235,7 +235,7 @@ Each "fix" added the family that bit it and re-declared victory — the losing g
 fix: the user-file load loop catches `Exception` (`smart_symbol_library.py`); the
 bundled-file loop stays narrow so packaging bugs crash loud; `parametric_eval` caps AST
 size (`_MAX_NODES = 250`, verified in `core/parametric_eval.py`). Pinned by
-`tests/unit/test_smart_symbol_library.py` and `tests/unit/test_parametric_eval.py`
+`tests/unit/test_parametric_eval.py` (the smart-symbol loader that first carried the rule was removed in #1009)
 (both verified to exist).
 
 **What "proven" looks like:** at least one probe per hostile *class* passing through

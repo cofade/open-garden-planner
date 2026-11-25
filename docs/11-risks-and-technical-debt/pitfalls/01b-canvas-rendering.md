@@ -326,3 +326,23 @@ QPainter classifies a pixel whose centre lies exactly on a polygon edge by the p
 - **Legacy:** none (new entry)
 
 On a 60 m plan the nominal place-box of an hour label is ~3.9 m wide, while the old rule only asked that label centres be 160 cm apart: neighbouring contour levels stacked at a solid's edge. The label pass could hide some at one zoom, but the placement itself was wrong, and a zoomed-out view painted the pile.
+
+### PF-CAN-73
+
+- **Rule:** A background prefetch must only queue work that is not already cached, and it must never force a repaint from its own drain. An entry that is cached when the queue is merged back would make the timer repaint forever (paint → queue → drain → repaint); a repaint at the end of a batch puts a full scene paint into a hover or a drag, which is the cost the prefetch exists to remove.
+- **Pinned by:** `tests/unit/test_sprite_raster.py::TestNextLevelPrefetch`; `tests/integration/test_canvas_repaint_package.py::test_rectangle_tool_hover_and_drag_do_not_walk_whole_plan`
+- **Source:** #845, found by the hover/drag repaint gate
+- **Status:** standing
+- **Legacy:** none (new entry)
+
+The first version queued the next zoom level from every sprite the frame drew and called `viewport.update()` once its queue was empty. At the current level's next level the entries were already cached, so every paint queued them again and the drain repainted: a test that counts `CircleItem.boundingRect` during a hover saw 237 calls a move instead of ~40. The fix is two predicates: `next_key not in cache` before queueing, and no update at all — the next natural paint shows the prefetched pictures.
+
+### PF-CAN-74
+
+- **Rule:** A rewritten SVG `<use>` carries the placement DELTA from the element it references, not the target's absolute x/y. The referenced `<image>` keeps its own x/y and `<use>` translates on top of them; copying the absolute position moves every repeated picture by the first occurrence's offset.
+- **Pinned by:** `tests/unit/test_svg_export_pictures.py::test_a_repeated_picture_is_embedded_once_and_placed_twice`; `tests/integration/test_svg_export_fidelity.py`
+- **Source:** #850
+- **Status:** standing
+- **Legacy:** none (new entry)
+
+The first dedupe wrote `<use x="new_x" y="new_y">`; because the defined image already sits at (37, 37), the balcony's sprites landed 37 px down and right and the PNG-vs-SVG mean difference rose to 6.29 (limit 5.0) — the fidelity test, not the payload count, caught it. The fix stores the first x/y and writes `new - first`. A unit test that only counts one base64 payload and one `<use>` would have passed; the fidelity test rasterises both files.

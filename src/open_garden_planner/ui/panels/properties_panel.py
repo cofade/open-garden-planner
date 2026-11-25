@@ -24,7 +24,6 @@ from PyQt6.QtWidgets import (
     QPushButton,
     QScrollArea,
     QSizePolicy,
-    QSpinBox,
     QTextEdit,
     QVBoxLayout,
     QWidget,
@@ -812,15 +811,6 @@ class PropertiesPanel(QWidget):
                     self._refresh_layer_combo(combo, target)
 
                 self._register_refresh(layer_combo, _refresh_layer)
-            self._add_arrange_section([item])
-            self._updating = False
-            return
-
-        # SmartSymbolItem — parametric block; show editable params (US-C4).
-        # Must precede the GroupItem branch (it is a GroupItem subclass).
-        from open_garden_planner.ui.canvas.items.smart_symbol_item import SmartSymbolItem
-        if isinstance(item, SmartSymbolItem):
-            self._add_smart_symbol_properties(item)
             self._add_arrange_section([item])
             self._updating = False
             return
@@ -2009,139 +1999,6 @@ class PropertiesPanel(QWidget):
             return
         self._commit_edit(item, ChangePropertyCommand(
             item, "roof overhang", old, new, apply_func=self._roof_setter(rs.OVERHANG_KEY)))
-
-    def _add_smart_symbol_properties(self, item: QGraphicsItem) -> None:
-        """Render typed parameter widgets for a selected smart symbol (US-C4).
-
-        Each parameter edit commits a ``ChangePropertyCommand`` whose
-        ``apply_func`` sets the param and regenerates the geometry — undoable for
-        free. Position/rotation/layer are preserved by the regeneration.
-        """
-        from open_garden_planner.app.settings import get_settings
-
-        lang = get_settings().language
-        definition = item._definition()
-
-        title = definition.display_name(lang) if definition is not None else item.symbol_id
-        header = QLabel(title)
-        set_text_role(header, "h2")
-        header.setStyleSheet("margin-top: 4px;")
-        self._form_layout.addRow(header)
-
-        if definition is None:
-            note = QLabel(self.tr("Symbol definition not found — showing cached geometry."))
-            note.setWordWrap(True)
-            set_text_role(note, color_role="caution")
-            note.setStyleSheet("font-size: 11px;")
-            self._form_layout.addRow(note)
-            return
-
-        version_mismatch = definition.version != getattr(
-            item, "symbol_version", definition.version
-        )
-        if version_mismatch:
-            note = QLabel(
-                self.tr(
-                    "Symbol definition version mismatch — saved geometry is read-only."
-                )
-            )
-            note.setWordWrap(True)
-            set_text_role(note, color_role="caution")
-            note.setStyleSheet("font-size: 11px;")
-            self._form_layout.addRow(note)
-
-        for param in definition.parameters:
-            current = item.params.get(param.name, param.default)
-            widget: QWidget
-            if param.type == "choice":
-                combo = QComboBox()
-                _style_combo(combo)
-                for choice in param.choices:
-                    combo.addItem(choice, choice)
-                idx = combo.findData(current)
-                combo.setCurrentIndex(idx if idx >= 0 else 0)
-                combo.currentIndexChanged.connect(
-                    lambda _i, it=item, p=param.name, w=combo: self._on_symbol_param_changed(
-                        it, p, w.currentData()
-                    )
-                )
-                self._register_refresh(
-                    combo,
-                    lambda w=combo, it=item, p=param: w.setCurrentIndex(
-                        max(0, w.findData(it.params.get(p.name, p.default)))
-                    ),
-                )
-                widget = combo
-            else:
-                spin: QAbstractSpinBox
-                if param.type == "number":
-                    spin = LengthSpinBox() if param.unit == "cm" else QSpinBox()
-                    if isinstance(spin, LengthSpinBox):
-                        spin.setDecimals(0)
-                    spin.setRange(int(param.min if param.min is not None else 0),
-                                  int(param.max if param.max is not None else 9999))
-                    spin.setValue(int(current))
-                else:  # length
-                    spin = LengthSpinBox() if param.unit == "cm" else QDoubleSpinBox()
-                    spin.setDecimals(1)
-                    spin.setRange(float(param.min if param.min is not None else 0.0),
-                                  float(param.max if param.max is not None else 100000.0))
-                    spin.setValue(float(current))
-                    if param.unit:
-                        spin.setSuffix(f" {param.unit}")
-                _style_numeric_field(spin)
-                spin.valueChanged.connect(
-                    lambda val, it=item, p=param.name: self._on_symbol_param_changed(it, p, val)
-                )
-                self._register_refresh(
-                    spin,
-                    lambda w=spin, it=item, p=param: w.setValue(
-                        type(w.value())(it.params.get(p.name, p.default))
-                    ),
-                )
-                widget = spin
-            if version_mismatch:
-                widget.setEnabled(False)
-            self._form_layout.addRow(param.display_label(lang) + ":", widget)
-
-    def _on_symbol_param_changed(self, item: QGraphicsItem, name: str, value) -> None:
-        """Commit an undoable smart-symbol parameter change + regenerate."""
-        if self._updating:
-            return
-        can_edit = getattr(item, "can_edit_parameters", None)
-        if callable(can_edit) and not can_edit():
-            self._history_refresh = True
-            try:
-                self._refresh_field_values()
-            finally:
-                self._history_refresh = False
-            return
-        old = item.params.get(name)
-        if old == value:
-            return
-
-        candidate = dict(item.params)
-        candidate[name] = value
-        validate = getattr(item, "validate_params", None)
-        if callable(validate) and not validate(candidate):
-            self._show_status_message(
-                self.tr("Invalid symbol parameter value — geometry unchanged."),
-                item,
-            )
-            self._history_refresh = True
-            try:
-                self._refresh_field_values()
-            finally:
-                self._history_refresh = False
-            return
-
-        from open_garden_planner.core.commands import ChangeSmartSymbolParamCommand
-
-        cmd = ChangeSmartSymbolParamCommand(item, name, old, value)
-        if self._command_manager is not None:
-            self._command_manager.execute(cmd)
-        else:
-            cmd.execute()
 
     def _add_spacing_properties(self, item: QGraphicsItem) -> None:
         """Add plant spacing radius control (plant types only)."""

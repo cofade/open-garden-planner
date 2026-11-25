@@ -883,7 +883,6 @@ TRANSLATIONS: dict[str, dict[str, str]] = {
     # ── GardenPlannerApp ──
     "GardenPlannerApp": {
         "Tasks": "Aufgaben",
-        "Smart Symbols": "Smart-Symbole",
         "Plant Lists": "Pflanzenlisten",
         "&File": "&Datei",
         "&Edit": "&Bearbeiten",
@@ -1736,12 +1735,6 @@ TRANSLATIONS: dict[str, dict[str, str]] = {
         # prefixes the warning icon (the temperature + plant names are in %1).
         "⚠ %1": "⚠ %1",
         "❄ %1": "❄ %1",
-    },
-
-    # ── SmartSymbolsPanel (US-C4) ──
-    "SmartSymbolsPanel": {
-        "Search symbols…": "Symbole suchen…",
-        "Insert": "Einfügen",
     },
 
     # ── PropertiesPanel ──

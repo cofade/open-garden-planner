@@ -364,6 +364,44 @@ class TestLargestCachedSprite:
         assert (difference.max(axis=2) > 64).mean() < 0.002
 
 
+class TestNextLevelPrefetch:
+    def test_a_canvas_frame_queues_the_same_sprite_one_level_finer(
+        self, qtbot, cache
+    ) -> None:
+        """#845: crossing a zoom level must find its bitmaps already cached."""
+        from open_garden_planner.core import sprite_raster
+
+        image = _canvas(400, 320)
+        painter = QPainter(image)
+        painter.scale(2.0, 2.0)
+        sprite_raster.begin_sprite_prefetch()
+        try:
+            paint_sprite(painter, QRectF(10, 20, 40, 30), "star", _draw_star, cache=cache)
+        finally:
+            sprite_raster.end_sprite_prefetch()
+        painter.end()
+        assert sprite_raster.pending_sprite_count() == 1
+
+        assert sprite_raster.prefetch_sprites(8, cache) == (0, 1)
+        sizes = sorted(key[1] for key in cache._entries)
+        assert len(sizes) == 2 and sizes[1] == 2 * sizes[0], sizes
+
+    def test_clear_drops_queued_work(self, qtbot, cache) -> None:
+        from open_garden_planner.core import sprite_raster
+
+        image = _canvas(400, 320)
+        painter = QPainter(image)
+        painter.scale(2.0, 2.0)
+        sprite_raster.begin_sprite_prefetch()
+        try:
+            paint_sprite(painter, QRectF(10, 20, 40, 30), "star", _draw_star, cache=cache)
+        finally:
+            sprite_raster.end_sprite_prefetch()
+        painter.end()
+        sprite_raster.clear_sprite_prefetch()
+        assert sprite_raster.pending_sprite_count() == 0
+
+
 class TestCachedAndExposedAgree:
     def test_one_picture_on_both_sides_of_the_threshold(self, qtbot, cache, monkeypatch) -> None:
         """The same sprite through the pixmap route and through the layer route

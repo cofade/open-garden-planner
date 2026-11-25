@@ -32,7 +32,6 @@ from open_garden_planner.ui.canvas.items.journal_pin_item import JournalPinItem
 from open_garden_planner.ui.canvas.items.polygon_item import PolygonItem
 from open_garden_planner.ui.canvas.items.polyline_item import PolylineItem
 from open_garden_planner.ui.canvas.items.rectangle_item import RectangleItem
-from open_garden_planner.ui.canvas.items.smart_symbol_item import SmartSymbolItem
 from open_garden_planner.ui.canvas.items.soil_badge_item import SoilBadgeItem
 from open_garden_planner.ui.canvas.items.text_item import TextItem
 
@@ -42,7 +41,7 @@ from open_garden_planner.ui.canvas.items.text_item import TextItem
 KINDS = (
     "rectangle", "circle", "ellipse", "polygon", "polyline",
     "text", "group", "callout", "arc", "bezier", "journal pin",
-    "smart symbol", "construction line", "construction circle", "soil badge",
+    "construction line", "construction circle", "soil badge",
     "background image", "reference point",
 )
 
@@ -74,8 +73,6 @@ def _item(kind: str) -> Any:
         )
     if kind == "journal pin":
         return JournalPinItem(20.0, 20.0, "note-id")
-    if kind == "smart symbol":
-        return SmartSymbolItem("raised-bed")
     if kind == "construction line":
         return ConstructionLineItem(QPointF(0.0, 0.0), QPointF(50.0, 50.0))
     if kind == "construction circle":

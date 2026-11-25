@@ -292,7 +292,7 @@ class TestTheRedirectionMechanismItself:
 class TestNothingReachesTheRealDirectory:
     def test_every_store_resolves_under_the_test_root(self, monkeypatch: pytest.MonkeyPatch) -> None:
         from open_garden_planner.models import plant_lists, seed_inventory
-        from open_garden_planner.services import companion_planting_service, smart_symbol_library
+        from open_garden_planner.services import companion_planting_service
         from open_garden_planner.services.weather_service import WeatherService
 
         # fresh stores, so the paths are resolved NOW and not by an earlier test
@@ -305,7 +305,6 @@ class TestNothingReachesTheRealDirectory:
             "seed inventory": seed_inventory.get_seed_inventory()._path,
             "companion rules": (companion_planting_service.get_app_data_dir()
                                 / companion_planting_service._CUSTOM_RULES_FILENAME),
-            "smart symbols": smart_symbol_library._user_dir(),
             "weather cache": WeatherService()._cache_path(52.5, 13.4),
         }
         real = production_app_data_dir()

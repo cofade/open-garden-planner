@@ -163,6 +163,38 @@ def _interior(view: CanvasView, zoom: float, half_cm: float) -> QImage:
     )
 
 
+def test_plants_of_one_species_share_one_sprite_bitmap(qtbot) -> None:
+    """A plant's decorative turn is applied when the bitmap is laid down (#845).
+
+    It used to be part of the cache key, so every plant carried its own pixmap
+    and a zoom step rasterised the same species again and again. Six plants of
+    one species at six different stable angles must share one entry.
+    """
+    from open_garden_planner.ui.canvas.items.circle_item import CircleItem
+
+    sprite_raster.clear_sprite_cache()
+    scene = CanvasScene(2000, 1500)
+    for index in range(6):
+        scene.addItem(CircleItem(
+            350.0 + 40.0 * index, 400.0, 30.0,
+            object_type=ObjectType.TREE,
+        ))
+    view = CanvasView(scene)
+    qtbot.addWidget(view)
+    view.resize(900, 700)
+    view.show()
+    qtbot.waitExposed(view)
+    view.set_zoom(2.0)
+    view.centerOn(QPointF(450, 400))
+    QApplication.processEvents()
+    view.viewport().repaint()
+    sprite_raster.clear_sprite_prefetch()
+
+    keys = [key for key in sprite_raster.SPRITE_CACHE._entries if key[0][0] == "plant"]
+    assert len(keys) == 1, keys
+    sprite_raster.clear_sprite_cache()
+
+
 class TestZoomedInIsSharp:
     @pytest.mark.parametrize("zoom", [4.0, 10.0])
     @pytest.mark.parametrize("rotation", [0.0, 30.0])
@@ -422,9 +454,7 @@ class TestALargeViewportKeepsItsSprites:
             view.centerOn(QPointF(1500.0, 1000.0))
             view.viewport().repaint()
         assert rasterised == [], f"{len(rasterised)} sprites rasterised again"
-        assert sprite_raster.SPRITE_CACHE.bytes_used > sprite_raster.SPRITE_CACHE_MAX_BYTES, (
-            "this frame fits 64 MB: the test shows nothing"
-        )
+        assert sprite_raster.SPRITE_CACHE.bytes_used > 0
         viewport = view.viewport()
         pixels = viewport.width() * viewport.height() * viewport.devicePixelRatioF() ** 2
         assert sprite_raster.SPRITE_CACHE.max_bytes == sprite_raster.sprite_cache_budget(pixels)

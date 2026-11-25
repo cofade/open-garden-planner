@@ -289,3 +289,4 @@
 | Case study: a scene delta applied through a rotated parent moved the wrong child (Plant Grid follow-up review) | [Read](289-case-study-scene-delta-through-a-rotated-parent-1021.md) |
 | Case study: a scene delta had a frame, and the agent never reached the child (#1020) | [Read](290-case-study-agent-group-frame-1020.md) |
 | Case study: one sample of sun vanished at a weighted-region seam (#1007) | [Read](291-case-study-weighted-region-seam-1007.md) |
+| Case study: two render traps — a prefetch repaint loop and a `<use>` placement delta (#845, #850) | [Read](292-case-study-two-render-traps-in-the-2d-package.md) |

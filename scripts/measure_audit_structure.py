@@ -24,7 +24,7 @@ def measure(baseline: str) -> dict:
         sizes[relative] = {"before_lines": len(before.splitlines()),
                            "after_lines": len(after.splitlines())}
     imports = {}
-    for module in ["core.object_types", "core.tools.base_tool", "models.smart_symbol"]:
+    for module in ["core.object_types", "core.tools.base_tool"]:
         code = (
             "import time,sys,json;t=time.perf_counter();"
             f"import open_garden_planner.{module};"

@@ -26,13 +26,13 @@
   },
   "1007": {
     "is_pr": false,
-    "state": "OPEN",
+    "state": "CLOSED",
     "title": "2D hours-of-sun map: one sample darker at seams of the per-region rasterisation"
   },
-  "1008": {
+  "1009": {
     "is_pr": false,
     "state": "OPEN",
-    "title": "2D hours-of-sun map: contour labels crowd and overlap objects around solids"
+    "title": "Remove Smart Symbols completely (engine, persistence, translations, tests, docs)"
   },
   "1012": {
     "is_pr": false,
@@ -69,10 +69,10 @@
     "state": "OPEN",
     "title": "Group rotation: a selected group has no rotation handle, so a group cannot be rotated as one unit in the UI"
   },
-  "1026": {
+  "1029": {
     "is_pr": false,
     "state": "OPEN",
-    "title": "test_shadow_overlay::test_slider_change_emits_the_wall_reading is wall-clock dependent (fails in the 15:00 minute)"
+    "title": "SVG export: clipped-stroke editability, halo metrics and badge typeface after #850's size fix"
   },
   "114": {
     "is_pr": true,
@@ -1431,7 +1431,7 @@
   },
   "830": {
     "is_pr": false,
-    "state": "OPEN",
+    "state": "CLOSED",
     "title": "2D sun study: parasol as a raised canopy, what glasshouse glass transmits, and the dark cell under every plant"
   },
   "831": {
@@ -1494,9 +1494,14 @@
     "state": "CLOSED",
     "title": "A line above the 256-vertex paint bound has no simplified picture: 334 ms per zoom step with a 16,000-vertex zigzag line"
   },
-  "852": {
+  "850": {
     "is_pr": false,
     "state": "OPEN",
+    "title": "SVG export: pictures embedded once per use (files 2.6-7x larger), clipped strokes lose editability, halo and badge text sized by Qt"
+  },
+  "852": {
+    "is_pr": false,
+    "state": "CLOSED",
     "title": "Hours-of-sun map: 10 cm cells show as blotches at 400 %, repaint is 3x with the map on, badge triangle is green on green foliage"
   },
   "853": {

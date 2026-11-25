@@ -279,7 +279,6 @@ class TestNoEmojiInChromeSources:
         "agent_api/schema.py": "API doc strings (arrows in field descriptions)",
         "core/tools/constraint_tool.py": "on-canvas constraint preview labels — canvas text (§8.21.5)",
         "models/amendment.py": "domain rationale text ('pH 5.8 → 6.5')",
-        "models/smart_symbol.py": "domain symbol table",
         "services/soil_service.py": "domain rationale text",
         "ui/canvas/dimension_lines.py": "canvas dimension/marker labels — canvas text (§8.21.5)",
         "ui/canvas/items/circle_item.py": "canvas item text",

@@ -89,7 +89,7 @@ def _hidden_layers_not_in(
     (an agent asking for "Layer A" gets Layer A, regardless of an unrelated
     live UI toggle it can't see), and every layer-bearing item's *original*
     visibility — shown or hidden — is restored afterward, not just the ones
-    this function itself hid. A ``GroupItem``/``SmartSymbolItem`` child whose
+    this function itself hid. A ``GroupItem`` child whose
     own layer differs from its (forced-hidden) parent group's is suppressed
     too — Qt hides descendants of a hidden item regardless of the child's own
     layer — the same inherent limitation ``_hidden_overlay_items``/

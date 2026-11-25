@@ -888,7 +888,9 @@ Because `is_bed_type` was *extended* (not renamed) to include containers, every 
 
 ## ADR-032: Smart Symbol Format & Versioning (US-C4)
 
-**Status**: Accepted (Phase 13 — Package C, US-C4). **UI retired (#770):** the engine, persistence, properties-panel editing, and DXF export ship and are tested; the **Smart Symbols sidebar panel and the bundled starter set were removed in #770** (the fixed symbols added little over the parametric structure tools, #768/#769). Existing symbols in a loaded `.ogp` regenerate and export normally, and user files in `<app-data>/smart_symbols/` still load. The five former templates are test fixtures (`tests/fixtures/smart_symbols/`).
+**Status**: **Superseded / removed (#1009).** The engine, persistence, properties-panel editing and DXF export were retired together; a plan that contains a symbol opens as a plain group with unchanged geometry (see the #1009 addendum). Historical decisions below; the UI was retired in #770.
+
+**Status (historical)**: Accepted (Phase 13 - Package C, US-C4). **UI retired (#770):** the engine, persistence, properties-panel editing, and DXF export ship and are tested; the **Smart Symbols sidebar panel and the bundled starter set were removed in #770** (the fixed symbols added little over the parametric structure tools, #768/#769). Existing symbols in a loaded `.ogp` regenerate and export normally, and user files in `<app-data>/smart_symbols/` still load. The five former templates are test fixtures (`tests/fixtures/smart_symbols/`).
 **Context**: Users want reusable **parametric blocks** ("raised bed L×W with N rows", pergola, fence panel) they can drop and edit by parameter rather than redrawing. The acceptance criteria require: a versioned, **user-extendable** definition format (drop a JSON → new symbol on next launch); the instance stores `symbol_id + version + params`, NOT the expanded geometry (it regenerates on load); a cached-geometry fallback for unknown/changed symbols; DXF export as BLOCK/INSERT; and a CI schema validator. A dropped JSON is untrusted input, so geometry expressions must be evaluated **without** `eval()`.
 **Decision**:
 - **Declarative geometry DSL.** A symbol JSON declares typed `parameters` (number/length/choice) and an `elements` list (`rect`/`line`/`polyline`/`polygon`/`circle`); each coordinate is a number or an arithmetic **expression string** over the parameters, and a `repeat{var,from,to}` block emits an element across an integer range. Bundled *and* user symbols are pure data — authoring a new shape needs no code. (`models/smart_symbol.py`, Qt-free, emits plain `PrimitiveSpec` dataclasses so generation is unit-testable.)
@@ -929,6 +931,18 @@ Smart symbol children previously instantiated exclusively as untyped/generic can
 5. **No `FILE_VERSION` bump.** Existing plans keep their stored smart-symbol children and ridge colours; only new ridges get the aluminium finish, and the `ridge_finish` key is additive (a ridge without it paints brown).
 
 **Consequences**: The fixed-symbol library is no longer a product surface; the parametric tools are. The version contract (FR-SYMBOL-08) still guards user files and existing plans. Tests: `tests/integration/test_parametric_structures.py` (layout, 2D/3D agreement, greenhouse ridge lifecycle), `tests/unit/test_sprite_orientation.py`, the extended `tests/integration/test_smart_symbols.py` (fixture library), and the ridge cases in `tests/integration/test_house_roof_ridge.py`.
+
+### Addendum (issue #1009, 2026-11-25 — Smart Symbols are removed completely)
+
+**Status**: Shipped (2D canvas follow-up package). **Context**: #770 removed only the panel and the bundled set. Since v1.37.9 no user could create a symbol, yet the engine, persistence, Properties-panel editing, DXF block export, the `<app-data>/smart_symbols/` folder contract and their tests were still on `master`.
+
+**Decision**:
+1. **The engine is gone, not hidden.** `models/smart_symbol.py`, `services/smart_symbol_library.py`, `ui/canvas/items/smart_symbol_item.py`, `ChangeSmartSymbolParamCommand`, the DXF BLOCK/INSERT export path, the Properties-panel parameter editor and the Smart-Symbol metadata consumers in the shadow and 3D snapshot paths are deleted. `models/parametric_eval.py` stays as a generic bounded arithmetic evaluator (its own unit test is the only remaining caller).
+2. **Old plans open as plain groups.** The loader ignores a `smart_symbol` key instead of reconstructing a symbol; the serialized children remain the geometry. Typed children (#599) keep their types. The next save writes a group without the key. No `FILE_VERSION` bump, exactly as this ADR designed.
+3. **User data is untouched.** `<app-data>/smart_symbols/` is no longer read and is deliberately not migrated or deleted (the same rule as #767).
+4. **The group rotation key is additive.** A group now stores its own `rotation` (issue #1022), which also preserves the angle a pre-removal symbol could carry. Older apps ignore it.
+
+**Consequences**: the removal is pinned by `tests/integration/test_smart_symbol_removal.py` (an old plan with the key opens as a two-member group with the same types and positions, and a re-save drops the key). The translation gate loses the `SmartSymbolsPanel` context and the "Smart Symbols" menu string in all five locales. The broader trust-boundary lesson from PR #236 stays in the pitfalls file, but its pinned test and model reference are gone.
 
 ## ADR-033: Agent API — Embedded MCP-over-HTTP Server + Main-Thread Marshaling Boundary (US-D1.1)
 
@@ -13835,7 +13849,36 @@ example exercises the refusal because its soil test and succession plan refer
 to the original bed ID. A freshly drawn raised bed exercises the frame-preserving
 cut.
 
-## ADR-076: Exports paint one picture — a recorded SVG, raster plan pages in the PDF, live SVG text (#787, #788, #789)
+**Addendum 6 (issue #1022, 2026-11-25) - a selected group turns as one unit.**
+
+**Status:** Shipped in the 2D canvas follow-up package. A group now mixes in the
+same `RotationHandleMixin` as a single item, so it shows one standard handle
+above its own selection frame (#840's `selection_frame_rect`, never
+`boundingRect()`: a badge or a screen-sized handle would move the pivot). The
+gesture is a **group transform**, not a loop over members: children keep their
+local positions and Qt's group transform rotates their scene positions about
+the frame centre together. `GroupItem._apply_rotation` sets the transform
+origin to that centre, and `_on_rotation_end` registers the ordinary
+`RotateItemCommand` through `geometry_apply.register_rotation_command`, so the
+whole gesture is one undo step and the shared constraint-partner recording
+still runs. A drilled-down member keeps its own handle; the group hides its
+own for the duration (`CanvasView.begin_group_drill_down` /
+`_clear_group_drill_down`), which reuses the existing
+`_individual_handles_allowed` rule.
+
+Persistence is additive: a group may carry a `rotation` key (the same key a
+pre-#1009 smart-symbol group used), and the loader routes it through
+`_apply_rotation` so the pivot is reconstructed rather than defaulting to
+(0, 0). A grouped bed's linked plants follow as before: `iter_plant_parents`
+walks the group, so `RotateItemCommand`'s membership tracker and the move
+command's net-scene-delta rule (PF-CAN-70) already cover members. Roof ridges
+are re-derived by the existing `update_house_ridges_under` listener.
+
+Pinned by `tests/integration/test_group_rotation.py` (handle visibility,
+drill-down, rigid member geometry, one-step undo, Shift snapping, a nested
+group, a grouped bed, a grouped house ridge, and save/load).
+
+## ADR-076: Exports paint one picture - a recorded SVG, raster plan pages in the PDF, live SVG text (#787, #788, #789)
 
 **Status**: Accepted (visual-polish package, 2026-11-09); shipped in v1.38.0 (PR #838)
 
@@ -13903,7 +13946,7 @@ SVG 1.1 mode, and `QSvgRenderer` ignores `clip-path`.
 **Consequences**: the SVG fidelity test compares the rasterised SVG with the PNG export
 of the same scene (four bundled examples, a parametric roof, a glasshouse, a painter
 nobody taught about SVG) at a stated tolerance; a new painter needs no SVG knowledge.
-An SVG's pictures are embedded once per use, as before, and grow with their resolution.
+An SVG's pictures are embedded once per distinct picture and geometry (since #850, a repeat is a `<use>`) and grow with their resolution.
 The report is three to eight times larger than at 72 dpi.
 
 Cross-refs: PF-CAN-08, PF-CAN-12, PF-CAN-13, PF-CAN-53, PF-CAN-54; §8.36; FR-EXP-01,
@@ -13993,6 +14036,17 @@ FR-EXP-08, FR-VIS-07, FR-VIS-09; debug-verbose case study 225.
     (#869). Every gallery plant is `ObjectType.PERENNIAL`, so carrots and lettuce
     read "Perennial". `core.plant_cycle_label` is the one translated cycle vocabulary;
     the plant list, Plant Details, custom-plant table and plant search use it.
+20. **A repeated picture is written once and placed with `<use>`** (#850). The
+    recording replay still writes one `<image>` per distinct payload and geometry;
+    `_dedupe_picture_uses` (`services/svg_export.py`) adds an id to the first and
+    writes the rest as `<use>` with only the placement delta. Measured at a 30 cm
+    page on the bundled examples: raised bed 3.67 -> 2.17 MB, balcony 3.28 -> 2.03 MB,
+    food forest 6.90 -> 6.12 MB, family garden 8.62 -> 8.27 MB. The delta is what
+    keeps a <use> on the right pixel: the referenced <image> keeps its own x/y,
+    so the use carries `new - first` (a plain copy of x/y moved the balcony's shade
+    sprites; the fidelity test caught it). `QSvgRenderer` resolves a `<use>` of an
+    `<image>` (measured); Edge does too. Clipped-stroke editability, halo metrics
+    and the badge typeface are deliberately still open (#1029).
 
 Cross-refs: §8.36; FR-EXP-03, FR-EXP-08; PF-CAN-55.
 

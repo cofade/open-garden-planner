@@ -3,9 +3,9 @@
 Modelled on ``tests/integration/test_bed_context_menu.py``: a structural
 regression test that fails for any future shared-seam item that forgets to
 wire ``GardenItemMixin._build_arrange_menu`` / ``_dispatch_arrange`` into its
-own ``contextMenuEvent``. Covers all nine item classes that share the
+own ``contextMenuEvent``. Covers all eight item classes that share the
 ``_build_move_to_layer_menu`` seam (rectangle, polygon, polyline, circle,
-ellipse, text, callout, group, smart symbol) — journal pins are excluded by
+ellipse, text, callout, group) — journal pins are excluded by
 design (``ui/canvas/arrange.py`` drops them before they ever reach a layer).
 """
 from __future__ import annotations
@@ -27,7 +27,6 @@ from open_garden_planner.ui.canvas.items.group_item import GroupItem
 from open_garden_planner.ui.canvas.items.polygon_item import PolygonItem
 from open_garden_planner.ui.canvas.items.polyline_item import PolylineItem
 from open_garden_planner.ui.canvas.items.rectangle_item import RectangleItem
-from open_garden_planner.ui.canvas.items.smart_symbol_item import SmartSymbolItem
 from open_garden_planner.ui.canvas.items.text_item import TextItem
 
 # ---------------------------------------------------------------------------
@@ -73,10 +72,6 @@ def _make_group(layer_id=None) -> GroupItem:
     return GroupItem(layer_id=layer_id)
 
 
-def _make_smart_symbol(layer_id=None) -> SmartSymbolItem:
-    return SmartSymbolItem("raised_bed_rows", 1, {"rows": 4}, layer_id=layer_id)
-
-
 ITEM_FACTORIES = [
     pytest.param(_make_rectangle, id="RectangleItem"),
     pytest.param(_make_polygon, id="PolygonItem"),
@@ -86,7 +81,6 @@ ITEM_FACTORIES = [
     pytest.param(_make_text, id="TextItem"),
     pytest.param(_make_callout, id="CalloutItem"),
     pytest.param(_make_group, id="GroupItem"),
-    pytest.param(_make_smart_symbol, id="SmartSymbolItem"),
 ]
 
 _EXPECTED_MODES = [
@@ -150,7 +144,7 @@ def test_build_arrange_menu_is_added_to_parent(factory, qtbot) -> None:
     "item_cls",
     [
         RectangleItem, PolygonItem, PolylineItem, CircleItem, EllipseItem,
-        TextItem, CalloutItem, GroupItem, SmartSymbolItem,
+        TextItem, CalloutItem, GroupItem,
     ],
 )
 def test_context_menu_event_uses_shared_arrange_builder(item_cls) -> None:
@@ -173,7 +167,7 @@ def test_context_menu_event_uses_shared_arrange_builder(item_cls) -> None:
 
 
 # ---------------------------------------------------------------------------
-# End-to-end: driving the REAL contextMenuEvent of each of the nine classes
+# End-to-end: driving the REAL contextMenuEvent of each of the eight classes
 # must produce a menu that contains the Arrange submenu built by
 # _build_arrange_menu. QMenu.exec is monkeypatched (it would otherwise block
 # on a real popup) to capture the top-level menu instead of executing it.

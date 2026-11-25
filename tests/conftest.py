@@ -17,7 +17,7 @@ os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 # ── The user's data directory ────────────────────────────────────────────────
 # `services.plant_library.get_app_data_dir()` is where the app keeps what the
 # user made: custom plants, plant lists, the seed inventory, companion rules,
-# smart symbols, the weather cache. It reads `%APPDATA%` (Windows) or
+# the weather cache. It reads `%APPDATA%` (Windows) or
 # `$XDG_DATA_HOME` (Linux) on every call, and nothing here redirected it — so a
 # test that reached the plant database panel's save path saved into the
 # developer's REAL library: 207 duplicate "Walnut" entries of 209 by the time it

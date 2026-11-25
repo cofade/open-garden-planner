@@ -267,7 +267,7 @@ visibility calls.
 
 | Toggle | Where | Status |
 |---|---|---|
-| **Smart Symbols panel and templates retired** | #770 (no toggle remains) | **retired UI** (US-C4 engine retained). Persistence, properties editing and DXF export still ship and are tested; symbols in existing `.ogp` files regenerate from their cached children, and user files in `<app-data>/smart_symbols/` still load. The fixed templates are test fixtures now (`tests/fixtures/smart_symbols/`). |
+| **Smart Symbols removed completely** | #770 retired the panel; #1009 removed the engine, persistence, properties editing, DXF block export and the loader (no toggle remains) | A symbol in an old `.ogp` opens as a plain group with its children; the next save drops the key. `<app-data>/smart_symbols/` is left on disk and unread. |
 | Contextual panels hidden until relevant selection | `set_panel_visible(key, relevant)` for `plant_details` / `companion` / `crop_rotation` in the selection updaters (ADR-030) | production behavior — not a bug when they're absent with nothing selected |
 | Satellite menu action disabled | `application.py:5414 when both the Preferences key and `OGP_GOOGLE_MAPS_KEY` are unset (§3) | production guard |
 | Nearest / perpendicular / tangent snap default-OFF | §1 snap table | production, opt-in |
@@ -401,7 +401,7 @@ Re-verify each section before relying on it after significant time/version drift
 | §2 UiState keys | `grep -n "UiState\|setValue\|save_panel" src/open_garden_planner/app/ui_state.py` |
 | §3 env loading | `sed -n '14,28p' src/open_garden_planner/main.py; grep -rn "OGP_GOOGLE_MAPS_KEY\|QT_QPA_PLATFORM" src/ tests/conftest.py .github/workflows/ci.yml` |
 | §4 FILE_VERSION | `grep -n "FILE_VERSION\|_is_newer_file_version\|paper_layouts" src/open_garden_planner/core/project.py` |
-| §5 Smart Symbols retired | `! grep -rn 'set_panel_visible("smart_symbols"' src/open_garden_planner/` |
+| §5 Smart Symbols removed | `! grep -rn "SmartSymbol\|smart_symbol" src/open_garden_planner/ --include=*.py` (only the loader's ignore path may match) |
 | §6 tooling | `grep -n "tool.ruff\|tool.mypy\|tool.pytest\|mcp>=\|WebEngine" pyproject.toml; grep -n "multiprocessing\|mcp.cli\|upx_exclude" installer/ogp.spec` |
 | §7 CI | `grep -n "chore\|major\|minor\|QT_QPA_PLATFORM" .github/workflows/release.yml .github/workflows/ci.yml` |
 | §8 exemplar | `grep -n "agent_api" src/open_garden_planner/ui/dialogs/preferences_dialog.py src/open_garden_planner/app/application.py` |

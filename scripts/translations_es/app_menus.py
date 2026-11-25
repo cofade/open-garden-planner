@@ -328,7 +328,6 @@ TRANSLATIONS = {
         "Show recommended spacing zones around plants": "Mostrar zonas de separación recomendadas alrededor de las plantas",
         "Simulate solar shadows for a chosen date and time of day": "Simular sombras solares para una fecha y hora elegidas",
         "Skipped {k} unsupported entity/entities ({types}).": "Se omitieron {k} entidades no compatibles ({types}).",
-        "Smart Symbols": "Símbolos inteligentes",
         "Snap &Perpendicular": "Ajuste perpendic&ular",
         "Snap &Tangent": "Ajuste &tangente",
         "Snap to &Intersections": "Ajustar a &intersecciones",

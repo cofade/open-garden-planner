@@ -144,6 +144,78 @@ class PixmapLru:
 #: Every sprite the canvas paints, plants and objects alike.
 SPRITE_CACHE: Final = PixmapLru(SPRITE_CACHE_MAX_BYTES, SPRITE_CACHE_MAX_ENTRIES)
 
+#: Misses the canvas may resolve on its next idle tick instead of inside the
+#: frame that found them (#845). A newly crossed zoom level would otherwise
+#: rasterise every visible sprite in one paint (0.2-0.5 s). The canvas brackets
+#: its paint with these functions; an export or an image render never does, so
+#: it still gets every picture synchronously and at its own resolution.
+#:
+#: The bracket records what the frame drew and, at its end, queues the SAME
+#: sprites one level finer. The idle timer rasterises those ahead of the next
+#: zoom step, so crossing 100/200/400 % finds its bitmaps already cached and
+#: never defers (or blurs) the frame that crosses. Only one level ahead is
+#: queued; a huge sprite whose next level would exceed the cache cap is skipped.
+_PREFETCH_DEPTH = 0
+_SEEN_THIS_PAINT: dict[Hashable, tuple[Hashable, int, int, SpriteDraw, QColor | None]] = {}
+_PENDING_SPRITES: OrderedDict[Hashable, tuple[Hashable, int, int, SpriteDraw, QColor | None]] = OrderedDict()
+
+
+def begin_sprite_prefetch() -> None:
+    """Mark the start of a canvas frame whose sprites may be prefetched."""
+    global _PREFETCH_DEPTH
+    _PREFETCH_DEPTH += 1
+    if _PREFETCH_DEPTH == 1:
+        _SEEN_THIS_PAINT.clear()
+
+
+def end_sprite_prefetch() -> None:
+    """End a :func:`begin_sprite_prefetch` bracket and queue its next level."""
+    global _PREFETCH_DEPTH
+    if _PREFETCH_DEPTH > 0:
+        _PREFETCH_DEPTH -= 1
+    if _PREFETCH_DEPTH == 0:
+        _PENDING_SPRITES.update(_SEEN_THIS_PAINT)
+        _SEEN_THIS_PAINT.clear()
+
+
+def pending_sprite_count() -> int:
+    """How many deferred sprite rasterisations are waiting."""
+    return len(_PENDING_SPRITES)
+
+
+def prefetch_sprites(limit: int = 12, cache: PixmapLru = SPRITE_CACHE) -> tuple[int, int]:
+    """Rasterise up to *limit* queued next-level sprites; return (remaining, made).
+
+    Called from the canvas's idle timer, one small batch a tick, so the work
+    that would block the frame that crosses a zoom level happens between
+    frames instead. ``made`` is what the caller needs to decide whether a
+    repaint will show anything new: a queue whose entries are all cached must
+    not start an endless paint/prefetch/paint loop.
+    """
+    made = 0
+    for _ in range(max(0, limit)):
+        if not _PENDING_SPRITES:
+            break
+        cache_key, (key, width_px, height_px, draw, tint) = _PENDING_SPRITES.popitem(last=False)
+        if cache_key in cache:
+            continue
+        # Never evict the frame that is on screen to prefetch the next level:
+        # a plan with deep sprite coverage may have no room for both.
+        if cache.bytes_used + width_px * height_px * 4 > cache.max_bytes:
+            continue
+        pixmap = rasterise(width_px, height_px, draw, tint)
+        if pixmap is not None:
+            cache.put(cache_key, pixmap)
+            made += 1
+    return len(_PENDING_SPRITES), made
+
+
+def clear_sprite_prefetch() -> None:
+    """Drop queued work (the plan is replaced, or its picture is no longer wanted)."""
+    _PENDING_SPRITES.clear()
+    _SEEN_THIS_PAINT.clear()
+
+
 
 def sprite_pixel_size(width: float, height: float, level: float) -> tuple[int, int]:
     """The pixmap size of a ``width`` x ``height`` (item units) sprite at ``level``."""
@@ -190,6 +262,8 @@ def paint_sprite(
     *,
     tint: QColor | None = None,
     cache: PixmapLru = SPRITE_CACHE,
+    rotate_degrees: float = 0.0,
+    oversized_draw: SpriteDraw | None = None,
 ) -> bool:
     """Paint the sprite ``draw`` describes into ``target`` (item units), as fine
     as ``painter`` shows it (module docstring).
@@ -197,7 +271,11 @@ def paint_sprite(
     ``draw(p, rect)`` draws the whole sprite into ``rect`` of ``p`` and nothing
     else; it is called with a pixmap's painter or with a layer's. ``key`` names
     the picture apart from its size and tint (a file, a turn, a rotation).
-    False when nothing could be painted (a degenerate rectangle, no memory).
+    ``rotate_degrees`` turns the cached bitmap when it is laid down, so the
+    cache entry is shared by every instance of the sprite at any angle; the
+    oversized path, which never caches, uses ``oversized_draw`` (the same
+    picture with the turn baked in) instead. False when nothing could be
+    painted (a degenerate rectangle, no memory).
     """
     width, height = target.width(), target.height()
     if not (math.isfinite(width) and math.isfinite(height) and width > 0.0 and height > 0.0):
@@ -207,7 +285,9 @@ def paint_sprite(
     longest = max(width_px, height_px)
     if longest > MAX_CACHED_SIDE_PX:
         if max(width, height) * scale > MAX_CACHED_SIDE_PX:
-            return _paint_exposed(painter, target, draw, tint)
+            return _paint_exposed(
+                painter, target, oversized_draw if oversized_draw is not None else draw, tint
+            )
         # The level's bitmap is too large to keep, but the device shows no more
         # of this sprite than the largest one that may be kept: that one is
         # still at least as fine as the device, and it is cached — the exposed
@@ -222,8 +302,27 @@ def paint_sprite(
         if pixmap is None:
             return False
         cache.put(cache_key, pixmap)
+    if _PREFETCH_DEPTH > 0 and width_px * 2 <= MAX_CACHED_SIDE_PX and height_px * 2 <= MAX_CACHED_SIDE_PX:
+        # Queue the next zoom level, not this one: the frame that crosses a
+        # level must stay sharp. A sprite already at the cache cap has no
+        # bitmapped next level (the oversized path draws it from the vector).
+        next_key = (
+            key, width_px * 2, height_px * 2,
+            tint.rgba() if tint is not None else None,
+        )
+        if next_key not in cache:
+            _SEEN_THIS_PAINT[next_key] = (
+                key, width_px * 2, height_px * 2, draw, tint
+            )
     painter.setRenderHint(QPainter.RenderHint.SmoothPixmapTransform)
-    painter.drawPixmap(target, pixmap, QRectF(0.0, 0.0, float(width_px), float(height_px)))
+    painter.save()
+    if abs(rotate_degrees) > 0.5:
+        centre = target.center()
+        painter.translate(centre)
+        painter.rotate(rotate_degrees)
+        painter.translate(-centre)
+    painter.drawPixmap(target, pixmap, QRectF(0.0, 0.0, float(pixmap.width()), float(pixmap.height())))
+    painter.restore()
     return True
 
 
@@ -521,6 +620,7 @@ def clear_sprite_cache() -> None:
     replaced (``CanvasScene.clear``); the cache's bound stays what the largest
     viewport made it."""
     SPRITE_CACHE.clear()
+    clear_sprite_prefetch()
 
 
 __all__ = [
@@ -536,11 +636,16 @@ __all__ = [
     "TINT_ALPHA",
     "KeptLayer",
     "PixmapLru",
+    "begin_sprite_prefetch",
     "clear_sprite_cache",
+    "clear_sprite_prefetch",
     "device_bounds",
+    "end_sprite_prefetch",
     "ensure_sprite_cache_room",
     "paint_layer",
     "paint_sprite",
+    "pending_sprite_count",
+    "prefetch_sprites",
     "rasterise",
     "sprite_cache_budget",
     "sprite_pixel_size",

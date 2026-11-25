@@ -721,10 +721,10 @@ def register_applied_with_membership(
 def iter_plant_parents(items: Sequence[QGraphicsItem]) -> list[Any]:
     """Return all plant-parent items in *items*, descending into item groups.
 
-    A ``SmartSymbolItem`` or ``GroupItem`` may contain typed plant-parent child
-    shapes (e.g. the ``RAISED_BED`` outer frame of ``raised_bed_rows``, #599).
-    Descending into ``QGraphicsItemGroup`` lets creation, movement, rotation,
-    deletion, and parameter regeneration reconcile and carry linked plants
+    A ``GroupItem`` may contain typed plant-parent child
+    shapes, and every group is walked here. Descending into
+    ``QGraphicsItemGroup`` lets creation, movement, rotation,
+    deletion and geometry changes reconcile and carry linked plants
     through the same command-owned path as a top-level bed.
     """
     from PyQt6.QtWidgets import QGraphicsItemGroup
@@ -1812,54 +1812,6 @@ class ChangeObjectTypeCommand(Command):
             apply_ridge_look(self._item, linked_ridge(self._item))
         # A HOUSE whose link predates this command: restore exactly that key.
         self._restore_old_link()
-
-
-class ChangeSmartSymbolParamCommand(Command):
-    """Command for changing a smart-symbol parameter and regenerating its children (#599).
-
-    Preserves deterministic child UUIDs across regeneration and reconciles bed
-    membership for any plant-parent child (e.g. ``raised_bed_rows``) in the same
-    undo step so plant ``parent_bed_id`` links stay synchronized.
-    """
-
-    changes_containment = True
-
-    def __init__(
-        self,
-        item: Any,
-        param_name: str,
-        old_value: Any,
-        new_value: Any,
-    ) -> None:
-        self._item = item
-        self._param_name = param_name
-        self._old_value = old_value
-        self._new_value = new_value
-        self._membership = _membership_change_for_geometry(item.scene(), item)
-
-    @property
-    def description(self) -> str:
-        prop = QCoreApplication.translate("Commands", "symbol parameter")
-        return QCoreApplication.translate("Commands", "Change {property}").format(
-            property=prop
-        )
-
-    def execute(self) -> None:
-        scene = self._item.scene()
-        if self._membership is None and scene is not None:
-            self._membership = _membership_change_for_geometry(scene, self._item)
-        self._item.params[self._param_name] = self._new_value
-        self._item.regenerate_geometry()
-        if self._membership is None and scene is not None:
-            self._membership = _membership_change_for_geometry(scene, self._item)
-        if self._membership is not None:
-            self._membership.reconcile()
-
-    def undo(self) -> None:
-        self._item.params[self._param_name] = self._old_value
-        self._item.regenerate_geometry()
-        if self._membership is not None:
-            self._membership.restore()
 
 
 class ApplySpeciesCommand(Command):

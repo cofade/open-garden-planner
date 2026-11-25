@@ -254,10 +254,10 @@ Full how-to (step-by-step, `.ts` format, recompile command): see `docs/08-crossc
   "Current work" section, then `git status` and `git log --oneline -20`.
 - Current release: **v1.43.2** (2026-11-25). No roadmap phase is active.
   See the roadmap's Current work table and the open issues.
-- Open follow-ups: #1022 (no group rotation handle), #1013 (regrowth memory, which
-  #804 needs), #845 and #855 (first-zoom sprite rasterization; the weighted path for
-  hundreds of garden lights at a grazing sun). #1012's two shadow defects remain
-  (low-sun wobble, December speckle).
+- Open follow-ups: #1013 (regrowth memory, which #804 needs), #855 (weighted
+  open-frame path cost for hundreds of garden lights at a grazing sun), #1029 (SVG
+  clipped-stroke editability, halo metrics and badge typeface). #1012's two shadow
+  defects remain (low-sun wobble, December speckle).
 - Live decisions that constrain the next change:
   - 3D Model reuse (#531, ADR-069 addendum): a regrown part loads new buffers into the
     geometry object its live Model already has (`BufferGeometry.reload`); never a new
@@ -269,6 +269,14 @@ Full how-to (step-by-step, `.ts` format, recompile command): see `docs/08-crossc
     `Workspace.at_rest()` rule, one `EngineSink.items_retired` release counter
     (`RecordingSink` uses `core.scene3d.model_reuse_key`), scene residuals mapped into
     the item's parent frame (PF-CAN-70); a lone group member stays refused by the agent.
+  - Group rotation and 2D canvas cost (#1022, #1009, #845, #850; ADR-032/075/076
+    addenda, §8.9.14, §8.9.22, §8.37): a selected group turns through its own
+    transform about `selection_frame_rect`'s centre and stores an additive `rotation`
+    key; Smart Symbols are gone and an old `smart_symbol` key loads as a plain group
+    (the bounded evaluator survives in `parametric_eval`); a plant's decorative turn is
+    applied when its cached bitmap is laid down, so one species shares a pixmap, and
+    the canvas prefetches the next zoom level in idle time; a repeated SVG picture is
+    written once and placed with `<use>`, carrying the placement delta.
   - Plant Grid typed values and snapping (#1003, ADR-082 addendum, §8.9.21): size, column
     spacing, width and height are `LengthSpinBox` fields (units profile; the model stays in
     cm; the column field shows the column pitch and the row pitch is Height ÷ rows);

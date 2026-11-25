@@ -771,6 +771,23 @@ centimetres**.
   cannot disagree about a turn, a flip or a tint, and a zoom that crosses the
   1024-px threshold does not move the picture
   (`TestCachedAndExposedAgree`, `TestOversizedSprite`).
+- **A plant's decorative turn is applied when its bitmap is laid down, not baked
+  into it (#845).** `paint_plant` passes `rotate_degrees` and an unrotated
+  `draw`; the cache key is the species file and the level, so six plants of one
+  species at six stable angles share one pixmap. Only the oversized route, which
+  never caches, gets the turn baked in (`oversized_draw`).
+- **The canvas prefetches the next zoom level in idle time (#845).** A view
+  brackets `QGraphicsView.paintEvent` with `begin_sprite_prefetch` /
+  `end_sprite_prefetch`; the bracket records every sprite the frame drew and
+  queues the same sprites at twice the pixel size. `CanvasView`'s single-shot
+  timer drains the queue about twelve at a time and repaints once. Queue entries
+  that would not fit the cache budget are skipped rather than evicting the frame
+  on screen. The bracket exists only around a widget paint: an export or an
+  image render still gets every picture synchronously and sharply. Measured on
+  the family-garden example (1453×898, RTX 4070), a 100→200 % cross after the
+  idle tick rasterised 1 sprite (52 ms for the whole frame) and 200→400 %
+  rasterised none (17 ms); before #845's sharing every plant carried its own
+  rotated pixmap.
 
 **Zoomed out, nothing changes.** The level is never below 1: below 100 % a
 bitmap is the 1-px-per-cm one, minified by the painter exactly as before. Coarser
@@ -1437,6 +1454,32 @@ deferred resize). `test_typed_values_keep_the_grid_exact`,
 `test_a_snapped_resize_puts_the_edge_on_the_grid_when_the_grab_is_off_centre` pin the typed
 fields and snapping (`tests/integration/test_plant_grid_tool.py`).
 
+### 8.9.22 A selected group turns as one unit (#1022, ADR-075 addendum 6)
+
+A group uses the same `RotationHandleMixin` as a single item, so it draws one standard
+rotation handle above its `selection_frame_rect`. Drag rotates the **group transform**
+about that frame's centre; members keep their local positions, and Qt moves their scene
+positions together. `GroupItem._apply_rotation` sets the transform origin to the frame
+centre (never `boundingRect()`: a badge or a screen-sized handle would shift the pivot),
+and `_on_rotation_end` goes through `geometry_apply.register_rotation_command`, so the
+gesture is one `RotateItemCommand`. `Shift` snaps to 15°; Esc/undo behave as on a single
+item.
+
+- **One handle, one edit target.** `_individual_handles_allowed` already hides the group's
+  handle while a member is drilled down; `CanvasView.begin_group_drill_down` hides it
+  explicitly and `_clear_group_drill_down` shows it again when the group is still
+  selected.
+- **Persistence is additive.** A group writes its own `rotation` key; the loader passes it
+  through `_apply_rotation`, so the pivot is reconstructed instead of defaulting to (0, 0).
+  Old files without the key are unchanged, and a pre-#1009 smart-symbol group's `rotation`
+  key loads the same way.
+- **Linked things follow.** A grouped bed's plants are found by `iter_plant_parents`
+  (which walks groups), so the rotation command's membership tracker and the move
+  command's net-scene-delta rule (PF-CAN-70) apply without a second path. A grouped house's
+  ridge is re-derived by `update_house_ridges_under` on the group's transform change.
+
+Tests: `tests/integration/test_group_rotation.py`.
+
 ## 8.10 Integration Test Policy
 
 **Worker responsiveness.** Control an in-flight interval instead of counting timer
@@ -1492,7 +1535,7 @@ it on unchanged master. The original CI writer remains unconfirmed.
 | What | Production location | How the suite redirects it |
 | ---- | ------------------- | -------------------------- |
 | Settings (`QSettings`) | organisation / application of `app.settings` | the two names are rebound to a per-process test key (§8.8, ADR-041) |
-| The app-data directory, `services.plant_library.get_app_data_dir()`: custom plants, plant lists, seed inventory, companion rules, smart symbols, weather cache | `%APPDATA%/OpenGardenPlanner` (Windows), `$XDG_DATA_HOME/OpenGardenPlanner` or `~/.local/share/…` (Linux), `~/Library/Application Support/…` (macOS) | `APPDATA` and `XDG_DATA_HOME` are set to a directory of this process, `TEST_DATA_ROOT` (a `tempfile.mkdtemp` named with the pid), removed by `atexit` |
+| The app-data directory, `services.plant_library.get_app_data_dir()`: custom plants, plant lists, seed inventory, companion rules, weather cache | `%APPDATA%/OpenGardenPlanner` (Windows), `$XDG_DATA_HOME/OpenGardenPlanner` or `~/.local/share/…` (Linux), `~/Library/Application Support/…` (macOS) | `APPDATA` and `XDG_DATA_HOME` are set to a directory of this process, `TEST_DATA_ROOT` (a `tempfile.mkdtemp` named with the pid), removed by `atexit` |
 | What the app asks `QStandardPaths.writableLocation` for: `crash.log` and `app.log` (AppDataLocation), the companion, climate and thumbnail caches (AppLocalDataLocation), the default project folder under Documents — which `app.paths.get_projects_dir()` creates | the user's profile, named after the Qt application | the Python-level function is replaced for five locations (`REDIRECTED_QT_LOCATIONS`) and answers with a path under `TEST_DATA_ROOT` — the path only: like Qt it creates nothing, so a writer that forgot its `mkdir` fails here as it would on a first run; every other location is passed through |
 | What a LIBRARY keeps for the user. ezdxf 1.4.3 (read in the installed package): it loads `ezdxf.ini` when it is imported, and builds **and writes** a font index, `font_manager_cache.json`, when that is missing | `$XDG_CONFIG_HOME/ezdxf` or `~/.config/ezdxf`; `$XDG_CACHE_HOME/ezdxf` or `~/.cache/ezdxf` — on every platform | `XDG_CONFIG_HOME` and `XDG_CACHE_HOME` are set to folders under `TEST_DATA_ROOT`, on every platform (on Linux that also moves Qt's own settings and cache folders and the AI clients' XDG paths into the test root) |
 
@@ -4061,61 +4104,18 @@ Startup is always fully collapsed; pin/peek/dismissal state is never saved. The 
 
 ## 8.18 Smart Symbol Authoring (US-C4)
 
-Smart symbols are **parametric blocks** defined in JSON. The app ships no bundled
-definitions and no sidebar panel since #770 (the fixed templates are test fixtures
-in `tests/fixtures/smart_symbols/`); users can still add their own by dropping a
-file in `<app-data>/smart_symbols/`, and existing plans keep their cached children.
-See ADR-032 (and its #768–#770 addendum) for the architecture.
+**Retired (#1009).** Smart Symbols are no longer a product surface, a file format
+the app reads, or a code path. The sidebar panel and bundled set went in #770; the
+engine, persistence, Properties-panel editing, DXF block export and the
+`<app-data>/smart_symbols/` loader were removed in #1009. A plan that contains a
+saved symbol opens as an ordinary group with its serialized children unchanged and
+typed members preserved; the next save drops the `smart_symbol` key. No
+`FILE_VERSION` bump was needed: the encoding was a group plus an additive key from
+the start (ADR-032, and its #1009 addendum, are the record).
 
-**File shape** (one symbol per file; `id` should match the filename):
-
-```json
-{
-  "id": "raised_bed_rows",
-  "version": 1,
-  "name": "Raised Bed (rows)",
-  "name_de": "Hochbeet (Reihen)",
-  "category": "beds",
-  "parameters": [
-    {"name": "L", "type": "length", "label": "Length", "label_de": "Länge",
-     "default": 200, "min": 20, "max": 1000, "unit": "cm"},
-    {"name": "W", "type": "length", "label": "Width", "default": 100},
-    {"name": "rows", "type": "number", "label": "Rows", "default": 4, "min": 1, "max": 20}
-  ],
-  "elements": [
-    {"kind": "rect", "x": 0, "y": 0, "w": "L", "h": "W"},
-    {"repeat": {"var": "i", "from": 1, "to": "rows - 1"},
-     "element": {"kind": "line", "x1": 0, "y1": "W * i / rows", "x2": "L", "y2": "W * i / rows"}}
-  ]
-}
-```
-
-- **Parameters** — `type` is `number` (integer spin), `length` (float spin, with
-  optional `unit`), or `choice` (`choices: [...]`, combo). `name`/`name_de` and
-  per-param `label`/`label_de` provide localisation (German falls back to
-  English); these are **data strings**, not Qt `tr()`.
-- **Elements** — `kind` ∈ `rect{x,y,w,h}`, `line{x1,y1,x2,y2}`,
-  `polyline{points:[[x,y],…]}`, `polygon{points}`, `circle{cx,cy,r}`. Every
-  coordinate is a number **or** an arithmetic **expression string** over the
-  parameters (and the active `repeat` variable `i`). A `repeat{var,from,to}`
-  block (inclusive integer range; endpoints may be expressions) emits its inner
-  `element` once per value.
-- **Expressions** are evaluated by `core/parametric_eval.safe_eval` — `+ - * / %
-  ** //`, parentheses, parameter names, and `min/max/abs/round/floor/ceil/sqrt`.
-  Anything else (attribute access, arbitrary calls, unknown names) is rejected:
-  symbol files are treated as untrusted input, never `eval()`'d. All param values
-  are coerced to **float**, so a parameter cannot be used as the `ndigits` arg of
-  `round(x, n)` (that needs an int — `round(x, rows)` raises and the symbol falls
-  back to cached geometry). Keep expressions small: an over-complex or deeply
-  nested formula is rejected (a node-count cap guards against stack-exhausting
-  input); coordinate formulas are a few terms, not a program.
-- **Versioning** — bump `version` when a definition changes incompatibly. A
-  saved plan stores the instance's `version`; on load, a mismatch (or a missing
-  definition) falls back to the cached geometry embedded in the file and logs a
-  warning, so old plans never break.
-
-`tests/unit/test_smart_symbol_schema.py` validates every fixture file in CI
-(loads, validates, every expression parses, generates ≥1 primitive).
+The generic bounded arithmetic evaluator that the format used survives as
+`core/parametric_eval.safe_eval` for future user-authored data; it is not a
+Smart-Symbol API.
 
 ## 8.19 Agent API — Embedded MCP Server & Thread Marshaling (US-D1.1–D1.6, D2.0–D2.6, D3.1–D3.4, ADR-033/034/035/036)
 
@@ -4388,8 +4388,8 @@ layer** (the GUI enforces the lock by clearing `ItemIsSelectable`/
 `ItemIsMovable`, which selection-based GUI edits respect but a UUID lookup
 bypasses); and an individual **group member** (a raw snapshot exposes its id,
 but `moveBy` on a `QGraphicsItemGroup` child displaces it within the group —
-address the group itself). `GroupItem`/`SmartSymbolItem` moves need no special
-handling: they are real Qt groups, so `moveBy`/delete cascade to members
+address the group itself). `GroupItem` moves need no special
+handling: it is a real Qt group, so `moveBy`/delete cascade to members
 natively (the bed↔plant link is *logical*, which is why beds don't).
 
 **Creation is the exception to that chokepoint (US-D2.1).** `create_object`
@@ -5345,10 +5345,7 @@ the gate checks all three; plus `FURNITURE_DEFAULT_DIMENSIONS`), `core/object_he
 up needs a row, open frames included, and
 `test_every_standing_object_kind_has_a_default_height` fails without one: ADR-065,
 owner's second pass), `ui/widgets/gallery_data.py`
-(gallery tuple), `models/smart_symbol.py` (`VALID_OBJECT_TYPES_BY_KIND`, the Qt-free mirror
-of the valid-shape list that smart-symbol members are checked against — #686;
-`test_valid_object_types_by_kind_matches_core_shape_table` fails without it, as L5's two
-lights found on its merge), and `scripts/fill_translations.py` in the `CanvasView`,
+(gallery tuple), and `scripts/fill_translations.py` in the `CanvasView`,
 `GalleryData` and `ObjectType` contexts. Roster tests are map-driven; the
 additive-enum forward-compat contract (unknown names → generic shape, no
 FILE_VERSION bump) is pinned by `tests/unit/test_project_unknown_object_type.py`.
@@ -5693,7 +5690,7 @@ happened. The four callers:
 2. `GardenItemMixin._build_arrange_menu`/`_dispatch_arrange` — the `Arrange ▸`
    context-menu submenu, shared by every item class that already has the
    `_build_move_to_layer_menu` seam (rectangle, polygon, polyline, circle,
-   ellipse, text, callout, group, smart symbol). Delegates to
+   ellipse, text, callout, group). Delegates to
    `CanvasView.arrange_selected` when a view is available (so status messages
    have exactly one source), falls back to a direct build+execute for
    view-less unit-test construction.
@@ -9933,8 +9930,8 @@ offers nothing; 2+ objects offer **Group**; exactly one group offers
 calls the view's `group_selected` / `ungroup_selected` — the same methods as
 Ctrl+G / Ctrl+Shift+G — so the menu can never offer a row the shortcut would
 refuse. `ungroupable_groups` keeps only TOP-LEVEL groups (`parentItem() is
-None`; Qt reports a group child as selected when its parent is, PF-CAN-36) and
-excludes `SmartSymbolItem`; a multi-group ungroup is one `CompoundCommand` (one
+None`; Qt reports a group child as selected when its parent is, PF-CAN-36);
+a multi-group ungroup is one `CompoundCommand` (one
 undo step). Every menu normalises the selection first — through
 `normalize_context_menu_selection`, except the two construction-item menus, which
 already did the same two lines inline. The background image is deliberately NOT
@@ -10030,8 +10027,7 @@ them inside the selected group, so the view replays the gesture through the
 handles' `begin_drag` / `apply_drag` / `end_drag` seam. The member cannot change
 layer, be cut or be deleted while focused, and a constrained member or ancestor
 refuses movement. Clicking outside the member or pressing `Esc` clears the focus
-and restores every grouped ancestor's `ItemIsMovable` flag. Smart symbols are not
-drillable because their members are generated from parameters. The focus depends
+and restores every grouped ancestor's `ItemIsMovable` flag. The focus depends
 on the group staying selected, and Qt unselects a group when a flag is set on
 a non-selectable descendant that already existed when its parent joined the
 group - a member's handles, created when the user selected it before grouping
@@ -10205,6 +10201,22 @@ teardown New, Open and New from example go through — clears the sprite cache
 89 MB stayed in the two sessions above until the next plan's sprites pushed
 them out). Qt drops the item caches with the items; the tiles are per pattern
 and colour, not per plan, and stay.
+
+**The next zoom level is made between frames, and a species' turn is not part of
+its key (#845).** `paint_plant` lays a cached bitmap down turned
+(`rotate_degrees`) instead of baking the turn into the pixmap, so the key is the
+species file and the level: six plants of one species at six stable angles share
+one entry. The canvas brackets its paint with `sprite_raster.begin_sprite_prefetch`
+/ `end_sprite_prefetch`; the bracket queues the same sprites one level finer, and
+`CanvasView`'s single-shot timer drains about twelve a tick and repaints once.
+An entry is skipped when it would not fit `SPRITE_CACHE`'s budget, so the frame
+on screen is never evicted to make room for the next one. Measured on the
+family-garden example (1453×898 viewport, RTX 4070, offscreen): after the idle
+tick a 100→200 % cross rasterised 1 sprite (52 ms for the whole frame) and
+200→400 % rasterised none (17 ms); the 600-plant sharpness fixture's cache fell
+from >64 MB to 2.5 MB because its three species now share pixmaps. The
+`bytes_used` figure in the table above is a ceiling, not what a plan of a few
+species uses.
 
 The covers, the layouts and the grid layer are not caches of pixels that were
 painted before. They are what a paint needs of the WHOLE scene, kept until

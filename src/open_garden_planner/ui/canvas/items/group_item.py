@@ -18,6 +18,8 @@ from PyQt6.QtWidgets import (
 )
 
 from .garden_item import GardenItemMixin
+from .handle_geometry import selection_frame_rect
+from .resize_handle import RotationHandleMixin
 
 
 def groupable_selection(items: list[QGraphicsItem]) -> list[QGraphicsItem]:
@@ -83,37 +85,21 @@ def selection_tree(items: list[QGraphicsItem]) -> list[QGraphicsItem]:
 def ungroupable_groups(items: list[QGraphicsItem]) -> list[GroupItem]:
     """The selected groups ``Ctrl+Shift+G`` may dissolve.
 
-    A ``SmartSymbolItem`` is a ``GroupItem`` subclass whose members are
-    generated from its parameters: ungrouping it would scatter them and drop
-    the parametric identity, so a smart symbol is never offered (or accepted
-    as) an ungroup target. It still counts as an ordinary object for Group.
-
     Only TOP-LEVEL groups are dissolved: Qt can keep a just-grouped child group
     flagged selected inside its new parent, and ungrouping one gesture must not
     silently cascade into the nested levels the issue documents as a second
     deliberate step.
     """
-    from .smart_symbol_item import SmartSymbolItem
-
     return [
         item
         for item in items
-        if isinstance(item, GroupItem)
-        and item.parentItem() is None
-        and not isinstance(item, SmartSymbolItem)
+        if isinstance(item, GroupItem) and item.parentItem() is None
     ]
 
 
 def is_drillable_group(item: QGraphicsItem) -> bool:
-    """Whether a second click may reach *item*'s members (#771).
-
-    A ``SmartSymbolItem`` is a group by class, but its members are generated
-    from its parameters: drilling into them would let a user edit geometry the
-    symbol owns and would silently desynchronise its parametric identity.
-    """
-    from .smart_symbol_item import SmartSymbolItem
-
-    return isinstance(item, GroupItem) and not isinstance(item, SmartSymbolItem)
+    """Whether a second click may reach *item*'s members (#771)."""
+    return isinstance(item, GroupItem)
 
 
 def group_child_at(
@@ -155,7 +141,7 @@ def group_child_at(
     return None
 
 
-class GroupItem(GardenItemMixin, QGraphicsItemGroup):
+class GroupItem(RotationHandleMixin, GardenItemMixin, QGraphicsItemGroup):
     """A group of canvas items that move, copy, and rotate together.
 
     Items inside a group lose individual selectability/movability; the group
@@ -174,6 +160,7 @@ class GroupItem(GardenItemMixin, QGraphicsItemGroup):
             layer_id=layer_id,
         )
         QGraphicsItemGroup.__init__(self)
+        self.init_rotation_handle()
         #: The member that currently has drill-down edit focus (#771). Drawn as
         #: a solid inner outline, so a second click inside a selected group has
         #: a visible target. Never serialized.
@@ -192,6 +179,13 @@ class GroupItem(GardenItemMixin, QGraphicsItemGroup):
         members — and Qt tells THEM nothing (their own position did not change):
         the group announces it (``garden_item.handle_item_change``)."""
         self.handle_item_change(change, value)
+        if change == QGraphicsItem.GraphicsItemChange.ItemSelectedChange:
+            if value:
+                self.show_rotation_handle()
+            else:
+                self.hide_rotation_handle()
+        elif change == QGraphicsItem.GraphicsItemChange.ItemSceneChange and value is None:
+            self.remove_rotation_handle()
         if change in (
             QGraphicsItem.GraphicsItemChange.ItemPositionHasChanged,
             QGraphicsItem.GraphicsItemChange.ItemTransformHasChanged,
@@ -203,7 +197,36 @@ class GroupItem(GardenItemMixin, QGraphicsItemGroup):
             from ..roof_ridge_link import update_house_ridges_under
 
             update_house_ridges_under(self)
+            if self.isSelected():
+                self.update_rotation_handle()
         return super().itemChange(change, value)
+
+    # ------------------------------------------------------------------
+    # Rotation (#1022)
+    # ------------------------------------------------------------------
+
+    def _apply_rotation(self, angle: float) -> None:
+        """Turn the whole group about its own outline centre.
+
+        The pivot is the union of the members' outlines in the group's local
+        frame, never ``boundingRect().center()``: a screen-sized handle or a
+        label widens the paint bounds asymmetrically and would drag the
+        composed arrangement sideways. Children keep their local positions;
+        Qt's group transform is what rotates their scene positions together.
+        """
+        self._rotation_angle = angle
+        self.setTransformOriginPoint(selection_frame_rect(self).center())
+        self.setRotation(angle)
+        self.update_rotation_handle()
+        self._position_label()
+
+    def _on_rotation_end(self, initial_angle: float) -> None:
+        """Register the finished group rotation as one undo step (#1022)."""
+        from open_garden_planner.ui.canvas.geometry_apply import (
+            register_rotation_command,
+        )
+
+        register_rotation_command(self, initial_angle)
 
     # ------------------------------------------------------------------
     # Paint
@@ -254,6 +277,18 @@ class GroupItem(GardenItemMixin, QGraphicsItemGroup):
             return
         self._drill_down_child = child
         self.update()
+
+    def addToGroup(self, item: QGraphicsItem) -> None:  # type: ignore[override]
+        """Add a member and keep a visible rotation handle on the new outline."""
+        super().addToGroup(item)
+        if self.isSelected():
+            self.update_rotation_handle()
+
+    def removeFromGroup(self, item: QGraphicsItem) -> None:  # type: ignore[override]
+        """Remove a member and keep a visible rotation handle on the new outline."""
+        super().removeFromGroup(item)
+        if self.isSelected():
+            self.update_rotation_handle()
 
     def childrenBoundingRect(self) -> QRectF:
         """Return union of non-screen-space descendant bounds (#919).

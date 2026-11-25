@@ -1,6 +1,6 @@
-"""Safe arithmetic expression evaluator for smart-symbol geometry (US-C4).
+"""Safe arithmetic expression evaluator for user-authored geometry data.
 
-Smart-symbol definitions (data files, possibly user-authored) express geometry
+Definitions (data files, possibly user-authored) express geometry
 coordinates as small arithmetic formulas over their parameters, e.g.
 ``"W * i / rows"`` or ``"max(L - 2*margin, 0)"``. Those strings must be
 evaluated **without** Python's ``eval()`` — a dropped JSON file is untrusted
@@ -51,9 +51,8 @@ _UNARY_OPS: dict[type, Any] = {
 # keeps the recursion depth well under the interpreter limit, so the evaluator's
 # *recursion* surface is bounded to ``ValueError``. (Arithmetic/type errors —
 # divide-by-zero, overflow, a float ``round`` ndigits — still surface at eval
-# time and are wrapped one level up by ``SmartSymbolDefinition.generate``.) The
-# cap is far above any real coordinate formula; the bundled symbols use <20
-# nodes each.
+# time and are wrapped one level up by the caller.) The
+# cap is far above any real coordinate formula.
 _MAX_NODES = 250
 
 

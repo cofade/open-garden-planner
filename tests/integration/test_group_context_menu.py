@@ -38,7 +38,6 @@ from open_garden_planner.ui.canvas.items.journal_pin_item import JournalPinItem
 from open_garden_planner.ui.canvas.items.polygon_item import PolygonItem
 from open_garden_planner.ui.canvas.items.polyline_item import PolylineItem
 from open_garden_planner.ui.canvas.items.rectangle_item import RectangleItem
-from open_garden_planner.ui.canvas.items.smart_symbol_item import SmartSymbolItem
 from open_garden_planner.ui.canvas.items.text_item import TextItem
 
 GROUP = "Group"
@@ -112,11 +111,6 @@ def _group(layer_id=None) -> GroupItem:
     return group
 
 
-def _smart_symbol(layer_id=None) -> SmartSymbolItem:
-    return SmartSymbolItem("raised_bed_rows", 1, {"rows": 4}, layer_id=layer_id)
-
-
-
 
 
 #: Every item type whose context menu must offer the entries.
@@ -134,7 +128,6 @@ FACTORIES = [
     _construction_line,
     _construction_circle,
     _group,
-    _smart_symbol,
 ]
 
 # (factory, labels with one foreign object also selected, labels when alone)
@@ -152,7 +145,6 @@ ITEM_CASES = [
     pytest.param(_construction_line, {GROUP}, set(), id="ConstructionLineItem"),
     pytest.param(_construction_circle, {GROUP}, set(), id="ConstructionCircleItem"),
     pytest.param(_group, {GROUP, UNGROUP}, {UNGROUP}, id="GroupItem"),
-    pytest.param(_smart_symbol, {GROUP}, set(), id="SmartSymbolItem"),
 ]
 
 
@@ -280,43 +272,6 @@ def test_every_menu_routes_through_the_shared_seam(factory, with_peer, alone) ->
     )
 
 
-def test_smart_symbol_never_offers_its_own_ungroup(qtbot, monkeypatch) -> None:
-    view = _canvas(qtbot)
-    smart = _smart_symbol(layer_id=view.scene().active_layer.id)
-    view.scene().addItem(smart)
-    smart.setSelected(True)
-
-    assert UNGROUP not in _labels(_open_menu(smart, monkeypatch)), (
-        "a smart symbol may be grouped but never ungrouped: its members are "
-        "generated from its parameters"
-    )
-
-
-def test_smart_symbol_menu_still_ungroups_another_selected_group(
-    qtbot, monkeypatch
-) -> None:
-    """The smart symbol must not hide Ungroup for a different selected group.
-
-    ``Ctrl+Shift+G`` dissolves that group, so a stricter menu would break the
-    shared-seam promise (round-6 review P2).
-    """
-    view = _canvas(qtbot)
-    scene = view.scene()
-    smart = _smart_symbol(layer_id=scene.active_layer.id)
-    group = _group(layer_id=scene.active_layer.id)
-    child = next(iter(group.childItems()))
-    scene.addItem(smart)
-    scene.addItem(group)
-    smart.setSelected(True)
-    group.setSelected(True)
-
-    assert UNGROUP in _labels(_open_menu(smart, monkeypatch))
-    _open_menu(smart, monkeypatch, choose=UNGROUP)
-
-    assert group.scene() is None
-    assert child.parentItem() is None
-
-
 # ---------------------------------------------------------------------------
 # Dispatch — Group
 # ---------------------------------------------------------------------------
@@ -410,25 +365,6 @@ def test_a_pin_and_a_shape_multi_select_then_group(qtbot, modifier) -> None:
     group = pin.parentItem()
     assert group is not None
     assert rect.parentItem() is group
-
-
-def test_smart_symbol_can_be_grouped_with_another_object(qtbot, monkeypatch) -> None:
-    view = _canvas(qtbot)
-    scene = view.scene()
-    symbol = _smart_symbol(layer_id=scene.active_layer.id)
-    peer = _rectangle(layer_id=scene.active_layer.id)
-    scene.addItem(symbol)
-    scene.addItem(peer)
-    symbol.setSelected(True)
-    peer.setSelected(True)
-
-    _open_menu(symbol, monkeypatch, choose=GROUP)
-
-    group = symbol.parentItem()
-    assert isinstance(group, GroupItem)
-    assert peer.parentItem() is group
-    view.command_manager.undo()
-    assert symbol.parentItem() is None
 
 
 # ---------------------------------------------------------------------------
