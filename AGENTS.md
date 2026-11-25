@@ -252,11 +252,10 @@ Full how-to (step-by-step, `.ts` format, recompile command): see `docs/08-crossc
 
 - The issue tracker is the only work list. Read the issue and the roadmap's
   "Current work" section, then `git status` and `git log --oneline -20`.
-- Current release: **v1.42.1** (2026-11-24). No roadmap phase is active.
-  See the roadmap's Current work table and the open issues for the next change.
-- Draft PR open: Plant Grid follow-ups (#1001, #1003, #1005, #1017), waiting for the owner's
-  manual test. #1004 (native-pixel repaint oracle; fails at 5fbc8620, passes 4/4 on
-  0d2d8972) and #1020 (agent grouped-child scene/local frame) remain open. #1012-#1015 and
+- Current release: **v1.43.0** (2026-11-25). No roadmap phase is active.
+  See the roadmap's Current work table and the open issues.
+- Open follow-ups: #1004 (native-pixel repaint oracle), #1020 (agent grouped-child
+  scene/local frame) and #1022 (a selected group has no rotation handle). #1012-#1015 and
   #1018 are 3D follow-ups; #1006 is a flaky forge test.
 - Live decisions that constrain the next change:
   - 3D Model reuse (#531, ADR-069 addendum): a regrown part loads new buffers into the

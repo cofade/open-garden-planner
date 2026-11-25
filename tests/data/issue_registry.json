@@ -6,7 +6,7 @@
   },
   "1001": {
     "is_pr": false,
-    "state": "OPEN",
+    "state": "CLOSED",
     "title": "Moving a group out of a bed leaves stale parent_bed_id on its plants"
   },
   "1002": {
@@ -16,18 +16,13 @@
   },
   "1003": {
     "is_pr": false,
-    "state": "OPEN",
+    "state": "CLOSED",
     "title": "Plant Grid precision: typed size/spacing, snapping handle drags, own icon"
   },
   "1004": {
     "is_pr": false,
     "state": "OPEN",
     "title": "Shed-to-glasshouse partial repaint differs from a full repaint on the dev machine (local-only test failure)"
-  },
-  "1005": {
-    "is_pr": false,
-    "state": "OPEN",
-    "title": "Plant Grid tech debt: Qt-free grid geometry, overlay placement, document_generation and project-manager access"
   },
   "1006": {
     "is_pr": false,
@@ -51,7 +46,7 @@
   },
   "1017": {
     "is_pr": false,
-    "state": "OPEN",
+    "state": "CLOSED",
     "title": "Flaky: test_selected_shed_replacement_repaints_in_the_main_window fails under full-suite load"
   },
   "1018": {
@@ -63,6 +58,11 @@
     "is_pr": false,
     "state": "OPEN",
     "title": "Agent writes: a grouped object's scene move is applied in the group frame"
+  },
+  "1022": {
+    "is_pr": false,
+    "state": "OPEN",
+    "title": "Group rotation: a selected group has no rotation handle, so a group cannot be rotated as one unit in the UI"
   },
   "114": {
     "is_pr": true,
