@@ -824,7 +824,9 @@ class AgentHost:
             from PyQt6.QtCore import QCoreApplication
 
             move_cmd = AlignItemsCommand(
-                item_deltas, QCoreApplication.translate("Commands", "Move item")
+                item_deltas,
+                QCoreApplication.translate("Commands", "Move item"),
+                delta_frame="scene",
             )
         if link_cmd is not None:
             from open_garden_planner.core.commands import CompoundCommand

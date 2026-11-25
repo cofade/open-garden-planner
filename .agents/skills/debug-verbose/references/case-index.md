@@ -284,3 +284,6 @@
 | Case study: live year animation flashed v0 silhouettes and bare trunk stumps and froze for 4-5 s (#995, #996) | [Read](284-case-study-year-animation-v0-silhouette-flash-and-5s-freezes-995-996.md) |
 | Case study: a regrowth that destroyed Models, a release that leaked textures, and a season hop that paid for reads (#531, #598, #534) | [Read](285-case-study-regrowth-reuse-release-leak-and-season-hop-531-598-534.md) |
 | Case study: a held date key re-baked the lawns twice a second, and a re-baked tile cannot be reloaded (#531) | [Read](286-case-study-held-date-rebaked-the-lawns-and-a-tile-cannot-be-reloaded-531.md) |
+| Case study: a group moved out of a bed kept every plant's bed link (#1001) | [Read](287-case-study-group-move-left-bed-links-1001.md) |
+| Case study: a native-pixel test compared a partial frame before its paint landed (#1017) | [Read](288-case-study-native-pixel-settle-before-compare-1017.md) |
+| Case study: a scene delta applied through a rotated parent moved the wrong child (Plant Grid follow-up review) | [Read](289-case-study-scene-delta-through-a-rotated-parent-1021.md) |

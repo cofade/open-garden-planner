@@ -69,7 +69,7 @@ class MainToolbar(QToolBar):
         )
 
         self._add_tool_button(
-            ToolType.PLANT_GRID, "grid", self.tr("Plant Grid"),
+            ToolType.PLANT_GRID, "plant_grid", self.tr("Plant Grid"),
             self.tr("Place a grid of plants"), "",
         )
 

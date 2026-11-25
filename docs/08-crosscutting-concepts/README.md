@@ -1397,10 +1397,29 @@ active tool, in scene coordinates, above the object labels. A one-gesture previe
 that are about to exist keeps using scene items at `preview_z`.
 
 - **A paint only reads.** Never move a widget, change a scene item or change tool state in
-  the hook. A widget attached to the draft is placed from the tool's mouse handlers, from
-  `zoom_changed` and the scroll bars' `valueChanged`, and from a viewport-resize event
-  filter that defers one event-loop turn (the Resize event precedes the view's
-  re-centring). The view saves and restores the painter around the hook.
+  the hook. A widget attached to the draft is placed by `ui/canvas/viewport_overlay.ViewportOverlay`,
+  which subscribes once to `zoom_changed`, both scroll bars and a viewport-resize event
+  filter that defers one event-loop turn (the Resize event precedes the view's re-centring).
+  The tool supplies a viewport-space anchor rect; the overlay clamps it and flips above
+  when there is no room below. The view saves and restores the painter around the hook.
+- **Typed values use the units profile (#1003).** The control strip's size, column spacing,
+  width and height fields are `ui/widgets/unit_spin_box.LengthSpinBox`, so the displayed unit
+  follows Preferences (ADR-078/081) while the model stays in cm. The spacing field is
+  labelled **Column spacing** and shows the column pitch; typing it sets both axes
+  (`width = spacing × columns`, `height = spacing × rows`), and the row pitch is
+  `Height ÷ rows`. Typing an extent keeps the centre and updates the column-spacing
+  readout. The fields mirror the draft after a drag but never feed a drag back into
+  themselves (`QSignalBlocker`), and the field being typed in is never overwritten.
+- **Handles snap (#1003).** With the view's snap on, a move snaps its centre through
+  `CanvasView.snap_point`; a resize snaps the dragged HANDLE position (not the raw
+  cursor, whose grab offset would push the edge off the snap line) and rounds the
+  per-cell spacing to whole centimetres (`core/plant_grid.snap_cell_span`), keeping the
+  opposite edge fixed - so the edge can end up less than one cell from the snap line;
+  a rotation within 3° of a 15° step sticks to it (Shift always snaps); the
+  size handle rounds to whole centimetres. The local arithmetic - cell centres, resize
+  edges, snap spans and handle positions - is Qt-free in `core/plant_grid.py`.
+- **One icon, one action.** The Plant Grid has its own `plant_grid.svg`; the generic
+  `grid` glyph stays the grid-visibility / rows-and-columns meaning.
 - **View-only by construction.** Exports and the minimap use `scene.render()` and never
   see the draft (§8.9.16), so the tool needs no exclusion filter.
 - **Esc belongs to the view (#829).** The tool does not handle Esc itself. The view ends the
@@ -1413,8 +1432,10 @@ that are about to exist keeps using scene items at `preview_z`.
 
 Test pattern: move the attached widget, grab the viewport, and assert that the widget did
 not move; then zoom, scroll and resize, and assert that it did (`qtbot.waitUntil` for the
-deferred resize)
-(`tests/integration/test_plant_grid_tool.py`).
+deferred resize). `test_typed_values_keep_the_grid_exact`,
+`test_snapped_handles_leave_whole_centimetre_spacing` and
+`test_a_snapped_resize_puts_the_edge_on_the_grid_when_the_grab_is_off_centre` pin the typed
+fields and snapping (`tests/integration/test_plant_grid_tool.py`).
 
 ## 8.10 Integration Test Policy
 

@@ -10,6 +10,7 @@
 from __future__ import annotations
 
 import pytest
+from PyQt6.QtCore import QPointF
 from PyQt6.QtWidgets import QDoubleSpinBox
 
 from open_garden_planner.core.object_types import ObjectType
@@ -717,3 +718,61 @@ def test_species_command_has_independent_nested_snapshots(canvas):
     assert item.metadata["plant_species"]["raw_data"]["source"] == "old"
     cmd.execute()
     assert item.metadata["plant_species"]["raw_data"]["source"] == "new"
+
+
+def test_the_panel_constrained_move_keeps_a_group_child_local_delta(
+    canvas: CanvasView, props: PropertiesPanel, monkeypatch
+) -> None:
+    """The panel combines a scene delta with solver-local propagated deltas."""
+    from open_garden_planner.core.commands import CreateItemCommand, GroupCommand
+    from open_garden_planner.core.constraints import AnchorRef, ConstraintType
+    from open_garden_planner.core.measure_snapper import AnchorType
+    from open_garden_planner.ui.canvas.items.group_item import GroupItem
+
+    layer = canvas.scene().active_layer.id
+    bed = RectangleItem(100.0, 100.0, 300.0, 200.0,
+                        object_type=ObjectType.RAISED_BED, layer_id=layer)
+    canvas.command_manager.execute(CreateItemCommand(canvas.scene(), bed, "bed"))
+    plant = CircleItem(200.0, 200.0, 15.0,
+                       object_type=ObjectType.PERENNIAL, layer_id=layer)
+    canvas.command_manager.execute(CreateItemCommand(canvas.scene(), plant, "plant"))
+    partner = CircleItem(900.0, 900.0, 15.0,
+                         object_type=ObjectType.PERENNIAL, layer_id=layer)
+    canvas.command_manager.execute(CreateItemCommand(canvas.scene(), partner, "plant"))
+    canvas.command_manager.execute(GroupCommand(canvas.scene(), [bed, plant]))
+    group = next(item for item in canvas.scene().items()
+                 if isinstance(item, GroupItem))
+    canvas.scene().constraint_graph.add_constraint(
+        AnchorRef(group.item_id, AnchorType.CENTER),
+        AnchorRef(partner.item_id, AnchorType.CENTER),
+        100.0,
+        constraint_type=ConstraintType.DISTANCE,
+    )
+    monkeypatch.setattr(
+        canvas, "_compute_constraint_propagation",
+        lambda _items, _delta: [(plant, QPointF(20.0, 0.0))],
+    )
+    before_group = QPointF(group.scenePos())
+    before_plant = QPointF(plant.scenePos())
+    old_top_left = group.mapToScene(group.boundingRect().topLeft())
+    x_spin, y_spin = QDoubleSpinBox(), QDoubleSpinBox()
+    for spin in (x_spin, y_spin):
+        spin.setRange(-10000.0, 10000.0)
+    x_spin.setValue(old_top_left.x() + 50.0)
+    y_spin.setValue(old_top_left.y())
+
+    props._on_position_changed(group, x_spin, y_spin)
+
+    assert (group.scenePos().x(), group.scenePos().y()) == pytest.approx(
+        (before_group.x() + 50.0, before_group.y())
+    )
+    assert (plant.scenePos().x(), plant.scenePos().y()) == pytest.approx(
+        (before_plant.x() + 70.0, before_plant.y())
+    )
+    canvas.command_manager.undo()
+    assert (group.scenePos().x(), group.scenePos().y()) == pytest.approx(
+        (before_group.x(), before_group.y())
+    )
+    assert (plant.scenePos().x(), plant.scenePos().y()) == pytest.approx(
+        (before_plant.x(), before_plant.y())
+    )

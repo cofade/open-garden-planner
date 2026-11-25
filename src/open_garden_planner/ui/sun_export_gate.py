@@ -88,7 +88,7 @@ class SunExportGate(QObject):
             self.toolbar.stop_animation()
         self._leases += 1
         try:
-            return _ExportRequest(self.live.ensure_current(), getattr(self.live.scene, "_document_generation", 0),
+            return _ExportRequest(self.live.ensure_current(), self.live.scene.document_generation,
                                   self.live.scene.plan_revision, self.live.clock.wall)
         except Exception:
             self._end()
@@ -100,7 +100,7 @@ class SunExportGate(QObject):
             self.toolbar.set_animation_active(True)
 
     def _render(self, request: _ExportRequest, action: Callable[[], T]) -> T:
-        if (request.generation != getattr(self.live.scene, "_document_generation", 0)
+        if (request.generation != self.live.scene.document_generation
                 or request.revision != self.live.scene.plan_revision
                 or request.wall != self.live.clock.wall):
             raise RuntimeError(self.tr("The garden changed during export. Please retry."))

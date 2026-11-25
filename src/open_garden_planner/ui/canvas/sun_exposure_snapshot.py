@@ -53,7 +53,7 @@ def collect_exposure_snapshot(
                                      str(parent.item_id) if parent is not None else None,
                                      elevation_cm=base))
     return ExposureSnapshot(
-        getattr(scene, "_document_generation", 0), day,
+        scene.document_generation, day,
         (location or {}).get("latitude"), (location or {}).get("longitude"), bounds,
         tuple(sorted(collect_identified_casters(scene, day), key=lambda caster: caster.item_id)),
         tuple(sorted(receivers, key=lambda receiver: receiver.item_id)),
