@@ -14529,3 +14529,7 @@ whole centimetres. Tests: `tests/unit/test_plant_grid.py` and
 The toolbar placement is unchanged: the button stays in the main toolbar. The
 owner call recorded in #1003 (main toolbar vs the Plants category toolbar) is
 still open; this addendum records the current state, not a decision.
+
+**Status:** Shipped in
+[v1.43.0](https://github.com/cofade/open-garden-planner/releases/tag/v1.43.0)
+(PR #1021). Owner manual testing passed on 2026-11-25.
