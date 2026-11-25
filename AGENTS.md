@@ -252,13 +252,12 @@ Full how-to (step-by-step, `.ts` format, recompile command): see `docs/08-crossc
 
 - The issue tracker is the only work list. Read the issue and the roadmap's
   "Current work" section, then `git status` and `git log --oneline -20`.
-- Current release: **v1.43.1** (2026-11-25). No roadmap phase is active.
+- Current release: **v1.43.2** (2026-11-25). No roadmap phase is active.
   See the roadmap's Current work table and the open issues.
 - Open follow-ups: #1022 (no group rotation handle), #1013 (regrowth memory, which
   #804 needs), #845 and #855 (first-zoom sprite rasterization; the weighted path for
   hundreds of garden lights at a grazing sun). #1012's two shadow defects remain
-  (low-sun wobble, December speckle). #830, #852, #1007, #1008 and #1026 are delivered
-  in the 2D sun-study package.
+  (low-sun wobble, December speckle).
 - Live decisions that constrain the next change:
   - 3D Model reuse (#531, ADR-069 addendum): a regrown part loads new buffers into the
     geometry object its live Model already has (`BufferGeometry.reload`); never a new
