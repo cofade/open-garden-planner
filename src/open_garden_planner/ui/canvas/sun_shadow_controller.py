@@ -46,7 +46,7 @@ from collections.abc import Callable, Sequence
 from dataclasses import replace
 from datetime import date, datetime
 from functools import lru_cache
-from typing import Any
+from typing import Any, NamedTuple
 
 from PyQt6.QtCore import QObject, QPointF, QRect, QRectF, Qt, QTimer, pyqtSignal
 from PyQt6.QtGui import (
@@ -72,7 +72,7 @@ from open_garden_planner.core.object_height import (
     effective_height_cm,
     is_open_frame,
 )
-from open_garden_planner.core.object_types import PathFenceStyle
+from open_garden_planner.core.object_types import PathFenceStyle, is_plant_type
 from open_garden_planner.core.roof_style import (
     BUILDING_KINDS,
     is_ridge_bearing_kind,
@@ -91,8 +91,12 @@ from open_garden_planner.core.scene3d import (
 )
 from open_garden_planner.core.scene3d.builders.buildings import pitched_roof_triangles
 from open_garden_planner.core.scene3d.builders.fences import POROUS_FENCE_STYLES
+from open_garden_planner.core.scene3d.builders.furniture import parasol_canopy_bounds
 from open_garden_planner.core.scene3d.builders.lines import DEFAULT_SOLID
-from open_garden_planner.core.scene3d.builders.open_frames import open_frame_triangles
+from open_garden_planner.core.scene3d.builders.open_frames import (
+    glasshouse_frame_triangles,
+    open_frame_triangles,
+)
 from open_garden_planner.core.scene3d.record import (
     PARAM_ROOF_OVERHANG,
     PARAM_ROOF_PITCH,
@@ -682,6 +686,22 @@ def _cached_roof_triangles(
     return pitched_roof_triangles(kind, shape, local_ring, height, params=params)
 
 
+def _local_ridge(
+    ridge_item: Any, frame: Any
+) -> tuple[tuple[float, float], tuple[float, float]] | None:
+    """The plan's linked ridge in the item's local frame, or None for no usable
+    ridge (the same test the roof-triangle projection makes)."""
+    if not isinstance(ridge_item, PolylineItem) or len(ridge_item.points) < 2:
+        return None
+    p0 = ridge_item.mapToScene(ridge_item.points[0])
+    p1 = ridge_item.mapToScene(ridge_item.points[-1])
+    e0 = frame.local_from_scene(p0.x(), p0.y())
+    e1 = frame.local_from_scene(p1.x(), p1.y())
+    if not math.isfinite(e0[0] + e0[1] + e1[0] + e1[1]):
+        return None
+    return e0, e1
+
+
 def _building_roof_triangles(
     item: Any,
     kind: str,
@@ -722,12 +742,7 @@ def _building_roof_triangles(
     overhang = roof_overhang_cm(metadata)
     ridge: tuple[tuple[float, float], tuple[float, float]] | None = None
     if is_ridge_bearing_kind(kind) and isinstance(ridge_item, PolylineItem) and len(ridge_item.points) >= 2:
-        p0 = ridge_item.mapToScene(ridge_item.points[0])
-        p1 = ridge_item.mapToScene(ridge_item.points[-1])
-        e0 = frame.local_from_scene(p0.x(), p0.y())
-        e1 = frame.local_from_scene(p1.x(), p1.y())
-        if math.isfinite(e0[0] + e0[1] + e1[0] + e1[1]):
-            ridge = (e0, e1)
+        ridge = _local_ridge(ridge_item, frame)
     try:
         local_tris = _cached_roof_triangles(
             kind,
@@ -773,23 +788,42 @@ def _cached_open_frame(
     return None if triangles is None else OpenFrame(triangles, local_ring, rotation_deg)
 
 
-def _open_frame(
-    item: Any,
+@lru_cache(maxsize=64)
+def _cached_glasshouse_frame(
     kind: str,
+    shape: str,
+    local_ring: tuple[tuple[float, float], ...],
+    radius_cm: float | None,
     height: float,
-    at_date: date | None,
+    rotation_deg: float,
+    ridge: tuple[tuple[float, float], tuple[float, float]] | None = None,
 ) -> OpenFrame | None:
-    """The solid members of an open-frame caster (#698), or None for a caster that is
-    cast as the solid prism: a kind that is no open frame
-    (``core.object_height.OPEN_FRAME_TYPE_NAMES``), or an item whose 3D builder has
-    no frame for its footprint and builds the plain block — solid in 3D, solid here.
-
-    The members stay in the item's own coordinates, with its turn beside them: the
-    coordinates the 3D record gets (``ui/view3d/snapshot._record_of``) — the item's
-    scene transform split about its outline's anchor, a circle not turned.
-    """
-    if not is_open_frame(kind):
+    """A greenhouse's frame alone for one geometry, turn and live ridge (#830),
+    cached like an open frame. An empty triangle set is a real answer — the glass
+    is transparent and this builder has no shadow-casting frame — and stays an
+    ``OpenFrame`` so the caster weighs it as 1.0 instead of falling back to the
+    solid prism. ``ridge`` must be in the local frame, as the plan's ridge is."""
+    triangles = glasshouse_frame_triangles(
+        kind, shape, local_ring, height, radius_cm=radius_cm, ridge=ridge
+    )
+    if triangles is None:
         return None
+    return OpenFrame(triangles, local_ring, rotation_deg)
+
+
+class _FrameRing(NamedTuple):
+    """An item's outline as the frame builders read it: shape, local ring, turn."""
+
+    shape: str
+    local_ring: tuple[tuple[float, float], ...]
+    radius_cm: float | None
+    rotation_deg: float
+    frame: Any
+
+
+def _frame_ring(item: Any, at_date: date | None) -> _FrameRing | None:
+    """The item's footprint in its own frame, or None when no frame can be built
+    from it (a polyline, a degenerate ring, a self-crossing non-buildable region)."""
     outline = item_outline(item, at_date)
     if outline is None or outline.shape == OUTLINE_POLYLINE:
         return None
@@ -815,14 +849,104 @@ def _open_frame(
             return None
         if footprints_can_self_cross(item) and not is_buildable_region(local_ring):
             return None
+    return _FrameRing(outline.shape, local_ring, radius, frame.rotation_deg, frame)
+
+
+def _open_frame(
+    item: Any,
+    kind: str,
+    height: float,
+    at_date: date | None,
+) -> OpenFrame | None:
+    """The solid members of an open-frame caster (#698), or None for a caster that is
+    cast as the solid prism: a kind that is no open frame
+    (``core.object_height.OPEN_FRAME_TYPE_NAMES``), or an item whose 3D builder has
+    no frame for its footprint and builds the plain block — solid in 3D, solid here.
+
+    The members stay in the item's own coordinates, with its turn beside them: the
+    coordinates the 3D record gets (``ui/view3d/snapshot._record_of``) — the item's
+    scene transform split about its outline's anchor, a circle not turned.
+    """
+    if not is_open_frame(kind):
+        return None
+    ring = _frame_ring(item, at_date)
+    if ring is None:
+        return None
     try:
         return _cached_open_frame(
-            kind, outline.shape,
-            tuple((round(x, 6), round(y, 6)) for x, y in local_ring),
-            radius, round(float(height), 6), frame.rotation_deg,
+            kind, ring.shape,
+            tuple((round(x, 6), round(y, 6)) for x, y in ring.local_ring),
+            ring.radius_cm, round(float(height), 6), ring.rotation_deg,
         )
     except Exception:  # a hostile outline must not take the overlay down (the roofs' rule)
         return None
+
+
+def _glasshouse_frame(
+    item: Any,
+    kind: str,
+    height: float,
+    at_date: date | None,
+    ridge_item: Any = None,
+) -> OpenFrame | None:
+    """A greenhouse's frame-only caster (#830): glass counts as sun, so only its
+    aluminium members shade, and they shade exactly as the 3D builder's frame does
+    (``core.scene3d.builders.open_frames.glasshouse_frame_triangles``). None means
+    the builder casts this footprint as its plain block, so 2D casts it solid.
+
+    ``ridge_item`` is the plan's live ridge: when it is off the box's natural axis
+    the 3D builder draws a glass gable roof with no shadow-casting frame, and the
+    caster is transparent in 2D too (#830 review)."""
+    if kind != "GREENHOUSE":
+        return None
+    ring = _frame_ring(item, at_date)
+    if ring is None:
+        return None
+    ridge = _local_ridge(ridge_item, ring.frame)
+    try:
+        return _cached_glasshouse_frame(
+            kind, ring.shape,
+            tuple((round(x, 6), round(y, 6)) for x, y in ring.local_ring),
+            ring.radius_cm, round(float(height), 6), ring.rotation_deg,
+            None if ridge is None else (
+                (round(ridge[0][0], 6), round(ridge[0][1], 6)),
+                (round(ridge[1][0], 6), round(ridge[1][1], 6)),
+            ),
+        )
+    except Exception:  # a hostile outline must not take the overlay down
+        return None
+
+
+def _raised_parasol(
+    item: Any, height: float, base_cm: float, at_date: date | None
+) -> tuple[float, float]:
+    """A parasol's canopy as the raised slab the owner decided on (#830).
+
+    The prism of before shaded the ground under the canopy all day; the real
+    canopy is a solid slab at its own height, so its shade lies away from the pole
+    at a low sun. The slab is the canopy's rim band — its lower edge to the rim —
+    the geometry the owner's IoU gate was measured with (0.89 / 0.93 / 0.96
+    against the 3D model; a slab up to the item's top covers the cone's air and
+    falls to 0.53 / 0.70 / 0.84). The thin pole, the cone above the rim and the
+    finial are left out, as the decision allows. A footprint the 3D builder does
+    not model as the canopy (not a circle) keeps the prism, which is what 3D
+    draws for it too.
+    """
+    outline = item_outline(item, at_date)
+    if outline is None or outline.shape != OUTLINE_CIRCLE or outline.radius_cm is None:
+        return base_cm, height
+    if not math.isfinite(outline.radius_cm) or outline.radius_cm <= 0.0:
+        return base_cm, height
+    lower, rim, _apex = parasol_canopy_bounds(quantize_cm(outline.radius_cm), height)
+    thickness = rim - lower
+    if not (
+        math.isfinite(lower)
+        and math.isfinite(thickness)
+        and lower > 0.0
+        and thickness > 0.0
+    ):
+        return base_cm, height
+    return base_cm + lower, thickness
 
 
 _last_identified: tuple[int, date | None, list[IdentifiedCaster]] | None = None
@@ -887,16 +1011,20 @@ def collect_identified_casters(
             if len(footprint) >= 3)
         if footprints:
             kind = str(getattr(object_type, "name", object_type))
+            base_cm = item_base_cm(item, lookup, at_date)
+            if kind == "PARASOL":
+                # #830: the canopy is a raised slab, not a prism from the ground
+                base_cm, height = _raised_parasol(item, height, base_cm, at_date)
             fence_style, fence_points, fence_width_cm = _fence_porosity_info(
                 item, kind, meta_dict, at_date
             )
             roof_tris: tuple[Triangle3D, ...] = ()
-            if kind in BUILDING_KINDS and len(footprints) == 1:
-                ridge_id = meta_dict.get("ridge_item_id") if is_ridge_bearing_kind(kind) else None
-                ridge_item = lookup.get(ridge_id) if ridge_id else None
-                # A copied/stale link must not let this house use another's
-                # ridge; the ownership rule is shared with the 2D lookup and
-                # the 3D snapshot (is_owned_ridge).
+            # The plan's live ridge (one ownership rule for the roof projection,
+            # the 3D view and a glasshouse's frame-only caster, #830 review).
+            ridge_item = None
+            ridge_id = meta_dict.get("ridge_item_id") if is_ridge_bearing_kind(kind) else None
+            if ridge_id:
+                ridge_item = lookup.get(ridge_id)
                 if ridge_item is not None:
                     from open_garden_planner.ui.canvas.roof_ridge_link import (
                         is_owned_ridge,
@@ -904,19 +1032,26 @@ def collect_identified_casters(
 
                     if not is_owned_ridge(item, ridge_item):
                         ridge_item = None
+            if kind in BUILDING_KINDS and len(footprints) == 1:
                 roof_tris = _building_roof_triangles(
                     item, kind, meta_dict, height, ridge_item, at_date
                 )
             casters.append(IdentifiedCaster(
                 str(getattr(item, "item_id", id(item))), footprints, height,
-                item_base_cm(item, lookup, at_date),
+                base_cm,
                 holds_plants=holds_plants(item, at_date),
                 roof_triangles=roof_tris,
                 fence_style=fence_style,
                 fence_points=fence_points,
                 fence_width_cm=fence_width_cm,
-                # an open frame's members weigh its prism (#698); None: a solid
-                frame=_open_frame(item, kind, height, at_date),
+                # an open frame's members weigh its prism (#698), a greenhouse's
+                # frame alone is its caster (#830); None: a solid
+                frame=(
+                    _glasshouse_frame(item, kind, height, at_date, ridge_item)
+                    if kind == "GREENHOUSE"
+                    else _open_frame(item, kind, height, at_date)
+                ),
+                is_plant=is_plant_type(object_type),
             ))
     _last_identified = (id(scene), at_date, casters)
     return casters

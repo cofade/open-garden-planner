@@ -306,3 +306,23 @@ now maps every residual into the item's parent frame, with or without a listed
 ancestor. Note what the agent still does NOT do: a lone group member is refused by
 `_resolve_agent_item` (the curated read tools never expose it), and that refusal is
 pinned — the fix is the command's frame rule, not a licence to address members.
+
+### PF-CAN-71
+
+- **Rule:** A per-region raster pass must not let the grouping of geometry into paths decide a cell. Take PRESENCE from the union — the one path a solid sweep paints — and settle a seam cell (its centre on a region boundary) by the even-odd point-in-polygon rule at its centre; the darkest region containing it owns it. A cell that is in no region is sunny. Painting regions separately lets two paths both claim a cell (the darker transmittance wins, one sample darker) or neither (a sunny cell inside a shade).
+- **Pinned by:** `tests/unit/test_weighted_seam.py`; `tests/integration/test_open_frame_shade.py::test_every_sample_of_a_two_region_plan_keeps_the_unions_presence`
+- **Source:** #1007, found in #830's report
+- **Status:** standing
+- **Legacy:** none (new entry)
+
+QPainter classifies a pixel whose centre lies exactly on a polygon edge by the path it painted; two disjoint regions painted on their own can both include that cell or both exclude it. The seam cells are found from the region ids (a cell whose id differs from any neighbour's), not from a second full geometric pass, so only a handful of cells per sample are resolved by `points_in_polygons`. A hole or sliver thinner than one cell remains the painter's answer — it is below the raster's resolution, not a seam.
+
+### PF-CAN-72
+
+- **Rule:** A fixed-pixel label's place on the plan is a BOX, not a point. Placement must test the label's whole place-box against an already-placed label's box and against what stands on the plan; a minimum centre distance alone is not enough, because a plan wide enough makes the place-box (chosen for the nominal 1100 px fit) wider than that distance.
+- **Pinned by:** `tests/integration/test_sun_map_labels.py::test_on_a_large_plan_no_hour_label_touches_another_or_an_object`
+- **Source:** #1008, split out of #830
+- **Status:** standing
+- **Legacy:** none (new entry)
+
+On a 60 m plan the nominal place-box of an hour label is ~3.9 m wide, while the old rule only asked that label centres be 160 cm apart: neighbouring contour levels stacked at a solid's edge. The label pass could hide some at one zoom, but the placement itself was wrong, and a zoomed-out view painted the pile.

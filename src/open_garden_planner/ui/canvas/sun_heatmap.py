@@ -258,6 +258,69 @@ class SunMapLabelItem(PlanLabelItem):
         self.setAcceptedMouseButtons(Qt.MouseButton.NoButton)
 
 
+def _paint_contour_lines(
+    item: QGraphicsItem,
+    painter: QPainter,
+    lines: list[tuple[QPainterPath, QPen]],
+    widget: QWidget | None,
+) -> None:
+    """Stroke contour paths on ``item``: note clip (#934) and export DPI (#851).
+
+    The one paint body of a single contour line and of the layer that holds every
+    line of a map (#852). ``widget is None`` means a non-interactive paint (an
+    export or a print), where a cosmetic pen would shrink to a hairline; the pen
+    is then sized in scene units to the export DPI ratio.
+    """
+    covers = getattr(item.scene(), "annotation_covers", None)
+    painter.save()
+    try:
+        if covers is not None:
+            # #852: the clip is only built when a note's room can reach this
+            # item. Mapping the plan-wide note path and subtracting it for every
+            # line on every repaint was most of the map's repaint cost.
+            notes = covers()
+            if not notes.isEmpty() and notes.boundingRect().intersects(
+                item.sceneBoundingRect()
+            ):
+                clip_path = QPainterPath()
+                clip_path.addRect(item.boundingRect())
+                clip_path = clip_path.subtracted(item.mapFromScene(notes))
+                painter.setClipPath(clip_path, Qt.ClipOperation.IntersectClip)
+
+        dpi_scale = 1.0
+        if widget is None:
+            from open_garden_planner.services.svg_export import logical_dpi
+
+            base_dpi = max(SunContourItem._BASE_DPI, logical_dpi())
+            scene = item.scene()
+            export_dpi = getattr(scene, "_export_dpi", None) if scene is not None else None
+            if isinstance(export_dpi, (int, float)) and export_dpi > base_dpi:
+                dpi_scale = float(export_dpi) / base_dpi
+            else:
+                device = painter.device()
+                if device is not None and device.logicalDpiX() > base_dpi:
+                    dpi_scale = float(device.logicalDpiX()) / base_dpi
+        world_scale = 1.0
+        if dpi_scale > 1.0:
+            world = painter.worldTransform()
+            world_scale = max(
+                math.hypot(world.m11(), world.m12()),
+                math.hypot(world.m21(), world.m22()),
+            )
+            if not (math.isfinite(world_scale) and world_scale > 0.0):
+                dpi_scale = 1.0
+        painter.setBrush(Qt.BrushStyle.NoBrush)
+        for path, pen in lines:
+            if dpi_scale > 1.0:
+                pen = QPen(pen)
+                pen.setCosmetic(False)
+                pen.setWidthF((pen.widthF() * dpi_scale) / world_scale)
+            painter.setPen(pen)
+            painter.drawPath(path)
+    finally:
+        painter.restore()
+
+
 class SunContourItem(QGraphicsPathItem):
     """Contour line that clips around authored notes (#934) and scales to export DPI (#851).
 
@@ -276,7 +339,6 @@ class SunContourItem(QGraphicsPathItem):
         base_width_px: float = 1.6,
     ) -> None:
         super().__init__(path)
-        self._base_width_px = base_width_px
         pen = QPen(_CONTOUR_COLOR)
         pen.setCosmetic(True)  # crisp, ~constant width at any zoom
         pen.setWidthF(base_width_px)
@@ -288,50 +350,49 @@ class SunContourItem(QGraphicsPathItem):
     def paint(
         self,
         painter: QPainter | None,
-        option: QStyleOptionGraphicsItem | None,
+        option: QStyleOptionGraphicsItem | None,  # noqa: ARG002 - Qt's signature
         widget: QWidget | None = None,
     ) -> None:
-        if painter is None:
-            return
-        covers = getattr(self.scene(), "annotation_covers", None)
-        painter.save()
-        try:
-            if covers is not None:
-                clip_path = QPainterPath()
-                clip_path.addRect(self.boundingRect())
-                clip_path = clip_path.subtracted(self.mapFromScene(covers()))
-                painter.setClipPath(clip_path, Qt.ClipOperation.IntersectClip)
+        if painter is not None:
+            _paint_contour_lines(self, painter, [(self.path(), self.pen())], widget)
 
-            dpi_scale = 1.0
-            if widget is None:
-                from open_garden_planner.services.svg_export import logical_dpi
 
-                base_dpi = max(self._BASE_DPI, logical_dpi())
-                scene = self.scene()
-                export_dpi = getattr(scene, "_export_dpi", None) if scene is not None else None
-                if isinstance(export_dpi, (int, float)) and export_dpi > base_dpi:
-                    dpi_scale = float(export_dpi) / base_dpi
-                else:
-                    device = painter.device()
-                    if device is not None and device.logicalDpiX() > base_dpi:
-                        dpi_scale = float(device.logicalDpiX()) / base_dpi
-            if dpi_scale > 1.0:
-                world = painter.worldTransform()
-                world_scale = max(
-                    math.hypot(world.m11(), world.m12()),
-                    math.hypot(world.m21(), world.m22()),
-                )
-                if math.isfinite(world_scale) and world_scale > 0.0:
-                    pen = QPen(self.pen())
-                    pen.setCosmetic(False)
-                    pen.setWidthF((self._base_width_px * dpi_scale) / world_scale)
-                    painter.setPen(pen)
-                    painter.setBrush(Qt.BrushStyle.NoBrush)
-                    painter.drawPath(self.path())
-                    return
-            super().paint(painter, option, widget)
-        finally:
-            painter.restore()
+class SunContourLayerItem(QGraphicsPathItem):
+    """Every hour line of one map in ONE item, so one device cache serves them (#852).
+
+    Ten to twenty separate path items each cached the whole plan at the view's
+    resolution and were blitted one by one on every repaint; one layer is one
+    pixmap and one blit. The paths and their two pen widths are the same ones
+    ``SunContourItem`` draws; its paint body is shared through
+    ``_paint_contour_lines``.
+    """
+
+    def __init__(self) -> None:
+        super().__init__()
+        self._lines: list[tuple[QPainterPath, QPen]] = []
+        self._bounds = QRectF()
+
+    def add_line(self, path: QPainterPath, width_px: float) -> None:
+        """Add one contour; call before the layer enters a scene."""
+        pen = QPen(_CONTOUR_COLOR)
+        pen.setCosmetic(True)  # crisp, ~constant width at any zoom
+        pen.setWidthF(width_px)
+        self._lines.append((path, pen))
+        self._bounds = self._bounds.united(path.boundingRect())
+
+    def boundingRect(self) -> QRectF:
+        if self._bounds.isEmpty():
+            return QRectF()
+        return self._bounds.adjusted(-2.0, -2.0, 2.0, 2.0)
+
+    def paint(
+        self,
+        painter: QPainter | None,
+        option: QStyleOptionGraphicsItem | None,  # noqa: ARG002 - Qt's signature
+        widget: QWidget | None = None,
+    ) -> None:
+        if painter is not None and self._lines:
+            _paint_contour_lines(self, painter, self._lines, widget)
 
 
 class StandingMask:
@@ -491,6 +552,7 @@ class SunHeatmapController(QObject):
         self._north_provider = north_provider or (lambda: 0.0)
         self.include_sample_masks: bool = False
         self._overlay: SunHeatmapOverlayItem | None = None
+        self._contour_layer: SunContourLayerItem | None = None
         self._worker: HeatmapWorker | None = None
         self._grid: HeatmapGrid | None = None
         self._computed_day: date | None = None
@@ -517,6 +579,11 @@ class SunHeatmapController(QObject):
         self._shown: SunHoursMap | None = None
         #: The key of the shown map in a picture of the plan (``sun_legend``).
         self._legend_item: SunMapLegendItem | None = None
+        #: The cached contour layer and the state its note clip was built from:
+        #: a change in the notes (not any other edit) invalidates the cache (#852).
+        self._contour_note_path = QPainterPath()
+        self._contour_paint_rev: int | None = None
+        self._scene.changed.connect(self._on_contour_scene_changed)
 
     # ── public API ─────────────────────────────────────────────
 
@@ -822,6 +889,9 @@ class SunHeatmapController(QObject):
         )
 
     def _clear_contours(self) -> None:
+        self._contour_layer = None
+        self._contour_note_path = QPainterPath()
+        self._contour_paint_rev = None
         for item in self._contour_items:
             try:
                 scene = item.scene()
@@ -849,51 +919,100 @@ class SunHeatmapController(QObject):
         # the blur can flatten a sharp 1-cell peak below its own top hour.
         field = smooth_field(minutes, passes=2)
         max_minutes = float(field.max()) if field.size else 0.0
-        placed_labels: list[tuple[float, float]] = []
+        placed_labels: list[QRectF] = []
         standing = StandingMask(self._scene, grid)
+        # #852: every hour line of the map lives in one device-cached layer. The
+        # line set is static between two map computations; one cache turns a
+        # repaint into one blit, and Qt rebuilds it on a zoom or an export scale.
+        layer = SunContourLayerItem()
+        layer.setZValue(_CONTOUR_Z)
+        layer.setAcceptedMouseButtons(Qt.MouseButton.NoButton)
         for threshold in hour_levels(max_minutes):
             segments = iso_segments(field, threshold)
             if not segments:
                 continue
             hour = threshold // 60
             even = hour_is_labelled(hour)
+            # The marching-squares segments are joined into polylines for the
+            # labels (one walk, not two), but the pen's path stays in segments: a
+            # cosmetic stroke of one long, self-overlapping component costs
+            # several times a set of two-point subpaths (measured 34 vs 9 ms).
+            polylines = stitch_segments(segments)
             path = QPainterPath()
             for start, end in segments:
                 sx, sy = self._grid_to_scene(start, grid)
                 ex, ey = self._grid_to_scene(end, grid)
                 path.moveTo(sx, sy)
                 path.lineTo(ex, ey)
-            line = SunContourItem(
-                path,
-                1.6 if even else 0.7,
-            )
-            line.setZValue(_CONTOUR_Z)
-            line.setAcceptedMouseButtons(Qt.MouseButton.NoButton)
-            self._scene.addItem(line)
-            self._contour_items.append(line)
+            layer.add_line(path, 1.6 if even else 0.7)
             if even:
-                self._label_contour(hour, segments, grid, placed_labels, standing)
+                self._label_contour(hour, polylines, grid, placed_labels, standing)
+        # #852: always cached, notes or not — most bundled examples carry an
+        # authored note, and leaving those uncached skipped the gain. The clip is
+        # part of the cached picture; a note added, moved or deleted after the map
+        # invalidates the cache (`_on_contour_scene_changed`).
+        notes = getattr(self._scene, "annotation_covers", None)
+        self._contour_note_path = notes() if notes is not None else QPainterPath()
+        layer.setCacheMode(QGraphicsItem.CacheMode.DeviceCoordinateCache)
+        self._scene.addItem(layer)
+        self._contour_items.append(layer)
+        self._contour_layer = layer
+        # Seeded AFTER the items are added: a label or layer that enters the scene
+        # moves the paint revision, and the first echo must not invalidate the cache.
+        self._contour_paint_rev = getattr(self._scene, "paint_revision", None)
+
+    def _on_contour_scene_changed(self) -> None:
+        """Invalidate the cached contour layer when the note clip has moved.
+
+        A plan without notes changes on every drag; its contours do not, so its
+        cache stays. ``QGraphicsItem.update()`` itself makes the scene emit
+        ``changed``, so the paint revision is the echo guard: an echo at the same
+        revision returns before any work. The note path is compared, not merely
+        its emptiness, so an unrelated edit on a plan with a note keeps the cache
+        and a moved note re-caches.
+        """
+        layer = self._contour_layer
+        if layer is None:
+            return
+        paint_rev = getattr(self._scene, "paint_revision", None)
+        if paint_rev is not None and paint_rev == self._contour_paint_rev:
+            return
+        self._contour_paint_rev = paint_rev
+        notes = getattr(self._scene, "annotation_covers", None)
+        current = notes() if notes is not None else QPainterPath()
+        if current == self._contour_note_path:
+            return
+        self._contour_note_path = current
+        try:
+            if layer.scene() is not None:
+                layer.update()
+        except RuntimeError:   # the C++ item is already gone
+            self._contour_layer = None
 
     def _label_contour(
         self,
         hour: int,
-        segments: list[tuple[tuple[float, float], tuple[float, float]]],
+        polylines: list[list[tuple[float, float]]],
         grid: HeatmapGrid,
-        placed: list[tuple[float, float]],
+        placed: list[QRectF],
         standing: StandingMask,
     ) -> None:
         """Distribute '{n} h' labels along each contour COMPONENT, where the
         contour is in the open (``standing``).
 
-        Labels are spaced by arc length and skip any spot within
+        Labels are spaced by arc length and skip any spot where their box would
+        touch an already-placed label's box, or whose centre is within
         ``_LABEL_MIN_DIST_CM`` of an already-placed label — so labels stay
         separated both ALONG a line and ACROSS nested/parallel rings, with no
         exceptions (an isolated loop still gets one, since its candidates aren't
-        near any other label). ``placed`` carries scene points across all levels
-        so nothing collides. No forced per-component label: a component whose
-        candidates are all crowded out already has a label right beside it, and
-        forcing one there was exactly what packed '14 h 14 h 14 h' onto a jagged
-        edge (manual-test finding).
+        near any other label). The box, not only the centre distance, decides: a
+        plan wide enough makes a label's place-box wider than the minimum
+        distance, and centre-only checks then let neighbouring contour levels
+        stack (#1008). ``placed`` carries the boxes across all levels so nothing
+        collides. No forced per-component label: a component whose candidates
+        are all crowded out already has a label right beside it, and forcing one
+        there was exactly what packed '14 h 14 h 14 h' onto a jagged edge
+        (manual-test finding).
         """
         text = self.tr("{n} h").format(n=hour)
         # what the label covers of the plan at the zoom its place is chosen for
@@ -909,7 +1028,7 @@ class SunHeatmapController(QObject):
         plan = QRectF(
             grid.x0_cm, grid.y0_cm, grid.cols * grid.cell_cm, grid.rows * grid.cell_cm
         ).adjusted(edge, edge, -edge, -edge)
-        for polyline in stitch_segments(segments):
+        for polyline in polylines:
             for places in label_candidates_along(polyline, spacing, step):
                 for point in places:
                     sx, sy = self._grid_to_scene(point, grid)
@@ -918,19 +1037,21 @@ class SunHeatmapController(QObject):
                         continue  # at the plan's edge: under a ruler, or cut by a picture's frame
                     if standing.covers(area):
                         continue  # something stands here: the next place along the line
+                    if any(area.intersects(other) for other in placed):
+                        continue  # another hour's box already stands here (#1008)
                     if self._nearest_label_dist(sx, sy, placed) < _LABEL_MIN_DIST_CM:
                         continue
                     self._add_label(text, sx, sy)
-                    placed.append((sx, sy))
+                    placed.append(area)
                     break
 
     @staticmethod
     def _nearest_label_dist(
-        x: float, y: float, placed: list[tuple[float, float]]
+        x: float, y: float, placed: list[QRectF]
     ) -> float:
         if not placed:
             return float("inf")
-        return min(math.hypot(x - px, y - py) for px, py in placed)
+        return min(math.hypot(x - area.center().x(), y - area.center().y()) for area in placed)
 
     def _add_label(self, text: str, sx: float, sy: float) -> None:
         """One hour label, centred on its place on the contour."""

@@ -63,8 +63,10 @@ import numpy as np
 import pyclipper
 
 from open_garden_planner.core.object_height import (
+    GLASSHOUSE_TYPE_NAMES,
     NO_2D_SHADOW_TYPE_NAMES,
     OPEN_FRAME_TYPE_NAMES,
+    RAISED_CANOPY_TYPE_NAMES,
 )
 from open_garden_planner.core.scene3d import (
     Material,
@@ -81,7 +83,11 @@ from open_garden_planner.core.scene3d.builders.fences import (
     POROUS_FENCE_STYLES,
     fence_transmittance,
 )
-from open_garden_planner.core.scene3d.builders.open_frames import open_frame_triangles_for_record
+from open_garden_planner.core.scene3d.builders.furniture import parasol_canopy_bounds
+from open_garden_planner.core.scene3d.builders.open_frames import (
+    glasshouse_frame_triangles_for_record,
+    open_frame_triangles_for_record,
+)
 from open_garden_planner.core.shadow_geometry import (
     GroupedCaster,
     OpenFrame,
@@ -198,8 +204,15 @@ def l4_cases() -> tuple[Case, ...]:
         assert height is not None
         record = (_circle(kind, size, height) if isinstance(size, float)
                   else _polygon(kind, _rectangle(*size), height))
-        why = ("open frame: the prism weighted by its transmittance"
-               if kind in OPEN_FRAME_TYPE_NAMES else "shape and porosity vs solid 2D prism")
+        why = (
+            "open frame: the prism weighted by its transmittance"
+            if kind in OPEN_FRAME_TYPE_NAMES
+            else "a raised canopy, not a prism (#830)"
+            if kind in RAISED_CANOPY_TYPE_NAMES
+            else "glass: the frame alone shades (#830)"
+            if kind in GLASSHOUSE_TYPE_NAMES
+            else "shape and porosity vs solid 2D prism"
+        )
         result.append(Case(kind.lower().replace("_", " "), record, SOUTH, why))
     return tuple(result)
 
@@ -254,7 +267,7 @@ def cases() -> tuple[Case, ...]:
              "porosity: boards and A-frames"),
         Case("grill", _circle("BBQ_GRILL", 30.0, 90.0), SOUTH, "porosity: a kettle on legs"),
         Case("greenhouse", _polygon("GREENHOUSE", _rectangle(300.0, 200.0), 220.0), SOUTH,
-             "porosity: the glass casts nothing"),
+             "glass: the frame alone shades (#830)"),
         Case("trampoline", _circle("TRAMPOLINE", 150.0, 90.0), SOUTH, "porosity: a mat on legs"),
     ) + l4_cases()
 
@@ -309,10 +322,39 @@ def mesh_shadow(parts: Sequence[MeshPart], elevation_deg: float,
     return union
 
 
+def _parasol_slab(record: Record) -> tuple[float, float] | None:
+    """The raised canopy's ``(base, height)`` for a parasol record (#830)."""
+    height = float(record.height_cm or 0.0)
+    radius = record.params.get("radius_cm")
+    if not isinstance(radius, (int, float)) or not radius > 0.0:
+        ring = record.footprints[0] if record.footprints else ()
+        if len(ring) < 3:
+            return None
+        radius = max(math.hypot(x, y) for x, y in ring)
+    lower, rim, _apex = parasol_canopy_bounds(float(radius), height)
+    if not (0.0 < lower < rim and rim - lower > 0.0):
+        return None
+    return lower, rim - lower
+
+
+def prism_shadow(record: Record, elevation_deg: float,
+                 azimuth_deg: float) -> list[list[tuple[int, int]]]:
+    """The plain footprint prism every kind used to be cast as (the reference the
+    open/raised/glass decision lists are measured against)."""
+    polygons = compute_scene_shadows(
+        [(list(ring), record.height_cm) for ring in record.footprints],
+        elevation_deg,
+        azimuth_deg,
+    )
+    return [_to_grid(polygon) for polygon in polygons]
+
+
 def caster_shadow(record: Record, elevation_deg: float,
                   azimuth_deg: float) -> list[list[tuple[int, int]]]:
     """The 2D model's shadow of the record: its pitched-roof profile (#440) when
-    applicable, else its footprint ring(s) swept to its height."""
+    applicable, a raised canopy's slab (#830), a glasshouse's frame reach (#830),
+    an open frame's trimmed prism (#855), else its footprint ring(s) swept to its
+    height."""
     roof_tris = pitched_roof_triangles_for_record(record)
     if roof_tris:
         res = compute_weighted_shadows(
@@ -321,9 +363,25 @@ def caster_shadow(record: Record, elevation_deg: float,
             azimuth_deg,
         )
         polygons = res.union_polygons if res is not None else []
+    elif record.kind in RAISED_CANOPY_TYPE_NAMES:
+        slab = _parasol_slab(record)
+        if slab is None:
+            return prism_shadow(record, elevation_deg, azimuth_deg)
+        res = compute_weighted_shadows(
+            [GroupedCaster(record.footprints, slab[1], base_cm=slab[0])],
+            elevation_deg,
+            azimuth_deg,
+        )
+        polygons = res.union_polygons if res is not None else []
     else:
         members = open_frame_triangles_for_record(record)
-        if members is not None:
+        if members is None and record.kind in GLASSHOUSE_TYPE_NAMES:
+            members = glasshouse_frame_triangles_for_record(record)
+        if members == ():
+            # glass alone: the frame has no shadow-casting member for this footprint,
+            # so the 2D caster casts nothing (the 3D builder's glass does not either)
+            polygons = []
+        elif members is not None:
             # #855: an open frame's prism is trimmed to its own far member tip.
             frame = OpenFrame(members, record.footprints[0])
             length = open_frame_effective_length(
@@ -351,10 +409,12 @@ def caster_shadow(record: Record, elevation_deg: float,
 
 def caster_occlusion(record: Record, elevation_deg: float, azimuth_deg: float) -> float:
     """Analytical 2D shadow occlusion weight ``1.0 - transmittance`` (#440): a porous
-    fence's, and (#698) an open frame's — asked of the caster the production walk
-    would make of the record, through the one hook every 2D consumer reads
-    (``core.shadow_geometry.caster_transmittance``)."""
+    fence's, (#698) an open frame's, and (#830) a glasshouse's frame — asked of the
+    caster the production walk would make of the record, through the one hook every
+    2D consumer reads (``core.shadow_geometry.caster_transmittance``)."""
     members = open_frame_triangles_for_record(record)
+    if members is None and record.kind in GLASSHOUSE_TYPE_NAMES:
+        members = glasshouse_frame_triangles_for_record(record)
     if members is not None:
         caster = GroupedCaster(record.footprints, float(record.height_cm or 0.0),
                                frame=OpenFrame(members, record.footprints[0]))
@@ -432,13 +492,13 @@ DOCUMENTED: dict[str, tuple[Triple, Triple, Triple]] = {
     "table": ((0.38, 0.54, 0.70), (0.38, 0.54, 0.70), (-0.5, -0.5, -0.3)),
     "picnic table": ((0.37, 0.41, 0.57), (0.37, 0.41, 0.57), (-38.5, -38.5, -20.6)),
     "grill": ((0.28, 0.30, 0.36), (0.28, 0.30, 0.36), (-27.3, -23.0, -17.5)),
-    "greenhouse": ((0.30, 0.23, 0.25), (0.30, 0.23, 0.25), (-97.5, -93.3, -38.3)),
+    "greenhouse": ((1.00, 1.00, 1.00), (0.33, 0.28, 0.29), (0.0, 0.0, 0.0)),
     "trampoline": ((0.47, 0.64, 0.76), (0.47, 0.64, 0.76), (-1.0, -1.0, -1.0)),
     "table round": ((0.35, 0.50, 0.67), (0.35, 0.50, 0.67), (-1.2, -1.2, -0.7)),
     "chair": ((0.49, 0.54, 0.62), (0.49, 0.54, 0.62), (-4.3, -4.3, -4.0)),
     "bench": ((0.39, 0.45, 0.54), (0.39, 0.45, 0.54), (-7.6, -7.6, -7.3)),
     "lounger": ((0.64, 0.71, 0.77), (0.64, 0.71, 0.77), (-9.7, -9.7, -9.7)),
-    "parasol": ((0.24, 0.41, 0.60), (0.24, 0.41, 0.60), (-150.0, -82.5, -34.5)),
+    "parasol": ((1.06, 1.00, 0.96), (0.89, 0.93, 0.96), (60.3, -2.0, -2.0)),
     "fire pit": ((0.94, 0.94, 0.93), (0.94, 0.94, 0.93), (-2.1, -2.1, -2.1)),
     "planter pot": ((0.83, 0.81, 0.81), (0.83, 0.81, 0.81), (-0.6, -0.6, -0.3)),
     "sandbox": ((1.00, 1.00, 1.00), (1.00, 1.00, 1.00), (0.0, 0.0, 0.0)),

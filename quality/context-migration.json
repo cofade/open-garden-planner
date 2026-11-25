@@ -1303,7 +1303,7 @@
         {
           "path": ".agents/skills/ogp-lush-cinematic/references/001-1-truth-before-beauty-non-negotiable.md",
           "sha256": "5590c1d8449ae4e95350615c7b813848f1a07fdeb1d0b07f068734de8b74c158",
-          "current_sha256": "0a70efea8291f0f7d0ecb4a422eaa9005d93176f7416a113e5fed818706331a6"
+          "current_sha256": "3c848244ce2171fd31b49996749a5966647de920b066f76062b5fd5a286470db"
         },
         {
           "path": ".agents/skills/ogp-lush-cinematic/references/002-2-style-table.md",
@@ -2703,7 +2703,7 @@
         {
           "path": ".claude/skills/ogp-lush-cinematic/references/001-1-truth-before-beauty-non-negotiable.md",
           "sha256": "5590c1d8449ae4e95350615c7b813848f1a07fdeb1d0b07f068734de8b74c158",
-          "current_sha256": "0a70efea8291f0f7d0ecb4a422eaa9005d93176f7416a113e5fed818706331a6"
+          "current_sha256": "3c848244ce2171fd31b49996749a5966647de920b066f76062b5fd5a286470db"
         },
         {
           "path": ".claude/skills/ogp-lush-cinematic/references/002-2-style-table.md",

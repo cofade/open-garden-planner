@@ -634,6 +634,72 @@ class TestContours:
         )
 
 
+def test_the_contour_layer_is_cached_with_notes_and_rebuilt_when_one_arrives(
+    qtbot, wall_scene, monkeypatch
+) -> None:
+    """#852's gain must reach the 12 of 13 bundled examples that carry a note: the
+    contour layer is cached even then. A note added or moved after the map changes
+    the clip, so the cache is invalidated on the scene's change (the clip is part
+    of the cached picture; #934 must not regress)."""
+    from PyQt6.QtWidgets import QApplication, QGraphicsItem
+
+    from open_garden_planner.ui.canvas import sun_heatmap as module
+    from open_garden_planner.ui.canvas.items.text_item import TextItem
+
+    class RecordingLayer(module.SunContourLayerItem):
+        def __init__(self) -> None:
+            super().__init__()
+            self.updates = 0
+
+        def update(self) -> None:
+            self.updates += 1
+            super().update()
+
+    note = TextItem(100.0, 200.0, "An authored note", font_size=0.42)
+    wall_scene.addItem(note)
+    monkeypatch.setattr(module, "SunContourLayerItem", RecordingLayer)
+    controller = SunHeatmapController(wall_scene, lambda: BERLIN)
+    try:
+        _run_and_wait(qtbot, controller, SUMMER)
+        layer = controller._contour_layer
+        assert isinstance(layer, RecordingLayer)
+        assert layer.cacheMode() == QGraphicsItem.CacheMode.DeviceCoordinateCache
+        assert controller._contour_items and layer in controller._contour_items
+
+        # Idle: the layer's own update makes the scene emit `changed`; the paint
+        # revision is the echo guard, so an idle scene must not re-cache forever.
+        before = layer.updates
+        for _ in range(3):
+            QApplication.processEvents()
+        assert layer.updates == before, "an idle scene must not invalidate the cache"
+
+        # An unrelated edit on a plan with a note changes no note geometry: the
+        # cache stays. The wall is the fixture's plan object.
+        wall = next(item for item in wall_scene.items() if isinstance(item, PolylineItem))
+        wall.setPos(wall.pos().x() + 10.0, wall.pos().y())
+        QApplication.processEvents()
+        assert layer.updates == before, "an unrelated edit must keep the contour cache"
+
+        before = layer.updates
+        second = TextItem(300.0, 200.0, "Another", font_size=0.42)
+        wall_scene.addItem(second)
+        QApplication.processEvents()
+        assert layer.updates > before, "a new note must rebuild the clamped contours"
+
+        before = layer.updates
+        note.setPos(150.0, 250.0)
+        QApplication.processEvents()
+        assert layer.updates > before, "a moved note must rebuild the clamped contours"
+
+        before = layer.updates
+        wall_scene.removeItem(note)
+        wall_scene.removeItem(second)
+        QApplication.processEvents()
+        assert layer.updates > before, "deleting the notes must rebuild the unclamped contours"
+    finally:
+        controller.shutdown()
+
+
 class TestAppGlue:
     def test_date_change_clears_heatmap_but_time_change_keeps_it(
         self, qtbot

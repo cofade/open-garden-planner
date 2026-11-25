@@ -316,7 +316,9 @@ class SunSimToolbar(QToolBar):
         self._heatmap_button.toggled.connect(self._on_heatmap_toggled)
         if scene is not None:
             scene.timeline_changed.connect(self.refresh)
-        self.set_datetime_local(datetime.now().replace(second=0, microsecond=0))
+        self.set_datetime_local(
+            self._now().replace(tzinfo=None, second=0, microsecond=0)
+        )
         self.refresh_theme_icons()
         self._controls_ready = True
 

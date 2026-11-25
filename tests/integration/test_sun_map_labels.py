@@ -69,6 +69,24 @@ def garden() -> CanvasScene:
     return scene
 
 
+def large_garden() -> CanvasScene:
+    """A plan 60 m across: wide enough that a label's place-box, chosen for the
+    nominal zoom (``_NOMINAL_VIEW_PX``), is wider than the old centre spacing of
+    160 cm. A tall building and a wall beside it give the steep contours of #1008."""
+    scene = CanvasScene(6000.0, 4000.0)
+    scene.set_shadows_enabled(False)
+    house = RectangleItem(300, 300, 900, 700, object_type=ObjectType.GENERIC_RECTANGLE)
+    house.metadata[METADATA_KEY] = 700.0
+    scene.addItem(house)
+    wall = RectangleItem(300, 2200, 1500, 40, object_type=ObjectType.WALL)
+    wall.metadata[METADATA_KEY] = 250.0
+    scene.addItem(wall)
+    tree = CircleItem(4800.0, 3000.0, 300.0, object_type=ObjectType.TREE)
+    tree.metadata[METADATA_KEY] = 800.0
+    scene.addItem(tree)
+    return scene
+
+
 def hour_labels(controller: SunHeatmapController) -> list[QGraphicsSimpleTextItem]:
     """The hour labels of the map, each once (whatever a label is made of)."""
     seen: dict[tuple[float, float], QGraphicsSimpleTextItem] = {}
@@ -263,3 +281,40 @@ def test_the_hour_labels_go_into_a_picture_of_the_plan(mapped) -> None:
     ink_bare = (bare.sum(axis=2) < 200) & changed
     ink_now = (pixels(with_labels).sum(axis=2) < 200) & changed
     assert (ink_now & ink_bare).sum() >= 0.97 * ink_bare.sum()
+
+
+def test_on_a_large_plan_no_hour_label_touches_another_or_an_object(qtbot) -> None:
+    """#1008: at the zoom a plan is looked at as a whole, a label's place-box on
+    a 60 m plan is ~3.9 m wide — wider than the old 160 cm centre spacing. Two
+    neighbouring contour levels could then be placed 1.6 m apart with their
+    boxes overlapping, in the narrow band at a solid's edge. Placement now
+    refuses a box that intersects a placed label's box as well as checking the
+    centre distance; the boxes checked here are the painted ones at the nominal
+    zoom (a 1100 px window)."""
+    scene = large_garden()
+    view = CanvasView(scene)
+    qtbot.addWidget(view)
+    view.resize(1100, 760)
+    view.show()
+    qtbot.waitExposed(view)
+    view.fit_in_view()
+    controller = SunHeatmapController(scene, lambda: BERLIN)
+    with qtbot.waitSignal(controller.finished, timeout=120000) as blocker:
+        assert controller.run_for_day(SUMMER, cell_cm=25.0)
+    assert blocker.args == [True]
+    QApplication.processEvents()
+
+    labels = hour_labels(controller)
+    assert len(labels) >= 8, "the plan must carry enough contours for crowding to matter"
+    boxes = [_label_box(view, label) for label in labels]
+    for index, first in enumerate(boxes):
+        for second in boxes[index + 1:]:
+            assert not first.intersects(second), (labels[index].text(), first, second)
+
+    for label in labels:
+        box = _label_box(view, label).adjusted(4, 4, -4, -4)      # the glyphs, not the halo's margin
+        area = view.mapToScene(box).boundingRect()
+        for item in scene.items(area):
+            if isinstance(item, BODIES) and not on_ground(item):
+                assert not item.mapToScene(item.grid_cover_path()).intersects(area), (
+                    label.text(), item.object_type)

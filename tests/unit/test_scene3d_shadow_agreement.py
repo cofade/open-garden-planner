@@ -148,13 +148,22 @@ def test_an_open_frame_s_weighted_2d_shadow_is_the_3d_one_within_ten_percent(nam
 
 
 def test_a_kind_that_is_no_open_frame_is_not_weighted() -> None:
-    """The weight is the open frames' and the porous fences' alone: a parasol, a
-    greenhouse and a table are divided by the whole prism, as before #698."""
+    """The weight is the open frames', the porous fences', a glasshouse's frame
+    (#830) and a raised canopy's slab (#830) — never a solid prism's."""
     script = _script()
     cases = {case.name: case for case in script.cases()}
-    for name in ("parasol", "greenhouse", "table", "raised bed", "wall", "hedge fence"):
+    for name in ("table", "raised bed", "wall", "hedge fence"):
         for elevation in script.ELEVATIONS_DEG:
             assert script.caster_occlusion(cases[name].record, elevation, cases[name].azimuth_deg) == 1.0
+    # … and the two #830 models changed: a glasshouse's frame lets some sun through,
+    # while a raised canopy is a different SOLID (its slab), so its occlusion stays 1
+    for elevation in script.ELEVATIONS_DEG:
+        occlusion = script.caster_occlusion(
+            cases["greenhouse"].record, elevation, cases["greenhouse"].azimuth_deg)
+        assert 0.0 < occlusion < 1.0, elevation
+        parasol = cases["parasol"]
+        assert script.caster_shadow(parasol.record, elevation, parasol.azimuth_deg) != (
+            script.prism_shadow(parasol.record, elevation, parasol.azimuth_deg))
 
 
 def test_the_porous_fences_in_order() -> None:
@@ -187,13 +196,13 @@ def test_which_kinds_meet_the_box_gate_at_every_elevation() -> None:
     """The truth gate (IoU >= 0.85) is defined on a solid box caster. Which built-world
     kinds meet it at all three elevations: the prisms, the two hedges, the round tub,
     the buildings (#440 projects pitched roof+wall triangles), fire pit, sandbox,
-    compost bin, and cold frame."""
+    compost bin, cold frame, and (#830) the parasol's raised canopy."""
     meets = {name for name, row in _rows().items() if min(row.iou) >= BOX_GATE_IOU}  # type: ignore[attr-defined]
     assert meets == {*PRISMS, "hedge (polygon)", "hedge (section)", "round tub",
                      "house, sun square to the ridge", "house, sun along the ridge",
                      "shed, sun square to the ridge", "house, hip roof",
                      "house, flat roof", "house, single-slope roof", "fire pit", "sandbox",
-                     "compost bin", "cold frame"}
+                     "compost bin", "cold frame", "parasol"}
     below = {name: min(row.iou) for name, row in _rows().items() if name not in meets}  # type: ignore[attr-defined]
     assert max(below.values()) < BOX_GATE_IOU - 0.01  # none of the others is a borderline case
 

@@ -21,13 +21,8 @@
   },
   "1004": {
     "is_pr": false,
-    "state": "OPEN",
+    "state": "CLOSED",
     "title": "Shed-to-glasshouse partial repaint differs from a full repaint on the dev machine (local-only test failure)"
-  },
-  "1006": {
-    "is_pr": false,
-    "state": "OPEN",
-    "title": "Flaky on llvmpipe: live-regrowth forge test times out waiting for the forged wood"
   },
   "1007": {
     "is_pr": false,
@@ -51,12 +46,12 @@
   },
   "1014": {
     "is_pr": false,
-    "state": "OPEN",
+    "state": "CLOSED",
     "title": "3D workspace: one retirement counter, and re-measure the cache-release thresholds after #531"
   },
   "1015": {
     "is_pr": false,
-    "state": "OPEN",
+    "state": "CLOSED",
     "title": "3D: one Workspace.at_rest() instead of a test helper that reads private timers"
   },
   "1017": {
@@ -64,20 +59,20 @@
     "state": "CLOSED",
     "title": "Flaky: test_selected_shed_replacement_repaints_in_the_main_window fails under full-suite load"
   },
-  "1018": {
-    "is_pr": false,
-    "state": "OPEN",
-    "title": "Flaky: test_a_heavy_build_is_prepared_on_the_geometry_lane fails once in a full -n auto run"
-  },
   "1020": {
     "is_pr": false,
-    "state": "OPEN",
+    "state": "CLOSED",
     "title": "Agent writes: a grouped object's scene move is applied in the group frame"
   },
   "1022": {
     "is_pr": false,
     "state": "OPEN",
     "title": "Group rotation: a selected group has no rotation handle, so a group cannot be rotated as one unit in the UI"
+  },
+  "1026": {
+    "is_pr": false,
+    "state": "OPEN",
+    "title": "test_shadow_overlay::test_slider_change_emits_the_wall_reading is wall-clock dependent (fails in the 15:00 minute)"
   },
   "114": {
     "is_pr": true,
@@ -1434,6 +1429,11 @@
     "state": "CLOSED",
     "title": "CAD editing follow-ups from the PR #783 review (Esc plumbing, overlay typing, minimap)"
   },
+  "830": {
+    "is_pr": false,
+    "state": "OPEN",
+    "title": "2D sun study: parasol as a raised canopy, what glasshouse glass transmits, and the dark cell under every plant"
+  },
   "831": {
     "is_pr": false,
     "state": "OPEN",
@@ -1479,6 +1479,11 @@
     "state": "CLOSED",
     "title": "Succession badge: overhangs a rotated bed, takes no part in label collision, gives no hint when zoomed out"
   },
+  "845": {
+    "is_pr": false,
+    "state": "OPEN",
+    "title": "Sprite rasterisation: 0.2-0.5 s hitch the first time a zoom crosses 100, 200 and 400 %; large sprites are redrawn at every zoom step"
+  },
   "847": {
     "is_pr": false,
     "state": "CLOSED",
@@ -1488,6 +1493,11 @@
     "is_pr": false,
     "state": "CLOSED",
     "title": "A line above the 256-vertex paint bound has no simplified picture: 334 ms per zoom step with a 16,000-vertex zigzag line"
+  },
+  "852": {
+    "is_pr": false,
+    "state": "OPEN",
+    "title": "Hours-of-sun map: 10 cm cells show as blotches at 400 %, repaint is 3x with the map on, badge triangle is green on green foliage"
   },
   "853": {
     "is_pr": false,

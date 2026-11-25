@@ -27,7 +27,11 @@ from open_garden_planner.core.object_height import (
 )
 from open_garden_planner.core.object_types import ObjectType
 from open_garden_planner.core.scene3d.builders.open_frames import open_frame_triangles
-from open_garden_planner.core.shade_aggregation import SAMPLE_STEP_MINUTES, daylight_samples
+from open_garden_planner.core.shade_aggregation import (
+    SAMPLE_STEP_MINUTES,
+    daylight_samples,
+    points_in_polygons,
+)
 from open_garden_planner.core.shadow_geometry import (
     CLIPPER_SCALE,
     _open_frame_transmittance,
@@ -276,18 +280,98 @@ def test_a_frame_turned_the_other_way_would_be_noticed(qtbot, scene) -> None:
 
 
 @pytest.mark.parametrize(("kind", "size"), [
-    (ObjectType.PARASOL, 150.0), (ObjectType.GREENHOUSE, (300.0, 200.0)),
     (ObjectType.TABLE_RECTANGULAR, (160.0, 90.0)), (ObjectType.TOOL_SHED, (200.0, 150.0)),
     (ObjectType.GENERIC_RECTANGLE, (200.0, 150.0)),
 ])
 def test_every_other_kind_stays_the_solid_prism(qtbot, scene, kind, size) -> None:
-    """A solid canopy, glass, a table, a shed: recorded decisions, not open frames."""
+    """A table, a shed: recorded decisions, not open frames. (A parasol is a raised
+    canopy since #830 — its own test; a greenhouse casts its frame alone.)"""
     item = _make(kind, size, height=180.0 if kind is ObjectType.GENERIC_RECTANGLE else None)
     scene.addItem(item)
     caster = _caster_of(scene, item)
     assert caster.frame is None and caster.transmittance is None
     if kind is not ObjectType.TOOL_SHED:  # (a shed is its pitched roof's triangles, #440)
         assert caster_transmittance(caster, 35.0, 180.0) == 0.0
+
+
+def test_a_parasol_is_a_raised_canopy_not_a_prism_from_the_ground(qtbot, scene) -> None:
+    """#830 (owner decision): the canopy is a slab at its own height. The pole is
+    thin and left out, so at a low sun the shade lies away from the pole instead of
+    covering the ground under the canopy all day."""
+    from open_garden_planner.core.scene3d.builders.furniture import parasol_canopy_bounds
+    from open_garden_planner.core.shadow_geometry import ShadowCaster
+
+    item = _make(ObjectType.PARASOL, 150.0)
+    scene.addItem(item)
+    caster = _caster_of(scene, item)
+    nominal = effective_height_cm(ObjectType.PARASOL, None)
+    assert nominal is not None
+    lower, rim, apex = parasol_canopy_bounds(150.0, nominal)
+    assert 0.0 < lower < rim < apex <= nominal
+    assert caster.frame is None and caster.transmittance is None
+    assert caster.base_cm == pytest.approx(lower)
+    # the slab is the canopy's rim band, the geometry the owner's IoU gate was
+    # measured with; the cone above the rim and the finial are thin and left out
+    assert caster.height_cm == pytest.approx(rim - lower)
+    assert caster.base_cm + caster.height_cm == pytest.approx(rim)
+
+    footprint = list(caster.footprints[0])
+    raised = compute_scene_shadows(
+        [ShadowCaster(footprint, caster.height_cm, caster.base_cm)], 15.0, 180.0)
+    prism = compute_scene_shadows([ShadowCaster(footprint, nominal, 0.0)], 15.0, 180.0)
+    pole = [CENTRE]
+    assert not points_in_polygons(raised, np.asarray(pole, dtype=float))[0]
+    assert points_in_polygons(prism, np.asarray(pole, dtype=float))[0]
+
+
+def test_a_greenhouse_casts_its_frame_and_glass_lets_the_sun_through(qtbot, scene) -> None:
+    """#830: the map counts hours of DIRECT sun, and glass does not stop it. The
+    greenhouse's caster is its aluminium frame alone — the same frame the 3D
+    builder casts — so a plant inside reads the open sky minus the frame's share,
+    not the 0 h a solid prism gave it."""
+    house = _make(ObjectType.GREENHOUSE, (300.0, 200.0))
+    scene.addItem(house)
+    caster = _caster_of(scene, house)
+    assert caster.frame is not None
+    through = caster_transmittance(caster, 35.0, 180.0)
+    assert 0.5 < through < 1.0, through
+
+    plant = _tomato(CENTRE[0], CENTRE[1])
+    scene.addItem(plant)
+    daylight = float(SAMPLE_STEP_MINUTES * len(daylight_samples(*BERLIN.values(), SUMMER)))
+    opened, plants = _map(qtbot, scene)
+    identity = str(plant.item_id)
+    assert 0.5 * daylight < plants[identity] < daylight, plants[identity]
+    # and the map's own cell follows the plant's estimate (#830's third part)
+    assert opened.minutes_at(CENTRE[0], CENTRE[1]) == pytest.approx(
+        plants[identity], abs=0.5)
+
+
+def test_a_greenhouse_with_an_off_axis_ridge_is_transparent_like_its_3d_gable(qtbot, scene) -> None:
+    """#830 review: the 3D builder draws a glass gable roof (no shadow-casting
+    frame) once the plan's ridge is off the box's natural axis. The 2D caster must
+    read that same ridge and cast nothing, not the box frame the builder no longer
+    draws."""
+    from open_garden_planner.ui.canvas.roof_ridge_link import build_linked_ridge
+
+    house = _make(ObjectType.GREENHOUSE, (300.0, 200.0))
+    scene.addItem(house)
+    (natural,) = [c for c in collect_identified_casters(scene, SUMMER)
+                  if c.item_id == str(house.item_id)]
+    assert natural.frame is not None and natural.frame.triangles
+
+    ridge = build_linked_ridge(house, scene.active_layer.id)
+    assert ridge is not None
+    scene.addItem(ridge)
+    ridge.prepareGeometryChange()
+    ridge._points = [QPointF(CENTRE[0] - 120.0, CENTRE[1] - 90.0),
+                     QPointF(CENTRE[0] + 140.0, CENTRE[1] + 95.0)]
+    ridge.update()
+    (turned,) = [c for c in collect_identified_casters(scene, SUMMER)
+                 if c.item_id == str(house.item_id)]
+    assert turned.frame is not None
+    assert turned.frame.triangles == (), "a glass gable frame casts nothing in 3D either"
+    assert caster_transmittance(turned, 35.0, 180.0) == 1.0
 
 
 def test_a_hidden_frame_casts_nothing_and_a_resized_one_is_weighed_anew(qtbot, scene) -> None:
@@ -442,10 +526,17 @@ def test_the_map_and_a_plant_under_a_frame_collect_part_of_the_sun(qtbot, scene,
     assert behind_solid + 45.0 < cell < daylight - 20.0
     identity = str(plant.item_id)
     assert slab_plants[identity] + 45.0 < open_plants[identity] < daylight - 20.0
-    assert opened.minutes_at(*spot) == slab.minutes_at(*spot) == 0.0   # under the plant itself
+    # #830: no dark dot under a plant any more. The map's cell at the plant now
+    # follows the plant's own estimate — its own solid (and its soil parent) is
+    # spared there — so the two cannot disagree.
+    assert opened.minutes_at(*spot) == pytest.approx(open_plants[identity], abs=0.5)
+    assert slab.minutes_at(*spot) == pytest.approx(slab_plants[identity], abs=0.5)
+    assert opened.minutes_at(*spot) > 0.0
     # #855: the trimmed prism is a subset of the solid one, so a darker cell can
-    # only be a raster seam - measured 0.997 min in one cell (ADR-059 addendum),
-    # never a whole 15-minute sample and never a solid's shade.
+    # only be a raster seam - never a whole 15-minute sample and never a solid's
+    # shade. #1007 settles each seam cell by its own geometry (the union decides
+    # presence, the point-in-polygon region owns the value; an outer edge keeps
+    # its own region, not the plan's darkest).
     assert float((opened.minutes - slab.minutes).min()) >= -1.0
     assert float(opened.minutes.max()) == pytest.approx(daylight)
 
@@ -515,3 +606,50 @@ def test_placing_a_pergola_shades_the_plant_under_it_and_undo_takes_it_back(qtbo
     assert len(frame_regions()) == 1
     _map_redone, plants_redone = _map(qtbot, scene)
     assert plants_redone[identity] == pytest.approx(under, abs=1e-3)
+
+
+def test_every_sample_of_a_two_region_plan_keeps_the_unions_presence() -> None:
+    """#1007: two frames side by side, their prisms touching at y = 650, so the
+    weighted partition's seam crosses the grid. For every sample of the day the
+    per-region map must shade exactly the cells the union shades - one path, the
+    answer the solid sweep gave before #440 - and settle the value inside the
+    union by the region that owns each cell. The seam used to paint a cell the
+    union left open (one sample darker) or miss one the union shaded."""
+    from open_garden_planner.core.shade_aggregation import (
+        HeatmapGrid,
+        compute_sun_exposure,
+        daylight_samples,
+    )
+    from open_garden_planner.core.shadow_geometry import compute_weighted_shadows
+    from open_garden_planner.ui.canvas.sun_heatmap import rasterize_polygons_qimage
+
+    scene = CanvasScene(1500.0, 1200.0)
+    # a trellis (200 x 20) standing on the pergola's south edge (300 x 300)
+    scene.addItem(_make(ObjectType.TRELLIS, (200.0, 20.0), centre=(750.0, 640.0)))
+    scene.addItem(_make(ObjectType.PERGOLA, (300.0, 300.0), centre=(750.0, 800.0)))
+    casters = collect_identified_casters(scene, SUMMER)
+    grid = HeatmapGrid.for_rect(0.0, 0.0, 1500.0, 1200.0, 10.0)
+    result = compute_sun_exposure(
+        casters, (), BERLIN["latitude"], BERLIN["longitude"], SUMMER, grid,
+        rasterize_polygons_qimage, include_sample_masks=True,
+    )
+    assert result is not None and result.sample_transmittance is not None
+    samples = daylight_samples(BERLIN["latitude"], BERLIN["longitude"], SUMMER,
+                               SAMPLE_STEP_MINUTES)
+    assert len(samples) == len(result.sample_transmittance)
+    seams = 0
+    for index, sample in enumerate(samples):
+        weighted = compute_weighted_shadows(
+            casters, max(sample.elevation_deg, 0.5), sample.azimuth_deg
+        )
+        assert weighted is not None and len(weighted.weighted_regions) >= 2
+        union = rasterize_polygons_qimage(weighted.union_polygons, grid)
+        present = result.sample_transmittance[index] < 1.0
+        assert np.array_equal(present, union), (
+            f"sample {index} ({sample.elevation_deg:.1f} deg): the per-region path "
+            f"differs from the union's one-path shade at "
+            f"{int((present ^ union).sum())} cells"
+        )
+        for region in weighted.weighted_regions:
+            seams += int(rasterize_polygons_qimage(region.polygons, grid).sum())
+    assert seams > 0, "the two frames must shade something for this test to mean anything"

@@ -36,8 +36,7 @@ No roadmap phase is active. Open work is tracked in GitHub issues; the current t
 | 3D rendering quality and performance | #744, #804, #1012, #1013 | The 3D view's trust and frame budget; #804 (a smooth year lapse) depends on #1013, the committed memory a regrowth still keeps after #531's Model reuse. #1012's two shadow defects remain (low-sun wobble, December speckle); its three stale gates are re-measured. |
 | CAD and drawing tools | #1022 | Precision and editing depth; a selected group has no rotation handle yet. |
 | Documentation before advertising | #939 | The user-facing documents describe today's product before it is shared. |
-| 2D hours-of-sun map | #1007, #1008 | A seam between weighted regions reads one sample darker; contour labels crowd around solids. |
-| 2D canvas follow-ups | #845, #852, #855 | First-zoom sprite rasterization cost; sun-map contour/label repaint overhead; open-frame weighted-path grazing-sun and food-forest performance. |
+| 2D canvas follow-ups | #845, #855 | First-zoom sprite rasterization cost; open-frame weighted-path cost for hundreds of garden lights at a grazing sun. |
 
 This table is a pointer, not a tracker. Each issue owns its scope and acceptance criteria.
 
@@ -45,6 +44,7 @@ This table is a pointer, not a tracker. Each issue owns its scope and acceptance
 
 | Status | ID | Scope | Version / reference |
 |--------|----|-------|---------------------|
+| ⏳ | 2D sun study truth and map legibility (#830, #852, #1007, #1008, #1026) | A parasol as a raised canopy, a glasshouse's frame alone with glass counted as sun, no dark cell under a plant, one region-seam rule for the weighted map, hour-label boxes that cannot touch each other or an object, one device-cached contour layer, and a clock-pinned sun-toolbar test | Pending; ADR-059 addendum; FR-SUN-13/15/16/17; §8.29.6; PF-CAN-71/72 |
 | ✅ | v1.43.0 follow-up sweep (#1004, #1006, #1014, #1015, #1018, #1020; partial #1012) | The native-pixel oracle measures its paint regions and no longer reproduces the 2026 report; a forge-admission cap and `Rig.settle` wait on state, not duration; one `items_retired` counter on the `EngineSink` protocol with the recording double on the adapter's reuse rule; `Workspace.at_rest()`; a scene residual is mapped into a child's parent frame for every caller; the snow/herb/upload render-tier gates re-measured | v1.43.1; [PR #1024](https://github.com/cofade/open-garden-planner/pull/1024); ADR-060/069 addenda; §8.10.9; PF-CAN-67/70 |
 | ✅ | Plant Grid follow-ups (#1001, #1003, #1005, #1017) | Typed units-aware size/column-spacing/extent, snapped move/resize/rotate/size handles, a Qt-free grid-geometry module, one viewport-overlay placement owner, grouped-grid bed links in the same undo step, and a stable native-pixel settle | v1.43.0; [PR #1021](https://github.com/cofade/open-garden-planner/pull/1021); ADR-082 addendum; FR-PLANT-25; §8.9.21; PF-CAN-67/70 |
 | ✅ | GPU memory and frame budget (#531, #534, #598, #667) | A regrown 3D part keeps its Model (in-place geometry reload) and only items that lost a Model count towards a cache release; the seasonal scrub sends one float64 buffer and touches only changed seasonal parts; the wind soak is an assertion again; the G7 soak keeps the product's random hash seed | v1.42.1; [PR #1016](https://github.com/cofade/open-garden-planner/pull/1016); ADR-069 addenda, ADR-064 addendum; §8.10.9, §8.29.11 |
