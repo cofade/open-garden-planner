@@ -416,6 +416,52 @@ def test_a_rotated_group_keeps_the_scene_delta_when_moving_the_member(canvas) ->
     assert end_scene.y() == pytest.approx(start_scene.y() + 10.0, abs=0.01)
 
 
+def test_a_drilled_bed_in_a_rotated_group_carries_its_external_plant_in_scene_space(
+    canvas,
+) -> None:
+    """#1021 review: a nudge may not give a top-level plant a rotated LOCAL delta.
+
+    The bed lives in the rotated group's frame; its linked plant is top-level.
+    The plant must follow the bed's net scene movement.
+    """
+    from open_garden_planner.core.commands import CreateItemCommand, GroupCommand
+    from open_garden_planner.core.object_types import ObjectType
+    from open_garden_planner.ui.canvas.items import CircleItem
+
+    scene = canvas.scene()
+    bed = RectangleItem(1000, 600, 200, 200, object_type=ObjectType.RAISED_BED)
+    bed.layer_id = scene.active_layer.id
+    scene.addItem(bed)
+    plant = CircleItem(
+        1050, 650, 15,
+        object_type=ObjectType.PERENNIAL, layer_id=scene.active_layer.id,
+    )
+    canvas.command_manager.execute(CreateItemCommand(scene, plant, "plant"))
+    assert plant.parent_bed_id == bed.item_id
+
+    scene.clearSelection()
+    canvas.command_manager.execute(GroupCommand(scene, [bed]))
+    group = next(item for item in scene.items() if isinstance(item, GroupItem))
+    group.setRotation(30.0)
+    scene.clearSelection()
+    group.setSelected(True)
+    canvas.begin_group_drill_down(bed)
+    before_bed = QPointF(bed.scenePos())
+    before_plant = QPointF(plant.scenePos())
+
+    QTest.keyClick(canvas, Qt.Key.Key_Right)
+    QTest.qWait(20)
+
+    bed_moved = bed.scenePos() - before_bed
+    plant_moved = plant.scenePos() - before_plant
+    assert (bed_moved.x(), bed_moved.y()) != (0.0, 0.0)
+    assert (plant_moved.x(), plant_moved.y()) == pytest.approx(
+        (bed_moved.x(), bed_moved.y())
+    )
+    canvas.command_manager.undo()
+    assert plant.scenePos() == before_plant
+
+
 def test_the_properties_panel_shows_the_member_and_disables_its_layer(qtbot, canvas) -> None:
     _show(canvas)
     _group_obj, first, _second = _group(canvas)

@@ -4205,10 +4205,15 @@ class CanvasView(QGraphicsView):
                 return
             # A group member lives in the group frame; the scene arrow delta
             # must turn with a rotated group before it is applied to pos().
+            # Only the focused member is listed: the command's own expansion
+            # carries its bed children with the member's NET scene delta, so a
+            # top-level plant linked to it is not given a rotated local delta
+            # (#1021 review).
+            member = self._drill_down_item
             self._command_manager.execute(
                 MoveItemsCommand(
-                    selected,
-                    self._delta_in_parent_frame(selected[0], delta),
+                    [member],
+                    self._delta_in_parent_frame(member, delta),
                     delta_frame="local",
                 )
             )
@@ -4306,7 +4311,7 @@ class CanvasView(QGraphicsView):
         moved_items = {item for item, _delta in item_deltas}
         net_scene = net_scene_deltas(item_deltas, frame="local")
         child_start_positions: dict[QGraphicsItem, QPointF] = {}
-        for item, delta in list(item_deltas):
+        for item, _delta in list(item_deltas):
             for parent in iter_plant_parents([item]):
                 for child_id in parent.child_item_ids:
                     child = self._canvas_scene.find_item_by_id(child_id)
@@ -4327,9 +4332,7 @@ class CanvasView(QGraphicsView):
                     # child.pos() which already includes the visual offset.
                     child_start_pos = self._child_drag_origins.get(child, child.pos())
                     child_start_positions[child] = child_start_pos
-                    item_deltas.append(
-                        (child, bed_child_move_delta(parent, child, net_scene, delta))
-                    )
+                    item_deltas.append((child, bed_child_move_delta(parent, child, net_scene)))
                     moved_items.add(child)
 
         # Bound reference points moved with a parent are reset here and moved
@@ -4414,8 +4417,10 @@ class CanvasView(QGraphicsView):
 
         from open_garden_planner.core.commands import (
             bed_child_move_delta,
+            bound_owner_net,
             carried_by_moved_item,
             net_scene_deltas,
+            to_parent_frame,
         )
         from open_garden_planner.core.reference_points import carried_by_moved, carried_delta
 
@@ -4450,17 +4455,23 @@ class CanvasView(QGraphicsView):
                     # first frame's movement and put it back short on undo (#627 review).
                     if child not in self._child_drag_origins:
                         self._child_drag_origins[child] = child.pos()
-                    child_delta = bed_child_move_delta(parent, child, net_scene, delta)
+                    child_delta = bed_child_move_delta(parent, child, net_scene)
                     child.setPos(self._child_drag_origins[child] + child_delta)
         for point, carrier in self._drag_carried_points.items():
             start_pos = self._drag_start_positions.get(carrier)
             if start_pos is None or point in self._drag_start_positions:
                 continue
-            delta = carrier.pos() - start_pos
             if point not in self._child_drag_origins:
                 self._child_drag_origins[point] = point.pos()
             exact = getattr(point, "set_pos_exact", None)
-            target = self._child_drag_origins[point] + carried_delta(point, carrier, delta)
+            net = bound_owner_net(self._canvas_scene, point, carrier, net_scene)
+            if net is None:
+                point_delta = carried_delta(
+                    point, carrier, carrier.pos() - start_pos
+                )
+            else:
+                point_delta = to_parent_frame(point, net)
+            target = self._child_drag_origins[point] + point_delta
             if callable(exact):
                 exact(target)
             else:

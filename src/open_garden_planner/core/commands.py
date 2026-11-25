@@ -1304,13 +1304,38 @@ def bed_child_move_delta(
     parent: QGraphicsItem,
     child: QGraphicsItem,
     net_scene: dict[QGraphicsItem, QPointF],
-    fallback: QPointF,
 ) -> QPointF:
-    """The delta a bed's non-carried child must receive, in the child's frame."""
+    """The delta a bed's non-carried child must receive, in the child's frame.
+
+    ``net_scene`` is always built from the items the caller is iterating, and
+    *parent* descends from one of them (``iter_plant_parents`` walks the item's
+    own subtree), so a listed ancestor always exists. The zero is a defensive
+    no-op, not a second movement path.
+    """
     net = _nearest_listed_net(parent, net_scene)
     if net is None:
-        return QPointF(fallback)
+        return QPointF(0.0, 0.0)
     return to_parent_frame(child, net)
+
+
+def bound_owner_net(
+    scene: QGraphicsScene,
+    point: QGraphicsItem,
+    carrier: QGraphicsItem,
+    net_scene: dict[QGraphicsItem, QPointF],
+) -> QPointF | None:
+    """The net scene delta of a bound point's BINDING parent (else its carrier).
+
+    A point bound to a bed that is listed with its own residual must follow the
+    bed's net movement, not the first listed ancestor that contains it
+    (#1021 review) - the same rule a bed's plants follow.
+    """
+    from open_garden_planner.core.reference_points import parent_id
+
+    finder = getattr(scene, "find_item_by_id", None)
+    owner_id = parent_id(getattr(point, "metadata", None))
+    owner = finder(owner_id) if owner_id is not None and callable(finder) else None
+    return _nearest_listed_net(owner if owner is not None else carrier, net_scene)
 
 
 def expand_with_bed_children(
@@ -1335,7 +1360,7 @@ def expand_with_bed_children(
     finder = getattr(scene, "find_item_by_id", None)
     if not callable(finder):
         return item_deltas, set()
-    for item, delta in item_deltas:
+    for item, _delta in item_deltas:
         for parent in iter_plant_parents([item]):
             for child_id in parent.child_item_ids:
                 child = finder(child_id)
@@ -1346,13 +1371,17 @@ def expand_with_bed_children(
                     or bed_child_has_constraints(scene, child_id)
                 ):
                     continue
-                deltas[child] = bed_child_move_delta(parent, child, net_scene, delta)
+                deltas[child] = bed_child_move_delta(parent, child, net_scene)
                 moved.add(child)
 
     carries = carried_by_moved(scene, list(deltas), exclude_moved=False)
     for point, carrier in carries:
         deltas.pop(point, None)
-        deltas[point] = carried_delta(point, carrier, deltas[carrier])
+        net = bound_owner_net(scene, point, carrier, net_scene)
+        if net is None:
+            deltas[point] = carried_delta(point, carrier, deltas[carrier])
+        else:
+            deltas[point] = to_parent_frame(point, net)
     return list(deltas.items()), {point for point, _ in carries}
 
 
@@ -1404,10 +1433,7 @@ class _MoveItemDeltasCommand(Command):
             if delta.x() != 0 or delta.y() != 0:
                 adjusted.append((item, delta))
         self.is_noop = not adjusted
-        net_scene = {
-            item: _net_scene_delta(item, by_item, frame=delta_frame)
-            for item in by_item
-        }
+        net_scene = net_scene_deltas(item_deltas, frame=delta_frame)
         item_deltas = adjusted
         scene = item_deltas[0][0].scene() if item_deltas else None
         self._item_deltas, self._carried = (

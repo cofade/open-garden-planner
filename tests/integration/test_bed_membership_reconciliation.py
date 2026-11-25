@@ -560,6 +560,41 @@ class TestMovesReconcileMembership:
         canvas.command_manager.undo()
         assert outside.scenePos().x() == pytest.approx(before_outside.x())
 
+    @pytest.mark.parametrize(
+        ("frame", "group_delta", "bed_delta", "expected"),
+        [("scene", 100.0, 0.0, 0.0), ("local", 100.0, 20.0, 120.0)],
+    )
+    def test_a_bound_reference_point_follows_its_bed_not_the_group(
+        self, canvas: CanvasView, frame: str, group_delta: float,
+        bed_delta: float, expected: float,
+    ) -> None:
+        """A point bound to a listed bed takes the bed's NET delta (#1021 review)."""
+        from open_garden_planner.core.commands import AlignItemsCommand, GroupCommand
+        from open_garden_planner.core.reference_points import build_metadata
+        from open_garden_planner.ui.canvas.items import ReferencePointItem
+        from open_garden_planner.ui.canvas.items.group_item import GroupItem
+
+        bed = _bed(canvas)
+        inside = _plant(canvas, 450.0, 350.0)
+        point = ReferencePointItem(
+            500.0, 400.0, 3.0, metadata=build_metadata(parent=bed.item_id),
+        )
+        canvas.scene().addItem(point)
+        canvas.command_manager.execute(GroupCommand(canvas.scene(), [bed, inside]))
+        group = next(item for item in canvas.scene().items()
+                     if isinstance(item, GroupItem))
+        before = QPointF(point.scenePos())
+
+        canvas.command_manager.execute(AlignItemsCommand([
+            (group, QPointF(group_delta, 0.0)),
+            (bed, QPointF(bed_delta, 0.0)),
+        ], delta_frame=frame))
+
+        assert point.scenePos().x() == pytest.approx(before.x() + expected)
+        assert point.scenePos().y() == pytest.approx(before.y())
+        canvas.command_manager.undo()
+        assert point.scenePos().x() == pytest.approx(before.x())
+
     def test_a_bed_moved_over_a_plant_links_it(self, canvas: CanvasView) -> None:
         bed = _bed(canvas)
         loner = _plant(canvas, 1000.0, 400.0)
