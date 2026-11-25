@@ -24,7 +24,7 @@ keep_windows_behind()
 
 import numpy as np  # noqa: E402
 from PyQt6.QtCore import QCoreApplication, QEvent, QObject, QPoint, QPointF, QRect, QRectF, Qt  # noqa: E402
-from PyQt6.QtGui import QFont, QFontInfo, QImage, QPainter  # noqa: E402
+from PyQt6.QtGui import QFont, QFontInfo, QImage, QPainter, QRegion  # noqa: E402
 from PyQt6.QtTest import QTest  # noqa: E402
 from PyQt6.QtWidgets import QApplication, QGraphicsScene  # noqa: E402
 
@@ -131,10 +131,15 @@ def embedded_shed_repaints() -> dict:
         def __init__(self):
             super().__init__()
             self.regions = []
+            # The exact exposed area, not a union of bounding boxes: one paint
+            # event's region can be two disjoint strips (#1004 review).
+            self.covered = QRegion()
 
         def eventFilter(self, watched, event):
             if event.type() == QEvent.Type.Paint:
-                self.regions.append(event.region().boundingRect().getRect())
+                region = event.region()
+                self.regions.append(region.boundingRect().getRect())
+                self.covered = self.covered.united(region)
             return False
 
     regions = PaintRegions()
@@ -225,10 +230,21 @@ def embedded_shed_repaints() -> dict:
     )
     for name, edit in edits:
         regions.regions.clear()
+        regions.covered = QRegion()
+        # #1004: the issue's own next step - the exposed rect of the partial
+        # repaint against the item's old and new bounds. A strip outside the
+        # update region is a missing invalidate; a covered strip is a compare
+        # that ran too early (#1017). Measured, not asserted: Qt may clip a
+        # region at the viewport edge.
+        before_frame = view.mapFromScene(shed.sceneBoundingRect()).boundingRect()
         edit()
         settle()
+        after_frame = view.mapFromScene(shed.sceneBoundingRect()).boundingRect()
         partial = settled_grab()
         ordinary = list(regions.regions)
+        wanted = QRegion(before_frame).united(QRegion(after_frame)).intersected(
+            QRegion(viewport.rect()))
+        missing = wanted.subtracted(regions.covered)
         viewport.repaint()
         full = grab()
         viewport.repaint()
@@ -251,6 +267,10 @@ def embedded_shed_repaints() -> dict:
             "diff_bounds": bounds(diff),
             "repeat_noise": int(np.any(full_pixels != _pixels(repeated), axis=2).sum()),
             "regions": ordinary,
+            "uncovered": [
+                [missing.boundingRect().x(), missing.boundingRect().y(),
+                 missing.boundingRect().width(), missing.boundingRect().height()]
+            ] if not missing.isEmpty() else [],
         }
         last = full
     assert shed.isSelected()

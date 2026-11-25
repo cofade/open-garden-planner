@@ -1066,8 +1066,11 @@ class Board:
                         low_snow, _frame, _info = self.frame(
                             "occlusion_snow_low_reference", records, sun=sun, look=low_look,
                             ground=self.plan_ground(), registry=registry, shot=view, baked=True)
-                    row["snow_minus_low"] = round(
-                        open_ground["luma"] - float(np.median(probes.luma(low_snow)[mask])), 2)
+                    low_luma = round(float(np.median(probes.luma(low_snow)[mask])), 2)
+                    row["snow_low_luma"] = low_luma
+                    # #1012: the absolute gap follows the snow's albedo, so the gate
+                    # is the fraction against the Low preset; the number stays here.
+                    row["snow_minus_low"] = round(open_ground["luma"] - low_luma, 2)
                 caster_sun = SunState(OCCLUSION_ELEVATION, IOU_AZIMUTH)
                 caster_view = iou_camera(OCCLUSION_ELEVATION, self.size)
                 contact_rgb, _frame, _info = self.frame(

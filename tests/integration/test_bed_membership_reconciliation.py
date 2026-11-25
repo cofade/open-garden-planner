@@ -491,6 +491,41 @@ class TestMovesReconcileMembership:
             (before_plant.x(), before_plant.y())
         )
 
+    def test_a_single_scene_delta_inside_a_rotated_and_scaled_group_lands_in_scene(
+        self, canvas: CanvasView
+    ) -> None:
+        """An item with an UNLISTED Qt parent takes its scene delta in scene space (#1020).
+
+        ``moveBy`` is parent-local. With an unrotated parent the two frames agree,
+        which is why only a rotated (and scaled) group showed the defect: the
+        agent lists only its target, never the group that carries it.
+        """
+        from open_garden_planner.core.commands import GroupCommand
+        from open_garden_planner.ui.canvas.items.group_item import GroupItem
+
+        bed = _bed(canvas)
+        plant = _plant(canvas, 450.0, 350.0)
+        canvas.command_manager.execute(GroupCommand(canvas.scene(), [bed, plant]))
+        group = next(item for item in canvas.scene().items()
+                     if isinstance(item, GroupItem))
+        group.setRotation(30.0)
+        group.setScale(1.5)
+        before = QPointF(plant.scenePos())
+        dx, dy = 40.0, -25.0
+
+        canvas.command_manager.execute(
+            MoveItemsCommand([plant], QPointF(dx, dy), delta_frame="scene")
+        )
+
+        moved = plant.scenePos()
+        assert (moved.x() - before.x(), moved.y() - before.y()) == pytest.approx(
+            (dx, dy)
+        )
+        canvas.command_manager.undo()
+        assert (plant.scenePos().x(), plant.scenePos().y()) == pytest.approx(
+            (before.x(), before.y())
+        )
+
     def test_aligning_a_group_and_its_bed_carries_external_plants_by_the_beds_net_delta(
         self, canvas: CanvasView
     ) -> None:

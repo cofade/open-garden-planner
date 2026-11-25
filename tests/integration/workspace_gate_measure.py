@@ -620,11 +620,21 @@ def scenario_soak(window: Any, args: dict[str, Any]) -> Iterator[Any]:
 
     def rest_state() -> dict[str, Any]:
         worker = workspace._forge_worker
-        return {"dirty": controller.dirty, "ground": controller.ground_owed,
+        analysis = getattr(workspace, "_analysis_coordinator", None)
+        look = workspace._look
+        return {"at_rest": workspace.at_rest(), "dirty": controller.dirty,
+                "idle": controller.idle,
+                "ground": controller.ground_owed,
                 "moving": workspace.camera.moving,
                 "pending": worker.pending_count if worker else 0,
                 "timer": workspace._forge_timer.isActive(),
+                "camera_timer": workspace._camera_timer.isActive(),
+                "build_timer": workspace._build_timer.isActive(),
                 "shadow_fit": workspace._shadow_fit_timer.isActive(),
+                "xray_timer": (analysis is not None
+                               and analysis._xray_timer.isActive()),
+                "sky_timer": (look is not None and look._sky_timer.isActive()),
+                "noise_timer": (look is not None and look._noise_timer.isActive()),
                 "showing": workspace._pane_is_showing(), "host": host.state.value,
                 "workspace": workspace.view3d_state.value}
 

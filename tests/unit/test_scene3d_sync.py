@@ -163,6 +163,98 @@ class TestRecordingSink:
 
         assert not isinstance(NineMethods(), EngineSink)
 
+    def test_the_one_retirement_counter_follows_the_model_reuse_rule(self) -> None:
+        """#1014: ``items_retired`` is the sink's fact, not a per-pass estimate.
+
+        The recording double answers the same question the Qt Quick 3D sink does,
+        with the same rule (``core.scene3d.model_reuse_key``): a replacement whose
+        pieces all take an old Model retires nothing; pieces nothing takes retire
+        the item once.
+        """
+        sink = RecordingSink()
+        parts = default_builder(record())
+        sink.begin()
+        sink.add("a", parts, T0, M0)
+        sink.commit()
+        assert sink.items_retired == 0
+
+        sink.begin()
+        sink.replace_geometry("a", parts)   # every piece takes its own old Model
+        sink.commit()
+        assert sink.items_retired == 0, "a reload in place retires nothing (#531)"
+
+        sink.begin()
+        sink.replace_geometry("a", ())
+        sink.commit()
+        assert sink.items_retired == 1, "the old pieces had nowhere to go"
+
+        sink.begin()
+        sink.remove("a")
+        sink.commit()
+        assert sink.items_retired == 1, "an item with no parts holds no Model"
+
+        sink.begin()
+        sink.add("b", parts, T0, M0)
+        sink.commit()
+        sink.clear()
+        assert sink.items_retired == 2, "clear counts every item that held parts"
+
+    def test_the_retirement_counter_keys_each_surface_piece(self) -> None:
+        """#1014 review: the adapter draws one Model per surface RUN and skips an
+        empty mesh; the recording double must count the same pieces."""
+        import numpy as np
+
+        from open_garden_planner.core.scene3d import Mesh
+
+        def part(runs: tuple[tuple[str, int], ...]) -> MeshPart:
+            triangles = sum(count for _name, count in runs)
+            # Two triangles' worth of vertices, reused by the later runs: a mesh
+            # with 6 positions and `triangles` (3-vertex) index triples.
+            positions = np.array([[0, 0, 0], [1, 0, 0], [0, 1, 0],
+                                  [0, 0, 1], [1, 0, 1], [0, 1, 1]], dtype=np.float32)
+            normals = np.array([[0, 0, 1]] * 6, dtype=np.float32)
+            colors = np.ones((6, 4), dtype=np.float32)
+            uvs = np.zeros((6, 2), dtype=np.float32)
+            pair = [[0, 1, 2], [3, 4, 5]]
+            indices = np.array([pair[index % 2] for index in range(triangles)],
+                               dtype=np.uint32)
+            return MeshPart(
+                mesh=Mesh.from_arrays(positions, normals, colors, uvs, indices),
+                material_kind="vc",
+                surface_runs=runs,
+            )
+
+        sink = RecordingSink()
+        bed = part((("wood", 2), ("soil", 2)))
+        house = part((("concrete", 2), ("steel", 2)))
+        sink.begin()
+        sink.add("a", (bed,), T0, M0)
+        sink.commit()
+
+        sink.begin()
+        sink.replace_geometry("a", (house,))
+        sink.commit()
+        assert sink.items_retired == 1, "no wood/soil piece survives a concrete/steel part"
+
+        sink.begin()
+        sink.replace_geometry("a", (house,))
+        sink.commit()
+        assert sink.items_retired == 1, "the same pieces take their own Models"
+
+        half = part((("concrete", 2), ("soil", 2)))
+        sink.begin()
+        sink.replace_geometry("a", (half,))
+        sink.commit()
+        assert sink.items_retired == 2, "the steel piece had no Model to take"
+
+        sink.begin()
+        sink.add("b", (MeshPart(mesh=Mesh.empty()),), T0, M0)
+        sink.commit()
+        sink.begin()
+        sink.remove("b")
+        sink.commit()
+        assert sink.items_retired == 2, "an item with no Model retires nothing"
+
     def test_clear_holds_nothing_afterwards(self) -> None:
         sink = RecordingSink()
         sink.begin()

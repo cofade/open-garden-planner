@@ -685,17 +685,50 @@ def test_a_flood_of_destroyed_models_is_released_at_once(
     assert bench.host.releases == 1
 
 
+def test_a_minute_of_ordinary_edits_retires_far_fewer_models_than_a_release_needs(
+        bench: Bench, monkeypatch: pytest.MonkeyPatch) -> None:
+    """#1014: the release cadence re-measured after #531's exact counting.
+
+    Measured on the recording sink with the product's own thresholds: twenty
+    moves, a resize and an undo/redo pair retire NOTHING (every one keeps its
+    Models), and deleting two beds retires two. A release therefore needs about
+    thirty-two such minutes — the threshold still means a flood, not routine
+    editing — while a reset's ``clear()`` (every held item) still crosses it at
+    once.
+    """
+    rig = Releases(bench, monkeypatch, after=workspace_module.RELEASE_AFTER_RETIRED,
+                   at_once=workspace_module.RELEASE_NOW_RETIRED)
+    workspace = bench.workspace
+    moved = rig.beds[0]
+    for index in range(20):
+        bench.commands.execute(MoveItemsCommand([moved], QPointF(2.0 + index, 0.0)))
+    old, new = build_rect_resize(rig.beds[1], 320.0, 210.0, keep_center=True)
+    bench.commands.execute(ResizeItemCommand(rig.beds[1], old, new, apply_rect_like_geometry))
+    bench.commands.undo()
+    bench.commands.redo()
+    bench.settle()
+    rig.idle()
+    bench.poll()
+    # The workspace's own counter, the one the thresholds read (private on purpose:
+    # this test measures the cadence, it does not add an API).
+    assert workspace._retired == 0, "moves, a resize and undo/redo keep every Model"
+    assert bench.host.releases == 0
+
+    rig.delete(2)
+    assert workspace._retired == 2
+    assert workspace._retired < workspace_module.RELEASE_AFTER_RETIRED
+    rig.idle()
+    bench.poll()
+    assert bench.host.releases == 0, "two of 64: no release owed"
+
+
 class CountingSink(RecordingSink):
-    """A recording sink that counts retired items as ``Quick3DSink`` does (#531): an
-    item whose regrowth reloads its Models in place retires nothing; a remove does."""
+    """A sink that counts retired items as ``Quick3DSink`` does (#531).
 
-    def __init__(self) -> None:
-        super().__init__()
-        self.items_retired = 0
-
-    def remove(self, item_id: str) -> None:
-        super().remove(item_id)
-        self.items_retired += 1
+    Now the ``RecordingSink`` base itself counts, by the same reuse rule
+    (``core.scene3d.model_reuse_key``, #1014); this name stays as the test's
+    explicit witness that the workspace reads the SINK's counter, never an
+    estimate of "items whose geometry changed"."""
 
 
 def test_a_regrowth_that_keeps_its_models_owes_no_release(

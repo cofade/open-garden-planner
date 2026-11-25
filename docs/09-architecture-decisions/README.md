@@ -9471,6 +9471,17 @@ through `offscreen.py`", which refuses while the view is shown. A frame of a tou
 timer, one the user started and can stop. What such a frame holds comes back with the next
 presented frame: the session soak (300 pictures at 1080p, 100 at 4K) stayed flat on GPU and WARP.
 
+**Addendum L6a (2026-11-25, #1015 — the view says when it is at rest).** Every render
+measurement needs "the 3D view is at rest", and that rule lived in
+`tests/integration/workspace_render_state.workspace_settled`, where it had to know each
+private timer the workspace runs (the forge's admission queue and timer, the camera, and
+#894's shadow fit — added after a soak read a frame inside the unfitted window).
+`Workspace.at_rest()` is now the one place, beside the timers it reads: the pipeline's own
+`Scene3DController.idle`, the forge queue and timer, the camera, the held first pass and the
+shadow fit. `workspace_settled` delegates to it, and `workspace_gate_measure.rest_state()`
+reports it with the components. A new deferred step is one line there; it cannot be missed
+by a test helper again. A unit test pins each step.
+
 ## ADR-061: The pitfall catalogue — numbered area files, permanent IDs, one index and a verbatim archive
 
 **Status**: Accepted (2026-10-20). Owner review of the dedupe table and of the pins flagged for a human look is pending. Supersedes the single-section layout of §11.4 ("Known Development Pitfalls") that ADR-047 left in place. The audit family's move is recorded in the ADR-047 addendum above.
@@ -11780,6 +11791,26 @@ lawns' colour changes at most every 10 s and settles 0.8 s after the date does
 (FR-3D-GROUND-09). A recorded tour never holds (`Scene3DController.hold_season = False`
 while a tour records: its date steps, under 800 ms apart, would leave the lawn on an old colour), and `idle` waits for the
 trailing pass of a held lawn, so a rendered picture an agent asks for is exact.
+
+**Addendum 3 (2026-11-25, #1014 — ONE retirement counter on the protocol).** The
+first #531 delivery read `items_retired` where a sink happened to have it and fell back
+to the sync controller's old per-pass estimate otherwise, so two counters described one
+fact: the sink's exact one, and `_retired_by_reset + len(removed) + len(geometry)`.
+`EngineSink` now declares `items_retired`, `RecordingSink` implements it with the same
+`core.scene3d.model_reuse_key` rule the Qt Quick 3D sink uses for its Models, and the
+estimate is gone. `TickReport.retired` is the sink's counter delta since the previous
+report (a `reset()`'s `clear()` is therefore included), and `Workspace._count_retired`
+reads the same counter. The RecordingSink's rule made one old expectation visible: a
+resize keeps every part's reuse key, so production retired **nothing**, while the
+removed estimate said one.
+
+Cadence, measured on the recording sink with the product's thresholds
+(`RELEASE_AFTER_RETIRED` 64, `RELEASE_NOW_RETIRED` 512): twenty moves, a resize and an
+undo/redo pair retire 0 Models; two deleted beds retire 2. An ordinary editing minute
+therefore needs about thirty-two copies of that session to trigger one quiet release,
+while a reset's `clear()` retires every held item at once, and a mass delete crosses the
+flood threshold the same way. The thresholds stand; they now mean "a flood", not
+"a session".
 
 ## ADR-070: The living garden — playback, weather, particles and garden lights (Phase 17 L5, #389)
 

@@ -23,7 +23,7 @@ from typing import Any
 
 import pytest
 from PyQt6 import sip
-from PyQt6.QtCore import QPointF, QRectF, QTimer
+from PyQt6.QtCore import QElapsedTimer, QPointF, QRectF, QTimer
 from PyQt6.QtGui import QColor
 from PyQt6.QtWidgets import QApplication, QGraphicsRectItem, QGraphicsScene
 
@@ -104,7 +104,36 @@ class Rig:
 
     def settle(self) -> list[tuple[str, str | None]]:
         """Let the event loop run until the pipeline is quiet; the sink calls since
-        the last ``settle``."""
+        the last ``settle``.
+
+        #1018: a fixed 70 ms is a duration, not a state. On a loaded box the
+        geometry lane's answer can arrive after it, so a pass that asked the lane
+        was counted before its apply. When the controller is active, wait for its
+        own "nothing owed" condition (the project's condition wait — a real hang
+        still fails), then drain the turn it settled in. (``idle`` also waits for a
+        net pass, which needs a pane this bare rig never gives it; ``dirty`` is the
+        pipeline's own work and is what the old wait really meant.)
+        """
+        if self.controller.active:
+            # ``_given_up`` is the controller's own "this pass will not be retried
+            # until something changes" — the same escape the old fixed wait gave a
+            # failing sink. A Qt elapsed timer, not ``time.monotonic``: a bounded
+            # condition wait, not a wall-clock assertion (the perf-marker guard's
+            # distinction), and it never nests the event loop the way waitUntil can.
+            clock = QElapsedTimer()
+            clock.start()
+            while (
+                self.controller.active
+                and not getattr(self.controller, "_given_up", False)
+                and (self.controller.dirty or self.controller.ground_owed)
+                and not clock.hasExpired(15_000)
+            ):
+                self.qtbot.wait(10)
+            assert not (
+                self.controller.active
+                and not getattr(self.controller, "_given_up", False)
+                and (self.controller.dirty or self.controller.ground_owed)
+            ), "Rig.settle timed out waiting for the pipeline"
         self.qtbot.wait(70)
         calls = self.recorder.ops()
         self.recorder.clear_calls()
@@ -377,6 +406,10 @@ def test_a_light_change_during_the_build_is_not_overwritten(
     """A ticket carries the sun of its read; a LIGHT-ONLY change during the build must
     win, not be replaced by the older sun (review P1)."""
     _slow_prepare(monkeypatch, rig)
+    # A place, so the clock change IS a light change: without one the sun is the
+    # no-location constant, and this test could only have passed while the first
+    # pass had not applied yet (#1018 hardened `Rig.settle` and exposed that).
+    rig.location = BERLIN
     _fan(rig, 3)
     rig.controller.set_active(True)
     rig.settle()                      # the first build, with the noon sun
@@ -1797,7 +1830,9 @@ def test_a_pass_says_how_many_items_lost_their_models(rig: Rig) -> None:
     old, new = build_rect_resize(bed, 500.0, 120.0, keep_center=True)
     rig.commands.execute(ResizeItemCommand(bed, old, new, apply_rect_like_geometry))
     rig.settle()
-    assert rig.reports[-1].retired == 1, "new geometry is a new Model: the old one is destroyed"
+    assert rig.reports[-1].retired == 0, (
+        "a resize keeps every part's Model (its reuse key is unchanged, #531); the old "
+        "per-pass estimate said 1 here while production said 0 (#1014)")
 
     rig.commands.execute(DeleteItemsCommand(rig.scene, [bed, other]))
     rig.settle()
@@ -2479,6 +2514,7 @@ def test_a_document_change_and_a_pause_end_a_held_context(
         terrace.setPos(terrace.pos() + QPointF(40.0, 0.0))
         rig.settle()
     assert rig.controller._context_timer.isActive()   # noqa: SLF001 - a change is held
+    assert not rig.controller.idle                     # … and the view is not at rest
     rig.controller.document_changed()
     assert not rig.controller._context_timer.isActive()   # noqa: SLF001
     rig.settle()

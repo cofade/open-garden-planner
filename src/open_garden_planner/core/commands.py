@@ -1402,7 +1402,9 @@ class _MoveItemDeltasCommand(Command):
 
     ``delta_frame`` says what the listed deltas are measured in. ``"scene"``
     (the default) is align/distribute and a uniform move: a listed child of a
-    moved Qt ancestor contributes only the residual scene delta. ``"local"``
+    moved Qt ancestor contributes only the residual scene delta, and every
+    residual is mapped into the item's own parent frame before ``moveBy`` — so
+    a grouped child lands where its scene delta says (#1020). ``"local"``
     is the live-drag finalizer, where a constrained child's correction is
     already parent-local and must be applied as listed.
     """
@@ -1427,9 +1429,12 @@ class _MoveItemDeltasCommand(Command):
         adjusted: list[tuple[QGraphicsItem, QPointF]] = []
         for item, delta in item_deltas:
             if delta_frame == "scene":
+                # The residual of a listed ancestor is a SCENE vector too. Without
+                # a listed ancestor the whole delta is: a grouped child's scene
+                # move must not be applied as its parent-local moveBy (#1020).
                 ancestor = _moved_ancestor(item, by_item)
-                if ancestor is not None:
-                    delta = to_parent_frame(item, delta - by_item[ancestor])
+                residual = delta - by_item[ancestor] if ancestor is not None else delta
+                delta = to_parent_frame(item, residual)
             if delta.x() != 0 or delta.y() != 0:
                 adjusted.append((item, delta))
         self.is_noop = not adjusted

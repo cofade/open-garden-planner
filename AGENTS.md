@@ -254,9 +254,10 @@ Full how-to (step-by-step, `.ts` format, recompile command): see `docs/08-crossc
   "Current work" section, then `git status` and `git log --oneline -20`.
 - Current release: **v1.43.0** (2026-11-25). No roadmap phase is active.
   See the roadmap's Current work table and the open issues.
-- Open follow-ups: #1004 (native-pixel repaint oracle), #1020 (agent grouped-child
-  scene/local frame) and #1022 (a selected group has no rotation handle). #1012-#1015 and
-  #1018 are 3D follow-ups; #1006 is a flaky forge test.
+- Open follow-ups: #1022 (no group rotation handle), #1007/#1008 (the 2D sun map's
+  seam and contour labels), #1013 (regrowth memory, which #804 needs). #1012's two
+  shadow defects remain (low-sun wobble, December speckle). #1004, #1006, #1014,
+  #1015, #1018, #1020 delivered.
 - Live decisions that constrain the next change:
   - 3D Model reuse (#531, ADR-069 addendum): a regrown part loads new buffers into the
     geometry object its live Model already has (`BufferGeometry.reload`); never a new
@@ -264,6 +265,10 @@ Full how-to (step-by-step, `.ts` format, recompile command): see `docs/08-crossc
     Plant seasons cross as ids + one float64 buffer (`host.season_payload`, #598).
     A lawn's colour is held while the date keeps changing (`_season_date_for`, ADR-069
     addendum 2); a recorded tour sets `hold_season = False`.
+  - 3D rest/release/move frames (#1014/#1015/#1020, ADR-060 L6a, ADR-069 add. 3): one
+    `Workspace.at_rest()` rule, one `EngineSink.items_retired` release counter
+    (`RecordingSink` uses `core.scene3d.model_reuse_key`), scene residuals mapped into
+    the item's parent frame (PF-CAN-70); a lone group member stays refused by the agent.
   - Plant Grid typed values and snapping (#1003, ADR-082 addendum, §8.9.21): size, column
     spacing, width and height are `LengthSpinBox` fields (units profile; the model stays in
     cm; the column field shows the column pitch and the row pitch is Height ÷ rows);

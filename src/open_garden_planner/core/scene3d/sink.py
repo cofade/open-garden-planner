@@ -34,6 +34,7 @@ and the sink shows it in one Model it keeps — a selection change is never an
 from __future__ import annotations
 
 import math
+from collections import Counter
 from collections.abc import Sequence
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, NamedTuple, Protocol, runtime_checkable
@@ -42,7 +43,7 @@ from ..shadow_geometry import MIN_SUN_ELEVATION_DEG
 from ..solar import scene_azimuth
 from .frame import sun_direction_scene
 from .ground import GroundTile
-from .mesh import MeshPart
+from .mesh import MeshPart, surface_pieces
 from .record import Material, Transform
 from .selection import EMPTY_SELECTION, Selection
 
@@ -139,9 +140,42 @@ class GroundSpec:
         return self if not self.tiles else GroundSpec(self.width_cm, self.depth_cm)
 
 
+def model_reuse_key(part: MeshPart) -> tuple[str, str, bool, bool]:
+    """What a Model is fixed to for life, so a new piece may take an old Model only when
+    it is equal (#531): its part component (kind), its surface look (#803), ground
+    detail (never picked) and whether it shows the item's fill picture.
+
+    ONE rule, here in the core, because both sinks need it: the Qt Quick 3D sink to
+    decide which Models to reuse, and ``RecordingSink`` to answer the same
+    ``items_retired`` question without Models (#1014)."""
+    return (part.material_kind, part.surface, part.ground_detail, part.fill_texture)
+
+
+def model_reuse_keys(part: MeshPart) -> tuple[tuple[str, str, bool, bool], ...]:
+    """The reuse keys of the Models ``part`` makes, once each per non-empty piece.
+
+    The Qt Quick 3D sink draws ``surface_pieces(part)`` (one Model per surface,
+    #803) and skips a piece whose mesh is empty. The retirement question is about
+    THOSE Models, so every sink must count the same pieces: a multi-surface part
+    is keyed per surface run, not by its empty ``surface`` field (#1014 review).
+    """
+    return tuple(
+        model_reuse_key(piece)
+        for piece in surface_pieces(part)
+        if piece.mesh.triangle_count > 0
+    )
+
+
 @runtime_checkable
 class EngineSink(Protocol):
     """What a renderer must implement to show the plan (module docstring)."""
+
+    #: Items that lost at least one Model — the ONE release signal (#531, #1014).
+    #: A regrowth that reloads every part's Model in place adds nothing; a remove,
+    #: a clear and a replacement that leaves an old piece untaken add one per item.
+    #: The workspace counts its jumps to know when to ask the engine to release the
+    #: graphics state of the Models it destroyed.
+    items_retired: int
 
     def begin(self) -> None:
         """Open a transaction; every other call happens inside one."""
@@ -233,6 +267,7 @@ class RecordingSink:
     def __init__(self) -> None:
         self.calls: list[SinkCall] = []
         self.transactions = 0
+        self.items_retired = 0
         self._items: dict[str, SinkItem] = {}
         self._sun: SunState | None = None
         self._ground: GroundSpec | None = None
@@ -309,7 +344,9 @@ class RecordingSink:
         self.calls.append(SinkCall("add", item_id, (checked, transform, material)))
 
     def remove(self, item_id: str) -> None:
-        self._require_known("remove", item_id)
+        held = self._require_known("remove", item_id)
+        if any(model_reuse_keys(part) for part in held.parts):
+            self.items_retired += 1
         del self._items[item_id]
         self.calls.append(SinkCall("remove", item_id, ()))
 
@@ -326,6 +363,19 @@ class RecordingSink:
     def replace_geometry(self, item_id: str, parts: Sequence[MeshPart]) -> None:
         held = self._require_known("replace_geometry", item_id)
         checked = _checked(parts)
+        # The same reuse rule the Qt Quick 3D sink applies to its Models (#531),
+        # over the same pieces it draws (#803/#1014): a new piece takes an old
+        # Model only when its key is equal. A piece nothing takes is a destroyed
+        # Model; the item then counts once.
+        spare = Counter(
+            key for part in held.parts for key in model_reuse_keys(part)
+        )
+        for part in checked:
+            for key in model_reuse_keys(part):
+                if spare[key]:
+                    spare[key] -= 1
+        if any(spare.values()):
+            self.items_retired += 1
         self._items[item_id] = SinkItem(checked, held.transform, held.material)
         self.calls.append(SinkCall("replace_geometry", item_id, (checked,)))
 
@@ -347,6 +397,10 @@ class RecordingSink:
         self.calls.append(SinkCall("set_selection", None, (selection,)))
 
     def clear(self) -> None:
+        self.items_retired += sum(
+            1 for held in self._items.values()
+            if any(model_reuse_keys(part) for part in held.parts)
+        )
         self._items.clear()
         self._sun = None
         self._ground = None

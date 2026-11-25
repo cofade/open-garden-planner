@@ -18,6 +18,13 @@ from open_garden_planner.core.scene3d import Material, Params, Record, Recording
 from open_garden_planner.ui.view3d import forge_worker as module
 from open_garden_planner.ui.view3d.forge_worker import ForgeWorker
 
+#: One LOD0 forge build of a cherry tree on llvmpipe under a loaded CI runner took
+#: longer than the old 10 s cap (#1006): the Render 3D job also ran a 508 s test on
+#: that runner. Every wait below is on the worker's or the sink's own state, so a
+#: fast machine returns at once; the cap only bounds a real hang (the file's own
+#: budget is 900 s).
+FORGE_UPGRADE_TIMEOUT_MS = 60_000
+
 
 def tree(item_id: str = "oak") -> Record:
     return Record(
@@ -231,7 +238,7 @@ def test_workspace_render_flags_use_the_production_worker(qtbot, monkeypatch, tm
     first_pass(workspace, qtbot)
     worker = workspace._forge_worker
     assert worker is not None
-    qtbot.waitUntil(lambda: worker.pending_count == 0, timeout=10000)
+    qtbot.waitUntil(lambda: worker.pending_count == 0, timeout=FORGE_UPGRADE_TIMEOUT_MS)
     assert {p.name for p in engines.sink.item(str(item.item_id)).parts} >= {"wood", "foliage"}
     workspace._apply_camera()
     assert worker._camera_forward is not None
@@ -284,7 +291,7 @@ def test_live_regrowth_never_downgrades_forged_tree_to_v0_silhouette(qtbot, monk
     first_pass(workspace, qtbot)
     worker = workspace._forge_worker
     assert worker is not None
-    qtbot.waitUntil(lambda: worker.pending_count == 0, timeout=10000)
+    qtbot.waitUntil(lambda: worker.pending_count == 0, timeout=FORGE_UPGRADE_TIMEOUT_MS)
 
     item_id = str(item.item_id)
 
@@ -295,7 +302,7 @@ def test_live_regrowth_never_downgrades_forged_tree_to_v0_silhouette(qtbot, monk
             return None
 
     qtbot.waitUntil(lambda: (wood := sink_wood()) is not None and wood.vertex_count > 100,
-                    timeout=10000)
+                    timeout=FORGE_UPGRADE_TIMEOUT_MS)
     forged_wood = sink_wood()
     assert forged_wood is not None and forged_wood.vertex_count > 100
 
@@ -318,7 +325,7 @@ def test_live_regrowth_never_downgrades_forged_tree_to_v0_silhouette(qtbot, monk
     wait_for_pipeline(workspace, qtbot)
     wood_immediate = next(p.mesh for p in engines.sink.item(item_id).parts if p.name == "wood")
     assert wood_immediate.vertex_count >= 100
-    qtbot.waitUntil(lambda: worker.pending_count == 0, timeout=10000)
+    qtbot.waitUntil(lambda: worker.pending_count == 0, timeout=FORGE_UPGRADE_TIMEOUT_MS)
     spring_state = worker.phenology_state(item_id)
     assert spring_state is not None and spring_state.bloom > 0.0
     window.close()

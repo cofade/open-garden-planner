@@ -33,11 +33,10 @@ No roadmap phase is active. Open work is tracked in GitHub issues; the current t
 | Theme | Open issues | Why it matters |
 |-------|-------------|----------------|
 | Store/MSIX readiness | #767, #375 | Distribution and user-data safety on the second channel. |
-| 3D rendering quality and performance | #744, #804, #1012, #1013 | The 3D view's trust and frame budget; #804 (a smooth year lapse) depends on #1013, the committed memory a regrowth still keeps after #531's Model reuse. |
+| 3D rendering quality and performance | #744, #804, #1012, #1013 | The 3D view's trust and frame budget; #804 (a smooth year lapse) depends on #1013, the committed memory a regrowth still keeps after #531's Model reuse. #1012's two shadow defects remain (low-sun wobble, December speckle); its three stale gates are re-measured. |
 | CAD and drawing tools | #1022 | Precision and editing depth; a selected group has no rotation handle yet. |
 | Documentation before advertising | #939 | The user-facing documents describe today's product before it is shared. |
-| Agent write frames | #1020 | An agent move of a bed/plant inside a group applies the scene delta in the group frame; found during the Plant Grid review. |
-| Repaint oracle | #1004 | The Windows-only native-pixel partial-repaint check fails at 5fbc8620 and passes 4/4 on 0d2d8972; root cause still open. |
+| 2D hours-of-sun map | #1007, #1008 | A seam between weighted regions reads one sample darker; contour labels crowd around solids. |
 | 2D canvas follow-ups | #845, #852, #855 | First-zoom sprite rasterization cost; sun-map contour/label repaint overhead; open-frame weighted-path grazing-sun and food-forest performance. |
 
 This table is a pointer, not a tracker. Each issue owns its scope and acceptance criteria.
@@ -46,6 +45,7 @@ This table is a pointer, not a tracker. Each issue owns its scope and acceptance
 
 | Status | ID | Scope | Version / reference |
 |--------|----|-------|---------------------|
+| ⏳ | v1.43.0 follow-up sweep (#1004, #1006, #1012, #1014, #1015, #1018, #1020) | The native-pixel oracle measures its paint regions and no longer reproduces the 2026 report; a forge-admission cap and `Rig.settle` wait on state, not duration; one `items_retired` counter on the `EngineSink` protocol with the recording double on the adapter's reuse rule; `Workspace.at_rest()`; a scene residual is mapped into a child's parent frame for every caller; the snow/herb/upload render-tier gates re-measured | pending; [PR #1024](https://github.com/cofade/open-garden-planner/pull/1024); ADR-060/069 addenda; §8.10.9; PF-CAN-67/70 |
 | ✅ | Plant Grid follow-ups (#1001, #1003, #1005, #1017) | Typed units-aware size/column-spacing/extent, snapped move/resize/rotate/size handles, a Qt-free grid-geometry module, one viewport-overlay placement owner, grouped-grid bed links in the same undo step, and a stable native-pixel settle | v1.43.0; [PR #1021](https://github.com/cofade/open-garden-planner/pull/1021); ADR-082 addendum; FR-PLANT-25; §8.9.21; PF-CAN-67/70 |
 | ✅ | GPU memory and frame budget (#531, #534, #598, #667) | A regrown 3D part keeps its Model (in-place geometry reload) and only items that lost a Model count towards a cache release; the seasonal scrub sends one float64 buffer and touches only changed seasonal parts; the wind soak is an assertion again; the G7 soak keeps the product's random hash seed | v1.42.1; [PR #1016](https://github.com/cofade/open-garden-planner/pull/1016); ADR-069 addenda, ADR-064 addendum; §8.10.9, §8.29.11 |
 | ✅ | Plant Grid (#1002) | Toolbar tool that places a rectangular species grid with move, resize, rotate, one plant size and a species preview, committed in one undo step and optionally grouped; contributed by tanclin (Discussion #983) | v1.42.0; [PR #1000](https://github.com/cofade/open-garden-planner/pull/1000); ADR-082; FR-PLANT-25; §8.9.21 |
