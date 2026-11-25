@@ -33,6 +33,10 @@ def test_selected_shed_replacement_repaints_in_the_main_window(native_pixels):
     for edit, result in native_pixels["embedded_shed"].items():
         assert result["changed"] > 0 and result["regions"], edit
         assert result["repeat_noise"] == 0, (edit, result)
+        # #1004's own next step, now a guard: the edit's paint regions must cover
+        # the item's old AND new bounds. A strip left out is a missing invalidate,
+        # a defect no pixel comparison can name.
+        assert result["uncovered"] == [], (edit, result)
         assert result["diff"] == 0, (edit, result)
 
 

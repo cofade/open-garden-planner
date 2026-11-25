@@ -287,3 +287,4 @@
 | Case study: a group moved out of a bed kept every plant's bed link (#1001) | [Read](287-case-study-group-move-left-bed-links-1001.md) |
 | Case study: a native-pixel test compared a partial frame before its paint landed (#1017) | [Read](288-case-study-native-pixel-settle-before-compare-1017.md) |
 | Case study: a scene delta applied through a rotated parent moved the wrong child (Plant Grid follow-up review) | [Read](289-case-study-scene-delta-through-a-rotated-parent-1021.md) |
+| Case study: a scene delta had a frame, and the agent never reached the child (#1020) | [Read](290-case-study-agent-group-frame-1020.md) |

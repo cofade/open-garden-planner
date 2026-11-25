@@ -11,18 +11,12 @@ from open_garden_planner.core.scene3d.pick_oracle import PickScene, pick_scene
 
 
 def workspace_settled(workspace: Any) -> bool:
-    """Geometry, ground AND camera-driven forge admissions have finished (#600/#603),
-    and the resting view's shadow fit is in (#894: a camera change - a plan load sets
-    one - unfits the map and fits it again 250 ms later). Until #531 the cache releases
-    after a reload took longer than that; with the Models kept, a frame read straight
-    after the reload caught the unfitted map."""
-    controller = workspace.controller
-    if controller is None or controller.dirty or controller.ground_owed:
-        return False
-    worker = workspace._forge_worker
-    return (not workspace.camera.moving and (worker is None or worker.pending_count == 0)
-            and not workspace._forge_timer.isActive()
-            and not workspace._shadow_fit_timer.isActive())
+    """The 3D view is at rest — the rule lives in ``Workspace.at_rest()`` (#1015).
+
+    It used to live here, where it had to know each private timer the workspace
+    runs (forge admission and timer, the camera, #894's shadow fit), and every new
+    deferred step was one more thing a test helper could miss."""
+    return workspace.at_rest()
 
 
 def save_held_oracle(workspace: Any, path: Path) -> dict[str, int]:

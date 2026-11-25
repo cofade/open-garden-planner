@@ -29,6 +29,16 @@
     "state": "OPEN",
     "title": "Flaky on llvmpipe: live-regrowth forge test times out waiting for the forged wood"
   },
+  "1007": {
+    "is_pr": false,
+    "state": "OPEN",
+    "title": "2D hours-of-sun map: one sample darker at seams of the per-region rasterisation"
+  },
+  "1008": {
+    "is_pr": false,
+    "state": "OPEN",
+    "title": "2D hours-of-sun map: contour labels crowd and overlap objects around solids"
+  },
   "1012": {
     "is_pr": false,
     "state": "OPEN",
@@ -38,6 +48,11 @@
     "is_pr": false,
     "state": "OPEN",
     "title": "3D date playback: ~13 kB committed per regrown tree remains after #531's Model reuse"
+  },
+  "1014": {
+    "is_pr": false,
+    "state": "OPEN",
+    "title": "3D workspace: one retirement counter, and re-measure the cache-release thresholds after #531"
   },
   "1015": {
     "is_pr": false,
@@ -1383,6 +1398,11 @@
     "is_pr": false,
     "state": "CLOSED",
     "title": "3D: one roughness and specular for every built part - a black trampoline mat turns tan facing a low sun"
+  },
+  "804": {
+    "is_pr": false,
+    "state": "OPEN",
+    "title": "3D: a year time-lapse plays as 7.5 fps stop-motion and the crowns flicker (8 date steps a second)"
   },
   "805": {
     "is_pr": false,

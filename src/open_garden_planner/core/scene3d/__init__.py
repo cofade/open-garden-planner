@@ -163,6 +163,7 @@ from .sink import (
     SinkProtocolError,
     SinkState,
     SunState,
+    model_reuse_key,
 )
 from .sync import BuildFailure, SceneSync, SyncStateError
 
@@ -241,6 +242,7 @@ __all__ = [
     "cw",
     "default_builder",
     "diff",
+    "model_reuse_key",
     "engine_buffers",
     "engine_model_matrix",
     "engine_pose",

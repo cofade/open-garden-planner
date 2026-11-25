@@ -163,6 +163,42 @@ class TestRecordingSink:
 
         assert not isinstance(NineMethods(), EngineSink)
 
+    def test_the_one_retirement_counter_follows_the_model_reuse_rule(self) -> None:
+        """#1014: ``items_retired`` is the sink's fact, not a per-pass estimate.
+
+        The recording double answers the same question the Qt Quick 3D sink does,
+        with the same rule (``core.scene3d.model_reuse_key``): a replacement whose
+        pieces all take an old Model retires nothing; pieces nothing takes retire
+        the item once.
+        """
+        sink = RecordingSink()
+        parts = default_builder(record())
+        sink.begin()
+        sink.add("a", parts, T0, M0)
+        sink.commit()
+        assert sink.items_retired == 0
+
+        sink.begin()
+        sink.replace_geometry("a", parts)   # every piece takes its own old Model
+        sink.commit()
+        assert sink.items_retired == 0, "a reload in place retires nothing (#531)"
+
+        sink.begin()
+        sink.replace_geometry("a", ())
+        sink.commit()
+        assert sink.items_retired == 1, "the old pieces had nowhere to go"
+
+        sink.begin()
+        sink.remove("a")
+        sink.commit()
+        assert sink.items_retired == 1, "an item with no parts holds no Model"
+
+        sink.begin()
+        sink.add("b", parts, T0, M0)
+        sink.commit()
+        sink.clear()
+        assert sink.items_retired == 2, "clear counts every item that held parts"
+
     def test_clear_holds_nothing_afterwards(self) -> None:
         sink = RecordingSink()
         sink.begin()

@@ -620,7 +620,8 @@ def scenario_soak(window: Any, args: dict[str, Any]) -> Iterator[Any]:
 
     def rest_state() -> dict[str, Any]:
         worker = workspace._forge_worker
-        return {"dirty": controller.dirty, "ground": controller.ground_owed,
+        return {"at_rest": workspace.at_rest(), "dirty": controller.dirty,
+                "ground": controller.ground_owed,
                 "moving": workspace.camera.moving,
                 "pending": worker.pending_count if worker else 0,
                 "timer": workspace._forge_timer.isActive(),

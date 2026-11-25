@@ -88,6 +88,7 @@ from open_garden_planner.core.scene3d import (
     Transform,
     engine_buffers,
     engine_pose,
+    model_reuse_key,
     pattern_texture_name,
     scene_to_engine_points,
     scene_to_engine_vectors,
@@ -571,10 +572,12 @@ class Quick3DSink:
 
 
 def _reuse_key(part: MeshPart) -> tuple[str, str, bool, bool]:
-    """What a Model is fixed to for life, so a new piece may take an old Model only when
-    it is equal (#531): its part component (kind), its surface look (#803), ground
-    detail (never picked) and whether it shows the item's fill picture."""
-    return (part.material_kind, part.surface, part.ground_detail, part.fill_texture)
+    """What a Model is fixed to for life (#531): ``core.scene3d.model_reuse_key``.
+
+    Kept as this module's private name because every call site here reads like the
+    sink's own bookkeeping; the rule itself lives in the core so the recording
+    double answers the same question (#1014)."""
+    return model_reuse_key(part)
 
 
 def _tile_placement(tile: GroundTile) -> TilePlacement:

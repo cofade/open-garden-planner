@@ -474,8 +474,7 @@ class Workspace(QWidget):
         self._window_watched: QWidget | None = None
         self._build_pending = False   # a first pass waits for its notice to be painted
         self._retired = 0             # items that lost their Models since the last release
-        self._retire_source: Any = None   # the sink that counts them (#531), when it does
-        self._retire_seen = 0
+        self._retire_seen = 0         # the sink's own counter as of the last count (#1014)
         self._applied_at = 0.0        # when the pipeline last worked (``_now``)
         self._playback_active = False  # toolbar time/date animation running (#996)
         #: What the status line has to say, by kind (``_NOTICE_ORDER``); the first kind
@@ -627,6 +626,35 @@ class Workspace(QWidget):
     @property
     def host(self) -> EngineHost | None:
         return self._host
+
+    def at_rest(self) -> bool:
+        """True when every deferred step this view runs has finished (#1015).
+
+        The ONE place that knows the list: render measurements (the G7 soak, still
+        pictures, picks, leaving walk mode) ask this instead of each reading a
+        private timer. Every new deferred step is one line HERE, beside the timer it
+        books — a helper in a test module cannot see it, and the failure used to
+        appear as an unrelated pixel difference (#531's soak read a frame inside
+        #894's unfitted window).
+
+        The steps: the pipeline's own owed work (a pass, a read, the net's quiet
+        timer, a held date/season regrowth — ``Scene3DController.idle``), the forge's
+        admission queue and its timer, the camera's animation, the held first pass
+        and the resting view's shadow fit. The health poll is periodic, not a
+        deferred picture.
+        """
+        controller = self._controller
+        if controller is not None and not controller.idle:
+            return False
+        worker = self._forge_worker
+        return not (
+            self._camera.moving
+            or self._camera_timer.isActive()
+            or self._build_timer.isActive()
+            or self._forge_timer.isActive()
+            or self._shadow_fit_timer.isActive()
+            or (worker is not None and worker.pending_count > 0)
+        )
 
     @property
     def look(self) -> LookController | None:
@@ -929,11 +957,10 @@ class Workspace(QWidget):
             self._update_compat_notice()
             return
         self._host, self._controller, self._input = host, controller, orbit
-        # #531: the sink says which items really lost Models (a regrowth that reloads
-        # its Models in place loses none); a sink without the count (a test's
-        # recording sink) keeps the passes' own estimate
-        self._retire_source = sink if isinstance(getattr(sink, "items_retired", None), int) else None
-        self._retire_seen = self._retire_source.items_retired if self._retire_source else 0
+        # #531/#1014: the sink's own counter says which items really lost Models
+        # (a regrowth that reloads its Models in place loses none). ONE counter,
+        # on the protocol: no second estimate of "items whose geometry changed".
+        self._retire_seen = sink.items_retired
         self._ground_season = None
         self._look = look
         look.set_southern(self._southern())  # L5: where the place's noon stands
@@ -1338,7 +1365,7 @@ class Workspace(QWidget):
             self._look.set_sun(self._controller.sync.sun)
         self._show_ground_season()
         self._applied_at = _now()
-        self._count_retired(report.retired)
+        self._count_retired()
         if self._retired >= RELEASE_NOW_RETIRED and not self._playback_active:
             self._release_engine_caches()  # a flood: not worth waiting for quiet
         if report.snapshot and self._forge_worker is not None:
@@ -1408,20 +1435,21 @@ class Workspace(QWidget):
             if self._look is not None:
                 self._look.pause_auto_sample()
             self._applied_at = _now()
-            self._count_retired(len(upgraded))
+            self._count_retired()
             if self._retired >= RELEASE_NOW_RETIRED and not self._playback_active:
                 self._release_engine_caches()
         if worker.pending_count > 0 and self._pane_is_showing():
             self._forge_timer.start(10)
 
-    def _count_retired(self, estimate: int) -> None:
+    def _count_retired(self) -> None:
         """Add the items that lost their Models since the last count: the sink's own
-        ``items_retired`` (#531), or ``estimate`` for a sink that does not count."""
-        source = self._retire_source
-        if source is None:
-            self._retired += estimate
+        ``items_retired`` — the ONE counter (#531, #1014). A sink that lost Models
+        outside a pass (a reset's ``clear()``) is caught here too, because the
+        counter is a fact about the sink, not a per-pass estimate."""
+        controller = self._controller
+        if controller is None:
             return
-        now = source.items_retired
+        now = controller.sync.sink.items_retired
         self._retired += max(0, now - self._retire_seen)
         self._retire_seen = now
 
@@ -1680,7 +1708,7 @@ class Workspace(QWidget):
             self._forge_worker = None
         self._drop_held_build()
         self._retired = 0  # the host goes, and what it cached with it
-        self._retire_source, self._retire_seen = None, 0
+        self._retire_seen = 0
         self._notices.clear()  # … and whatever the status line said about it
         self._refresh_notices()
         look, self._look = self._look, None

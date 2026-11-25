@@ -2626,6 +2626,22 @@ How the workspace (§8.29.3, ADR-060) is tested, and the patterns worth reusing.
   BEFORE the fallback (the notice holds the pass back) says so beside its fixed wait. Read a
   result AT the signal that produced it where the claim is "never late": the refused-item
   test records `problems_text()` inside a slot on `controller.applied`.
+- **"At rest" is the view's own answer, not a helper's private-timer list (#1015).**
+  `Workspace.at_rest()` is the one place: the controller's `idle`, the forge queue and
+  timer, the camera, the held first pass and the shadow fit. `workspace_settled` delegates
+  to it; a new deferred step is one line there, where the timer is booked.
+- **A fixed settle is a duration, not a state (#1018).** `Rig.settle()` used 70 ms; on a
+  loaded box the geometry lane's answer arrived later, so a pass that asked the lane was
+  counted before its apply. It now waits for `controller.idle` (bounded) and then drains
+  the turn it settled in. The bound is an instrument guard, not the wait.
+- **A cap on a state wait is a hang guard, not a measurement (#1006).** The forge-upgrade
+  wait polls the sink's own vertex count; llvmpipe under a loaded CI runner needed more
+  than the old 10 s cap, so it is 60 s. A fast machine returns at once.
+- **One retirement counter, on the protocol (#1014).** `EngineSink.items_retired` is the
+  sink's fact; `RecordingSink` answers it with the adapter's own
+  `core.scene3d.model_reuse_key` rule, and no per-pass `len(removed) + len(geometry)`
+  estimate exists. A resize keeps every part's Model, so an expectation that it retires
+  one was a property of the estimate, not of production.
 - **Ask about your own object, not about a count of a shared list.** The theme registry
   (`ui/theme._theme_listeners`) is the process's — under xdist, the worker's: every window an
   earlier test built and left dead has its listener on it, and one theme change takes all of

@@ -333,11 +333,11 @@ class TickReport:
     apply_ms: float
     #: True when this pass had to reset the sync first (a sink failure before it).
     recovered: bool = False
-    #: Items whose engine Models were DESTROYED since the pass before: removed
-    #: items, items whose geometry was replaced (new geometry is a new Model), and
-    #: everything a reset cleared. Qt keeps graphics state for every Model it once
-    #: drew until it is told to let go; the workspace counts these to know when
-    #: (ADR-060, "what a destroyed Model leaves behind").
+    #: Items whose engine Models were DESTROYED since the pass before — the sink's
+    #: own ``items_retired`` delta (#1014): a removed item, a replaced geometry that
+    #: left an old Model untaken, and everything a reset cleared. Qt keeps graphics
+    #: state for every Model it once drew until it is told to let go; the workspace
+    #: counts the same counter to know when (ADR-060).
     retired: int = 0
     #: True for THE NET's pass: no announcement asked for it, the scene had been
     #: quiet for ``NET_QUIET_MS`` after a repaint. ``changes`` is empty then unless
@@ -519,7 +519,7 @@ class Scene3DController(QObject):
         self._skipped: tuple[SkippedItem, ...] = ()
         self._failures: dict[str, BuildFailure] = {}
         self._last_error: str | None = None
-        self._retired_by_reset = 0  # items a reset destroyed, not yet reported
+        self._retired_seen = 0  # the sink's counter as of the last report (#1014)
         #: Failures of the current outage that were logged at ERROR already, and
         #: whether the work that is running has failed at anything — a records or a
         #: light pass and the ground passes that continue it (module docstring).
@@ -791,8 +791,10 @@ class Scene3DController(QObject):
 
     def reset(self) -> None:
         """The ENGINE's scene was rebuilt (a fresh host): forget what was sent; the
-        next pass sends everything again. Contained like any sink failure."""
-        self._retired_by_reset += len(self._sync.records)
+        next pass sends everything again. Contained like any sink failure.
+
+        The Models the rebuild destroys are the sink's business: its ``clear()``
+        counts the items it held, and the next pass reports the jump (#1014)."""
         try:
             self._sync.reset()
         except Exception as error:  # noqa: BLE001 - a dead engine must not take the app down
@@ -1507,7 +1509,6 @@ class Scene3DController(QObject):
         recovered = changes is None
         if changes is None:
             self.recovery_count += 1
-            self._retired_by_reset += len(self._sync.records)
             try:
                 self._sync.reset()
                 self.scene_reset.emit()
@@ -1539,8 +1540,8 @@ class Scene3DController(QObject):
         # write stayed out of 3D (scoped re-check 2026-10-19, P1-B).
         QTimer.singleShot(0, self._expire_explanation)
         self._set_problems(tuple(skipped), dict(self._sync.failures))
-        retired = self._retired_by_reset + len(changes.removed) + len(changes.geometry)
-        self._retired_by_reset = 0
+        retired = self._sync.sink.items_retired - self._retired_seen
+        self._retired_seen = self._sync.sink.items_retired
         self._done(TickReport(changes, True, len(records), snapshot_ms,
                               (time.perf_counter() - started) * 1000.0, recovered, retired,
                               ticket.reconciling))

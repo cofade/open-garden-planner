@@ -453,6 +453,63 @@ def test_move_object_end_to_end(canvas: Any, qtbot: Any) -> None:
     assert back.y() == start.y()
 
 
+def test_move_object_refuses_a_lone_group_member_without_a_side_effect(
+    canvas: Any, qtbot: Any
+) -> None:
+    """#1020: a grouped child is not addressable, and a refused move changes nothing.
+
+    The curated read tools never expose a member's id, and the write guard keeps
+    that promise for a rotated (and scaled) group too — the transform is not an
+    escape hatch. The scene delta inside such a group is fixed where it lives,
+    ``MoveItemsCommand(delta_frame="scene")``; the test above pins it.
+    """
+    from open_garden_planner.core.commands import GroupCommand
+    from open_garden_planner.ui.canvas.items.group_item import GroupItem
+
+    view = canvas
+    scene = view.scene()
+    bed = RectangleItem(400.0, 300.0, 300.0, 200.0, object_type=ObjectType.RAISED_BED)
+    plant = CircleItem(470.0, 380.0, 15.0, object_type=ObjectType.PERENNIAL)
+    scene.addItem(bed)
+    scene.addItem(plant)
+    view.command_manager.execute(GroupCommand(scene, [bed, plant]))
+    group = next(item for item in scene.items() if isinstance(item, GroupItem))
+    group.setRotation(30.0)
+    group.setScale(1.5)
+    scene.clearSelection()
+    start = QPointF(plant.scenePos())
+    undo_before = view.command_manager.undo_depth
+    items_before = len(scene.items())
+    item_id = str(plant.item_id)
+
+    server, _ = start_server(_providers(view), write_token=TOKEN, writes_enabled=True)
+
+    async def body(ctx: Any) -> None:
+        http_client, ClientSession, url = ctx
+        headers = {"Authorization": f"Bearer {TOKEN}"}
+        async with (
+            http_client(url, headers=headers) as (r, w, _),
+            ClientSession(r, w) as session,
+        ):
+            await session.initialize()
+            call = await session.call_tool(
+                "move_object", {"item_id": item_id, "dx": 37.5, "dy": -19.25}
+            )
+            body.text = call.content[0].text  # type: ignore[attr-defined]
+            body.is_error = call.isError  # type: ignore[attr-defined]
+
+    try:
+        _run(server, body, qtbot)
+    finally:
+        server.stop()
+
+    assert body.is_error is True  # type: ignore[attr-defined]
+    assert "member of a group" in body.text  # type: ignore[attr-defined]
+    assert plant.scenePos() == start
+    assert len(scene.items()) == items_before
+    assert view.command_manager.undo_depth == undo_before, "a refusal is not an undo step"
+
+
 def test_move_object_authenticated_via_query_param(canvas: Any, qtbot: Any) -> None:
     """The ``?token=`` URL route with NO Authorization header — Claude Code does
     not transmit configured headers on tool-call requests (anthropics/claude-code

@@ -224,7 +224,7 @@ Passing 16,000 tightly packed vertices inside a 300 cm clip into Qt's non-cosmet
 
 ### PF-CAN-67
 
-- **Rule:** Compare the settled native viewport with two full repaints. "Settled" means the viewport produced two identical grabs 100 ms apart; the forced full repaint is the negative control for completeness.
+- **Rule:** Compare the settled native viewport with two full repaints. "Settled" means the viewport produced two identical grabs 100 ms apart; the forced full repaint is the negative control for completeness. The edit's paint regions must also cover the union of the item's OLD and NEW bounds: a strip left out is a missing invalidate, not a stale grab.
 - **Pinned by:** `tests/integration/test_canvas_native_pixels.py::test_selected_shed_replacement_repaints_in_the_main_window`
 - **Source:** #879, #1017
 - **Status:** standing
@@ -246,10 +246,20 @@ the loop cannot detect it. The forced full repaint does: the partial and full
 frames stay different, and the assertion fails. The 3 s bound only stops an
 endlessly animating viewport.
 
-`#1004` is a separate, still-open report: the same test fails alone at
-`5fbc8620` (today: `move`, diff 4524, bounds [187, 65, 349, 287],
-`repeat_noise` 0) and passes 4/4 alone on `0d2d8972` (v1.42.0). No root cause
-is claimed, and this change does not close it.
+`#1004` is a separate report: the same test failed alone at `5fbc8620` (today:
+`move`, diff 4524, bounds [187, 65, 349, 287], `repeat_noise` 0) and passed 4/4
+alone on `0d2d8972` (v1.42.0).
+
+**Re-checked 2026-11-25 (#1004):** it passes 6/6 alone on v1.43.0, and 5/5 even
+with `settled_grab()` reverted to the pre-#1017 `grab()`, so the report does not
+reproduce on shipped master. The issue's own next step was measured instead of
+guessed: every edit's paint regions cover the union of the item's old and new
+bounds (`uncovered: []`; the regions are two large rects, the full viewport and
+the item band). The "strip outside the update region" hypothesis is refuted on
+this machine; what remains is a compare against a frame the window server had not
+finished (the #1017 shape) or an environment-specific backing store. The driver
+now reports `uncovered` and the test requires it empty, so a real missing
+invalidate fails deterministically instead of as a pixel diff.
 
 ### PF-CAN-68
 
@@ -276,8 +286,8 @@ actual result. The reference properties command likewise replays exact coordinat
 ### PF-CAN-70
 
 - **Rule:** A command that moves a Qt item group must reconcile bed membership for every plant in the group's child tree, and must not add a bed-child delta to a plant a moved Qt ancestor already carries. Filtering the moved selection for plant types is not the set of plants it carries. Every move also names its delta frame: `scene` deltas are total scene displacements, `local` deltas are parent-relative. A scene residual applied to a Qt child is mapped into its parent's frame, and every non-carried descendant of a bed - a linked plant or a bound reference point - follows the bed's NET scene delta, not the delta of the group that carries the bed and not the bed's own parent-local residual.
-- **Pinned by:** `tests/integration/test_bed_membership_reconciliation.py::test_a_mouse_drag_of_a_group_with_its_bed_moves_and_undoes_once`; `tests/integration/test_bed_membership_reconciliation.py::test_live_bed_propagation_skips_a_plant_the_group_carries`; `tests/integration/test_bed_membership_reconciliation.py::test_aligning_a_rotated_group_and_its_child_keeps_the_child_scene_delta`; `tests/integration/test_bed_membership_reconciliation.py::test_aligning_a_group_and_its_bed_carries_external_plants_by_the_beds_net_delta`; `tests/integration/test_bed_membership_reconciliation.py::test_a_bound_reference_point_follows_its_bed_not_the_group`; `tests/integration/test_group_drill_down.py::test_a_drilled_bed_in_a_rotated_group_carries_its_external_plant_in_scene_space`
-- **Source:** #1001, #1021 review
+- **Pinned by:** `tests/integration/test_bed_membership_reconciliation.py::test_a_mouse_drag_of_a_group_with_its_bed_moves_and_undoes_once`; `tests/integration/test_bed_membership_reconciliation.py::test_live_bed_propagation_skips_a_plant_the_group_carries`; `tests/integration/test_bed_membership_reconciliation.py::test_aligning_a_rotated_group_and_its_child_keeps_the_child_scene_delta`; `tests/integration/test_bed_membership_reconciliation.py::test_a_single_scene_delta_inside_a_rotated_and_scaled_group_lands_in_scene`; `tests/integration/test_bed_membership_reconciliation.py::test_aligning_a_group_and_its_bed_carries_external_plants_by_the_beds_net_delta`; `tests/integration/test_bed_membership_reconciliation.py::test_a_bound_reference_point_follows_its_bed_not_the_group`; `tests/integration/test_group_drill_down.py::test_a_drilled_bed_in_a_rotated_group_carries_its_external_plant_in_scene_space`; `tests/integration/test_agent_api_writes.py::test_move_object_refuses_a_lone_group_member_without_a_side_effect`
+- **Source:** #1001, #1021 review, #1020
 - **Status:** standing; narrative in [debug-verbose: Case study: a group moved out of a bed kept every plant's bed link (#1001)](../../../.claude/skills/debug-verbose/references/287-case-study-group-move-left-bed-links-1001.md)
 - **Legacy:** none (new entry)
 
@@ -287,3 +297,12 @@ member as a child. `plants_in_items()` now walks the child tree; the move and
 its link changes undo as one step. `expand_with_bed_children` also skips a bed
 child whose Qt ancestor is already moved, or a group that contains its bed
 would move every linked plant twice.
+
+**#1020:** the same rule holds for a target whose Qt parent is NOT listed. The
+agent's `move_object`/`set_object_position` lists only the target; on a rotated
+(and scaled) group the scene delta was handed to `moveBy`, which is parent-local,
+so the item landed somewhere else on the plan. `MoveItemsCommand(delta_frame="scene")`
+now maps every residual into the item's parent frame, with or without a listed
+ancestor. Note what the agent still does NOT do: a lone group member is refused by
+`_resolve_agent_item` (the curated read tools never expose it), and that refusal is
+pinned — the fix is the command's frame rule, not a licence to address members.
