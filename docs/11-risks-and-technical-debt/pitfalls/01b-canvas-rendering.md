@@ -346,3 +346,13 @@ The first version queued the next zoom level from every sprite the frame drew an
 - **Legacy:** none (new entry)
 
 The first dedupe wrote `<use x="new_x" y="new_y">`; because the defined image already sits at (37, 37), the balcony's sprites landed 37 px down and right and the PNG-vs-SVG mean difference rose to 6.29 (limit 5.0) — the fidelity test, not the payload count, caught it. The fix stores the first x/y and writes `new - first`. A unit test that only counts one base64 payload and one `<use>` would have passed; the fidelity test rasterises both files.
+
+### PF-CAN-75
+
+- **Rule:** A Qt item group's rotation is not fully described by its angle and position. Persist the pivot (`transform_origin`) with it, fix that pivot when the group first turns rather than recomputing it from a frame a later member edit can move, and before ungrouping bake the group's rotation into each member's own angle and position. `removeFromGroup` keeps the composed rotation in the member's Qt transform matrix, while the `.ogp` format stores only the member's own `rotation_angle`.
+- **Pinned by:** `tests/integration/test_group_rotation.py::test_a_member_edit_after_a_turn_survives_save_and_reload`; `tests/integration/test_group_rotation.py::test_ungroup_bakes_the_turn_into_the_members_and_survives_reload`; `tests/integration/test_smart_symbol_removal.py::test_a_legacy_rotated_symbol_keeps_the_old_origin_pivot`
+- **Source:** #1022 review P0s
+- **Status:** standing
+- **Legacy:** none (new entry)
+
+A centre pivot and an origin pivot produce the same picture only while the pivot does not move. Rotate a group, drill into a member and move it, then save: reloading with the new frame centre moved every member. The same class of error appears on ungroup — the screen looked right until reopen, because Qt had hidden the turn in a matrix the serializer never wrote. A legacy smart-symbol group rotated about its local (0, 0) (its class had no mixin), so the loader must use that pivot for an old record, not the new frame centre.

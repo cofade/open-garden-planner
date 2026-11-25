@@ -1171,6 +1171,14 @@ def _membership_change_for_geometry(
     """
     if scene is None:
         return None
+    from PyQt6.QtWidgets import QGraphicsItemGroup
+
+    if isinstance(item, QGraphicsItemGroup) and not partner_items:
+        # A group turn moves its members through the group transform; the bed
+        # inside it was not re-drawn, and re-deciding containment here would
+        # unlink top-level plants the bed still owns (#1022 review). The next
+        # group move carries them by the bed's net scene delta (PF-CAN-70).
+        return None
     from open_garden_planner.core.plant_renderer import is_plant_type
     from open_garden_planner.ui.canvas.items import GardenItemMixin
 
@@ -3282,21 +3290,48 @@ class UngroupCommand(Command):
     def __init__(self, scene: QGraphicsScene, group: QGraphicsItem) -> None:
         self._scene = scene
         self._group = group
-        self._items: list[QGraphicsItem] = list(group.childItems())
+        self._items: list[QGraphicsItem] = [
+            item for item in group.childItems() if hasattr(item, "item_id")
+        ]
         # The group may have been moved since its members were drawn; undo
         # gives each member back its own layer (see execute).
         self._member_layers = {
             item: getattr(item, "layer_id", None) for item in self._items
         }
+        # `removeFromGroup` bakes the group's rotation into the member's Qt
+        # transform; undo must restore the member's own pre-ungroup transform,
+        # not let `addToGroup` compose the group angle a second time (#1022).
+        self._member_transforms = [
+            (
+                item,
+                QPointF(item.pos()),
+                float(item.transformOriginPoint().x()),
+                float(item.transformOriginPoint().y()),
+                QTransform(item.transform()),
+                item.rotation(),
+                float(getattr(item, "rotation_angle", item.rotation())),
+            )
+            for item in self._items
+            if hasattr(item, "item_id")
+        ]
 
     @property
     def description(self) -> str:
         return QCoreApplication.translate("Commands", "Ungroup")
 
     def execute(self) -> None:
+        from open_garden_planner.ui.canvas.items.group_item import (
+            bake_inherited_rotation,
+        )
+
         group_layer = getattr(self._group, "layer_id", None)
         for item in self._items:
+            composed = QTransform(item.sceneTransform())
+            old_origin = QPointF(item.scenePos())
             self._group.removeFromGroup(item)  # type: ignore[attr-defined]
+            bake_inherited_rotation(
+                item, scene_transform=composed, old_origin=old_origin
+            )
             item.setFlag(QGraphicsItem.GraphicsItemFlag.ItemIsSelectable, True)
             item.setFlag(QGraphicsItem.GraphicsItemFlag.ItemIsMovable, True)
             item.setSelected(True)
@@ -3328,6 +3363,13 @@ class UngroupCommand(Command):
             self._group.addToGroup(item)  # type: ignore[attr-defined]
             if hasattr(item, "layer_id"):
                 item.layer_id = self._member_layers[item]
+        for item, pos, origin_x, origin_y, transform, rotation, angle in self._member_transforms:
+            item.setTransformOriginPoint(origin_x, origin_y)
+            item.setTransform(transform)
+            item.setPos(pos)
+            item.setRotation(rotation)
+            if hasattr(item, "rotation_angle"):
+                item.rotation_angle = angle
         self._group.setSelected(True)
         self._scene._update_items_visibility()  # type: ignore[attr-defined]
         refresh_all = getattr(self._scene, "_update_items_z_order", None)

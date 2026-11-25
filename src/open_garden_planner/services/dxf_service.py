@@ -188,19 +188,19 @@ class DxfExportService:
             center = item.mapToScene(cx_local)
             semi_a = rect.width() / 2.0
             semi_b = rect.height() / 2.0
-            rotation_deg = item.rotation()
-            # DXF ELLIPSE: major_axis is vector from center to end of semi-major axis
-            angle_rad = math.radians(rotation_deg)
+            # The major axis is a LOCAL vector; the group's own turn (and the
+            # item's) lives in its scene transform, not in rotation() (#1022).
+            scene = item.sceneTransform()
+            origin = scene.map(QPointF(0.0, 0.0))
             if semi_a >= semi_b:
-                major = (semi_a * math.cos(angle_rad), semi_a * math.sin(angle_rad), 0.0)
+                vector = scene.map(QPointF(semi_a, 0.0)) - origin
                 ratio = semi_b / semi_a if semi_a > 0 else 1.0
             else:
-                angle_rad += math.pi / 2
-                major = (semi_b * math.cos(angle_rad), semi_b * math.sin(angle_rad), 0.0)
+                vector = scene.map(QPointF(0.0, semi_b)) - origin
                 ratio = semi_a / semi_b if semi_b > 0 else 1.0
             msp.add_ellipse(
                 center=(center.x(), center.y(), 0.0),
-                major_axis=major,
+                major_axis=(vector.x(), vector.y(), 0.0),
                 ratio=ratio,
                 dxfattribs=attribs,
             )

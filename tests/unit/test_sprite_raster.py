@@ -386,6 +386,27 @@ class TestNextLevelPrefetch:
         sizes = sorted(key[1] for key in cache._entries)
         assert len(sizes) == 2 and sizes[1] == 2 * sizes[0], sizes
 
+    def test_the_next_level_uses_the_same_rounding_as_the_next_paint(
+        self, qtbot, cache
+    ) -> None:
+        """A fractional size must warm the key the next paint asks for (#845)."""
+        from open_garden_planner.core import sprite_raster
+
+        image = _canvas(800, 600)
+        painter = QPainter(image)
+        painter.scale(2.0, 2.0)
+        sprite_raster.begin_sprite_prefetch()
+        try:
+            paint_sprite(
+                painter, QRectF(10.0, 20.0, 40.2, 30.2), "star", _draw_star, cache=cache
+            )
+        finally:
+            sprite_raster.end_sprite_prefetch()
+        painter.end()
+        assert sprite_raster.prefetch_sprites(8, cache) == (0, 1)
+        sizes = sorted((key[1], key[2]) for key in cache._entries)
+        assert sizes == [(81, 61), (161, 121)], sizes
+
     def test_clear_drops_queued_work(self, qtbot, cache) -> None:
         from open_garden_planner.core import sprite_raster
 

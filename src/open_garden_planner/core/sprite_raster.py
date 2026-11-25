@@ -199,6 +199,9 @@ def prefetch_sprites(limit: int = 12, cache: PixmapLru = SPRITE_CACHE) -> tuple[
         cache_key, (key, width_px, height_px, draw, tint) = _PENDING_SPRITES.popitem(last=False)
         if cache_key in cache:
             continue
+        if len(cache) >= cache.max_entries:
+            # A new entry would evict the frame on screen at the entry cap.
+            continue
         # Never evict the frame that is on screen to prefetch the next level:
         # a plan with deep sprite coverage may have no room for both.
         if cache.bytes_used + width_px * height_px * 4 > cache.max_bytes:
@@ -302,18 +305,26 @@ def paint_sprite(
         if pixmap is None:
             return False
         cache.put(cache_key, pixmap)
-    if _PREFETCH_DEPTH > 0 and width_px * 2 <= MAX_CACHED_SIDE_PX and height_px * 2 <= MAX_CACHED_SIDE_PX:
-        # Queue the next zoom level, not this one: the frame that crosses a
-        # level must stay sharp. A sprite already at the cache cap has no
-        # bitmapped next level (the oversized path draws it from the vector).
-        next_key = (
-            key, width_px * 2, height_px * 2,
-            tint.rgba() if tint is not None else None,
-        )
-        if next_key not in cache:
-            _SEEN_THIS_PAINT[next_key] = (
-                key, width_px * 2, height_px * 2, draw, tint
+    if _PREFETCH_DEPTH > 0:
+        # Queue the next zoom level using the SAME sizing rule the next paint
+        # will ask for: doubling rounded pixels warms a key nobody requests
+        # (40.2 cm -> 82 px, while the next level asks for 81) (#845 review).
+        next_w, next_h = sprite_pixel_size(width, height, raster_level(scale) * 2.0)
+        longest_next = max(next_w, next_h)
+        if longest_next > MAX_CACHED_SIDE_PX:
+            if max(width, height) * scale <= MAX_CACHED_SIDE_PX:
+                fit_next = MAX_CACHED_SIDE_PX / longest_next
+                next_w = max(math.ceil(next_w * fit_next - 1e-6), MIN_SIDE_PX)
+                next_h = max(math.ceil(next_h * fit_next - 1e-6), MIN_SIDE_PX)
+            else:
+                next_w = next_h = 0
+        if next_w and next_h:
+            next_key = (
+                key, next_w, next_h,
+                tint.rgba() if tint is not None else None,
             )
+            if next_key not in cache:
+                _SEEN_THIS_PAINT[next_key] = (key, next_w, next_h, draw, tint)
     painter.setRenderHint(QPainter.RenderHint.SmoothPixmapTransform)
     painter.save()
     if abs(rotate_degrees) > 0.5:

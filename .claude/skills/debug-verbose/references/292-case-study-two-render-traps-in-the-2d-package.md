@@ -21,7 +21,10 @@ element's own x/y were not part of either model.
 Lesson: a background prefetch is a state machine with two obligations — queue
 only uncached work, and never make its own consumer repaint. And a file
 transform that "looks equal" must be rasterised: a payload-count assertion
-passes on a misplaced `<use>`. Pinned by
+passes on a misplaced `<use>`. The same review's third trap was a group
+transform that only looked persisted: an angle and position without the pivot
+survive a screenshot but not a reload (PF-CAN-75). Pinned by
 `tests/integration/test_canvas_repaint_package.py::test_rectangle_tool_hover_and_drag_do_not_walk_whole_plan`,
-`tests/unit/test_sprite_raster.py::TestNextLevelPrefetch` and
-`tests/integration/test_svg_export_fidelity.py`.
+`tests/unit/test_sprite_raster.py::TestNextLevelPrefetch`,
+`tests/integration/test_group_rotation.py::test_a_member_edit_after_a_turn_survives_save_and_reload`
+and `tests/integration/test_svg_export_fidelity.py`.

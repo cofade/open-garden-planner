@@ -818,7 +818,9 @@ class PropertiesPanel(QWidget):
         # GroupItem — show a compact summary
         from open_garden_planner.ui.canvas.items.group_item import GroupItem
         if isinstance(item, GroupItem):
-            count = len(item.childItems())
+            count = sum(
+                1 for child in item.childItems() if hasattr(child, "item_id")
+            )
             info = QLabel(self.tr("Group ({n} items)").format(n=count))
             info.setAlignment(Qt.AlignmentFlag.AlignCenter)
             self._form_layout.addRow(info)

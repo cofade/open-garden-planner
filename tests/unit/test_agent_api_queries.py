@@ -456,6 +456,23 @@ class TestBboxNormaliserPerShape:
         # child1 abs (100,100,50,50); child2 abs (290,290,20,20) -> union:
         assert queries.object_bbox(group) == (100.0, 100.0, 210.0, 210.0)
 
+    def test_a_rotated_group_uses_its_pivot_not_an_upright_union(self) -> None:
+        group = {
+            "type": "group",
+            "item_id": "g1",
+            "x": 0.0,
+            "y": 0.0,
+            "rotation": 90.0,
+            "transform_origin": {"x": 150.0, "y": 40.0},
+            "children": [
+                {"type": "rectangle", "item_id": "c1", "x": 0.0, "y": 0.0,
+                 "width": 100.0, "height": 80.0},
+                {"type": "rectangle", "item_id": "c2", "x": 200.0, "y": 0.0,
+                 "width": 100.0, "height": 80.0},
+            ],
+        }
+        assert queries.object_bbox(group) == (110.0, -110.0, 80.0, 300.0)
+
     def test_bezier_bbox_includes_control_handles(self) -> None:
         # The control hull bounds the curve; ignoring handles under-approximates.
         bez = {

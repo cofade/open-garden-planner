@@ -72,7 +72,6 @@ TRANSLATIONS: dict[str, dict[str, str]] = {
         "roof pitch": "pente du toit",
         "roof style": "style de toit",
         "soil depth": "profondeur de terre",
-        "symbol parameter": "paramètre de symbole",
     },
     "ObjectType": {
         "Garden Light": "Lanterne de jardin",

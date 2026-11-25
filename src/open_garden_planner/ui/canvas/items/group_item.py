@@ -2,11 +2,12 @@
 
 from __future__ import annotations
 
+import math
 import uuid
 from typing import Any
 
 from PyQt6.QtCore import QPointF, QRectF, Qt
-from PyQt6.QtGui import QColor, QPainter, QPen
+from PyQt6.QtGui import QColor, QPainter, QPen, QTransform
 from PyQt6.QtWidgets import (
     QGraphicsItem,
     QGraphicsItemGroup,
@@ -141,6 +142,49 @@ def group_child_at(
     return None
 
 
+def bake_inherited_rotation(
+    item: QGraphicsItem,
+    *,
+    scene_transform: QTransform | None = None,
+    old_origin: QPointF | None = None,
+) -> None:
+    """Move a parent group's rotation into *item*'s own angle (#1022 review).
+
+    ``QGraphicsItemGroup.removeFromGroup`` keeps the child's scene transform by
+    leaving the group's rotation in the child's Qt transform matrix. The file
+    format stores a member's own ``rotation_angle``, not that matrix, so an
+    ungrouped nonsquare rectangle would look right until the next save/reload.
+    This rewrites the composed rotation as the item's own rotation about its
+    outline centre and translates it so every point keeps its scene position.
+
+    Call it BEFORE ``removeFromGroup`` when the parent transform is still in
+    place (the default reads it), or pass the captured ``scene_transform`` and
+    ``old_origin`` after removal.
+    """
+    if getattr(item, "item_id", None) is None:
+        return
+    if scene_transform is None:
+        scene_transform = item.sceneTransform()
+    if old_origin is None:
+        old_origin = item.scenePos()
+    angle = math.degrees(math.atan2(scene_transform.m12(), scene_transform.m11()))
+    if abs(angle) < 1e-6:
+        return
+    apply_rotation = getattr(item, "_apply_rotation", None)
+    if not callable(apply_rotation):
+        return
+    centre = selection_frame_rect(item).center()
+    # `removeFromGroup` leaves the group's rotation in the item's Qt transform;
+    # replace that matrix with the item's own rotation before applying it.
+    item.setTransform(QTransform())
+    apply_rotation(angle)
+    rotation = QTransform()
+    rotation.rotate(angle)
+    item.setPos(old_origin + rotation.map(centre) - centre)
+    if hasattr(item, "set_drill_down_child"):
+        item.set_drill_down_child(None)
+
+
 class GroupItem(RotationHandleMixin, GardenItemMixin, QGraphicsItemGroup):
     """A group of canvas items that move, copy, and rotate together.
 
@@ -214,8 +258,12 @@ class GroupItem(RotationHandleMixin, GardenItemMixin, QGraphicsItemGroup):
         composed arrangement sideways. Children keep their local positions;
         Qt's group transform is what rotates their scene positions together.
         """
+        if abs(self._rotation_angle) < 1e-9 and abs(self.rotation()) < 1e-9:
+            # The pivot is fixed at the first turn. A later member edit can move
+            # the frame centre; re-pivoting then would silently shift every
+            # member, and the saved transform would no longer reproduce itself.
+            self.setTransformOriginPoint(selection_frame_rect(self).center())
         self._rotation_angle = angle
-        self.setTransformOriginPoint(selection_frame_rect(self).center())
         self.setRotation(angle)
         self.update_rotation_handle()
         self._position_label()

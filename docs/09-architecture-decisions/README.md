@@ -13858,7 +13858,7 @@ above its own selection frame (#840's `selection_frame_rect`, never
 gesture is a **group transform**, not a loop over members: children keep their
 local positions and Qt's group transform rotates their scene positions about
 the frame centre together. `GroupItem._apply_rotation` sets the transform
-origin to that centre, and `_on_rotation_end` registers the ordinary
+origin to that centre on the first turn only, and `_on_rotation_end` registers the ordinary
 `RotateItemCommand` through `geometry_apply.register_rotation_command`, so the
 whole gesture is one undo step and the shared constraint-partner recording
 still runs. A drilled-down member keeps its own handle; the group hides its
@@ -13867,16 +13867,23 @@ own for the duration (`CanvasView.begin_group_drill_down` /
 `_individual_handles_allowed` rule.
 
 Persistence is additive: a group may carry a `rotation` key (the same key a
-pre-#1009 smart-symbol group used), and the loader routes it through
-`_apply_rotation` so the pivot is reconstructed rather than defaulting to
-(0, 0). A grouped bed's linked plants follow as before: `iter_plant_parents`
+pre-#1009 smart-symbol group used) and a `transform_origin`; a later member edit
+does not re-pivot, and reloading the saved origin is what keeps every member in
+place. Ungrouping turns the group's rotation into each member's own angle (and
+translates it so the member's scene position is unchanged), because Qt leaves
+the group rotation in a matrix the file format does not store. A legacy symbol
+without an origin rotated about its local (0, 0); the loader reproduces that
+exact geometry. A grouped bed's linked plants follow as before: `iter_plant_parents`
 walks the group, so `RotateItemCommand`'s membership tracker and the move
-command's net-scene-delta rule (PF-CAN-70) already cover members. Roof ridges
+command's net-scene-delta rule (PF-CAN-70) already cover members; a group
+rotation itself deliberately does not re-decide bed containment, so it cannot
+unlink a top-level plant the bed still owns. Roof ridges
 are re-derived by the existing `update_house_ridges_under` listener.
 
 Pinned by `tests/integration/test_group_rotation.py` (handle visibility,
-drill-down, rigid member geometry, one-step undo, Shift snapping, a nested
-group, a grouped bed, a grouped house ridge, and save/load).
+drill-down, a real viewport drag, rigid member geometry, one-step undo, Shift
+snapping, a nested group, a grouped bed, a grouped house ridge, DXF ellipse
+orientation, and save/load after a member edit and after ungroup).
 
 ## ADR-076: Exports paint one picture - a recorded SVG, raster plan pages in the PDF, live SVG text (#787, #788, #789)
 

@@ -2104,12 +2104,14 @@ class ProjectManager(QObject):
                 group_data["layer_id"] = str(item.layer_id)
             if item.name:
                 group_data["name"] = item.name
-            # The group's own angle (#1022). Children keep their local
-            # positions, so the group transform is what preserves the composed
-            # arrangement across a save/reload. The key is additive: an older
-            # app loads the group unrotated and still shows its members.
+            # The group's own angle and pivot (#1022). Children keep their local
+            # positions, so the pivot is part of the persisted transform: a
+            # member edit can move the frame centre, and reloading it as the
+            # pivot would shift every member.
             if abs(item.rotation()) > 1e-6:
                 group_data["rotation"] = item.rotation()
+                origin = item.transformOriginPoint()
+                group_data["transform_origin"] = {"x": origin.x(), "y": origin.y()}
             return group_data
         elif isinstance(item, TextItem):
             data = {
@@ -2583,13 +2585,41 @@ class ProjectManager(QObject):
                 child = ProjectManager._deserialize_item_core(child_data)
                 if child is not None:
                     group.addToGroup(child)
+            if isinstance(obj.get("smart_symbol"), dict):
+                # The old generator marked layout-only members and plain panel
+                # fences with smart-symbol-specific metadata. Translate it to
+                # the generic keys the current shadow and 3D paths read, so an
+                # old plan does not turn its guides into fences (#1022 review).
+                for child in group.childItems():
+                    metadata = getattr(child, "metadata", None)
+                    if not isinstance(metadata, dict):
+                        continue
+                    if metadata.pop("smart_symbol_guide", False):
+                        metadata["layout_guide"] = True
+                    if metadata.pop("smart_symbol_plain_panel", False):
+                        metadata["fence_panel_style"] = "PLAIN"
+                    metadata.pop("smart_symbol_member_key", None)
             if "x" in obj and "y" in obj:
                 group.setPos(float(obj["x"]), float(obj["y"]))
             if "rotation" in obj:
-                # Pivot on the group's own frame, exactly as a live gesture
-                # does (#1022); bare setRotation() would pivot on (0, 0).
                 with contextlib.suppress(ValueError, TypeError):
-                    group._apply_rotation(float(obj["rotation"]))
+                    angle = float(obj["rotation"])
+                    origin = obj.get("transform_origin")
+                    if isinstance(origin, dict):
+                        group.setTransformOriginPoint(
+                            QPointF(float(origin.get("x", 0.0)), float(origin.get("y", 0.0)))
+                        )
+                        group.setRotation(angle)
+                        group.rotation_angle = angle
+                    elif isinstance(obj.get("smart_symbol"), dict):
+                        # A pre-#1009 symbol rotated about its local origin
+                        # (its class had no centre pivot). Reproduce that exact
+                        # geometry; the saved origin then keeps it stable.
+                        group.setTransformOriginPoint(QPointF(0.0, 0.0))
+                        group.setRotation(angle)
+                        group.rotation_angle = angle
+                    else:
+                        group._apply_rotation(angle)
             return group
 
         # Extract common fields

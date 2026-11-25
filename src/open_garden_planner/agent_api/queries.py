@@ -50,13 +50,30 @@ def object_bbox(obj: dict[str, Any]) -> tuple[float, float, float, float]:
     children = obj.get("children")  # group
     if children:
         # Children serialise in the group's LOCAL frame; the group dict carries
-        # only x/y (no width/height), so union the child boxes offset by (x, y).
-        gx, gy = float(obj.get("x", 0.0)), float(obj.get("y", 0.0))
+        # x/y, its own angle and (since #1022) the pivot. Union the child boxes,
+        # turn each corner about the pivot, then place the result at x/y.
         boxes = [object_bbox(child) for child in children]
-        x0 = min(gx + b[0] for b in boxes)
-        y0 = min(gy + b[1] for b in boxes)
-        x1 = max(gx + b[0] + b[2] for b in boxes)
-        y1 = max(gy + b[1] + b[3] for b in boxes)
+        angle = float(obj.get("rotation", 0.0) or 0.0)
+        origin = obj.get("transform_origin")
+        if not isinstance(origin, dict):
+            x0 = min(b[0] for b in boxes)
+            y0 = min(b[1] for b in boxes)
+            x1 = max(b[0] + b[2] for b in boxes)
+            y1 = max(b[1] + b[3] for b in boxes)
+            origin = {"x": (x0 + x1) / 2.0, "y": (y0 + y1) / 2.0}
+        ox, oy = float(origin.get("x", 0.0)), float(origin.get("y", 0.0))
+        rad = math.radians(angle)
+        cos_a, sin_a = math.cos(rad), math.sin(rad)
+        xs: list[float] = []
+        ys: list[float] = []
+        for bx, by, bw, bh in boxes:
+            for px, py in ((bx, by), (bx + bw, by), (bx, by + bh), (bx + bw, by + bh)):
+                dx, dy = px - ox, py - oy
+                xs.append(ox + dx * cos_a - dy * sin_a)
+                ys.append(oy + dx * sin_a + dy * cos_a)
+        gx, gy = float(obj.get("x", 0.0)), float(obj.get("y", 0.0))
+        x0, x1 = min(xs) + gx, max(xs) + gx
+        y0, y1 = min(ys) + gy, max(ys) + gy
         return (x0, y0, x1 - x0, y1 - y0)
     if "width" in obj and "x" in obj:  # rectangle (group has x but no width)
         return (

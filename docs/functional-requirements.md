@@ -87,10 +87,8 @@ Detailed functional requirements for Open Garden Planner. These serve as the spe
   the selection at menu-open time: 2+ objects (no group) offer **Group**; exactly one group offers
   **Ungroup**; a group plus a foreign object, or 2+ groups, offer both. Group nests the selected
   items (including a group) into a new outer group; Ungroup dissolves **one nesting level** and
-  dissolves every selected top-level group in **one undo step**. A smart symbol may be grouped but
-  never ungrouped (its members are generated from its parameters); its own menu still offers
-  **Ungroup** when another selected group can be dissolved. Right-clicking an unselected
-  object replaces the selection first, on every item type including group, smart symbol, callout,
+  dissolves every selected top-level group in **one undo step**. Right-clicking an unselected
+  object replaces the selection first, on every item type including group, callout,
   text, journal pin and construction geometry. The background image is deliberately **not**
   groupable (it is a plan backdrop; grouping it would re-band it above ground surfaces). The menu
   never offers a row the shortcut would refuse: both read `group_item.groupable_selection` /
@@ -660,7 +658,7 @@ Acceptance: `tests/integration/test_icon_system.py` (every menu action recursive
 
 ## FR-31: Per-object stacking order (issue #338, ADR-043)
 
-- **FR-STACK-01**: A selected object (or multi-selection) can be **Brought to Front**, **Brought Forward**, **Sent Backward**, or **Sent to Back** — reordering it **within its own layer only**, never across layers. Reachable from: the Edit ▸ Arrange menu (`Ctrl+Shift+]` / `Ctrl+]` / `Ctrl+[` / `Ctrl+Shift+[`, mirrored by `Ctrl+Shift+Up` / `Ctrl+Up` / `Ctrl+Down` / `Ctrl+Shift+Down` on every action); each item's right-click context menu (`Arrange ▸` submenu, on every shape sharing the `GardenItemMixin` context-menu seam — rectangle, polygon, polyline, circle, ellipse, text, callout, group, smart symbol — plus arcs/beziers via the menu/shortcut without a context-menu entry); and the Properties panel's "Arrange" row (four icon buttons), shown for a single selected item and for a multi-selection.
+- **FR-STACK-01**: A selected object (or multi-selection) can be **Brought to Front**, **Brought Forward**, **Sent Backward**, or **Sent to Back** — reordering it **within its own layer only**, never across layers. Reachable from: the Edit ▸ Arrange menu (`Ctrl+Shift+]` / `Ctrl+]` / `Ctrl+[` / `Ctrl+Shift+[`, mirrored by `Ctrl+Shift+Up` / `Ctrl+Up` / `Ctrl+Down` / `Ctrl+Shift+Down` on every action); each item's right-click context menu (`Arrange ▸` submenu, on every shape sharing the `GardenItemMixin` context-menu seam — rectangle, polygon, polyline, circle, ellipse, text, callout, group — plus arcs/beziers via the menu/shortcut without a context-menu entry); and the Properties panel's "Arrange" row (four icon buttons), shown for a single selected item and for a multi-selection.
 - **FR-STACK-02**: A multi-selection keeps its members' **relative order** when arranged as a block; a selection spanning multiple layers is arranged one layer at a time (each layer's block moves within that layer only) but the whole gesture is **one undo step**.
 - **FR-STACK-03**: A bed/container carries its **contained plants along as one block** — their relative order among themselves is preserved. A plant cannot be arranged **below its own bed**: `Send to Back`/`Send Backward` on a lone plant stops just above its bed, and if it is already there the action reports "already at back" rather than silently doing nothing. The same clamp applies to a `ROOF_RIDGE` and its owner polygon.
 - **FR-STACK-04**: `Bring Forward`/`Send Backward` step the selection past the single **nearest item in the same layer whose scene bounding rect overlaps any member of the block** — a non-overlapping neighbour is skipped entirely. When there is no such item (or the block is already at the front/back of its layer), the action is a no-op and the status bar reports which: "Already at front", "Already at back", "No overlapping object in front", "No overlapping object behind", or "Select an object to arrange" for an empty/ineligible selection. A no-op pushes **nothing** onto the undo stack.
@@ -1388,7 +1386,7 @@ engine), the unit suites `tests/unit/test_playback.py`, `test_scene3d_weather.py
   thumbnail serves every language: it shows the plan without its hint text (#940).
 - **FR-EXAMPLE-03**: Save as template explains and removes site, history, task,
   inventory, preference and image data plus absolute paths. Geometry, species,
-  layers, guilds, constraints, smart symbols and succession dates stay portable.
+  layers, guilds, constraints and succession dates stay portable.
   Every current ProjectData field has an explicit keep/strip classification.
 - **FR-EXAMPLE-04**: Template export leaves the live project identity, history and
   dirty state intact; it refuses to overwrite the live project or bundled examples.
@@ -1532,10 +1530,12 @@ Owner accepted the chart on 28 October 2026 ("perfect"); section 7.4 owns Pages 
   above its own selection frame. Dragging it turns the whole group about that frame's
   centre; members keep their relative arrangement, `Shift` snaps to 15°, and one
   `Ctrl+Z` restores the group angle and every member position. A drilled-down member
-  shows its own handle and hides the group's. A grouped bed keeps its plant links and
+  shows its own handle and hides the group's. The pivot is fixed at the first turn and
+  saved with the angle; ungrouping bakes the turn into each member so save/reload keeps
+  its orientation. A grouped bed keeps its plant links and
   carries them on a later move through the net-scene-delta rule; a grouped house's
-  ridge follows. The group angle is additive `.ogp` data (a group `rotation` key, no
-  `FILE_VERSION` bump). See ADR-075 addendum 6 and §8.9.22.
+  ridge follows. The group angle and pivot are additive `.ogp` data (a group `rotation`
+  and `transform_origin` key, no `FILE_VERSION` bump). See ADR-075 addendum 6 and §8.9.22.
 
 - **FR-TOOL-ESC-01:** **Esc always returns to the Select tool**, from every drawing,
   object-placing, CAD and constraint tool. A gesture in progress is cancelled with no

@@ -779,8 +779,9 @@ centimetres**.
 - **The canvas prefetches the next zoom level in idle time (#845).** A view
   brackets `QGraphicsView.paintEvent` with `begin_sprite_prefetch` /
   `end_sprite_prefetch`; the bracket records every sprite the frame drew and
-  queues the same sprites at twice the pixel size. `CanvasView`'s single-shot
-  timer drains the queue about twelve at a time and repaints once. Queue entries
+  queues the same sprites at the next raster level. `CanvasView`'s single-shot
+  timer drains the queue about twelve at a time and never forces a repaint
+  (the next natural paint shows them). Queue entries
   that would not fit the cache budget are skipped rather than evicting the frame
   on screen. The bracket exists only around a widget paint: an export or an
   image render still gets every picture synchronously and sharply. Measured on
@@ -1460,23 +1461,29 @@ A group uses the same `RotationHandleMixin` as a single item, so it draws one st
 rotation handle above its `selection_frame_rect`. Drag rotates the **group transform**
 about that frame's centre; members keep their local positions, and Qt moves their scene
 positions together. `GroupItem._apply_rotation` sets the transform origin to the frame
-centre (never `boundingRect()`: a badge or a screen-sized handle would shift the pivot),
-and `_on_rotation_end` goes through `geometry_apply.register_rotation_command`, so the
-gesture is one `RotateItemCommand`. `Shift` snaps to 15°; Esc/undo behave as on a single
+centre on the first turn only (never `boundingRect()`: a badge or a screen-sized
+handle would shift the pivot), and `_on_rotation_end` goes through
+`geometry_apply.register_rotation_command`, so the gesture is one
+`RotateItemCommand`. `Shift` snaps to 15°; Esc/undo behave as on a single
 item.
 
 - **One handle, one edit target.** `_individual_handles_allowed` already hides the group's
   handle while a member is drilled down; `CanvasView.begin_group_drill_down` hides it
   explicitly and `_clear_group_drill_down` shows it again when the group is still
   selected.
-- **Persistence is additive.** A group writes its own `rotation` key; the loader passes it
-  through `_apply_rotation`, so the pivot is reconstructed instead of defaulting to (0, 0).
-  Old files without the key are unchanged, and a pre-#1009 smart-symbol group's `rotation`
-  key loads the same way.
+- **Persistence is additive.** A group writes its own `rotation` and
+  `transform_origin` keys; the pivot is fixed at the first turn, so a later member edit
+  cannot make reload re-pivot and shift every member. A pre-#1009 smart-symbol group
+  has no origin and rotated about its local (0, 0), which the loader reproduces.
+- **Ungroup bakes the turn.** `removeFromGroup` leaves the group's rotation in the
+  member's Qt transform; `bake_inherited_rotation` turns it into the member's own angle
+  and translates the member so its scene position is unchanged. `UngroupCommand.undo`
+  restores the pre-ungroup transform instead of composing the group angle twice.
 - **Linked things follow.** A grouped bed's plants are found by `iter_plant_parents`
-  (which walks groups), so the rotation command's membership tracker and the move
-  command's net-scene-delta rule (PF-CAN-70) apply without a second path. A grouped house's
-  ridge is re-derived by `update_house_ridges_under` on the group's transform change.
+  (which walks groups), so the move command's net-scene-delta rule (PF-CAN-70) applies
+  without a second path. A group rotation does not re-decide bed containment, so it
+  cannot unlink a top-level plant the bed still owns. A grouped house's ridge is
+  re-derived by `update_house_ridges_under` on the group's transform change.
 
 Tests: `tests/integration/test_group_rotation.py`.
 
@@ -10208,8 +10215,9 @@ its key (#845).** `paint_plant` lays a cached bitmap down turned
 species file and the level: six plants of one species at six stable angles share
 one entry. The canvas brackets its paint with `sprite_raster.begin_sprite_prefetch`
 / `end_sprite_prefetch`; the bracket queues the same sprites one level finer, and
-`CanvasView`'s single-shot timer drains about twelve a tick and repaints once.
-An entry is skipped when it would not fit `SPRITE_CACHE`'s budget, so the frame
+`CanvasView`'s single-shot timer drains about twelve a tick without forcing a
+repaint. An entry is skipped when it would not fit `SPRITE_CACHE`'s budget or its
+entry count, so the frame
 on screen is never evicted to make room for the next one. Measured on the
 family-garden example (1453×898 viewport, RTX 4070, offscreen): after the idle
 tick a 100→200 % cross rasterised 1 sprite (52 ms for the whole frame) and

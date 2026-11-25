@@ -628,6 +628,7 @@ def _shadow_footprints(item: Any, at_date: date | None) -> list[Polygon]:
 def _fence_porosity_info(
     item: Any,
     kind: str,
+    metadata: dict[str, Any],
     at_date: date | None,
 ) -> tuple[str | None, tuple[Point, ...], float]:
     """Extract porous fence style, scene-space centreline points, and stroke width (#440)."""
@@ -636,6 +637,8 @@ def _fence_porosity_info(
     style_enum = getattr(item, "path_fence_style", PathFenceStyle.NONE)
     if style_enum is not PathFenceStyle.NONE:
         raw_style = style_enum.name
+    elif metadata.get("fence_panel_style") == "PLAIN":
+        raw_style = "PLAIN"
     else:
         raw_style = DEFAULT_SOLID.get(kind, "WOODEN_FENCE")
     if raw_style not in POROUS_FENCE_STYLES:
@@ -995,6 +998,8 @@ def collect_identified_casters(
             continue   # a string of lights casts no 2D shadow (L5.4, owner's decision)
         metadata = getattr(item, "metadata", None)
         meta_dict = metadata if isinstance(metadata, dict) else {}
+        if meta_dict.get("layout_guide"):
+            continue
         height = effective_height_cm(
             object_type, metadata, at_date=at_date
         )
@@ -1011,7 +1016,7 @@ def collect_identified_casters(
                 # #830: the canopy is a raised slab, not a prism from the ground
                 base_cm, height = _raised_parasol(item, height, base_cm, at_date)
             fence_style, fence_points, fence_width_cm = _fence_porosity_info(
-                item, kind, at_date
+                item, kind, meta_dict, at_date
             )
             roof_tris: tuple[Triangle3D, ...] = ()
             # The plan's live ridge (one ownership rule for the roof projection,

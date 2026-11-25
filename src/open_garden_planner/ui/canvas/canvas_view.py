@@ -2995,24 +2995,37 @@ class CanvasView(QGraphicsView):
 
         # A focused group member's handle must be handled here: Qt delivers
         # the press to the selected group instead of the ItemIgnoresTransforms
-        # handle, so the view owns the whole gesture (#771). Only Select owns
+        # handle, so the view owns the whole gesture (#771). The same is true
+        # of a selected group's OWN rotation handle (#1022). Only Select owns
         # that gesture: another active tool (Split, Measure, a drawing tool)
         # must receive the click it was asked for.
         if (
             event.button() == Qt.MouseButton.LeftButton
-            and self._drill_down_item is not None
+            and self._tool_manager.active_tool is not None
             and getattr(self._tool_manager.active_tool, "tool_type", None)
             is ToolType.SELECT
         ):
             scene_pos = self.mapToScene(event.position().toPoint())
             candidate = self._canvas_scene.itemAt(scene_pos, self.transform())
-            if (
-                isinstance(candidate, DRAG_HANDLE_TYPES)
-                and candidate.parentItem() is self._drill_down_item
-                and self.begin_drill_handle_drag(candidate, scene_pos)
-            ):
-                event.accept()
-                return
+            if isinstance(candidate, DRAG_HANDLE_TYPES):
+                parent = candidate.parentItem()
+                from .items.group_item import GroupItem
+
+                own_group_handle = (
+                    isinstance(candidate, RotationHandle)
+                    and isinstance(parent, GroupItem)
+                    and parent.isSelected()
+                    and self.effective_selection() == [parent]
+                )
+                focused_member_handle = (
+                    self._drill_down_item is not None
+                    and parent is self._drill_down_item
+                )
+                if (own_group_handle or focused_member_handle) and self.begin_drill_handle_drag(
+                    candidate, scene_pos
+                ):
+                    event.accept()
+                    return
 
         # A journal pin uses our selection/undo path at its device-sized head
         # (PF-CAN-40), including lost-release recovery.
