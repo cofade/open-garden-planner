@@ -65,8 +65,9 @@ Lesson: **a delta is a vector plus a frame, and the frame must be named at the
 call site.** An unrotated test suite cannot tell the two frames apart; every
 geometry test that mixes a Qt parent with a per-item delta needs one rotated
 case. `tests/integration/test_bed_membership_reconciliation.py` now carries the
-rotated residual, the group-plus-bed net-delta, the live-drag, the bound
-reference-point and the drilled-bed nudge cases; PF-CAN-70 records the rule.
+rotated residual, the group-plus-bed net-delta, the live-drag and the bound
+reference-point cases, and `test_group_drill_down.py` the drilled-bed nudge;
+PF-CAN-70 records the rule.
 
 ## What this did not fix
 The Plant Grid's snapped resize rounds the per-cell spacing to whole centimetres
