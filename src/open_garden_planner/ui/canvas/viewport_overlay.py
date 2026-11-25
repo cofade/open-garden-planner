@@ -27,11 +27,15 @@ class _ViewportResizeWatcher(QObject):
     the view's alignment, not the scroll bars, so no scroll signal reports it.
     The viewport's Resize event also arrives *before* ``QGraphicsView`` has
     re-centred, so the callback runs one event-loop turn later. The timer is
-    a child of this watcher, which is a child of the viewport: it dies with it.
+    a child of this watcher, and the watcher is owned by the overlay (which
+    is owned by the widget): destroying either end uninstalls the filter.
     """
 
-    def __init__(self, viewport: QWidget, callback: Callable[[], None]) -> None:
-        super().__init__(viewport)
+    def __init__(
+        self, viewport: QWidget, callback: Callable[[], None],
+        parent: QObject | None = None,
+    ) -> None:
+        super().__init__(parent if parent is not None else viewport)
         self._timer = QTimer(self)
         self._timer.setSingleShot(True)
         self._timer.setInterval(0)
@@ -68,7 +72,7 @@ class ViewportOverlay(QObject):
         self._margin = margin
         viewport = view.viewport()
         assert viewport is not None
-        self._resize_watcher = _ViewportResizeWatcher(viewport, self.place)
+        self._resize_watcher = _ViewportResizeWatcher(viewport, self.place, parent=self)
         view.zoom_changed.connect(self.place)
         for bar in (view.horizontalScrollBar(), view.verticalScrollBar()):
             if bar is not None:

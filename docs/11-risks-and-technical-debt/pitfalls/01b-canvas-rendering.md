@@ -238,8 +238,8 @@ including replacing the selected shed with a glasshouse.
 
 Under a 20-worker full-suite load the fixed 500 ms wait after the edit's first
 paint was sometimes shorter than the type-change rebuild's queued paint
-(#1017): the partial frame was compared before it was complete and a 33 x 222
-px strip differed. `settled_grab()` now grabs every 100 ms until two frames
+(#1017): the partial frame was compared before it was complete. `settled_grab()`
+now grabs every 100 ms until two frames
 match (bounded at 3 s). That wait only ensures no paint is still queued; a
 region the partial frame never painted produces two identical stale grabs, so
 the loop cannot detect it. The forced full repaint does: the partial and full
@@ -275,9 +275,9 @@ actual result. The reference properties command likewise replays exact coordinat
 
 ### PF-CAN-70
 
-- **Rule:** A command that moves a Qt item group must reconcile bed membership for every plant in the group's child tree, and must not add a bed-child delta to a plant a moved Qt ancestor already carries. Filtering the moved selection for plant types is not the set of plants it carries.
-- **Pinned by:** `tests/integration/test_bed_membership_reconciliation.py::test_a_mouse_drag_of_a_group_with_its_bed_moves_and_undoes_once`; `tests/integration/test_bed_membership_reconciliation.py::test_live_bed_propagation_skips_a_plant_the_group_carries`
-- **Source:** #1001
+- **Rule:** A command that moves a Qt item group must reconcile bed membership for every plant in the group's child tree, and must not add a bed-child delta to a plant a moved Qt ancestor already carries. Filtering the moved selection for plant types is not the set of plants it carries. Every move also names its delta frame: `scene` deltas are total scene displacements, `local` deltas are parent-relative. A scene residual applied to a Qt child is mapped into its parent's frame, and a bed's non-carried children follow the bed's NET scene delta - not the delta of the group that carries the bed and not the bed's own parent-local residual.
+- **Pinned by:** `tests/integration/test_bed_membership_reconciliation.py::test_a_mouse_drag_of_a_group_with_its_bed_moves_and_undoes_once`; `tests/integration/test_bed_membership_reconciliation.py::test_live_bed_propagation_skips_a_plant_the_group_carries`; `tests/integration/test_bed_membership_reconciliation.py::test_aligning_a_rotated_group_and_its_child_keeps_the_child_scene_delta`; `tests/integration/test_bed_membership_reconciliation.py::test_aligning_a_group_and_its_bed_carries_external_plants_by_the_beds_net_delta`
+- **Source:** #1001, #1021 review
 - **Status:** standing; narrative in [debug-verbose: Case study: a group moved out of a bed kept every plant's bed link (#1001)](../../../.claude/skills/debug-verbose/references/287-case-study-group-move-left-bed-links-1001.md)
 - **Legacy:** none (new entry)
 

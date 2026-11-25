@@ -2901,7 +2901,7 @@ class PropertiesPanel(QWidget):
                             return
 
         # No constraints or no propagation - simple move
-        command = MoveItemsCommand([item], move_delta)
+        command = MoveItemsCommand([item], move_delta, delta_frame="local")
         if self._command_manager:
             self._command_manager.execute(command)
 

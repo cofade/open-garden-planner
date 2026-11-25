@@ -488,6 +488,63 @@ def test_a_focused_field_is_authoritative_until_focus_leaves(qtbot, monkeypatch)
     assert field.value() == pytest.approx(500.0)
 
 
+def test_a_snapped_resize_puts_the_edge_on_the_grid_when_the_grab_is_off_centre(
+    qtbot, monkeypatch,
+):
+    """#1021 review: a resize snaps the EDGE, not the cursor.
+
+    The handle hit radius accepts a click several centimetres off the handle
+    centre. Snapping the raw cursor and then subtracting the grab offset puts
+    the edge that far off the grid line. Snapping the dragged handle position
+    instead lands the edge on the line.
+    """
+    _scene, view = _grid_view(qtbot)
+    view.set_snap_enabled(True)
+    AppSettings().plant_grid_dimensions = (2, 3)
+    _accept_setup(monkeypatch)
+    grid = _start_draft(qtbot, view)
+    viewport = view.viewport()
+    edge = grid._handles()[(1, 0)]
+    assert (edge.x(), edge.y()) == pytest.approx((400.0, 300.0))
+
+    grab = edge + QPointF(4.0, 0.0)  # inside the 9 cm hit radius, off the handle
+    target = QPointF(450.0, 300.0)  # the next grid line
+    qtbot.mousePress(viewport, Qt.MouseButton.LeftButton, pos=view.mapFromScene(grab))
+    assert grid._drag == (1, 0)
+    qtbot.mouseMove(viewport, view.mapFromScene(target))
+    qtbot.mouseRelease(viewport, Qt.MouseButton.LeftButton, pos=view.mapFromScene(target))
+
+    # The handle lands on 450. Rounding the per-cell spacing to whole
+    # centimetres then moves the edge by less than one cell: 350 / 3 = 116.67
+    # becomes 117, so the span is 351. Without the handle snap the grab offset
+    # (4 cm) and the rounding compound to 345 - the defect this pins.
+    assert grid._width == pytest.approx(351.0)
+    assert (grid._width / grid._dimensions[1]) == pytest.approx(117.0)
+
+
+def test_a_clamped_field_shows_the_model_value_after_editing_finishes(
+    qtbot, monkeypatch,
+):
+    """#1021 review: leaving a clamped field must show what the model holds."""
+    _scene, view = _grid_view(qtbot)
+    AppSettings().plant_grid_dimensions = (1, 1)
+    _accept_setup(monkeypatch)
+    grid = _start_draft(qtbot, view)
+    field = grid._fields["spacing"]
+    qtbot.waitExposed(view)
+    field.setFocus(Qt.FocusReason.OtherFocusReason)
+    qtbot.waitUntil(field.hasFocus)
+
+    field.setValue(0.4)  # 1 x 1 draft: width clamps to MIN_SPAN (2 cm)
+    assert grid._width == pytest.approx(2.0)
+    assert field.value() == pytest.approx(0.4)  # still the editor
+
+    field.clearFocus()
+    qtbot.waitUntil(lambda: not field.hasFocus())
+
+    assert field.value() == pytest.approx(2.0)
+
+
 def test_snapped_handles_leave_whole_centimetre_spacing(qtbot, monkeypatch):
     """#1003: snapping applies to move, resize, rotate and the size handle."""
     _scene, view = _grid_view(qtbot)
@@ -509,11 +566,19 @@ def test_snapped_handles_leave_whole_centimetre_spacing(qtbot, monkeypatch):
     assert grid._center.y() % 50.0 == pytest.approx(0.0)
     assert grid._center != center
 
-    edge = grid._handles()[(1, 0)]
-    drag(edge, edge + QPointF(13.0, 0.0))
+    # A corner drag, not an edge already on a grid line: the unsnapped span
+    # must be one that snapping HAS to round (the earlier edge drag netted a
+    # zero delta, so it never exercised ``snap_cell_span`` - #1021 review).
+    corner = grid._handles()[(1, 1)]
+    drag(corner, corner + QPointF(30.0, 30.0))
     rows, columns = grid._dimensions
     assert (grid._width / columns) == pytest.approx(round(grid._width / columns))
     assert (grid._height / rows) == pytest.approx(round(grid._height / rows))
+    # The corner moved to the next grid lines: 350 x 450. 350 / 3 = 116.67
+    # rounds to 117 whole-cm cells (351); 450 / 2 = 225 needs no rounding.
+    # A no-op ``snap_cell_span`` would leave 350, so this pins the rounding.
+    assert grid._width == pytest.approx(351.0)
+    assert grid._height == pytest.approx(450.0)
 
     rotate = grid._handles()["rotate"]
     offset = rotate - grid._center

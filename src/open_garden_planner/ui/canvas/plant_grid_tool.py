@@ -219,20 +219,42 @@ class PlantGridTool(BaseTool):
         field.valueChanged.connect(
             lambda value, name=key: self._field_changed(name, value)
         )
+        # A focus-out or Return is the moment a field stops being the editor.
+        # Clamping happens in the handler, so the model value can differ from
+        # what was typed; without this the field kept showing the unclamped
+        # number (a 1 cm spacing on a grid clamped to 2 cm wide, #1021 review).
+        field.editingFinished.connect(lambda name=key: self._field_finished(name))
         return field
+
+    def _field_values(self) -> dict[str, float]:
+        """The draft's current values, keyed like ``self._fields``."""
+        rows, columns = self._dimensions
+        return {
+            "size": self._diameter,
+            "spacing": self._width / columns,
+            "width": self._width,
+            "height": self._height,
+        }
+
+    def _field_finished(self, name: str) -> None:
+        """Show the model's value for the field the user just left."""
+        field = self._fields.get(name)
+        if field is None:
+            return
+        with QSignalBlocker(field):
+            field.setValue(self._field_values()[name])
+        self._sync_fields()
 
     def _sync_fields(self) -> None:
         """Show the draft's current values without re-entering the handlers.
 
         A field that currently has focus is the authoritative editor: it is not
-        overwritten while the user types. The next sync after focus leaves
-        updates it; the canvas click and hide paths move focus out first.
+        overwritten while the user types. ``editingFinished`` closes that gap
+        when the user leaves the field (or presses Return).
         """
         fields = self._fields
         if not fields:
             return
-        rows, columns = self._dimensions
-        width, height = self._width, self._height
         with (
             QSignalBlocker(fields["size"]),
             QSignalBlocker(fields["spacing"]),
@@ -242,13 +264,7 @@ class PlantGridTool(BaseTool):
             # Never overwrite the field the user is typing in: a drag or a
             # sibling field updates the others, and the typed text already
             # names the value the model holds.
-            values = {
-                "size": self._diameter,
-                "spacing": width / columns,
-                "width": width,
-                "height": height,
-            }
-            for key, value in values.items():
+            for key, value in self._field_values().items():
                 if not fields[key].hasFocus():
                     fields[key].setValue(value)
 
@@ -321,7 +337,7 @@ class PlantGridTool(BaseTool):
             ("size", QCoreApplication.translate("PlantGridTool", "Plant size"),
              _MIN_SPAN, _MAX_PLANT_DIAMETER),
             ("spacing", QCoreApplication.translate("PlantGridTool", "Column spacing"),
-             1.0, _MAX_SPAN),
+             0.1, _MAX_SPAN),
             ("width", QCoreApplication.translate("PlantGridTool", "Width"),
              _MIN_SPAN, _MAX_SPAN),
             ("height", QCoreApplication.translate("PlantGridTool", "Height"),
@@ -508,10 +524,16 @@ class PlantGridTool(BaseTool):
             sx, sy = self._drag
             transform = QTransform().translate(center.x(), center.y()).rotate(angle)
             inverse = transform.inverted()[0]
-            target = self.view.snap_point(point) if snapping else point
-            local_delta = inverse.map(target) - inverse.map(self._drag_start)
-            start_x, end_x = resize_edges(width, sx, sx * width / 2 + local_delta.x())
-            start_y, end_y = resize_edges(height, sy, sy * height / 2 + local_delta.y())
+            # A handle is grabbed within a few centimetres of its centre. The
+            # EDGE follows the handle (cursor delta applied to the handle), and
+            # snapping acts on that handle position: snapping the raw cursor
+            # instead baked the grab offset into the edge (#1021 review).
+            handle = QPointF(sx * width / 2, sy * height / 2)
+            desired = transform.map(handle) + (point - self._drag_start)
+            target = self.view.snap_point(desired) if snapping else desired
+            local = inverse.map(target)
+            start_x, end_x = resize_edges(width, sx, local.x())
+            start_y, end_y = resize_edges(height, sy, local.y())
             if snapping:
                 rows, columns = self._dimensions
                 if sx:

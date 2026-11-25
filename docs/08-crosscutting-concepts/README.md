@@ -1411,12 +1411,14 @@ that are about to exist keeps using scene items at `preview_z`.
   readout. The fields mirror the draft after a drag but never feed a drag back into
   themselves (`QSignalBlocker`), and the field being typed in is never overwritten.
 - **Handles snap (#1003).** With the view's snap on, a move snaps its centre through
-  `CanvasView.snap_point`; a resize snaps the dragged point and rounds the per-cell
-  spacing to whole centimetres (`core/plant_grid.snap_cell_span`), keeping the opposite
-  edge fixed; a rotation within 3° of a 15° step sticks to it (Shift always snaps); the
-  size handle rounds to whole centimetres. The local arithmetic — cell centres, resize
-  edges, snap spans and handle positions — is Qt-free in `core/plant_grid.py`.
-- **One camera, one action.** The Plant Grid has its own `plant_grid.svg`; the generic
+  `CanvasView.snap_point`; a resize snaps the dragged HANDLE position (not the raw
+  cursor, whose grab offset would push the edge off the snap line) and rounds the
+  per-cell spacing to whole centimetres (`core/plant_grid.snap_cell_span`), keeping the
+  opposite edge fixed - so the edge can end up less than one cell from the snap line;
+  a rotation within 3° of a 15° step sticks to it (Shift always snaps); the
+  size handle rounds to whole centimetres. The local arithmetic - cell centres, resize
+  edges, snap spans and handle positions - is Qt-free in `core/plant_grid.py`.
+- **One icon, one action.** The Plant Grid has its own `plant_grid.svg`; the generic
   `grid` glyph stays the grid-visibility / rows-and-columns meaning.
 - **View-only by construction.** Exports and the minimap use `scene.render()` and never
   see the draft (§8.9.16), so the tool needs no exclusion filter.
@@ -1430,9 +1432,10 @@ that are about to exist keeps using scene items at `preview_z`.
 
 Test pattern: move the attached widget, grab the viewport, and assert that the widget did
 not move; then zoom, scroll and resize, and assert that it did (`qtbot.waitUntil` for the
-deferred resize). `test_typed_values_keep_the_grid_exact` and
-`test_snapped_handles_leave_whole_centimetre_spacing` pin the typed fields and snapping
-(`tests/integration/test_plant_grid_tool.py`).
+deferred resize). `test_typed_values_keep_the_grid_exact`,
+`test_snapped_handles_leave_whole_centimetre_spacing` and
+`test_a_snapped_resize_puts_the_edge_on_the_grid_when_the_grab_is_off_centre` pin the typed
+fields and snapping (`tests/integration/test_plant_grid_tool.py`).
 
 ## 8.10 Integration Test Policy
 

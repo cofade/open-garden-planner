@@ -461,6 +461,105 @@ class TestMovesReconcileMembership:
             )
             assert plant.parent_bed_id == bed.item_id
 
+    def test_aligning_a_rotated_group_and_its_child_keeps_the_child_scene_delta(
+        self, canvas: CanvasView
+    ) -> None:
+        """A group's residual is a SCENE delta; a rotated parent turns it (#1021 review).
+
+        ``AlignItemsCommand(delta_frame="scene")`` subtracts the ancestor's
+        delta and hands the rest to ``moveBy``, which is parent-local. On a
+        rotated group that turns the residual, so the child that asked for a
+        zero scene delta would move.
+        """
+        from open_garden_planner.core.commands import AlignItemsCommand, GroupCommand
+        from open_garden_planner.ui.canvas.items.group_item import GroupItem
+
+        bed = _bed(canvas)
+        plant = _plant(canvas, 450.0, 350.0)
+        canvas.command_manager.execute(GroupCommand(canvas.scene(), [bed, plant]))
+        group = next(item for item in canvas.scene().items()
+                     if isinstance(item, GroupItem))
+        group.setRotation(90.0)
+        before_plant = QPointF(plant.scenePos())
+
+        canvas.command_manager.execute(AlignItemsCommand([
+            (group, QPointF(100.0, 0.0)),
+            (plant, QPointF(0.0, 0.0)),
+        ], delta_frame="scene"))
+
+        assert (plant.scenePos().x(), plant.scenePos().y()) == pytest.approx(
+            (before_plant.x(), before_plant.y())
+        )
+
+    def test_aligning_a_group_and_its_bed_carries_external_plants_by_the_beds_net_delta(
+        self, canvas: CanvasView
+    ) -> None:
+        """A non-grouped plant follows the BED, not the group carrying it (#1021 review).
+
+        The bed is listed with a delta that cancels the group's, so the bed
+        stays put; a plant linked to it but outside the group must stay too.
+        """
+        from open_garden_planner.core.commands import AlignItemsCommand, GroupCommand
+        from open_garden_planner.ui.canvas.items.group_item import GroupItem
+
+        bed = _bed(canvas)
+        inside = _plant(canvas, 450.0, 350.0)
+        outside = _plant(canvas, 500.0, 380.0)
+        assert outside.parent_bed_id == bed.item_id
+        canvas.command_manager.execute(GroupCommand(canvas.scene(), [bed, inside]))
+        group = next(item for item in canvas.scene().items()
+                     if isinstance(item, GroupItem))
+        before_outside = QPointF(outside.scenePos())
+
+        canvas.command_manager.execute(AlignItemsCommand([
+            (group, QPointF(100.0, 0.0)),
+            (bed, QPointF(0.0, 0.0)),
+        ], delta_frame="scene"))
+
+        assert (outside.scenePos().x(), outside.scenePos().y()) == pytest.approx(
+            (before_outside.x(), before_outside.y())
+        )
+
+    def test_a_live_drag_of_a_group_and_its_bed_keeps_external_plants_in_step(
+        self, canvas: CanvasView
+    ) -> None:
+        """The live propagation uses the bed's NET delta, not whichever came first.
+
+        Both the group and the bed inside it are dragged (the stale-selection
+        case). A plant linked to the bed but outside the group must follow the
+        bed's total scene movement - 100 from the group plus 20 of its own -
+        during the drag and in the one undo step (#1021 review).
+        """
+        from open_garden_planner.core.commands import GroupCommand
+        from open_garden_planner.ui.canvas.items.group_item import GroupItem
+
+        bed = _bed(canvas)
+        inside = _plant(canvas, 450.0, 350.0)
+        outside = _plant(canvas, 500.0, 380.0)
+        canvas.command_manager.execute(GroupCommand(canvas.scene(), [bed, inside]))
+        group = next(item for item in canvas.scene().items()
+                     if isinstance(item, GroupItem))
+        before_outside = QPointF(outside.scenePos())
+        canvas._drag_start_positions = {
+            group: QPointF(group.pos()), bed: QPointF(bed.pos()),
+        }
+        canvas._child_drag_origins.clear()
+
+        group.moveBy(100.0, 0.0)
+        canvas._propagate_bed_children_during_drag()
+        bed.moveBy(20.0, 0.0)
+        canvas._propagate_bed_children_during_drag()
+
+        assert outside.scenePos().x() == pytest.approx(before_outside.x() + 120.0)
+        assert outside.scenePos().y() == pytest.approx(before_outside.y())
+
+        canvas._drag_start_undo_depth = canvas.command_manager.undo_depth
+        canvas._finalize_drag_move()
+
+        assert outside.scenePos().x() == pytest.approx(before_outside.x() + 120.0)
+        canvas.command_manager.undo()
+        assert outside.scenePos().x() == pytest.approx(before_outside.x())
+
     def test_a_bed_moved_over_a_plant_links_it(self, canvas: CanvasView) -> None:
         bed = _bed(canvas)
         loner = _plant(canvas, 1000.0, 400.0)

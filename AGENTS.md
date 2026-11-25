@@ -269,10 +269,14 @@ Full how-to (step-by-step, `.ts` format, recompile command): see `docs/08-crossc
     spacing, width and height are `LengthSpinBox` fields (units profile; the model stays in
     cm; the column field shows the column pitch and the row pitch is Height ÷ rows);
     `core/plant_grid.py` owns the Qt-free geometry; `ui/canvas/viewport_overlay.py` owns
-    the control strip's placement; a snap-enabled resize rounds per-cell spacing to whole
-    centimetres. The tool has `plant_grid.svg`.
+    the control strip's placement; a snap-enabled resize snaps the dragged HANDLE (not the
+    raw cursor, whose grab offset would push the edge off the line) and rounds per-cell
+    spacing to whole centimetres. The tool has `plant_grid.svg`.
   - Group moves and bed links (#1001, PF-CAN-70): `core/commands.plants_in_items()` walks
-    the Qt child tree; membership changes undo in the group-move step.
+    the Qt child tree; membership changes undo in the group-move step. Every move names its
+    delta frame (`scene` = a total scene displacement, `local` = parent-relative); a scene
+    residual is mapped into the child's parent frame, and a bed's non-carried children
+    follow the bed's NET scene delta.
   - Native-pixel oracle (#1017, PF-CAN-67): `canvas_native_pixels.settled_grab()` waits for
     two identical frames before comparing a partial repaint.
   - Tool drafts (#1002, ADR-082, §8.9.21): a multi-press tool draft paints through

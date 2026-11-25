@@ -13,6 +13,7 @@ from typing import TYPE_CHECKING, Any, Literal, cast
 from uuid import UUID
 
 from PyQt6.QtCore import QCoreApplication, QObject, QPointF, pyqtSignal
+from PyQt6.QtGui import QTransform
 from PyQt6.QtWidgets import QGraphicsItem, QGraphicsScene
 
 from open_garden_planner.core.camera_tours import SavedTour, checked_tours, find_tour
@@ -1220,14 +1221,112 @@ def carried_by_moved_item(item: QGraphicsItem, moved: set[QGraphicsItem]) -> boo
     return False
 
 
+def to_parent_frame(item: QGraphicsItem, delta: QPointF) -> QPointF:
+    """Map a scene-space vector into *item*'s Qt parent frame.
+
+    ``QGraphicsItem.moveBy`` takes a parent-local vector. A delta measured in
+    scene space (align/distribute) is only the same vector while every parent
+    is unrotated; a rotated group turns it. The inverse of the parent's scene
+    transform is what turns it back (#1021 review).
+    """
+    parent = item.parentItem()
+    if parent is None:
+        return delta
+    inverse, invertible = parent.sceneTransform().inverted()
+    if not invertible:
+        return delta
+    origin = inverse.map(QPointF(0.0, 0.0))
+    return inverse.map(delta) - origin
+
+
+def _map_vector(transform: QTransform, vector: QPointF) -> QPointF:
+    """Turn *vector* by an affine transform's linear part (no translation)."""
+    origin = transform.map(QPointF(0.0, 0.0))
+    return transform.map(vector) - origin
+
+
+def _net_scene_delta(
+    item: QGraphicsItem,
+    deltas: dict[QGraphicsItem, QPointF],
+    *,
+    frame: Literal["scene", "local"],
+) -> QPointF:
+    """The item's total scene displacement once every listed ancestor moves.
+
+    A ``scene`` delta IS that total, so it ignores the ancestors. A ``local``
+    delta is parent-relative: it adds the parent chain's movement, turned by
+    each parent's transform.
+    """
+    parent = item.parentItem()
+    base = (
+        _net_scene_delta(parent, deltas, frame=frame)
+        if parent is not None
+        else QPointF(0.0, 0.0)
+    )
+    own = deltas.get(item)
+    if own is None:
+        # not listed: it rides on the nearest listed Qt ancestor
+        return base
+    if frame == "scene" or parent is None:
+        return QPointF(own)
+    return base + _map_vector(parent.sceneTransform(), own)
+
+
+def _nearest_listed_net(
+    item: QGraphicsItem, net_scene: dict[QGraphicsItem, QPointF]
+) -> QPointF | None:
+    """The net scene delta of *item* or of the nearest listed Qt ancestor."""
+    node: QGraphicsItem | None = item
+    while node is not None:
+        net = net_scene.get(node)
+        if net is not None:
+            return net
+        node = node.parentItem()
+    return None
+
+
+def net_scene_deltas(
+    item_deltas: Sequence[tuple[QGraphicsItem, QPointF]],
+    *,
+    frame: Literal["scene", "local"] = "scene",
+) -> dict[QGraphicsItem, QPointF]:
+    """Each listed item's total scene displacement, from *frame*'s deltas.
+
+    The command and the live drag both need this: the vector to give a bed's
+    children is the bed's NET scene move, not the delta of the group that
+    carries the bed nor the bed's own parent-local residual (#1021 review).
+    """
+    by_item = dict(item_deltas)
+    return {item: _net_scene_delta(item, by_item, frame=frame) for item in by_item}
+
+
+def bed_child_move_delta(
+    parent: QGraphicsItem,
+    child: QGraphicsItem,
+    net_scene: dict[QGraphicsItem, QPointF],
+    fallback: QPointF,
+) -> QPointF:
+    """The delta a bed's non-carried child must receive, in the child's frame."""
+    net = _nearest_listed_net(parent, net_scene)
+    if net is None:
+        return QPointF(fallback)
+    return to_parent_frame(child, net)
+
+
 def expand_with_bed_children(
     scene: QGraphicsScene,
     item_deltas: list[tuple[QGraphicsItem, QPointF]],
+    net_scene: dict[QGraphicsItem, QPointF],
 ) -> tuple[list[tuple[QGraphicsItem, QPointF]], set[QGraphicsItem]]:
     """Expand parent moves, returning the carried datums that move exactly.
 
     A directly moved plant keeps its own delta (#443). A selected datum
     follows its binding parent's delta when that parent also moves (#666).
+
+    A bed's children follow the bed's NET SCENE delta, not the delta of the
+    group that carries the bed and not the bed's own parent-local residual
+    (#1021 review): a bed listed with a residual that cancels its group's move
+    is stationary, and its plants must stay with it.
     """
     from open_garden_planner.core.reference_points import carried_by_moved, carried_delta
 
@@ -1247,7 +1346,7 @@ def expand_with_bed_children(
                     or bed_child_has_constraints(scene, child_id)
                 ):
                     continue
-                deltas[child] = QPointF(delta)
+                deltas[child] = bed_child_move_delta(parent, child, net_scene, delta)
                 moved.add(child)
 
     carries = carried_by_moved(scene, list(deltas), exclude_moved=False)
@@ -1301,14 +1400,20 @@ class _MoveItemDeltasCommand(Command):
             if delta_frame == "scene":
                 ancestor = _moved_ancestor(item, by_item)
                 if ancestor is not None:
-                    delta = delta - by_item[ancestor]
+                    delta = to_parent_frame(item, delta - by_item[ancestor])
             if delta.x() != 0 or delta.y() != 0:
                 adjusted.append((item, delta))
         self.is_noop = not adjusted
+        net_scene = {
+            item: _net_scene_delta(item, by_item, frame=delta_frame)
+            for item in by_item
+        }
         item_deltas = adjusted
         scene = item_deltas[0][0].scene() if item_deltas else None
         self._item_deltas, self._carried = (
-            expand_with_bed_children(scene, item_deltas) if scene is not None else (item_deltas, set())
+            expand_with_bed_children(scene, item_deltas, net_scene)
+            if scene is not None
+            else (item_deltas, set())
         )
         items = [item for item, _delta in self._item_deltas]
         self._reference_positions: dict[QGraphicsItem, tuple[QPointF, QPointF | None]] = {
@@ -1348,8 +1453,16 @@ class _MoveItemDeltasCommand(Command):
 class MoveItemsCommand(_MoveItemDeltasCommand):
     """Move one or more items by the same delta."""
 
-    def __init__(self, items: list[QGraphicsItem], delta: QPointF) -> None:
-        super().__init__([(item, delta) for item in items])
+    def __init__(
+        self,
+        items: list[QGraphicsItem],
+        delta: QPointF,
+        *,
+        delta_frame: Literal["scene", "local"] = "scene",
+    ) -> None:
+        super().__init__(
+            [(item, delta) for item in items], delta_frame=delta_frame
+        )
 
     @property
     def description(self) -> str:
