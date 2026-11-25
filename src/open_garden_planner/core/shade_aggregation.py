@@ -850,7 +850,7 @@ def _aggregate_day(
             sun_factor = np.where(shaded, 0.0, 1.0).astype(np.float32)
         else:
             sun_factor = np.ones((grid.rows, grid.cols), dtype=np.float32)
-        if plant_cells is not None and owned_polygons:
+        if plant_cells is not None and plant_spared is not None and owned_polygons:
             # #830: the cells inside a plant's own footprint are shaded without
             # that plant (and without the soil it stands in): the rule the plant's
             # own estimate already follows, so the map cannot disagree with it.
