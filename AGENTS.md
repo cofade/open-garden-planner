@@ -252,7 +252,7 @@ Full how-to (step-by-step, `.ts` format, recompile command): see `docs/08-crossc
 
 - The issue tracker is the only work list. Read the issue and the roadmap's
   "Current work" section, then `git status` and `git log --oneline -20`.
-- Current release: **v1.43.0** (2026-11-25). No roadmap phase is active.
+- Current release: **v1.43.1** (2026-11-25). No roadmap phase is active.
   See the roadmap's Current work table and the open issues.
 - Open follow-ups: #1022 (no group rotation handle), #1007/#1008 (the 2D sun map's
   seam and contour labels), #1013 (regrowth memory, which #804 needs). #1012's two
