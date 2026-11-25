@@ -36,11 +36,21 @@ import numpy as np
 
 from ...object_height import OPEN_FRAME_TYPE_NAMES
 from ..mesh import Mesh
-from ..record import PARAM_RADIUS_CM, SHAPE_CIRCLE, Material, Params, ParamValue, Record, Transform
+from ..record import (
+    PARAM_RADIUS_CM,
+    PARAM_RIDGE,
+    SHAPE_CIRCLE,
+    Material,
+    Params,
+    ParamValue,
+    Record,
+    Transform,
+)
 from . import lights, play, structures
 from .common import PLAIN_BLOCK_NAME, BuiltBuilder
 
-__all__ = ["FrameTriangle", "OPEN_FRAME_BUILDERS", "open_frame_triangles",
+__all__ = ["FrameTriangle", "OPEN_FRAME_BUILDERS", "glasshouse_frame_triangles",
+           "glasshouse_frame_triangles_for_record", "open_frame_triangles",
            "open_frame_triangles_for_record"]
 
 FramePoint = tuple[float, float, float]
@@ -84,6 +94,31 @@ def open_frame_triangles_for_record(record: Record) -> tuple[FrameTriangle, ...]
     return _triangles([part.mesh for part in parts if part.casts_shadow]) or None
 
 
+def _record_of(
+    kind: str,
+    shape: str,
+    local_footprint: tuple[tuple[float, float], ...],
+    height_cm: float,
+    radius_cm: float | None,
+    ridge: tuple[tuple[float, float], tuple[float, float]] | None = None,
+) -> Record:
+    params: dict[str, ParamValue] = {}
+    if shape == SHAPE_CIRCLE and radius_cm is not None:
+        params[PARAM_RADIUS_CM] = radius_cm
+    if ridge is not None:
+        params[PARAM_RIDGE] = ridge
+    return Record(
+        item_id="shade-frame",
+        kind=kind,
+        shape=shape,
+        footprints=(local_footprint,),
+        transform=Transform(),
+        material=Material(kind, None, None),
+        height_cm=height_cm,
+        params=Params(params),
+    )
+
+
 def open_frame_triangles(
     kind: str,
     shape: str,
@@ -98,17 +133,53 @@ def open_frame_triangles(
     """
     if kind not in OPEN_FRAME_BUILDERS or len(local_footprint) < 3 or not height_cm > 0.0:
         return None
-    params: dict[str, ParamValue] = {}
-    if shape == SHAPE_CIRCLE and radius_cm is not None:
-        params[PARAM_RADIUS_CM] = radius_cm
-    record = Record(
-        item_id="shade-frame",
-        kind=kind,
-        shape=shape,
-        footprints=(local_footprint,),
-        transform=Transform(),
-        material=Material(kind, None, None),
-        height_cm=height_cm,
-        params=Params(params),
-    )
+    record = _record_of(kind, shape, local_footprint, height_cm, radius_cm)
     return open_frame_triangles_for_record(record)
+
+
+def glasshouse_frame_triangles_for_record(
+    record: Record,
+) -> tuple[FrameTriangle, ...] | None:
+    """A GREENHOUSE's solid frame members in its local frame (#830), or None.
+
+    Glass lets direct sun through, so the 2D caster must be the frame alone — the
+    same rule the 3D builder already follows: its glass parts are
+    ``casts_shadow=False``, its aluminium bars are not. ``None`` means "no glass
+    house here" (another kind, or a footprint the builder casts as the plain
+    block); an EMPTY tuple means the builder has no shadow-casting frame for this
+    footprint, so the 2D caster is transparent and the two models agree.
+    """
+    if record.kind != "GREENHOUSE":
+        return None
+    builder = structures.BUILDERS.get("GREENHOUSE")
+    if builder is None:
+        return None
+    height = builder.height_for(record)
+    if height is None or not height > 0.0 or builder.uses_the_plain_block(record):
+        return None
+    parts = builder(record)
+    if any(part.name == PLAIN_BLOCK_NAME for part in parts):
+        return None  # no model for this footprint: a solid block, in 2D too
+    return _triangles([part.mesh for part in parts if part.casts_shadow])
+
+
+def glasshouse_frame_triangles(
+    kind: str,
+    shape: str,
+    local_footprint: tuple[tuple[float, float], ...],
+    height_cm: float,
+    *,
+    radius_cm: float | None = None,
+    ridge: tuple[tuple[float, float], tuple[float, float]] | None = None,
+) -> tuple[FrameTriangle, ...] | None:
+    """``glasshouse_frame_triangles_for_record`` of a local record made of these.
+
+    ``ridge`` is the plan's own ridge in the item's local frame (#830 review): the
+    3D builder builds a framed box only while the live ridge is the box's natural
+    one, and a glass gable roof (no shadow-casting frame) otherwise. With no ridge
+    the builder keeps its box frame.
+    """
+    if kind != "GREENHOUSE" or len(local_footprint) < 3 or not height_cm > 0.0:
+        return None
+    record = _record_of(kind, shape, local_footprint, height_cm, radius_cm, ridge)
+    return glasshouse_frame_triangles_for_record(record)

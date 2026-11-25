@@ -323,6 +323,28 @@ def _picnic_table(record: Record, height_cm: float) -> tuple[MeshPart, ...]:
 # ── the round ones ───────────────────────────────────────────────────────────
 
 
+def parasol_canopy_bounds(
+    radius_cm: float, height_cm: float
+) -> tuple[float, float, float]:
+    """The z-band of a market parasol's canopy: ``(lower edge, rim, apex)`` in cm.
+
+    One formula for the 3D model and the 2D sun study (#830): the 3D builder's
+    panels run from the valance's lower edge up to the rim, and the cone's tip
+    stands at ``apex``. The 2D caster is a raised slab from the lower edge to the
+    RIM — the geometry the owner's IoU gate was measured with — and the pole, the
+    cone above the rim and the finial are thin and stay out, as the decision allows.
+    """
+    reach = radius_cm - 2.0
+    finial = min(7.0, 0.05 * height_cm)
+    apex = height_cm - finial - 2.0
+    # the canopy drops a third of its reach — never more than a third of the apex's
+    # height: a 30 cm parasol put its rim and pole base under the ground (3D review of #388)
+    drop = min(0.32 * reach, 0.35 * apex)
+    rim = apex - drop
+    valance = min(8.0, 0.25 * drop + 2.0, 0.5 * rim)
+    return rim - valance, rim, apex
+
+
 def _parasol(record: Record, height_cm: float) -> tuple[MeshPart, ...]:
     """A market parasol: a concrete base, a pole, eight cream and red panels with a
     valance, ribs underneath and a brass finial at the very top."""
@@ -334,12 +356,9 @@ def _parasol(record: Record, height_cm: float) -> tuple[MeshPart, ...]:
     base_r = min(25.0, 0.3 * box.radius)
     base_h = min(8.0, 0.05 * h)
     finial = min(7.0, 0.05 * h)
-    apex = h - finial - 2.0
-    # the canopy drops a third of its reach — never more than a third of the apex's
-    # height: a 30 cm parasol put its rim and pole base under the ground (3D review of #388)
-    drop = min(0.32 * reach, 0.35 * apex)
-    rim = apex - drop
-    valance = min(8.0, 0.25 * drop + 2.0, 0.5 * rim)
+    _lower, rim, apex = parasol_canopy_bounds(box.radius, h)
+    drop = apex - rim
+    valance = rim - _lower
     pole_r = min(2.5, 0.2 * base_r)
     frame = [cylinder(0.0, 0.0, base_r, 0.0, base_h, palette.CONCRETE.linear, top_radius=base_r * 0.85),
              cylinder(0.0, 0.0, pole_r, base_h, h - finial, palette.STEEL.linear, segments=8),

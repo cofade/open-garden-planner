@@ -7837,6 +7837,8 @@ far, −, the 3D shadow extends along the shadow direction: where its tip is), e
 | swing | 1.00 / 1.00 / 1.00 | 0.18 / 0.19 / 0.21 | 0.0 / 0.0 / 0.0 | open frame (#698 weighted, #855 reach-trimmed 2D area; IoU vs trimmed prism) |
 | hammock | 1.00 / 1.00 / 1.00 | 0.23 / 0.33 / 0.43 | 0.0 / 0.0 / 0.0 | open frame (#698 weighted, #855 reach-trimmed 2D area; IoU vs trimmed prism) |
 | garden light | 1.00 / 1.00 / 1.00 | 0.21 / 0.29 / 0.39 | 0.0 / 0.0 / 0.0 | open frame (#698 weighted, #855 reach-trimmed 2D area; IoU vs trimmed prism) |
+| greenhouse | 1.00 / 1.00 / 1.00 | 0.33 / 0.28 / 0.29 | 0.0 / 0.0 / 0.0 | glass: the frame alone shades (#830; 3D ÷ weighted 2D) |
+| parasol | 1.06 / 1.00 / 0.96 | 0.89 / 0.93 / 0.96 | +60.3 / −2.0 / −2.0 | a raised canopy, not a prism (#830) |
 
 So: a solid line item casts a wider shadow in 3D than the 2D model, more at a high sun; a porous
 fence casts a fraction of its solid strip — and since #440 the 2D analysis weights a styled
@@ -7850,11 +7852,28 @@ rule a new object kind has to be placed under:
 
 - **Which kinds** is a recorded decision in `core/object_height.py`: `OPEN_FRAME_TYPE_NAMES`
   (weighted), `SOLID_2D_DECISIONS` (mostly air in 3D, solid in 2D, each with its reason — the
-  parasol, the greenhouse, the low furniture) and `NO_2D_SHADOW_TYPE_NAMES` (a string of
-  lights). `tests/unit/test_open_frames.py` measures every object kind and fails for one whose
-  3D model shades less than half of its prism and that is on none of the three lists. A kind
-  belongs on the open-frame list when its shade is thin members spread over the whole prism; a
-  solid top on a pole or on legs does not — its shade is dark and lies somewhere else.
+  low furniture), `RAISED_CANOPY_TYPE_NAMES` (#830: a solid top at its own height — the
+  parasol), `GLASSHOUSE_TYPE_NAMES` (#830: glass counts as direct sun; only the frame shades —
+  the greenhouse) and `NO_2D_SHADOW_TYPE_NAMES` (a string of lights).
+  `tests/unit/test_open_frames.py` measures every object kind and fails for one whose 3D model
+  shades less than half of its prism and that is on none of the lists. A kind belongs on the
+  open-frame list when its shade is thin members spread over the whole prism; a solid top on a
+  pole or on legs does not — its shade is dark and lies somewhere else.
+- **A raised canopy (#830)** carries `base_cm` = its lower edge and `height_cm` = the band's
+  thickness, so the shade starts away from the pole at a low sun. The parasol's band is its rim
+  (lower edge to rim, 185.6–193.6 cm on the default): measured IoU 0.89 / 0.93 / 0.96 against
+  the 3D model, where the prism reads 0.24 / 0.41 / 0.60. A slab up to the item's top covers
+  the cone's air and reads 0.53 / 0.70 / 0.84 — do not grow the band.
+- **A glasshouse (#830)** carries the 3D builder's frame triangles
+  (`core.scene3d.builders.open_frames.glasshouse_frame_triangles`, its `casts_shadow` parts)
+  as an `OpenFrame`, so only the aluminium shades. A plan with a framed glasshouse is on the
+  weighted path. A gabled greenhouse whose builder has no shadow-casting frame is transparent
+  (transmittance 1.0), exactly as 3D is. A framed glasshouse is NOT a soil parent to spare in
+  a plant's estimate or the map's plant cells: its frame is between the plant and the sun.
+- **A plant does not shade the cells inside its own footprint (#830).** The map's cell under a
+  plant is shaded without that plant and without a `holds_plants` soil solid whose outline
+  contains it — the rule the estimate already follows — so the map's cell equals the plant's
+  estimate and no dark dot sits under a plant. The cells outside its footprint keep its shade.
 - **The weight is measured, not tabulated**: `1 − A(frame) ÷ A(prism)` for the item's own size,
   height and turn and the sun of the moment (`core.shadow_geometry.open_frame_transmittance`),
   from the 3D builder's own members (`core/scene3d/builders/open_frames.py`; a pergola's from

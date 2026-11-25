@@ -360,8 +360,80 @@ def test_cold_frame_spares_contained_plant_and_shades_exterior(plot: Plot) -> No
     assert plot.hours(north) is not None and plot.hours(north) < 16.5 - 4 * ONE_SAMPLE_H
 
 
-def test_planter_pot_and_greenhouse_spare_contained_plants(plot: Plot) -> None:
-    """Plants inside PLANTER_POT and GREENHOUSE get open-ground sun (#621)."""
+def test_the_map_cell_under_a_plant_equals_its_estimate(plot: Plot) -> None:
+    """#830: the map's cell at a plant's centre and the plant's own estimate are
+    the same number — on the ground and in a raised bed. The map spares the plant
+    and the soil parent it stands in, the rule the estimate always used, so no
+    dark dot sits under a plant and no bed reads 0 h in the map."""
+    _bed = plot.bed(1200.0, 600.0, height=40.0)
+    on_ground = plot.tomato("on ground", 300.0, 300.0)
+    in_bed = plot.tomato("in bed", 1260.0, 660.0)
+    plot.compute()
+    result = plot.window._sun_heatmap.result()
+    assert result is not None
+    for plant in (on_ground, in_bed):
+        centre = plant.sceneBoundingRect().center()
+        cell = result.minutes_at(centre.x(), centre.y())
+        assert cell is not None
+        assert cell == pytest.approx(plot.hours(plant) * 60.0, abs=0.5), plant.name
+
+
+def test_the_map_cell_at_a_raised_bed_plant_uses_its_own_elevation(plot: Plot) -> None:
+    """#830 with an obstacle: the estimate evaluates a raised plant at its soil
+    elevation, discarding what ends below it and slicing what stands above it. The
+    map's cell at the plant takes that same answer, so a wall's ground shadow does
+    not darken the cell of a plant standing above part of it."""
+    plot.wall(200.0, 400.0, 400.0, height=120.0)
+    _bed = plot.bed(200.0, 430.0, height=50.0)
+    in_bed = plot.tomato("in bed", 300.0, 445.0)
+    plot.compute()
+    result = plot.window._sun_heatmap.result()
+    assert result is not None
+    centre = in_bed.sceneBoundingRect().center()
+    assert result.minutes_at(centre.x(), centre.y()) == pytest.approx(
+        plot.hours(in_bed) * 60.0, abs=0.5)
+
+
+def test_the_map_cell_under_a_pergola_in_a_raised_bed_matches_the_estimate(plot: Plot) -> None:
+    """#830 with an open frame above a raised plant: the estimate slices the frame
+    at the soil elevation; the map's plant cell must use the same slice."""
+    _bed = plot.bed(200.0, 430.0, height=100.0)
+    pergola = RectangleItem(200.0, 430.0, 200.0, 120.0, object_type=ObjectType.PERGOLA,
+                            layer_id=plot.scene.active_layer.id,
+                            metadata={METADATA_KEY: 250.0})
+    plot.commands.execute(CreateItemCommand(plot.scene, pergola, "pergola"))
+    in_bed = plot.tomato("under pergola", 300.0, 450.0)
+    plot.compute()
+    result = plot.window._sun_heatmap.result()
+    assert result is not None
+    centre = in_bed.sceneBoundingRect().center()
+    assert result.minutes_at(centre.x(), centre.y()) == pytest.approx(
+        plot.hours(in_bed) * 60.0, abs=0.5)
+
+
+def test_the_map_cell_of_a_plant_under_a_tree_is_its_estimate(plot: Plot) -> None:
+    """#830 with overlapping footprints: a small plant inside a tree's canopy must
+    show the tree's shade in its own cell, not the tree's self-sparing."""
+    tree = CircleItem(500.0, 500.0, 200.0, ObjectType.TREE,
+                      layer_id=plot.scene.active_layer.id,
+                      metadata={METADATA_KEY: 600.0})
+    plot.commands.execute(CreateItemCommand(plot.scene, tree, "tree"))
+    under = plot.tomato("under the tree", 500.0, 520.0, radius=20.0)
+    plot.compute()
+    result = plot.window._sun_heatmap.result()
+    assert result is not None
+    centre = under.sceneBoundingRect().center()
+    cell = result.minutes_at(centre.x(), centre.y())
+    assert cell is not None
+    assert cell == pytest.approx(plot.hours(under) * 60.0, abs=0.5)
+    assert cell < 6.0 * 60.0, "the tree must still shade the plant beneath it"
+
+
+def test_a_planter_pot_spares_and_a_greenhouse_casts_its_frame(plot: Plot) -> None:
+    """A PLANTER_POT is a soil solid, so its plant reads open-ground sun (#621). A
+    GREENHOUSE is a framed glasshouse (#830): glass counts as direct sun, so the
+    plant inside gets the open sky minus the frame's share — 10.4 h, not 16.5 and
+    not 0 — and the frame is not spared as if it were soil."""
     pot = CircleItem(1600.0, 1800.0, 40.0, ObjectType.PLANTER_POT,
                      layer_id=plot.scene.active_layer.id)
     plot.commands.execute(CreateItemCommand(plot.scene, pot, "planter pot"))
@@ -375,8 +447,8 @@ def test_planter_pot_and_greenhouse_spare_contained_plants(plot: Plot) -> None:
     plot.compute()
     assert plot.hours(in_pot) == pytest.approx(16.5, abs=ONE_SAMPLE_H)
     assert not plot.warned(in_pot)
-    assert plot.hours(in_gh) == pytest.approx(16.5, abs=ONE_SAMPLE_H)
-    assert not plot.warned(in_gh)
+    assert plot.hours(in_gh) == pytest.approx(10.4, abs=ONE_SAMPLE_H)
+    assert not plot.warned(in_gh), "the frame takes light but 10.4 h is still full sun"
 
 
 def test_plant_holders_drift_guard() -> None:

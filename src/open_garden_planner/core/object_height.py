@@ -144,7 +144,7 @@ OPEN_FRAME_TYPE_NAMES: frozenset[str] = frozenset(
 #: Kinds whose 3D model shades LESS THAN HALF of their 2D prism's shadow and which stay
 #: a SOLID prism in 2D all the same — each a recorded decision with its reason, so that
 #: no kind is solid by having been forgotten (``tests/unit/test_open_frames.py`` holds
-#: every mostly-air kind of the shadow-agreement table to one of the three lists here).
+#: every mostly-air kind of the shadow-agreement table to one of the lists here).
 #: None of them is a frame: their surplus comes from their SHAPE — one opaque body or
 #: top that is smaller than its bounding prism — and a transmittance would smear a
 #: shade that is in truth dark in one place and absent in another.
@@ -161,14 +161,19 @@ SOLID_2D_DECISIONS: dict[str, str] = {
     "BBQ_GRILL": "a kettle on legs",
     "WHEELBARROW": "a tray on a wheel",
     "BIRD_BATH": "a bowl on a pedestal",
-    # a solid canopy on a pole: its shade is real and dark, but it lies away from the
-    # pole at a low sun. Honest for it is a RAISED caster, not a lighter one (#698's
-    # handoff proposes it); until then the prism, as before
-    "PARASOL": "a solid canopy on a pole",
-    # glass: the 3D view casts the frame alone. How much light a glasshouse takes is a
-    # question #698 does not ask; left as it was and reported to the owner
-    "GREENHOUSE": "glass on a frame: not asked by #698",
 }
+
+#: A RAISED CANOPY (#830, owner decision): a solid top at its own height, not a prism
+#: from the ground. The 2D caster is the canopy as a slab - its lower edge to the rim -
+#: and the thin pole, the cone above the rim and the finial are left out. The shade then
+#: lies away from the pole at a low sun instead of covering the ground under the canopy.
+RAISED_CANOPY_TYPE_NAMES: frozenset[str] = frozenset({"PARASOL"})
+
+#: A GLASSHOUSE (#830, owner decision): the map counts hours of DIRECT sun, and glass
+#: does not stop it. Only the frame's members shade, through the same transmittance
+#: path as an open frame; the 3D builder already follows that rule (its glass parts
+#: are ``casts_shadow=False``). A plant inside reads the open sky minus the frame.
+GLASSHOUSE_TYPE_NAMES: frozenset[str] = frozenset({"GREENHOUSE"})
 
 # Mirrors CONTAINER_TYPES in core/object_types.py (pinned by unit test).
 _CONTAINER_TYPE_NAMES = frozenset({"CONTAINER", "CONTAINER_ROUND", "WALL_PLANTER"})

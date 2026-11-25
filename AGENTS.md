@@ -254,10 +254,11 @@ Full how-to (step-by-step, `.ts` format, recompile command): see `docs/08-crossc
   "Current work" section, then `git status` and `git log --oneline -20`.
 - Current release: **v1.43.1** (2026-11-25). No roadmap phase is active.
   See the roadmap's Current work table and the open issues.
-- Open follow-ups: #1022 (no group rotation handle), #1007/#1008 (the 2D sun map's
-  seam and contour labels), #1013 (regrowth memory, which #804 needs). #1012's two
-  shadow defects remain (low-sun wobble, December speckle). #1004, #1006, #1014,
-  #1015, #1018, #1020 delivered.
+- Open follow-ups: #1022 (no group rotation handle), #1013 (regrowth memory, which
+  #804 needs), #845 and #855 (first-zoom sprite rasterization; the weighted path for
+  hundreds of garden lights at a grazing sun). #1012's two shadow defects remain
+  (low-sun wobble, December speckle). #830, #852, #1007, #1008 and #1026 are delivered
+  in the 2D sun-study package.
 - Live decisions that constrain the next change:
   - 3D Model reuse (#531, ADR-069 addendum): a regrown part loads new buffers into the
     geometry object its live Model already has (`BufferGeometry.reload`); never a new
@@ -331,6 +332,11 @@ Full how-to (step-by-step, `.ts` format, recompile command): see `docs/08-crossc
     export or a number or date field. Scene-wide paint state is kept and invalidated
     through the scene's paint revision, never rebuilt inside a paint; UI numbers and
     dates go through `core/i18n.py`, `ui/number_fields.py` and `ui/date_fields.py`.
+  - 2D sun study truth (#830, #1007, #852; ADR-059 addendum, FR-SUN-13/15/16/17,
+    PF-CAN-71/72): a parasol is a raised canopy, a glasshouse carries the 3D builder's
+    frame alone, and a plant spares its own map cells. A weighted map takes presence
+    from the union and settles seam cells by point-in-polygon; hour labels are placed
+    by their box; contours are one device-cached layer.
   - Plan truth and reports: north reads the ADR-037 addendum and §8.20; the
     plan date reads ADR-062, §8.31 and FR-TASK-01/04; the identity of an opened
     bundled example reads the ADR-066 addendum and §8.33.

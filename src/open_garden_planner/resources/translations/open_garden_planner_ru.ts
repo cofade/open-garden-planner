@@ -15180,7 +15180,7 @@ The inventory is yours, not a plan's: every plan you open shows the same packets
     <context>
         <name>SunHeatmapController</name>
         <message>
-            <location filename="../../ui/canvas/sun_heatmap.py" line="898" />
+            <location filename="../../ui/canvas/sun_heatmap.py" line="1017" />
             <location filename="../../ui/canvas/sun_legend.py" line="94" />
             <source>{n} h</source>
             <translation>{n} ч</translation>
@@ -15211,7 +15211,7 @@ The inventory is yours, not a plan's: every plan you open shows the same packets
             <translation>Анимировать</translation>
         </message>
         <message>
-            <location filename="../../ui/widgets/sun_sim_toolbar.py" line="369" />
+            <location filename="../../ui/widgets/sun_sim_toolbar.py" line="371" />
             <source>Animate the plan date through its year at this time of day</source>
             <translation>Анимация даты плана по временам года в это время суток</translation>
         </message>
@@ -15220,7 +15220,7 @@ The inventory is yours, not a plan's: every plan you open shows the same packets
             <translation type="vanished">Показать движение солнца в течение дня</translation>
         </message>
         <message>
-            <location filename="../../ui/widgets/sun_sim_toolbar.py" line="367" />
+            <location filename="../../ui/widgets/sun_sim_toolbar.py" line="369" />
             <source>Animate the sun across the selected day</source>
             <translation>Анимация движения солнца в течение выбранного дня</translation>
         </message>
@@ -15237,18 +15237,18 @@ The inventory is yours, not a plan's: every plan you open shows the same packets
             <translation type="vanished">Дата:</translation>
         </message>
         <message>
-            <location filename="../../ui/widgets/sun_sim_toolbar.py" line="351" />
+            <location filename="../../ui/widgets/sun_sim_toolbar.py" line="353" />
             <source>Fast</source>
             <translation>Быстро</translation>
         </message>
         <message>
-            <location filename="../../ui/widgets/sun_sim_toolbar.py" line="542" />
+            <location filename="../../ui/widgets/sun_sim_toolbar.py" line="544" />
             <source>Full-day hours of sun; updates automatically while enabled</source>
             <translation>Часы солнца за весь день; обновляется автоматически, пока включено</translation>
         </message>
         <message>
             <location filename="../../ui/widgets/sun_sim_toolbar.py" line="252" />
-            <location filename="../../ui/widgets/sun_sim_toolbar.py" line="686" />
+            <location filename="../../ui/widgets/sun_sim_toolbar.py" line="688" />
             <source>Future</source>
             <translation>Будущее</translation>
         </message>
@@ -15263,17 +15263,17 @@ The inventory is yours, not a plan's: every plan you open shows the same packets
             <translation>Часы солнца</translation>
         </message>
         <message>
-            <location filename="../../ui/widgets/sun_sim_toolbar.py" line="615" />
+            <location filename="../../ui/widgets/sun_sim_toolbar.py" line="617" />
             <source>Map: {date}</source>
             <translation>Карта: {date}</translation>
         </message>
         <message>
-            <location filename="../../ui/widgets/sun_sim_toolbar.py" line="621" />
+            <location filename="../../ui/widgets/sun_sim_toolbar.py" line="623" />
             <source>Map: {date} — Unavailable</source>
             <translation>Карта: {date} — недоступна</translation>
         </message>
         <message>
-            <location filename="../../ui/widgets/sun_sim_toolbar.py" line="618" />
+            <location filename="../../ui/widgets/sun_sim_toolbar.py" line="620" />
             <source>Map: {date} — Updating…</source>
             <translation>Карта: {date} — обновление…</translation>
         </message>
@@ -15283,13 +15283,13 @@ The inventory is yours, not a plan's: every plan you open shows the same packets
             <translation>Месяцы</translation>
         </message>
         <message>
-            <location filename="../../ui/widgets/sun_sim_toolbar.py" line="351" />
+            <location filename="../../ui/widgets/sun_sim_toolbar.py" line="353" />
             <source>Normal</source>
             <translation>Нормально</translation>
         </message>
         <message>
             <location filename="../../ui/widgets/sun_sim_toolbar.py" line="252" />
-            <location filename="../../ui/widgets/sun_sim_toolbar.py" line="684" />
+            <location filename="../../ui/widgets/sun_sim_toolbar.py" line="686" />
             <source>Past</source>
             <translation>Прошлое</translation>
         </message>
@@ -15304,7 +15304,7 @@ The inventory is yours, not a plan's: every plan you open shows the same packets
             <translation>Дата плана: наличие растений, рост и солнечный свет</translation>
         </message>
         <message>
-            <location filename="../../ui/widgets/sun_sim_toolbar.py" line="725" />
+            <location filename="../../ui/widgets/sun_sim_toolbar.py" line="727" />
             <source>Plant date unavailable</source>
             <translation>Дата посадки недоступна</translation>
         </message>
@@ -15314,17 +15314,17 @@ The inventory is yours, not a plan's: every plan you open shows the same packets
             <translation>Растения, скрытые из-за даты плана</translation>
         </message>
         <message>
-            <location filename="../../ui/widgets/sun_sim_toolbar.py" line="329" />
+            <location filename="../../ui/widgets/sun_sim_toolbar.py" line="331" />
             <source>Play</source>
             <translation>Воспроизвести</translation>
         </message>
         <message>
-            <location filename="../../ui/widgets/sun_sim_toolbar.py" line="337" />
+            <location filename="../../ui/widgets/sun_sim_toolbar.py" line="339" />
             <source>Play the plan date through its year at this time of day</source>
             <translation>Воспроизведение даты плана в течение года в это время суток</translation>
         </message>
         <message>
-            <location filename="../../ui/widgets/sun_sim_toolbar.py" line="335" />
+            <location filename="../../ui/widgets/sun_sim_toolbar.py" line="337" />
             <source>Play the time of day; the plan date stays</source>
             <translation>Воспроизведение времени суток при неизменной дате плана</translation>
         </message>
@@ -15343,12 +15343,12 @@ The inventory is yours, not a plan's: every plan you open shows the same packets
             <translation type="vanished">Дата симуляции</translation>
         </message>
         <message>
-            <location filename="../../ui/widgets/sun_sim_toolbar.py" line="351" />
+            <location filename="../../ui/widgets/sun_sim_toolbar.py" line="353" />
             <source>Slow</source>
             <translation>Медленно</translation>
         </message>
         <message>
-            <location filename="../../ui/widgets/sun_sim_toolbar.py" line="347" />
+            <location filename="../../ui/widgets/sun_sim_toolbar.py" line="349" />
             <source>Speed</source>
             <translation>Скорость</translation>
         </message>
@@ -15362,12 +15362,12 @@ The inventory is yours, not a plan's: every plan you open shows the same packets
             <translation>Для расчёта теней и часов солнца требуется местоположение сада. Открывает Меню «Файл» → «Указать местоположение сада…»</translation>
         </message>
         <message>
-            <location filename="../../ui/widgets/sun_sim_toolbar.py" line="334" />
+            <location filename="../../ui/widgets/sun_sim_toolbar.py" line="336" />
             <source>The Day</source>
             <translation>День</translation>
         </message>
         <message>
-            <location filename="../../ui/widgets/sun_sim_toolbar.py" line="336" />
+            <location filename="../../ui/widgets/sun_sim_toolbar.py" line="338" />
             <source>The Year</source>
             <translation>Год</translation>
         </message>
@@ -15384,7 +15384,7 @@ The inventory is yours, not a plan's: every plan you open shows the same packets
             <translation type="vanished">Дата плана — сегодня.</translation>
         </message>
         <message>
-            <location filename="../../ui/widgets/sun_sim_toolbar.py" line="726" />
+            <location filename="../../ui/widgets/sun_sim_toolbar.py" line="728" />
             <source>This plant is not present within the supported plan dates ({min} to {max}). Its stored dates have been preserved.</source>
             <translation>Это растение отсутствует в пределах поддерживаемых дат плана (от {min} до {max}). Сохранённые даты были сохранены.</translation>
         </message>
@@ -15397,12 +15397,12 @@ The inventory is yours, not a plan's: every plan you open shows the same packets
         <message>
             <location filename="../../ui/widgets/sun_sim_toolbar.py" line="252" />
             <location filename="../../ui/widgets/sun_sim_toolbar.py" line="253" />
-            <location filename="../../ui/widgets/sun_sim_toolbar.py" line="688" />
+            <location filename="../../ui/widgets/sun_sim_toolbar.py" line="690" />
             <source>Today</source>
             <translation>Сегодня</translation>
         </message>
         <message>
-            <location filename="../../ui/widgets/sun_sim_toolbar.py" line="619" />
+            <location filename="../../ui/widgets/sun_sim_toolbar.py" line="621" />
             <source>Updating…</source>
             <translation>Обновление…</translation>
         </message>
@@ -15411,12 +15411,12 @@ The inventory is yours, not a plan's: every plan you open shows the same packets
             <translation type="vanished">Использовать 21 июня года симуляции как опорную дату</translation>
         </message>
         <message>
-            <location filename="../../ui/widgets/sun_sim_toolbar.py" line="691" />
+            <location filename="../../ui/widgets/sun_sim_toolbar.py" line="693" />
             <source>{count} hidden</source>
             <translation>{count} скрыто</translation>
         </message>
         <message>
-            <location filename="../../ui/widgets/sun_sim_toolbar.py" line="705" />
+            <location filename="../../ui/widgets/sun_sim_toolbar.py" line="707" />
             <source>{name} — planted: {planted}; removed: {removed}</source>
             <translation>{name} — посажено: {planted}; удалено: {removed}</translation>
         </message>
@@ -16902,7 +16902,7 @@ Use File › Set Garden Location to configure GPS coordinates.</source>
             <translation>&amp;Разделение</translation>
         </message>
         <message>
-            <location filename="../../ui/view3d/workspace.py" line="1842" />
+            <location filename="../../ui/view3d/workspace.py" line="1855" />
             <source>&amp;Walk</source>
             <translation>&amp;Прогулка</translation>
         </message>
@@ -16927,12 +16927,12 @@ Use File › Set Garden Location to configure GPS coordinates.</source>
             <translation>+3 года</translation>
         </message>
         <message>
-            <location filename="../../ui/view3d/workspace.py" line="1485" />
+            <location filename="../../ui/view3d/workspace.py" line="1498" />
             <source>1 object is not shown in 3D</source>
             <translation>1 объект не отображается в 3D</translation>
         </message>
         <message>
-            <location filename="../../ui/view3d/workspace.py" line="1483" />
+            <location filename="../../ui/view3d/workspace.py" line="1496" />
             <source>1 object is not shown in 3D; the 3D ground does not show all of the plan</source>
             <translation>1 объект не отображается в 3D; 3D-поверхность отображает не весь план</translation>
         </message>
@@ -16957,27 +16957,27 @@ Use File › Set Garden Location to configure GPS coordinates.</source>
             <translation>2D-тени на грунте</translation>
         </message>
         <message>
-            <location filename="../../ui/view3d/workspace.py" line="1628" />
+            <location filename="../../ui/view3d/workspace.py" line="1641" />
             <source>3D is running in compatibility mode (software rendering) because it did not start properly last time.</source>
             <translation>3D работает в режиме совместимости (программный рендеринг), так как в прошлый раз запуск не удался.</translation>
         </message>
         <message>
-            <location filename="../../ui/view3d/workspace.py" line="1630" />
+            <location filename="../../ui/view3d/workspace.py" line="1643" />
             <source>3D is running in compatibility mode (software rendering).</source>
             <translation>3D работает в режиме совместимости (программный рендеринг).</translation>
         </message>
         <message>
-            <location filename="../../ui/view3d/workspace.py" line="899" />
+            <location filename="../../ui/view3d/workspace.py" line="912" />
             <source>3D is switched off on this computer: it did not start, not even in compatibility mode (software rendering). The rest of the application is not affected.</source>
             <translation>3D отключено на этом компьютере: запуск не удался даже в режиме совместимости (программный рендеринг). На остальную часть приложения это не влияет.</translation>
         </message>
         <message>
-            <location filename="../../ui/view3d/workspace.py" line="1634" />
+            <location filename="../../ui/view3d/workspace.py" line="1647" />
             <source>3D is switched off: it did not start in compatibility mode (software rendering) either.</source>
             <translation>3D отключено: запуск в режиме совместимости (программный рендеринг) также не удался.</translation>
         </message>
         <message>
-            <location filename="../../ui/view3d/workspace.py" line="1607" />
+            <location filename="../../ui/view3d/workspace.py" line="1620" />
             <source>3D is unavailable on this graphics device. The rest of the application is not affected.
 
 Details: {error}</source>
@@ -17006,8 +17006,8 @@ Details: {error}</source>
             <translation>Серое небо: мягкие слабые тени; положение солнца остаётся прежним</translation>
         </message>
         <message>
-            <location filename="../../ui/view3d/workspace.py" line="2000" />
-            <location filename="../../ui/view3d/workspace.py" line="2019" />
+            <location filename="../../ui/view3d/workspace.py" line="2013" />
+            <location filename="../../ui/view3d/workspace.py" line="2032" />
             <source>Adult</source>
             <translation>Взрослый</translation>
         </message>
@@ -17053,7 +17053,7 @@ Details: {error}</source>
             <translation>Светлее или темнее, в ступенях экспозиции</translation>
         </message>
         <message>
-            <location filename="../../ui/view3d/workspace.py" line="1063" />
+            <location filename="../../ui/view3d/workspace.py" line="1076" />
             <source>Building the 3D view…</source>
             <translation>Построение 3D-вида…</translation>
         </message>
@@ -17075,8 +17075,8 @@ Details: {error}</source>
             <translation>Съёмка</translation>
         </message>
         <message>
-            <location filename="../../ui/view3d/workspace.py" line="2000" />
-            <location filename="../../ui/view3d/workspace.py" line="2019" />
+            <location filename="../../ui/view3d/workspace.py" line="2013" />
+            <location filename="../../ui/view3d/workspace.py" line="2032" />
             <source>Child</source>
             <translation>Ребёнок</translation>
         </message>
@@ -17102,12 +17102,12 @@ Details: {error}</source>
             <translation>Щёлкните по виду, чтобы задать фокус</translation>
         </message>
         <message>
-            <location filename="../../ui/view3d/workspace.py" line="1632" />
+            <location filename="../../ui/view3d/workspace.py" line="1645" />
             <source>Compatibility mode (software rendering) is switched on.</source>
             <translation>Режим совместимости (программный рендеринг) включён.</translation>
         </message>
         <message>
-            <location filename="../../ui/view3d/workspace.py" line="1637" />
+            <location filename="../../ui/view3d/workspace.py" line="1650" />
             <source>Compatibility mode will be used the next time the application starts.</source>
             <translation>При следующем запуске приложения будет использоваться режим совместимости.</translation>
         </message>
@@ -17152,7 +17152,7 @@ Details: {error}</source>
             <translation>Экспозиция, цветокоррекция, виньетка и щелчок для задания фокуса. Меняет то, как выглядит изображение, но никогда не то, что стоит в саду.</translation>
         </message>
         <message>
-            <location filename="../../ui/view3d/workspace.py" line="2016" />
+            <location filename="../../ui/view3d/workspace.py" line="2029" />
             <source>Eye height while walking</source>
             <translation>Высота глаз при прогулке</translation>
         </message>
@@ -17196,7 +17196,7 @@ Details: {error}</source>
             <translation>Рост</translation>
         </message>
         <message>
-            <location filename="../../ui/view3d/workspace.py" line="1656" />
+            <location filename="../../ui/view3d/workspace.py" line="1669" />
             <source>Hardware rendering will be tried the next time the application starts.</source>
             <translation>При следующем запуске приложения будет предпринята попытка аппаратного рендеринга.</translation>
         </message>
@@ -17318,7 +17318,7 @@ Details: {error}</source>
             <translation>Укажите местоположение сада, чтобы отобразить траекторию солнца.</translation>
         </message>
         <message>
-            <location filename="../../ui/view3d/workspace.py" line="856" />
+            <location filename="../../ui/view3d/workspace.py" line="869" />
             <source>Show List</source>
             <translation>Показать список</translation>
         </message>
@@ -17363,13 +17363,13 @@ Details: {error}</source>
             <translation>Показать траекторию солнца сегодня, в дни солнцестояний и равноденствия, и компас</translation>
         </message>
         <message>
-            <location filename="../../ui/view3d/workspace.py" line="857" />
+            <location filename="../../ui/view3d/workspace.py" line="870" />
             <source>Show which objects are missing from the 3D view</source>
             <translation>Показать, какие объекты отсутствуют в 3D-виде</translation>
         </message>
         <message>
-            <location filename="../../ui/view3d/workspace.py" line="2000" />
-            <location filename="../../ui/view3d/workspace.py" line="2019" />
+            <location filename="../../ui/view3d/workspace.py" line="2013" />
+            <location filename="../../ui/view3d/workspace.py" line="2032" />
             <source>Smaller adult</source>
             <translation>Невысокий взрослый</translation>
         </message>
@@ -17420,12 +17420,12 @@ Details: {error}</source>
             <translation>Эта точка находится за пределами карты часов солнца.</translation>
         </message>
         <message>
-            <location filename="../../ui/view3d/workspace.py" line="1481" />
+            <location filename="../../ui/view3d/workspace.py" line="1494" />
             <source>The 3D ground does not show all of the plan</source>
             <translation>3D-поверхность отображает не весь план</translation>
         </message>
         <message>
-            <location filename="../../ui/view3d/workspace.py" line="952" />
+            <location filename="../../ui/view3d/workspace.py" line="965" />
             <source>The 3D view could not be started. The rest of the application is not affected.
 
 Details: {error}</source>
@@ -17434,7 +17434,7 @@ Details: {error}</source>
 Подробности: {error}</translation>
         </message>
         <message>
-            <location filename="../../ui/view3d/workspace.py" line="1470" />
+            <location filename="../../ui/view3d/workspace.py" line="1483" />
             <source>The 3D view could not be updated. It will try again with the next change.</source>
             <translation>Не удалось обновить 3D-вид. Повторная попытка будет выполнена при следующем изменении.</translation>
         </message>
@@ -17444,7 +17444,7 @@ Details: {error}</source>
             <translation>3D-вид сейчас не виден. Верните его и повторите попытку.</translation>
         </message>
         <message>
-            <location filename="../../ui/view3d/workspace.py" line="1587" />
+            <location filename="../../ui/view3d/workspace.py" line="1600" />
             <source>The 3D view reported a problem. Details are in the log file.</source>
             <translation>3D-вид сообщил об ошибке. Подробности записаны в файл журнала.</translation>
         </message>
@@ -17499,7 +17499,7 @@ Details: {error}</source>
             <translation>Не удалось закрыть запись до закрытия окна. Незавершённый файл может остаться по пути {path}.</translation>
         </message>
         <message>
-            <location filename="../../ui/view3d/workspace.py" line="1666" />
+            <location filename="../../ui/view3d/workspace.py" line="1679" />
             <source>The setting could not be changed. Details are in the log file.</source>
             <translation>Не удалось изменить настройку. Подробности записаны в файл журнала.</translation>
         </message>
@@ -17534,12 +17534,12 @@ Details: {error}</source>
             <translation>Для прогноза сегодняшней погоды требуется указать местоположение сада.</translation>
         </message>
         <message>
-            <location filename="../../ui/view3d/workspace.py" line="954" />
+            <location filename="../../ui/view3d/workspace.py" line="967" />
             <source>Try Again</source>
             <translation>Повторить попытку</translation>
         </message>
         <message>
-            <location filename="../../ui/view3d/workspace.py" line="1643" />
+            <location filename="../../ui/view3d/workspace.py" line="1656" />
             <source>Try Hardware Next Time</source>
             <translation>Попробовать аппаратное ускорение в следующий раз</translation>
         </message>
@@ -17549,12 +17549,12 @@ Details: {error}</source>
             <translation>Сумерки</translation>
         </message>
         <message>
-            <location filename="../../ui/view3d/workspace.py" line="1099" />
+            <location filename="../../ui/view3d/workspace.py" line="1112" />
             <source>Updating the 3D view…</source>
             <translation>Обновление 3D-вида…</translation>
         </message>
         <message>
-            <location filename="../../ui/view3d/workspace.py" line="1609" />
+            <location filename="../../ui/view3d/workspace.py" line="1622" />
             <source>Use Compatibility Mode Next Time</source>
             <translation>Использовать режим совместимости в следующий раз</translation>
         </message>
@@ -17574,12 +17574,12 @@ Details: {error}</source>
             <translation>Виньетка</translation>
         </message>
         <message>
-            <location filename="../../ui/view3d/workspace.py" line="1844" />
+            <location filename="../../ui/view3d/workspace.py" line="1857" />
             <source>Walk through the garden at eye height</source>
             <translation>Прогулка по саду на уровне глаз</translation>
         </message>
         <message>
-            <location filename="../../ui/view3d/workspace.py" line="1845" />
+            <location filename="../../ui/view3d/workspace.py" line="1858" />
             <source>Walk through the garden at eye height (W A S D or the arrow keys walk, drag to look around, Shift runs, Esc leaves)</source>
             <translation>Прогулка по саду на уровне глаз (W A S D или стрелки — ходьба, перетаскивание — обзор, Shift — бег, Esc — выход)</translation>
         </message>
@@ -17604,12 +17604,12 @@ Details: {error}</source>
             <translation>Живая природа и листопад</translation>
         </message>
         <message>
-            <location filename="../../ui/view3d/workspace.py" line="1490" />
+            <location filename="../../ui/view3d/workspace.py" line="1503" />
             <source>{count} objects are not shown in 3D</source>
             <translation>{count} объектов не отображаются в 3D</translation>
         </message>
         <message>
-            <location filename="../../ui/view3d/workspace.py" line="1487" />
+            <location filename="../../ui/view3d/workspace.py" line="1500" />
             <source>{count} objects are not shown in 3D; the 3D ground does not show all of the plan</source>
             <translation>{count} объектов не отображаются в 3D; 3D-поверхность отображает не весь план</translation>
         </message>
@@ -17634,8 +17634,8 @@ Details: {error}</source>
             <translation>{weather} (пауза на время анализа)</translation>
         </message>
         <message>
-            <location filename="../../ui/view3d/workspace.py" line="2002" />
-            <location filename="../../ui/view3d/workspace.py" line="2022" />
+            <location filename="../../ui/view3d/workspace.py" line="2015" />
+            <location filename="../../ui/view3d/workspace.py" line="2035" />
             <source>{who} – {height}</source>
             <translation>{who} – {height}</translation>
         </message>

@@ -41,8 +41,10 @@ import pytest
 
 from open_garden_planner.core import object_height
 from open_garden_planner.core.object_height import (
+    GLASSHOUSE_TYPE_NAMES,
     NO_2D_SHADOW_TYPE_NAMES,
     OPEN_FRAME_TYPE_NAMES,
+    RAISED_CANOPY_TYPE_NAMES,
     SOLID_2D_DECISIONS,
     is_open_frame,
 )
@@ -257,12 +259,14 @@ def _by_hand(kind: str, size: object, turn_deg: float, elevation: float, azimuth
 # ── the registry and its drift guard ─────────────────────────────────────────
 
 
-def test_the_three_lists_name_real_object_types_and_do_not_overlap() -> None:
+def test_the_lists_name_real_object_types_and_do_not_overlap() -> None:
     from open_garden_planner.core.object_types import ObjectType
 
     real = {member.name for member in ObjectType}
     lists = {"open frames": set(OPEN_FRAME_TYPE_NAMES), "solid by decision": set(SOLID_2D_DECISIONS),
-             "no 2D shadow": set(NO_2D_SHADOW_TYPE_NAMES)}
+             "no 2D shadow": set(NO_2D_SHADOW_TYPE_NAMES),
+             "raised canopy": set(RAISED_CANOPY_TYPE_NAMES),
+             "glasshouse": set(GLASSHOUSE_TYPE_NAMES)}
     for label, names in lists.items():
         assert names and names <= real, (label, names - real)
         assert names <= OBJECT_KINDS, (label, names - OBJECT_KINDS)  # each has a 3D model of its own
@@ -307,14 +311,16 @@ def test_no_mostly_air_kind_is_a_solid_prism_without_a_recorded_decision() -> No
     script = _script()
     assert set(script.L4_OBJECT_SIZES) == OBJECT_KINDS - NO_2D_SHADOW_TYPE_NAMES
     mostly_air = {kind for kind, shares in _prism_shares().items() if min(shares) < MOSTLY_AIR}
-    decided = OPEN_FRAME_TYPE_NAMES | set(SOLID_2D_DECISIONS)
+    decided = (OPEN_FRAME_TYPE_NAMES | set(SOLID_2D_DECISIONS)
+               | RAISED_CANOPY_TYPE_NAMES | GLASSHOUSE_TYPE_NAMES)
     assert mostly_air - decided == set(), "decide: an open frame, or solid with a reason"
     # … and the lists do not rot: nothing is recorded as mostly air that no longer is
     assert decided - mostly_air == set()
     assert mostly_air == {
         "PERGOLA", "TRELLIS", "SWING", "HAMMOCK", "GARDEN_LIGHT",          # open frames
         "TABLE_RECTANGULAR", "TABLE_ROUND", "PICNIC_TABLE", "TRAMPOLINE", "BENCH", "CHAIR",
-        "BBQ_GRILL", "WHEELBARROW", "BIRD_BATH", "PARASOL", "GREENHOUSE",  # solid by decision
+        "BBQ_GRILL", "WHEELBARROW", "BIRD_BATH",                           # solid by decision
+        "PARASOL", "GREENHOUSE",                                           # raised / glasshouse
     }
 
 

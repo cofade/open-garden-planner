@@ -7058,13 +7058,13 @@ only, and correct their heights with a fit after the fact.
   | table | 0.38 / 0.54 / 0.70 | 0.38 / 0.54 / 0.70 | −0.5 / −0.5 / −0.3 | porosity: a top on legs (L4) |
   | picnic table | 0.37 / 0.41 / 0.57 | 0.37 / 0.41 / 0.57 | −38.5 / −38.5 / −20.6 | porosity: boards and A-frames (L4) |
   | grill | 0.28 / 0.30 / 0.36 | 0.28 / 0.30 / 0.36 | −27.3 / −23.0 / −17.5 | porosity: a kettle on legs (L4) |
-  | greenhouse | 0.30 / 0.23 / 0.25 | 0.30 / 0.23 / 0.25 | −97.5 / −93.3 / −38.3 | porosity: the glass casts nothing (L4) |
+  | greenhouse | 1.00 / 1.00 / 1.00 | 0.33 / 0.28 / 0.29 | 0.0 / 0.0 / 0.0 | glass: the frame alone shades (#830) |
   | trampoline | 0.47 / 0.64 / 0.76 | 0.47 / 0.64 / 0.76 | −1.0 / −1.0 / −1.0 | porosity: a mat on legs (L4) |
   | table round | 0.35 / 0.50 / 0.67 | 0.35 / 0.50 / 0.67 | -1.2 / -1.2 / -0.7 | shape and porosity vs solid 2D prism |
   | chair | 0.49 / 0.54 / 0.62 | 0.49 / 0.54 / 0.62 | -4.3 / -4.3 / -4.0 | shape and porosity vs solid 2D prism |
   | bench | 0.39 / 0.45 / 0.54 | 0.39 / 0.45 / 0.54 | -7.6 / -7.6 / -7.3 | shape and porosity vs solid 2D prism |
   | lounger | 0.64 / 0.71 / 0.77 | 0.64 / 0.71 / 0.77 | -9.7 / -9.7 / -9.7 | shape and porosity vs solid 2D prism |
-  | parasol | 0.24 / 0.41 / 0.60 | 0.24 / 0.41 / 0.60 | -150.0 / -82.5 / -34.5 | shape and porosity vs solid 2D prism |
+  | parasol | 1.06 / 1.00 / 0.96 | 0.89 / 0.93 / 0.96 | +60.3 / -2.0 / -2.0 | a raised canopy, not a prism (#830) |
   | fire pit | 0.94 / 0.94 / 0.93 | 0.94 / 0.94 / 0.93 | -2.1 / -2.1 / -2.1 | shape and porosity vs solid 2D prism |
   | planter pot | 0.83 / 0.81 / 0.81 | 0.83 / 0.81 / 0.81 | -0.6 / -0.6 / -0.3 | shape and porosity vs solid 2D prism |
   | sandbox | 1.00 / 1.00 / 1.00 | 1.00 / 1.00 / 1.00 | 0.0 / 0.0 / 0.0 | shape and porosity vs solid 2D prism |
@@ -12467,21 +12467,12 @@ food-forest's day map 1.5 s → 2.0 s, family-garden's (porous fences already) 2
 
 **Left as it was, and why.**
 
-- **Parasol** — a solid canopy on a pole, in the balcony example. Its 3D shadow is 24 / 41 /
-  60 % of its prism's, but not because light passes through it: the canopy's shade is dark
-  and lies AWAY from the pole at a low sun, where the prism shades the ground under the
-  canopy as well. A transmittance would put a quarter shade under the canopy all day, where
-  there is none in the morning and full shade at noon. The honest caster for it is a RAISED
-  one — the canopy as a slab at its own height, the base rule of L1.6 — which is a geometry
-  change #698 does not describe. Proposed as the follow-up; until then the prism, as before.
-  Measured for that follow-up: the footprint as a slab from the valance's lower edge to the
-  rim (185.6–193.6 cm on the default parasol) reads IoU 0.89 / 0.93 / 0.96 against the 3D
-  model where the prism reads 0.24 / 0.41 / 0.60; and it matters on a bundled plan — on the
-  balcony example (a 72 cm parasol, 230 cm high, on 5 × 3 m) the prism lowers the map's mean
-  on 21 June from 6.4 h without the parasol to 4.6 h, a raised canopy to 6.2 h.
-- **Greenhouse** — the 3D view casts its frame alone (the glass casts nothing: 23–30 % of
-  the prism), the 2D model the solid prism, so a tomato in a greenhouse reads 0 h of sun.
-  How much light a glasshouse takes is a question #698 does not ask.
+- **Parasol** — shipped as a RAISED CANOPY in #830 (see the addendum below): the
+  canopy's rim band from its lower edge to the rim, the pole and finial left out.
+  Measured on the balcony example: the 21-June map mean 4.57 h → 6.12 h.
+- **Greenhouse** — shipped as its FRAME ALONE in #830 (see the addendum below): glass
+  counts as direct sun, and the caster reads the same frame triangles the 3D builder
+  casts. A tomato inside reads the open sky minus the frame instead of 0 h.
 - **Low furniture** — at most 90 cm tall; the surplus is a strip `h ÷ tan α` wide beside
   the piece.
 
@@ -12512,6 +12503,49 @@ measured); that is a seam, not a solid's shade. Tests:
 the transmittance against the trimmed prism, and the turned frame) and
 `tests/integration/test_open_frame_shade.py` (the real overlay and map). FR-SUN-13,
 §8.29.6 and the shadow table carry the new numbers.
+
+### ADR-059 addendum: a parasol is a raised canopy and a glasshouse is its frame (#830)
+
+**Status**: Shipped with #830's package (owner decision 2026-11-24; see the issue's
+"Owner decision" section).
+
+**Decision.** Three 2D-sun-study models change, all toward the 3D view:
+
+1. **A parasol is a raised slab**, not a prism from the ground. The slab is the canopy's
+   rim band — its lower edge to the rim (185.6–193.6 cm on the default 150 cm / 250 cm
+   parasol) — and the thin pole and finial are left out. This is the geometry the
+   owner's IoU gate was measured with; a slab up to the item's top covers the cone's
+   air and reads 0.53 / 0.70 / 0.84. Measured: 3D ÷ 2D 1.06 / 1.00 / 0.96, IoU
+   0.89 / 0.93 / 0.96 at 15 / 35 / 60° (was 0.24 / 0.41 / 0.60). On the balcony example
+   the 21-June map mean is 6.12 h (was 4.57 h; 6.36 h with no parasol). The 2D caster
+   carries `base_cm` = the lower edge and `height_cm` = the band's thickness; the prism
+   is not used.
+2. **A glasshouse is its frame alone; glass counts as sun.** The map counts hours of
+   DIRECT sun, a yes/no per sample, and glass weakens light without stopping it. The
+   caster carries the same frame triangles the 3D builder casts
+   (`core.scene3d.builders.open_frames.glasshouse_frame_triangles`, the builder's
+   `casts_shadow` parts) and is weighted through #698's transmittance path; a gabled
+   greenhouse whose builder has no shadow-casting frame is transparent, exactly as 3D
+   is. Measured: 3D ÷ weighted 2D 1.00 / 1.00 / 1.00 at the three elevations (was
+   0.30 / 0.23 / 0.25); a tomato inside reads the open sky minus the frame instead of
+   0 h. A framed glasshouse is no longer spared as a soil parent in the per-plant
+   estimate or the map's plant cells — its frame is between the plant and the sun.
+3. **A plant does not shade the cells inside its own footprint.** The rule the plant's
+   own estimate already used (`SunReceiver`: its own solid and the soil parent it stands
+   in are left out) now applies to the map's grid: those cells are shaded without the
+   plant and without a `holds_plants` caster whose outline contains it. The map's cell at
+   the plant now equals the plant's estimate; there is no dark dot under each plant.
+   A plan with a framed glasshouse is the exception stated above: its frame still shades.
+
+**Existing plans.** All three change hours-of-sun maps: the parasol and glasshouse rows
+of the balcony/family-garden examples read sunnier, and the dark dot under every plant is
+gone. The release note must say so. The map means in ADR-065's examples are re-measured
+in `scripts/measure_built_world_shadows.py` and the table above.
+
+**Tests**: `tests/unit/test_open_frames.py` (the five decision lists and the drift guard),
+`tests/integration/test_open_frame_shade.py` (the parasol slab's raised shadow, the
+greenhouse frame with a plant inside, the map-equals-estimate rule, the plant cell in a
+plan with an open frame), the seeded example checks, and #1007's seam test.
 
 ### ADR-070 addendum: the weather is the plan's, not the session's (#944)
 

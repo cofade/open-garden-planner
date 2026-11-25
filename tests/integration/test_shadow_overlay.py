@@ -543,11 +543,18 @@ class TestSunSimToolbar:
 
     def test_slider_change_emits_the_wall_reading(self, qtbot) -> None:
         """Phase 17 L1.0 (ADR-053): the toolbar hands the sim clock its NAIVE
-        wall reading — picker date + slider time — so the plan date is the
+        wall reading - picker date + slider time - so the plan date is the
         picker's date by construction. It used to emit an aware instant, which
-        can name another day inside a gap that straddles midnight."""
-        toolbar = SunSimToolbar()
+        can name another day inside a gap that straddles midnight.
+
+        #1026: the clock is pinned, so the seeded slider cannot already stand
+        at the target minute (the suite reached this test in the 15:00 minute
+        and ``setValue(900)`` emitted nothing)."""
+        toolbar = SunSimToolbar(
+            now_provider=lambda: datetime(2026, 6, 1, 9, 0).astimezone()
+        )
         qtbot.addWidget(toolbar)
+        assert toolbar.current_wall_datetime() == datetime(2026, 6, 1, 9, 0)
         received: list[datetime] = []
         toolbar.datetime_changed.connect(received.append)
         toolbar._slider.setValue(15 * 60)
@@ -556,6 +563,7 @@ class TestSunSimToolbar:
         assert emitted.tzinfo is None
         assert emitted.hour == 15
         assert emitted.date() == toolbar._date_edit.date().toPyDate()
+        assert emitted.date() == date(2026, 6, 1)
 
     def test_animate_advances_time(self, qtbot) -> None:
         toolbar = SunSimToolbar()

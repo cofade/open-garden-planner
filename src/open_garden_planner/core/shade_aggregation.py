@@ -145,6 +145,12 @@ class IdentifiedCaster:
     fence_width_cm: float = 0.0
     transmittance: float | None = None
     frame: OpenFrame | None = None
+    #: A living plant (#830): it does not shade the grid cells inside its own
+    #: footprint, the same rule its own sun estimate uses (its own solid and the
+    #: soil parent it stands in are left out). The map stays honest under a
+    #: plant instead of showing a dark dot, and the cell at the plant's centre
+    #: agrees with the plant's estimate.
+    is_plant: bool = False
 
 
 @dataclass(frozen=True)
@@ -478,6 +484,199 @@ def _slice_frame_for_elevation(
     return slice_open_frame_for_elevation(frame, base_cm, elev_cm)
 
 
+def _weighted_sun_factor(
+    weighted: WeightedShadowsResult,
+    grid: HeatmapGrid,
+    rasterize: Rasterizer,
+) -> np.ndarray:
+    """The sunlight fraction of every grid cell for one sample of a weighted sweep.
+
+    Each weighted region is painted on its own, because one path over all of
+    them would let odd-even filling cancel where two regions meet. A cell whose
+    centre lies exactly on a seam between regions is then classified by the
+    painter, not by the geometry: the two paths can both claim it (the darker
+    transmittance wins) or neither can (the cell reads as full sun) — the
+    one-sample seam #1007 reports. Presence is therefore taken from the union,
+    the one path the solid sweep has always painted, so a per-region pass can
+    neither add nor remove a cell against it. Inside the union, a seam cell's
+    fraction is settled by the even-odd point-in-polygon rule at its centre:
+    the darkest region that contains the centre owns the cell.
+    """
+    regions = [region for region in weighted.weighted_regions if region.polygons]
+    if not regions:
+        return np.ones((grid.rows, grid.cols), dtype=np.float32)
+    if len(regions) == 1:
+        # One transmittance over the whole shade: there is no seam to settle, and
+        # the region IS the union — paint it once instead of painting the union
+        # and then the same polygons again (#855's first-open-frame cost).
+        region = regions[0]
+        shaded = np.asarray(rasterize(region.polygons, grid), dtype=bool)
+        return np.where(shaded, np.float32(region.transmittance), np.float32(1.0))
+    factor = np.ones((grid.rows, grid.cols), dtype=np.float32)
+    # The union is the "single region" of the same shade: the presence it paints
+    # is the answer the solid path gave before #440, and a per-region path must
+    # not add or remove a cell against it (#1007). Each region is clipped to it.
+    union = (
+        np.asarray(rasterize(weighted.union_polygons, grid), dtype=bool)
+        if weighted.union_polygons
+        else np.zeros((grid.rows, grid.cols), dtype=bool)
+    )
+    # Region ids let us find the cells that sit on a seam without a second
+    # geometric pass: an id that differs from any neighbour's is a boundary
+    # cell, and the painter's classification of it is the ambiguous one.
+    ids = np.zeros((grid.rows, grid.cols), dtype=np.int16)
+    overlap = np.zeros((grid.rows, grid.cols), dtype=bool)
+    for index, region in enumerate(regions):
+        shaded = np.asarray(rasterize(region.polygons, grid), dtype=bool) & union
+        overlap |= shaded & (ids != 0)      # two regions' paths claimed this cell
+        factor = np.where(
+            shaded, np.minimum(factor, np.float32(region.transmittance)), factor
+        )
+        ids[shaded] = index + 1
+    # Edge replication: the map's border is not a region seam.
+    padded = np.pad(ids, 1, mode="edge")
+    seam = np.zeros(ids.shape, dtype=bool)
+    for dr in (0, 1, 2):
+        for dc in (0, 1, 2):
+            if dr == 1 and dc == 1:
+                continue
+            seam |= padded[dr:dr + ids.shape[0], dc:dc + ids.shape[1]] != ids
+    # … and the two painter failures a neighbour comparison cannot see: a cell
+    # two paths claimed, and a union cell no region path painted (an isolated
+    # sliver). Both are decided by the geometry below.
+    seam |= overlap | (union & (ids == 0))
+    if not seam.any():
+        return factor
+    rows, cols = np.nonzero(seam)
+    inside = union[rows, cols]
+    if not inside.any():
+        return factor
+    rows, cols = rows[inside], cols[inside]
+    points = np.asarray(
+        [grid.cell_center(int(row), int(col)) for row, col in zip(rows, cols, strict=True)],
+        dtype=float,
+    )
+    # Start from what the raster gave the cell: for an outer boundary cell that
+    # is its own region's transmittance — NOT the darkest transmittance on the
+    # plan, which would turn a pergola's edge black because a house exists (#1007
+    # review). Only a cell no region painted falls back to the darkest shade.
+    resolved = factor[rows, cols].copy()
+    ids_here = ids[rows, cols]
+    claimed = np.zeros(len(points), dtype=bool)
+    # darkest first: a point on two regions' shared edge takes the darker shade,
+    # as the min() above would have given it
+    for region in sorted(regions, key=lambda candidate: candidate.transmittance):
+        inside_region = points_in_polygons(region.polygons, points) & ~claimed
+        if inside_region.any():
+            resolved[inside_region] = np.float32(region.transmittance)
+            claimed |= inside_region
+    unresolved = (ids_here == 0) & ~claimed
+    if unresolved.any():
+        resolved[unresolved] = np.float32(
+            min(region.transmittance for region in regions)
+        )
+    factor[rows, cols] = resolved
+    return factor
+
+
+def _footprint_centroid(
+    footprints: tuple[tuple[tuple[float, float], ...], ...]
+) -> tuple[float, float]:
+    """The mean of a caster's footprint vertices: inside for a plant's ring."""
+    xs = [x for ring in footprints for x, _y in ring]
+    ys = [y for ring in footprints for _x, y in ring]
+    if not xs:
+        return (0.0, 0.0)
+    return (sum(xs) / len(xs), sum(ys) / len(ys))
+
+
+def _plant_shade_spares(
+    identified: Sequence[IdentifiedCaster], grid: HeatmapGrid
+) -> tuple[np.ndarray, np.ndarray] | None:
+    """The grid cells inside a plant's own footprint, and the casters it is spared.
+
+    #830 (owner decision): a plant does not shade the cells inside its own
+    footprint, and neither does the soil solid it stands in — the rule the plant's
+    own estimate already follows (``SunReceiver``'s own solid and soil parent).
+    Returns ``(flat_cell_indices, spared)`` where ``spared[row, caster]`` is true
+    for the plant that owns that cell and every ``holds_plants`` caster whose
+    outline contains the plant's centre; ``None`` with no plant in the plan.
+
+    The membership is static for a run (casters do not move between samples), so
+    it is answered once, on cell centres, with the caster walk's own footprints.
+    """
+    plants = [index for index, caster in enumerate(identified) if caster.is_plant]
+    if not plants:
+        return None
+    cell_spares: dict[int, set[int]] = {}
+    for index in plants:
+        plant = identified[index]
+        spared: set[int] = {index}
+        centre = np.asarray([_footprint_centroid(plant.footprints)], dtype=float)
+        for other_index, other in enumerate(identified):
+            if (
+                other_index != index
+                and other.holds_plants
+                and other.frame is None      # a framed glasshouse still shades (#830)
+                and other.footprints
+                and points_in_polygons(other.footprints, centre)[0]
+            ):
+                spared.add(other_index)
+        xs = [x for ring in plant.footprints for x, _y in ring]
+        ys = [y for ring in plant.footprints for _x, y in ring]
+        if not xs:
+            continue
+        col0 = max(0, grid.cell_at(min(xs), min(ys))[1])
+        col1 = min(grid.cols - 1, grid.cell_at(max(xs), max(ys))[1])
+        row0 = max(0, grid.cell_at(min(xs), min(ys))[0])
+        row1 = min(grid.rows - 1, grid.cell_at(max(xs), max(ys))[0])
+        if col0 > col1 or row0 > row1:
+            continue
+        local = np.asarray(
+            [[grid.cell_center(row, col) for col in range(col0, col1 + 1)]
+             for row in range(row0, row1 + 1)],
+            dtype=float,
+        ).reshape(-1, 2)
+        inside = points_in_polygons(plant.footprints, local)
+        for offset in np.flatnonzero(inside):
+            row = row0 + int(offset) // (col1 - col0 + 1)
+            col = col0 + int(offset) % (col1 - col0 + 1)
+            cell_spares.setdefault(row * grid.cols + col, set()).update(spared)
+    if not cell_spares:
+        return None
+    cells = np.asarray(sorted(cell_spares), dtype=np.intp)
+    matrix = np.zeros((len(cells), len(identified)), dtype=bool)
+    for row, flat in enumerate(cells):
+        for caster_index in cell_spares[int(flat)]:
+            matrix[row, caster_index] = True
+    return cells, matrix
+
+
+def _plant_cell_factors(
+    identified: Sequence[IdentifiedCaster],
+    owned_polygons: Sequence[list[Polygon]],
+    spared: np.ndarray,
+    points: np.ndarray,
+    elevation_deg: float,
+    azimuth_deg: float,
+) -> np.ndarray:
+    """The sunlight fraction of plant-owned cells, caster by caster, sparing each
+    cell's own plant and soil parent — the product the plant estimate computes."""
+    factor = np.ones(len(points), dtype=np.float32)
+    for index, (caster, owned) in enumerate(
+        zip(identified, owned_polygons, strict=True)
+    ):
+        if not owned:
+            continue
+        through = caster_transmittance(caster, elevation_deg, azimuth_deg)
+        if through >= 1.0:
+            continue
+        covered = points_in_polygons(owned, points) & ~spared[:, index]
+        if covered.any():
+            factor[covered] *= np.float32(through)
+    return factor
+
+
 def _aggregate_day(
     casters: Sequence[CasterLike],
     lat_deg: float, lon_deg: float, day: date, grid: HeatmapGrid, rasterize: Rasterizer,
@@ -499,6 +698,12 @@ def _aggregate_day(
              and 0 <= grid.cell_at(receiver.x_cm, receiver.y_cm)[1] < grid.cols]
     points = np.asarray([grid.cell_center(*grid.cell_at(receiver.x_cm, receiver.y_cm))
                          for receiver in valid], dtype=float).reshape(-1, 2)
+    # The map cell each receiver stands in; the first receiver in a cell owns it
+    # (overlapping plants in one 10 cm cell cannot each show their own value).
+    receiver_cell_first: dict[int, int] = {}
+    for receiver_index, receiver in enumerate(valid):
+        row, col = grid.cell_at(receiver.x_cm, receiver.y_cm)
+        receiver_cell_first.setdefault(row * grid.cols + col, receiver_index)
     # caster id -> the receivers it never shades: itself, the plants standing
     # on its soil (``SunReceiver.stands_on``), and — #481 — every plant whose
     # point lies inside a soil container's own outline, linked or not. The
@@ -512,7 +717,9 @@ def _aggregate_day(
             spared.setdefault(receiver.stands_on, []).append(index)
     if len(valid) and any(caster.holds_plants for caster in identified):
         for caster in identified:
-            if not caster.holds_plants:
+            if not caster.holds_plants or caster.frame is not None:
+                # #830: a framed glasshouse is not a solid around the plant - its
+                # frame must still shade it. Only a soil solid is spared.
                 continue
             inside = np.flatnonzero(points_in_polygons(caster.footprints, points))
             if len(inside):
@@ -604,6 +811,9 @@ def _aggregate_day(
         )
         for caster in identified
     ]
+    plant_data = _plant_shade_spares(identified, grid) if identified else None
+    plant_cells = plant_data[0] if plant_data is not None else None
+    plant_spared = plant_data[1] if plant_data is not None else None
     for index, sample in enumerate(samples):
         if should_cancel is not None and should_cancel():
             return None
@@ -634,25 +844,27 @@ def _aggregate_day(
             polygons = compute_scene_shadows(
                 casters, sample_elev, sample.azimuth_deg)
         if weighted is not None:
-            sun_factor = np.ones((grid.rows, grid.cols), dtype=np.float32)
-            for region in weighted.weighted_regions:
-                if region.polygons:
-                    reg_shaded = np.asarray(rasterize(region.polygons, grid), dtype=bool)
-                    sun_factor = np.where(
-                        reg_shaded,
-                        np.minimum(sun_factor, np.float32(region.transmittance)),
-                        sun_factor,
-                    )
-            minutes += float(step_minutes) * sun_factor
-            if sample_trans is not None:
-                sample_trans[index] = sun_factor
+            sun_factor = _weighted_sun_factor(weighted, grid, rasterize)
         elif polygons:
-            shaded = rasterize(polygons, grid)
-            minutes += np.where(shaded, 0.0, float(step_minutes))
-            if masks is not None:
-                masks[index] = np.packbits(np.asarray(shaded, dtype=bool), axis=1)
+            shaded = np.asarray(rasterize(polygons, grid), dtype=bool)
+            sun_factor = np.where(shaded, 0.0, 1.0).astype(np.float32)
         else:
-            minutes += float(step_minutes)
+            sun_factor = np.ones((grid.rows, grid.cols), dtype=np.float32)
+        if plant_cells is not None and plant_spared is not None and owned_polygons:
+            # #830: the cells inside a plant's own footprint are shaded without
+            # that plant (and without the soil it stands in): the rule the plant's
+            # own estimate already follows, so the map cannot disagree with it.
+            plant_rows = plant_cells // grid.cols
+            plant_cols = plant_cells % grid.cols
+            cell_points = np.asarray(
+                [grid.cell_center(int(row), int(col))
+                 for row, col in zip(plant_rows, plant_cols, strict=True)],
+                dtype=float,
+            )
+            sun_factor[plant_rows, plant_cols] = _plant_cell_factors(
+                identified, owned_polygons, plant_spared, cell_points,
+                sample_elev, sample.azimuth_deg,
+            )
         if len(valid):
             rx_trans = np.ones(len(valid), dtype=np.float32)
             for elev, group_indices, group_points, slice_casters, exclusions in receiver_groups:
@@ -686,6 +898,21 @@ def _aggregate_day(
                         rx_trans[group_indices[mask]] *= np.float32(t_c)
 
             exposure += float(step_minutes) * rx_trans
+            # #830's contract: the map's cell at a plant's centre is the plant's
+            # own estimate, so it takes the receiver's factor for this sample —
+            # sliced at the plant's soil elevation, with its own solid and soil
+            # parent spared (a raised bed's wall, a pergola above it and an
+            # overstorey tree are all in that answer). The cell's other
+            # footprint cells keep the ground-level rule above.
+            if receiver_cell_first:
+                flat_factor = sun_factor.reshape(-1)
+                for flat_index, receiver_index in receiver_cell_first.items():
+                    flat_factor[flat_index] = rx_trans[receiver_index]
+        minutes += float(step_minutes) * sun_factor
+        if sample_trans is not None:
+            sample_trans[index] = sun_factor
+        if masks is not None:
+            masks[index] = np.packbits(sun_factor < 0.5, axis=1)
         if progress is not None:
             progress(index + 1, total)
     if should_cancel is not None and should_cancel():
