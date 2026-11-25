@@ -12506,8 +12506,8 @@ the transmittance against the trimmed prism, and the turned frame) and
 
 ### ADR-059 addendum: a parasol is a raised canopy and a glasshouse is its frame (#830)
 
-**Status**: Shipped with #830's package (owner decision 2026-11-24; see the issue's
-"Owner decision" section).
+**Status**: Shipped in v1.43.2 with #830's package (PR #1027; owner decision
+2026-11-24; see the issue's "Owner decision" section).
 
 **Decision.** Three 2D-sun-study models change, all toward the 3D view:
 
