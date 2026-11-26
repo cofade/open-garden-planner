@@ -219,7 +219,15 @@ def _check_group_offsets(records: Any, dx: float = 0.0, dy: float = 0.0) -> None
         if record.get("type") == "group":
             x = finite_number(record.get("x", 0.0), "group.x")
             y = finite_number(record.get("y", 0.0), "group.y")
-            _check_group_offsets(record.get("children", []), x + dx, y + dy)
+            base = record.get("transform")
+            if isinstance(base, dict):
+                # Qt's nesting compensation is part of the same translation:
+                # x + base dx + parent offset must stay finite (#1022 review).
+                x += finite_number(base.get("dx", 0.0), "group.transform.dx")
+                y += finite_number(base.get("dy", 0.0), "group.transform.dy")
+            x = finite_number(x + dx, "group.child.x")
+            y = finite_number(y + dy, "group.child.y")
+            _check_group_offsets(record.get("children", []), x, y)
         elif dx or dy:
             for key in ("points", "anchors", "handles_in", "handles_out"):
                 _check_group_offsets(record.get(key, []), dx, dy)

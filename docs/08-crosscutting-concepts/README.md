@@ -1481,8 +1481,10 @@ item.
   regrouping a turned group does not apply its translation twice. That saved matrix is
   translation-only: a plan carrying a rotation or scale there is refused at the numeric
   boundary, and edit surfaces refuse such a group rather than losing geometry on
-  ungroup. A committed member angle is saved even below 0.01° (a tiny group turn must
-  survive reload). Grouped child records
+  ungroup. The boundary also composes each group's x/y with its base translation and
+  every parent offset, so a pair that is finite alone but overflows when summed is
+  refused before Qt sees it. A committed member angle is saved even below 0.01° (a
+  tiny group turn must survive reload). Grouped child records
   carry their own `parent_bed_id` / `child_item_ids`, so a bed-and-plant link survives
   save and reload even when both endpoints are members; copy/duplicate remaps both
   fields through one whole-tree map and drops an endpoint that was not copied. The

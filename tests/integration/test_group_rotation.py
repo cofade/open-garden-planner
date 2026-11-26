@@ -1016,18 +1016,6 @@ def test_ungrouping_a_loaded_nested_group_survives_save_and_reload(
     ProjectManager().save(scene, target)
     loaded_scene = CanvasScene(width_cm=5000, height_cm=3000)
     ProjectManager().load(loaded_scene, target)
-    outer = next(
-        item for item in loaded_scene.items()
-        if isinstance(item, GroupItem) and item.parentItem() is None
-    )
-    UngroupCommand(loaded_scene, outer).execute()
-    imported_inner = next(
-        item for item in loaded_scene.items()
-        if isinstance(item, GroupItem) and item.parentItem() is None
-    )
-    imported_inner._apply_rotation(0.0)
-    UngroupCommand(loaded_scene, imported_inner).execute()
-
     def centres(target_scene: CanvasScene) -> list[tuple[float, float]]:
         return sorted(
             (
@@ -1037,6 +1025,27 @@ def test_ungrouping_a_loaded_nested_group_survives_save_and_reload(
             for item in target_scene.items()
             if isinstance(item, RectangleItem)
         )
+
+    outer = next(
+        item for item in loaded_scene.items()
+        if isinstance(item, GroupItem) and item.parentItem() is None
+    )
+    nested_inner = next(
+        item for item in outer.childItems() if isinstance(item, GroupItem)
+    )
+    assert nested_inner.transform().isIdentity() is False
+    before_outer_ungroup = centres(loaded_scene)
+    UngroupCommand(loaded_scene, outer).execute()
+    assert centres(loaded_scene) == before_outer_ungroup
+
+    imported_inner = next(
+        item for item in loaded_scene.items()
+        if isinstance(item, GroupItem) and item.parentItem() is None
+    )
+    imported_inner._apply_rotation(0.0)
+    before_inner_ungroup = centres(loaded_scene)
+    UngroupCommand(loaded_scene, imported_inner).execute()
+    assert centres(loaded_scene) == before_inner_ungroup
 
     before = centres(loaded_scene)
     reopened_target = tmp_path / "nested-ungroup-2.ogp"

@@ -436,6 +436,48 @@ def test_copying_a_bed_and_a_group_holding_its_plant_uses_one_record(
     assert duplicated_plant.parent_bed_id == duplicated_bed.item_id
 
 
+def test_copying_a_bed_alone_does_not_promote_a_grouped_plant(
+    qtbot: Any,
+) -> None:
+    """A bed's follower inside a group is not copied as a free-floating root."""
+    scene = CanvasScene()
+    view = CanvasView(scene)
+    qtbot.addWidget(view)
+
+    bed = RectangleItem(
+        100.0, 100.0, 200.0, 200.0, object_type=ObjectType.RAISED_BED
+    )
+    plant = CircleItem(150.0, 150.0, 15.0, object_type=ObjectType.PERENNIAL)
+    scene.addItem(bed)
+    scene.addItem(plant)
+    plant.parent_bed_id = bed.item_id
+    bed.add_child_id(plant.item_id)
+    peer = RectangleItem(400.0, 100.0, 100.0, 100.0)
+    scene.addItem(peer)
+    scene.clearSelection()
+    plant.setSelected(True)
+    peer.setSelected(True)
+    view.group_selected()
+    group = next(item for item in scene.items() if isinstance(item, GroupItem))
+
+    scene.clearSelection()
+    bed.setSelected(True)
+    view.copy_selected()
+    assert len(view._clipboard) == 1
+    circles_before = sum(1 for item in scene.items() if isinstance(item, CircleItem))
+    view.paste()
+
+    pasted_bed = next(
+        item for item in scene.selectedItems()
+        if isinstance(item, RectangleItem)
+        and getattr(item, "object_type", None) is ObjectType.RAISED_BED
+    )
+    assert pasted_bed.child_item_ids == []
+    assert sum(1 for item in scene.items() if isinstance(item, CircleItem)) == circles_before
+    assert plant.parentItem() is group
+    assert plant.parent_bed_id == bed.item_id
+
+
 def test_copy_paste_callout_item(qtbot: Any) -> None:
     """Copy/paste must support CalloutItem and offset target position."""
     scene = CanvasScene()

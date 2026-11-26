@@ -13873,8 +13873,9 @@ place. The command records both pivot states, so undo restores the previous one
 and a drag that changes nothing fixes none. A nested group saves its compensating
 base transform, so regrouping a turned group does not apply its translation twice.
 That matrix is translation-only; a plan with a rotation or scale there is refused at
-the numeric boundary, and edit surfaces refuse such a group. A committed member
-angle is saved even below 0.01°, so a tiny group turn survives reload.
+the numeric boundary, and edit surfaces refuse such a group. The boundary composes
+x/y with that translation and every parent offset before accepting it. A committed
+member angle is saved even below 0.01°, so a tiny group turn survives reload.
 Grouped child records carry their own `parent_bed_id` / `child_item_ids`, so a link
 whose endpoints are both members survives save and reload; copy/duplicate remaps
 both fields through one map for the whole tree and drops uncopied endpoints. That

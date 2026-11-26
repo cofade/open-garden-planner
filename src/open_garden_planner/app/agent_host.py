@@ -4,6 +4,7 @@ from __future__ import annotations
 import contextlib
 import datetime
 import logging
+import math
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Literal, NoReturn, cast
 from uuid import UUID
@@ -635,7 +636,6 @@ class AgentHost:
     ) -> dict[str, Any]:
         """Main-thread body of ``set_object_position`` (US-D2.6)."""
         host = self._host
-        import math
 
         from PyQt6.QtCore import QPointF
 
@@ -2537,6 +2537,18 @@ class AgentHost:
         new_angle = edits.validate_rotation(
             angle, relative=relative, current_angle=current_angle
         )
+        if abs((new_angle - current_angle + 180.0) % 360.0 - 180.0) < 1e-9:
+            # A zero turn must not fix a pivot, reconcile links or add an undo
+            # step (#1022 review); the object is already where it was asked.
+            cx, cy = host._agent_item_center(item)
+            return {
+                "item_id": item_id,
+                "action": "rotate",
+                "undo_description": "No change",
+                "x": cx,
+                "y": cy,
+                "rotation_deg": current_angle,
+            }
         if getattr(item, "_rotation_plan_active", False):
             raise ValueError("A group rotation is already in progress.")
 
@@ -3428,7 +3440,6 @@ class AgentHost:
                 host.canvas_scene, layer, "locked", layer.locked, new_locked
             )
         else:
-            import math
 
             new_opacity = float(opacity)  # type: ignore[arg-type]
             if not math.isfinite(new_opacity) or not (0.0 <= new_opacity <= 1.0):

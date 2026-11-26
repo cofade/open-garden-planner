@@ -1872,7 +1872,8 @@ def build_server(
             calling rotate_object(id, 90) twice leaves it at 90 degrees. Pass
             relative=True to add to the current rotation instead, so the same
             two calls leave it at 180. The resulting angle is normalised into
-            [0, 360) and returned as rotation_deg.
+            [0, 360) and returned as rotation_deg. A requested angle equal to
+            the current one changes nothing and adds no undo step.
 
             Like resize_object, rotating a bed does not move the plants linked to
             it, but the same undo step re-decides those links from the turned

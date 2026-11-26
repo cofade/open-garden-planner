@@ -1425,6 +1425,34 @@ def test_a_refused_agent_group_turn_leaves_no_plan_and_a_turn_then_undo(
         win._stop_agent_api()
 
 
+def test_a_zero_angle_agent_turn_changes_nothing(
+    qtbot: Any, monkeypatch: Any
+) -> None:
+    """A fresh group stays fresh: no pivot, no command, no link pass."""
+    from open_garden_planner.core.commands import GroupCommand
+
+    _discard_on_close(monkeypatch)
+    win = GardenPlannerApp()
+    qtbot.addWidget(win)
+    try:
+        first = _add_bed(win, 300, 300, 200, 150)
+        second = _add_bed(win, 700, 300, 200, 150)
+        win.canvas_view.command_manager.execute(
+            GroupCommand(win.canvas_scene, [first, second])
+        )
+        group = first.parentItem()
+        depth = len(win.canvas_view.command_manager._undo_stack)
+
+        result = win._do_agent_rotate_object(str(group.item_id), 0.0, False)
+        assert result["rotation_deg"] == pytest.approx(0.0)
+        assert result["undo_description"] == "No change"
+        assert group._pivot_initialized is False
+        assert group._rotation_plan_active is False
+        assert len(win.canvas_view.command_manager._undo_stack) == depth
+    finally:
+        win._stop_agent_api()
+
+
 def test_an_agent_tiny_turn_records_a_follower_at_the_pivot(
     qtbot: Any, monkeypatch: Any, tmp_path: Any
 ) -> None:
