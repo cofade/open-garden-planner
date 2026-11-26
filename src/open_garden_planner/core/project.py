@@ -2138,11 +2138,12 @@ class ProjectManager(QObject):
                 }
             return group_data
         elif isinstance(item, TextItem):
+            base = item.transform()
             data = {
                 "type": "text",
                 "item_id": str(item.item_id),
-                "x": item.pos().x(),
-                "y": item.pos().y(),
+                "x": item.pos().x() + base.dx(),
+                "y": item.pos().y() + base.dy(),
                 "content": item.content,
                 "font_family": item.font_family,
                 "font_size": item.font_size,

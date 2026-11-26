@@ -139,6 +139,25 @@ def test_malformed_group_child_is_skipped_and_a_valid_sibling_loads(qtbot, tmp_p
     assert any(isinstance(item, RectangleItem) for item in scene.items())
 
 
+def test_malformed_annotation_bounds_are_skipped_and_a_sibling_loads(qtbot, tmp_path):
+    scene = CanvasScene()
+    path = tmp_path / "malformed-annotations.ogp"
+    path.write_text(json.dumps({"objects": [
+        {"type": "callout", "item_id": "33333333-3333-3333-3333-333333333333",
+         "target_x": 0.0, "target_y": 0.0, "box_dx": 10.0, "box_dy": 10.0,
+         "bounds": {"x": 0.0, "y": 0.0, "width": 10.0, "height": 10.0},
+         "rotation_angle": "bad"},
+        {"type": "text", "item_id": "44444444-4444-4444-4444-444444444444",
+         "x": 10.0, "y": 10.0, "content": "note",
+         "bounds": {"x": 0.0, "y": 0.0, "width": 40.0, "height": 10.0},
+         "rotation_angle": "bad"},
+        {"type": "rectangle", "item_id": "55555555-5555-5555-5555-555555555555",
+         "x": 20.0, "y": 20.0, "width": 50.0, "height": 50.0},
+    ]}))
+    ProjectManager().load(scene, path)
+    assert any(isinstance(item, RectangleItem) for item in scene.items())
+
+
 def test_live_nan_rotation_is_refused_even_if_serializer_would_omit_it(qtbot, tmp_path):
     scene = CanvasScene()
     item = RectangleItem(0, 0, 100, 100)

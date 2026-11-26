@@ -231,6 +231,9 @@ def validate_plan_data(data: dict[str, Any]) -> None:
             )
         try:
             union = plan_object_bbox(obj)
+        except (KeyError, TypeError, ValueError, AttributeError):
+            # Same structural skip policy as the parts walker.
+            continue
         except OverflowError as exc:
             raise PlanValidationError("object.union") from exc
         for index, value in enumerate(union):

@@ -9986,7 +9986,7 @@ undo step). Every menu normalises the selection first — through
 `normalize_context_menu_selection`, except the two construction-item menus, which
 already did the same two lines inline. The background image is deliberately NOT
 groupable (a backdrop grouped with ground surfaces re-bands it above them). The
-14-type matrix and the nested one-level rule are pinned by
+13-type matrix and the nested one-level rule are pinned by
 `tests/integration/test_group_context_menu.py`.
 
 ## 8.35 CAD editing: split along a line and group drill-down (#664, #771, ADR-075)

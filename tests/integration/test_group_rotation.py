@@ -1061,6 +1061,70 @@ def test_ungrouping_a_loaded_nested_group_survives_save_and_reload(
     assert centres(reopened) == before
 
 
+def test_a_pre_rotated_text_note_survives_group_and_ungroup(
+    canvas: CanvasView, tmp_path: Path,
+) -> None:
+    """Qt's group compensation must be added to a TextItem's saved anchor."""
+    from open_garden_planner.core.commands import UngroupCommand
+
+    _show(canvas)
+    scene = canvas.scene()
+    note = TextItem(100.0, 100.0, content="Hello garden note")
+    scene.addItem(note)
+    note._apply_rotation(45.0)
+    peer = _rect(scene, 500.0, 100.0)
+    group = _grouped(canvas, note, peer)
+    QApplication.processEvents()
+
+    def live_box(target_scene: CanvasScene) -> tuple[float, float, float, float]:
+        note_item = next(
+            item for item in target_scene.items() if isinstance(item, TextItem)
+        )
+        box = note_item.mapToScene(note_item.boundingRect()).boundingRect()
+        peer_item = next(
+            item for item in target_scene.items()
+            if isinstance(item, RectangleItem)
+            and getattr(item, "object_type", None) is ObjectType.GENERIC_RECTANGLE
+        )
+        peer_box = peer_item.mapToScene(peer_item.rect()).boundingRect()
+        union = box.united(peer_box)
+        return (union.left(), union.top(), union.right(), union.bottom())
+
+    saved = ProjectManager._serialize_item(group)
+    assert saved is not None
+    x, y, w, h = queries.object_bbox(saved)
+    left, top, right, bottom = live_box(scene)
+    assert x == pytest.approx(left, abs=3.0)
+    assert y == pytest.approx(top, abs=3.0)
+    assert x + w == pytest.approx(right, abs=3.0)
+    assert y + h == pytest.approx(bottom, abs=3.0)
+
+    target = tmp_path / "pre-rotated-text.ogp"
+    ProjectManager().save(scene, target)
+    loaded_scene = CanvasScene(width_cm=5000, height_cm=3000)
+    ProjectManager().load(loaded_scene, target)
+    loaded_box = live_box(loaded_scene)
+    for got, expected in zip(loaded_box, (left, top, right, bottom), strict=True):
+        assert got == pytest.approx(expected, abs=0.01)
+
+    loaded_group = next(
+        item for item in loaded_scene.items()
+        if isinstance(item, GroupItem)
+    )
+    UngroupCommand(loaded_scene, loaded_group).execute()
+    ungrouped_box = live_box(loaded_scene)
+    for got, expected in zip(ungrouped_box, (left, top, right, bottom), strict=True):
+        assert got == pytest.approx(expected, abs=0.01)
+
+    second = tmp_path / "pre-rotated-text-ungrouped.ogp"
+    ProjectManager().save(loaded_scene, second)
+    reopened = CanvasScene(width_cm=5000, height_cm=3000)
+    ProjectManager().load(reopened, second)
+    reopened_box = live_box(reopened)
+    for got, expected in zip(reopened_box, (left, top, right, bottom), strict=True):
+        assert got == pytest.approx(expected, abs=0.01)
+
+
 def test_a_grouped_callout_box_matches_its_live_geometry(canvas: CanvasView) -> None:
     """Own turn and group turn compose about the saved callout bounds."""
     _show(canvas)

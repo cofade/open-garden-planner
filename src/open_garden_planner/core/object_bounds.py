@@ -64,6 +64,12 @@ def object_bounds_parts(
     """
     if obj.get("children"):
         return [_primitive_bounds(primitive) for primitive in _group_primitives(obj)]
+    if obj.get("type") in {"callout", "text"} and isinstance(
+        obj.get("bounds"), dict
+    ):
+        return [
+            _primitive_bounds(primitive) for primitive in _leaf_primitives(obj)
+        ]
     return [_object_bbox_unrotated(obj)]
 
 
