@@ -228,7 +228,7 @@
         {
           "path": ".agents/skills/debug-verbose/references/044-case-study-same-zvalue-items-reverse-stacking-after-ogp-save-load-us-12-10-f2-7-fixed.md",
           "sha256": "fffa21f98a69873aa60e1d06ae01d337bec38c9b9662ee81055a0685102c2835",
-          "current_sha256": "c979066f4cca1813fdcb2a471e4d57ceb3eba5cc461bd5bb02b4f23242a6f39f"
+          "current_sha256": "ff11875b46ef9d3c7fd70ced1706b1d73d9158d95444675b191da44abeb5760c"
         },
         {
           "path": ".agents/skills/debug-verbose/references/045-case-study-model-has-display-name-lang-but-call-sites-use-name-us-12-10-f4-fixed-2026.md",
@@ -973,7 +973,7 @@
         {
           "path": ".agents/skills/ogp-3d-sunshade-campaign/references/001-0-verified-foundation-inventory-exists-all-verified-2026-07-04.md",
           "sha256": "bccdfc1c8fa9cb4a64fceb81aac824e43b603ee48ec64919b4a13e0c201b5896",
-          "current_sha256": "8231a0621631b84c2a96ae1de9d5a53c32ca6e7bdca8ec081451ceb0f1502fe3"
+          "current_sha256": "26f231ac26b08502dbeb619fabe72e3461e5ac4d1fdc2212ebea4c6fc4425bb7"
         },
         {
           "path": ".agents/skills/ogp-3d-sunshade-campaign/references/002-1-campaign-map-scope-slices-and-the-solution-menu.md",
@@ -1628,7 +1628,7 @@
         {
           "path": ".claude/skills/debug-verbose/references/044-case-study-same-zvalue-items-reverse-stacking-after-ogp-save-load-us-12-10-f2-7-fixed.md",
           "sha256": "fffa21f98a69873aa60e1d06ae01d337bec38c9b9662ee81055a0685102c2835",
-          "current_sha256": "c979066f4cca1813fdcb2a471e4d57ceb3eba5cc461bd5bb02b4f23242a6f39f"
+          "current_sha256": "ff11875b46ef9d3c7fd70ced1706b1d73d9158d95444675b191da44abeb5760c"
         },
         {
           "path": ".claude/skills/debug-verbose/references/045-case-study-model-has-display-name-lang-but-call-sites-use-name-us-12-10-f4-fixed-2026.md",
@@ -2373,7 +2373,7 @@
         {
           "path": ".claude/skills/ogp-3d-sunshade-campaign/references/001-0-verified-foundation-inventory-exists-all-verified-2026-07-04.md",
           "sha256": "bccdfc1c8fa9cb4a64fceb81aac824e43b603ee48ec64919b4a13e0c201b5896",
-          "current_sha256": "8231a0621631b84c2a96ae1de9d5a53c32ca6e7bdca8ec081451ceb0f1502fe3"
+          "current_sha256": "26f231ac26b08502dbeb619fabe72e3461e5ac4d1fdc2212ebea4c6fc4425bb7"
         },
         {
           "path": ".claude/skills/ogp-3d-sunshade-campaign/references/002-1-campaign-map-scope-slices-and-the-solution-menu.md",
