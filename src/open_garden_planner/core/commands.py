@@ -3373,23 +3373,21 @@ class UngroupCommand(Command):
     """Ungroup a GroupItem back into independent items."""
 
     def __init__(self, scene: QGraphicsScene, group: QGraphicsItem) -> None:
-        angle = float(getattr(group, "rotation_angle", group.rotation()))
-        from open_garden_planner.core.angles import is_zero_angle
+        from open_garden_planner.ui.canvas.group_poses import (
+            MemberPose,
+            can_ungroup,
+            document_members,
+        )
 
-        if not is_zero_angle(angle):
-            raise ValueError(
-                "A rotated group cannot be ungrouped; rotate it back to 0° first."
-            )
-        unsupported = getattr(group, "has_unsupported_base_transform", None)
-        if callable(unsupported) and unsupported():
+        if not can_ungroup(group):
             raise ValueError(
                 "A group with an unsupported transform cannot be ungrouped."
             )
         self._scene = scene
         self._group = group
-        self._items: list[QGraphicsItem] = [
-            item for item in group.childItems() if hasattr(item, "item_id")
-        ]
+        self._items = document_members(group)
+        self._before = {item: MemberPose.capture(item) for item in self._items}
+        self._after = {item: pose.detached(item) for item, pose in self._before.items()}
         # The group may have been moved since its members were drawn; undo
         # gives each member back its own layer (see execute).
         self._member_layers = {
@@ -3407,6 +3405,7 @@ class UngroupCommand(Command):
         with rebuilt_scene_index(self._scene):
             for item in self._items:
                 self._group.removeFromGroup(item)  # type: ignore[attr-defined]
+                self._after[item].apply(item)
                 item.setFlag(QGraphicsItem.GraphicsItemFlag.ItemIsSelectable, True)
                 item.setFlag(QGraphicsItem.GraphicsItemFlag.ItemIsMovable, True)
                 item.setSelected(True)
@@ -3437,6 +3436,7 @@ class UngroupCommand(Command):
             for item in self._items:
                 item.setSelected(False)
                 self._group.addToGroup(item)  # type: ignore[attr-defined]
+                self._before[item].apply(item)
                 if hasattr(item, "layer_id"):
                     item.layer_id = self._member_layers[item]
             self._group.setSelected(True)

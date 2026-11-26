@@ -51,6 +51,7 @@ from open_garden_planner.core.object_types import (
     get_translated_path_fence_style_name,
     is_bed_type,
 )
+from open_garden_planner.core.plain_text import clip_line
 from open_garden_planner.core.plant_renderer import is_plant_type
 from open_garden_planner.core.unit_preference import UnitProfile
 from open_garden_planner.core.units import LengthStyle
@@ -63,6 +64,7 @@ from open_garden_planner.ui.canvas.items import (
     TextItem,
 )
 from open_garden_planner.ui.canvas.items.garden_item import note_plan_changed
+from open_garden_planner.ui.canvas.items.text_item import bound_display_text
 from open_garden_planner.ui.panels.property_edits import PropertyEdits
 from open_garden_planner.ui.theme import set_compact, set_text_role, theme_color
 from open_garden_planner.ui.units_notifier import units_notifier
@@ -848,12 +850,12 @@ class PropertiesPanel(QWidget):
 
         # Name/Label
         if hasattr(item, 'name'):
-            name_edit = QLineEdit(item.name)
+            name_edit = QLineEdit()
             # Live-update the canvas label on every keystroke, but commit a
             # single undo command after a typing pause (debounce) or on
             # focus-out — whichever first (issue #210). The start value is
             # captured here because the field is rebuilt per selection.
-            name_edit._ogp_name_start = item.name  # type: ignore[attr-defined]
+            self._load_name_editor(name_edit, item.name)
             self._attach_commit_timer(
                 name_edit, lambda: self._on_name_commit(item, name_edit)
             )
@@ -868,10 +870,7 @@ class PropertiesPanel(QWidget):
             # against the displayed value, not a stale one (#206/#210).
             self._register_refresh(
                 name_edit,
-                lambda e=name_edit, it=item: (
-                    e.setText(it.name),
-                    setattr(e, "_ogp_name_start", it.name),
-                ),
+                lambda e=name_edit, it=item: self._load_name_editor(e, it.name),
             )
 
         # Show Label checkbox
@@ -1100,7 +1099,7 @@ class PropertiesPanel(QWidget):
         self._form_layout.addRow(total_label)
 
         for name, count in sorted(plant_counts.items()):
-            self._form_layout.addRow(QLabel(f"  {name}: {count}"))
+            self._form_layout.addRow(QLabel(f"  {clip_line(name)}: {count}"))
 
     def _add_parent_bed_section(self, item: QGraphicsItem) -> None:
         """Show parent bed info when a plant is selected."""
@@ -1133,7 +1132,7 @@ class PropertiesPanel(QWidget):
         )
 
         row = QHBoxLayout()
-        row.addWidget(QLabel(bed_name))
+        row.addWidget(QLabel(clip_line(bed_name)))
 
         unlink_btn = QPushButton(self.tr("Unlink"))
         unlink_btn.setFixedWidth(60)
@@ -2121,9 +2120,8 @@ class PropertiesPanel(QWidget):
         # QTextEdit lacks. Start value is captured here (field rebuilt per
         # selection). Enter inserts a newline as usual — it does not commit.
         content_edit = FocusOutTextEdit()
-        content_edit.setPlainText(item.content)
+        self._load_content_editor(content_edit, item.content)
         content_edit.setFixedHeight(80)
-        content_edit._ogp_content_start = item.content  # type: ignore[attr-defined]
         self._attach_commit_timer(
             content_edit, lambda: self._on_text_content_commit(item, content_edit)
         )
@@ -2138,10 +2136,7 @@ class PropertiesPanel(QWidget):
         # displayed value (#206/#210).
         self._register_refresh(
             content_edit,
-            lambda e=content_edit, it=item: (
-                e.setPlainText(it.content),
-                setattr(e, "_ogp_content_start", it.content),
-            ),
+            lambda e=content_edit, it=item: self._load_content_editor(e, it.content),
         )
 
         # Font family
@@ -2215,6 +2210,12 @@ class PropertiesPanel(QWidget):
             color_btn, lambda b=color_btn, it=item: b.set_color(it.text_color)
         )
 
+    @staticmethod
+    def _load_content_editor(edit: QTextEdit, content: str) -> None:
+        edit.setPlainText(bound_display_text(content))
+        edit._ogp_content_start = content  # type: ignore[attr-defined]
+        edit._ogp_content_display = edit.toPlainText()  # type: ignore[attr-defined]
+
     def _on_text_content_live(self, item: "TextItem", value: str, edit: QTextEdit) -> None:
         """Live-apply text content as the user types (visual only, no command).
 
@@ -2225,6 +2226,8 @@ class PropertiesPanel(QWidget):
         """
         if self._updating:
             return
+        if value == getattr(edit, "_ogp_content_display", None):
+            value = getattr(edit, "_ogp_content_start", value)
         item.content = value
         timer = getattr(edit, '_ogp_commit_timer', None)
         if timer is not None:
@@ -2239,6 +2242,8 @@ class PropertiesPanel(QWidget):
             return
         old_content = getattr(edit, '_ogp_content_start', item.content)
         new_content = edit.toPlainText()
+        if new_content == getattr(edit, "_ogp_content_display", None):
+            return
         if new_content == old_content:
             return
 
@@ -2250,6 +2255,7 @@ class PropertiesPanel(QWidget):
         cmd = ChangePropertyCommand(item, "text content", old_content, new_content, apply_func)
         self._command_manager.register_applied(cmd)
         edit._ogp_content_start = new_content  # type: ignore[attr-defined]
+        edit._ogp_content_display = new_content  # type: ignore[attr-defined]
 
     def _on_text_property_changed(self, item: "TextItem", prop: str, value: object) -> None:
         """Handle font property change from properties panel."""
@@ -2979,6 +2985,12 @@ class PropertiesPanel(QWidget):
         edit._ogp_commit_timer = timer  # type: ignore[attr-defined]
         self._pending_text_commits.append(on_commit)
 
+    @staticmethod
+    def _load_name_editor(edit: QLineEdit, name: str) -> None:
+        edit.setText(bound_display_text(name))
+        edit._ogp_name_start = name  # type: ignore[attr-defined]
+        edit._ogp_name_display = edit.text()  # type: ignore[attr-defined]
+
     def _on_name_text_changed(self, item: QGraphicsItem, text: str, edit: QLineEdit) -> None:
         """Live-update the canvas label as the user types the Name field.
 
@@ -2989,6 +3001,8 @@ class PropertiesPanel(QWidget):
         """
         if self._updating:
             return
+        if text == getattr(edit, "_ogp_name_display", None):
+            text = getattr(edit, "_ogp_name_start", text)
         item.name = text  # type: ignore[attr-defined]
         if hasattr(item, '_update_label'):
             item._update_label()
@@ -3011,6 +3025,8 @@ class PropertiesPanel(QWidget):
             return
         old_name = getattr(edit, '_ogp_name_start', item.name)
         new_name = edit.text()
+        if new_name == getattr(edit, "_ogp_name_display", None):
+            return
         if new_name == old_name:
             return
 
@@ -3024,6 +3040,7 @@ class PropertiesPanel(QWidget):
         cmd = ChangePropertyCommand(item, "name", old_name, new_name, apply_name)
         self._command_manager.register_applied(cmd)
         edit._ogp_name_start = new_name  # type: ignore[attr-defined]
+        edit._ogp_name_display = new_name  # type: ignore[attr-defined]
 
     def _on_property_changed(self, item: QGraphicsItem, property_name: str, value) -> None:
         return self._property_edits._on_property_changed(item, property_name, value)

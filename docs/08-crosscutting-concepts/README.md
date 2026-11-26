@@ -1487,8 +1487,7 @@ item.
   part's far edges and the group union width/height — so a finite pair
   that overflows under a pivot rotation is refused before Qt sees it (a legacy symbol
   without a saved pivot uses (0, 0) in both places, as the loader does). One
-  `core/angles` rule (1e-6°) decides an Agent no-op, whether a group angle is written,
-  and whether Ungroup treats the group as turned; an absolute Agent target inside that
+  `core/angles` rule (1e-6°) decides an Agent no-op, and whether a group angle is written; an absolute Agent target inside that
   tolerance is canonicalized to 0 before it is applied, and a gesture that returns
   inside the tolerance commits as exactly 0°. A committed member
   angle is saved even below 0.01° (a
@@ -1508,11 +1507,10 @@ bounds and turn pivot (a later text edit does not re-pivot it), its API position
 scene-space leader tip, and a grouped text note saves its footprint with the local Y
 reflection composed before the group transform. A turned standalone callout's region
 box is its turned footprint, not the pre-turn rectangle.
-- **Ungroup is refused while turned.** `removeFromGroup` leaves the group's rotation in
-  the member's Qt transform; the `.ogp` format stores a member's own `rotation_angle`, so
-  a bake would have to cover every type (including arcs) and zero-net-angle pairs.
-  `UngroupCommand` and `CanvasView.ungroup_selected` refuse a turned group and ask the
-  user to rotate it back to 0° first.
+- **Ungroup preserves geometry at every turn.** The command captures and verifies
+  every direct member's scene pose before calling Qt. It converts rigid poses into
+  the member's saved angle, position or control points. Undo restores the original
+  local poses and the group. The same preflight serves the menu and shortcut (#1032).
 - **Linked things follow, and a rigid pair keeps its link.** `GroupItem.rotation_targets()`
   is the one set the turn moves: the Qt subtree plus each grouped bed's linked top-level
   plants. `begin_rotation_plan` captures their poses, `_apply_rotation` applies the DELTA
@@ -9984,14 +9982,12 @@ the item classes that do not inherit it):
 **Group/Ungroup matrix.** The entries are decided from `scene.selectedItems()`
 at the moment the menu opens, after normalising the selection: a right-click on
 an unselected item replaces the selection with it. Zero or one non-group object
-offers nothing; 2+ objects offer **Group**; exactly one unturned group offers
-**Ungroup**; groups plus a foreign object, or 2+ groups, offer both when at least
-one selected group is unturned. A turned group is excluded until it is rotated
-back to 0° (FR-EDIT-22); a mixed selection offers Ungroup only for its unturned
-groups. Dispatch
+offers nothing; 2+ objects offer **Group**. A selected group offers **Ungroup**
+when its members have representable poses. Multiple selections offer the same
+actions for their eligible items (FR-EDIT-22). Dispatch
 calls the view's `group_selected` / `ungroup_selected` — the same methods as
 Ctrl+G / Ctrl+Shift+G — so the menu can never offer a row the shortcut would
-refuse. `ungroupable_groups` keeps only TOP-LEVEL, unturned groups (`parentItem() is
+refuse. `ungroupable_groups` keeps only eligible top-level groups (`parentItem() is
 None`; Qt reports a group child as selected when its parent is, PF-CAN-36);
 a multi-group ungroup is one `CompoundCommand` (one
 undo step). Every menu normalises the selection first — through

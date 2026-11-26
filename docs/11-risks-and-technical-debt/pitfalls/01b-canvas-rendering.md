@@ -395,3 +395,12 @@ stand-in. The family-garden integration test samples both sides of the
 shadow boundary at 80% zoom through grouping and reselection.
 
 
+### PF-CAN-79
+
+- **Rule:** Bound plan names before assigning them to word-wrapped sidebar labels. Editors that display an excerpt retain the full stored value as their edit baseline.
+- **Pinned by:** `tests/integration/test_plan_label_text_bound.py::test_main_window_sidebars_bound_long_names_and_notes`
+- **Source:** #873, manual test of PR #1030
+- **Status:** standing
+- **Legacy:** none (new entry)
+
+The crop rotation status label handed the full name to Qt's layout. The properties editors now receive bounded text and keep the full model value for no-op focus changes and Undo.

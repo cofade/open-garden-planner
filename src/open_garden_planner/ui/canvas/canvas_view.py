@@ -5908,26 +5908,20 @@ class CanvasView(QGraphicsView):
 
         groups = ungroupable_groups(list(self.scene().selectedItems()))
         if not groups:
+            from open_garden_planner.ui.canvas.group_poses import can_ungroup
             from open_garden_planner.ui.canvas.items.group_item import GroupItem
 
-            turned = [
-                item for item in self.scene().selectedItems()
-                if isinstance(item, GroupItem) and item.is_turned()
-            ]
-            unsupported = [
-                item for item in self.scene().selectedItems()
-                if isinstance(item, GroupItem)
-                and item.has_unsupported_base_transform()
-            ]
+            unsupported = any(
+                item.parentItem() is None
+                and isinstance(item, GroupItem)
+                and not can_ungroup(item)
+                for item in self.scene().selectedItems()
+            )
             if unsupported:
                 self.set_status_message(
                     self.tr(
                         "This group has an unsupported transform and cannot be edited"
                     )
-                )
-            elif turned:
-                self.set_status_message(
-                    self.tr("Rotate the group back to 0° before ungrouping")
                 )
             else:
                 self.set_status_message(self.tr("No group selected"))

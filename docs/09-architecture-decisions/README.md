@@ -13891,10 +13891,12 @@ The Agent API's group box applies the same base translation; a grouped or turned
 callout saves its local bounds and pivot (text edits do not re-pivot it) and reports
 the scene-space leader tip; a text note saves its reflected footprint. A turned
 standalone callout's region box is its turned footprint.
-Ungrouping a turned group is refused: Qt leaves the group rotation in the
-member's Qt transform while the file stores the member's own angle, so a correct
-bake would have to cover every member type and zero-net-angle pairs. Rotate the
-group back to 0° to ungroup it. A legacy symbol
+Ungrouping a turned group (#1032) captures every member's scene transform before
+reparenting. The command applies the pose the existing serializers write: normal
+member angles, scene-frame geometry for curves and construction lines, and the
+one intrinsic Y reflection of text. Nested groups keep their descendants local.
+Undo reapplies the captured local state, including the original base matrix and
+pivot. Validate the whole group before mutation. A legacy symbol
 without an origin rotated about its local (0, 0); the loader reproduces that
 exact geometry. A grouped bed's linked top-level plants are captured at gesture start and
 carried about the same pivot by `RotateItemCommand`'s follower snapshots. Its membership

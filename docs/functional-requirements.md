@@ -84,10 +84,10 @@ Detailed functional requirements for Open Garden Planner. These serve as the spe
   (order, reverse undo, a step that raises rolls the ones that ran back).
 - **FR-EDIT-22** *(issue #674)*: **Group** and **Ungroup** are reachable from every groupable
   object's right-click menu, not only from `Ctrl+G` / `Ctrl+Shift+G`. The entries are decided from
-  the selection at menu-open time: 2+ objects (no group) offer **Group**; exactly one unturned
-  group offers **Ungroup**; a group plus a foreign object, or 2+ groups, offer both when at least
-  one selected group is unturned. A turned group is excluded from Ungroup until it is rotated back
-  to 0° (FR-GROUP-01); a mixed selection offers Ungroup only for the unturned groups. Group nests
+  the selection at menu-open time: 2+ objects (no group) offer **Group**; exactly one eligible
+  group offers **Ungroup**. A group plus another object or group offers both when at
+  least one selected group is eligible. Eligibility is based on representable member poses
+  (FR-GROUP-01). Group nests
   the selected items (including a group) into a new outer group; Ungroup dissolves **one nesting
   level** and dissolves every eligible selected top-level group in **one undo step**. Right-clicking an unselected
   object replaces the selection first, on every item type including group, callout,
@@ -1534,8 +1534,10 @@ Owner accepted the chart on 28 October 2026 ("perfect"); section 7.4 owns Pages 
   centre; members keep their relative arrangement, `Shift` snaps to 15°, and one
   `Ctrl+Z` restores the group angle and every member position. A drilled-down member
   shows its own handle and hides the group's. The pivot is fixed at the first turn and
-  saved with the angle; ungrouping a turned group is refused (rotate it back to 0°
-  first), because Qt's composed member matrix is not in the `.ogp` format. A grouped bed keeps its plant links and
+  saved with the angle. Ungrouping converts the composed scene pose of each member into
+  its ordinary geometry and preserves it through reload. Undo restores the original local
+  poses and group in one step (#1032). Scale and shear outside the supported pose are
+  refused before mutation. A grouped bed keeps its plant links and
   carries them on a later move through the net-scene-delta rule; a grouped house's
   ridge follows. The group angle and pivot are additive `.ogp` data (a group `rotation`
   and `transform_origin` key, no `FILE_VERSION` bump). See ADR-075 addendum 6 and §8.9.22.

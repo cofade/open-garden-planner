@@ -84,6 +84,11 @@
     "state": "OPEN",
     "title": "Native crash on first click after reopening a grouped, scaled plan (stale QGraphicsScene index)"
   },
+  "1032": {
+    "is_pr": false,
+    "state": "OPEN",
+    "title": "Allow ungrouping a turned group by baking the turn into its members"
+  },
   "114": {
     "is_pr": true,
     "state": "MERGED",
@@ -1553,6 +1558,11 @@
     "is_pr": false,
     "state": "CLOSED",
     "title": "Text note size follows the screen's logical DPI"
+  },
+  "873": {
+    "is_pr": false,
+    "state": "OPEN",
+    "title": "A huge object name still reaches the inline name editor; a selected text note of a million characters costs 126 ms per repaint"
   },
   "874": {
     "is_pr": false,

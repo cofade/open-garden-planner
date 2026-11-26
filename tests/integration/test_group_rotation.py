@@ -953,33 +953,123 @@ def test_a_member_edit_after_a_turn_survives_save_and_reload(
     assert loaded_children == before
 
 
-def test_ungroup_refuses_a_rotated_group_and_keeps_its_geometry(
-    canvas: CanvasView,
+@pytest.mark.parametrize("angle", (33.0, -78.0))
+def test_a_rotated_group_ungroups_without_moving_members_on_reload(
+    canvas: CanvasView, tmp_path: Path, angle: float,
 ) -> None:
-    """The format stores a member's own angle, not the group matrix (#1022).
+    from open_garden_planner.ui.canvas.items import (
+        ArcItem,
+        BezierItem,
+        ConstructionCircleItem,
+        ConstructionLineItem,
+        EllipseItem,
+        PolygonItem,
+        PolylineItem,
+    )
+    from open_garden_planner.ui.canvas.items.journal_pin_item import JournalPinItem
+    from open_garden_planner.ui.canvas.items.reference_point_item import ReferencePointItem
 
-    A rotated group must be turned back before ungrouping; copying the composed
-    matrix into every member would lose arcs and zero-net-angle pairs on reload.
-    """
+    scene = canvas.scene()
+    layer = scene.active_layer.id
+    a, b, c = QPointF(160, 230), QPointF(290, 220), QPointF(230, 315)
+    nested = GroupItem(layer_id=layer, name="Inner")
+    scene.addItem(nested)
+    inner_rect = _rect(scene, 540, 240, 100, 70)
+    nested.addToGroup(inner_rect)
+    if angle < 0:
+        nested._apply_rotation(16.0)
+    text = TextItem(400, 460, "Memo", layer_id=layer)
+    text._apply_rotation(angle)  # The reflected text ends with zero net angle.
+    members = [
+        _rect(scene, 120, 360, 120, 60),
+        CircleItem(380, 180, 30, layer_id=layer),
+        EllipseItem(330, 350, 45, 20, layer_id=layer),
+        PolygonItem([a, b, c], layer_id=layer),
+        PolylineItem([a, b, c], layer_id=layer),
+        text,
+        CalloutItem(QPointF(520, 520), QPointF(90, 65), "Arrow", layer_id=layer),
+        ArcItem(QPointF(680, 335), 60, 27, 118, layer_id=layer),
+        BezierItem([a, c], [a, b], [b, c], layer_id=layer),
+        ConstructionLineItem(QPointF(700, 650), QPointF(830, 710)),
+        ConstructionCircleItem(580, 670, 23),
+        JournalPinItem(780, 510, "note", layer_id=layer),
+        ReferencePointItem(680, 440, 15, layer_id=layer),
+        nested,
+    ]
+    for item in members:
+        if item.scene() is None:
+            scene.addItem(item)
+
+    def pins(item):
+        if isinstance(item, GroupItem):
+            return pins(next(child for child in item.childItems() if isinstance(child, RectangleItem)))
+        if isinstance(item, ArcItem):
+            return [item.center, item.start_point(), item.end_point(), item.through_point()]
+        if isinstance(item, BezierItem):
+            return [item.mapToScene(p) for p in item.anchors + item.handles_in + item.handles_out]
+        if isinstance(item, ConstructionLineItem):
+            return [item.mapToScene(item.line().p1()), item.mapToScene(item.line().p2())]
+        if isinstance(item, (JournalPinItem, ReferencePointItem)):
+            return [item.mapToScene(QPointF())]
+        if isinstance(item, ConstructionCircleItem):
+            return [item.mapToScene(item.rect().center())]
+        if isinstance(item, PolygonItem):
+            return [item.mapToScene(p) for p in item.polygon()]
+        if isinstance(item, PolylineItem):
+            return [item.mapToScene(p) for p in item.points]
+        if isinstance(item, CalloutItem):
+            return [item.mapToScene(QPointF()), item.mapToScene(item._box_offset)]
+        rect = item.rect() if hasattr(item, "rect") else item.boundingRect()
+        return [item.mapToScene(p) for p in (rect.topLeft(), rect.topRight(), rect.bottomRight())]
+
+    group = _grouped(canvas, *members)
+    group.setPos(QPointF(27, -42))
+    group._apply_rotation(angle)
+    before = {item.item_id: [(p.x(), p.y()) for p in pins(item)] for item in members}
+    local = {item.item_id: (item.pos(), item.transform(), item.rotation()) for item in members}
+
+    def check(items):
+        for item in items:
+            coords = [(p.x(), p.y()) for p in pins(item)]
+            for pin, expected in zip(coords, before[item.item_id], strict=True):
+                assert pin == pytest.approx(expected, abs=1e-6), type(item).__name__
+
+    canvas.ungroup_selected()
+    assert all(item.parentItem() is None for item in members)
+    assert nested._pivot_initialized
+    pivot = nested.rotation_pivot_scene()
+    check(members)
+    canvas.command_manager.undo()
+    assert all(item.parentItem() is group for item in members)
+    assert {item.item_id: (item.pos(), item.transform(), item.rotation()) for item in members} == local
+    check(members)
+    canvas.command_manager.redo()
+    check(members)
+    path = tmp_path / "ungrouped.ogp"
+    ProjectManager().save(scene, path)
+    reopened = CanvasScene(1000, 1000)
+    ProjectManager().load(reopened, path)
+    loaded = [item for item in reopened.items() if getattr(item, "item_id", None) in before]
+    assert len(loaded) == len(members)
+    check(loaded)
+    assert next(item for item in loaded if isinstance(item, GroupItem)).rotation_pivot_scene() == (
+        pivot
+    )
+
+
+def test_ungroup_refuses_a_scaled_member_without_changing_the_group(canvas: CanvasView) -> None:
     from open_garden_planner.core.commands import UngroupCommand
 
-    _show(canvas)
     scene = canvas.scene()
-    first = _rect(scene, 100.0, 100.0, 120.0, 60.0)
-    second = _rect(scene, 300.0, 100.0, 120.0, 60.0)
+    first = _rect(scene, 100, 100)
+    second = _rect(scene, 300, 100)
     group = _grouped(canvas, first, second)
     group._apply_rotation(33.0)
-    before = sorted(
-        (round(_centre(item).x(), 3), round(_centre(item).y(), 3))
-        for item in (first, second)
-    )
-    with pytest.raises(ValueError, match="rotated group"):
+    first.setScale(1.5)
+    with pytest.raises(ValueError, match="unsupported transform"):
         UngroupCommand(scene, group)
+    canvas.ungroup_selected()
     assert first.parentItem() is group and second.parentItem() is group
-    assert sorted(
-        (round(_centre(item).x(), 3), round(_centre(item).y(), 3))
-        for item in (first, second)
-    ) == before
 
 
 def test_undo_removes_the_pivot_a_reverted_turn_introduced(

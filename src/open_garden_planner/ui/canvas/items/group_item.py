@@ -111,16 +111,15 @@ def ungroupable_groups(items: list[QGraphicsItem]) -> list[GroupItem]:
     Only TOP-LEVEL groups are dissolved: Qt can keep a just-grouped child group
     flagged selected inside its new parent, and ungrouping one gesture must not
     silently cascade into the nested levels the issue documents as a second
-    deliberate step. A turned group is not a valid target: its members' saved
-    own angles cannot reproduce the composed Qt matrix (#1022).
+    deliberate step. Each member's scene pose must fit its saved geometry.
     """
+    from ..group_poses import can_ungroup
+
     return [
         item
         for item in items
         if isinstance(item, GroupItem)
-        and item.parentItem() is None
-        and not item.is_turned()
-        and not item.has_unsupported_base_transform()
+        and can_ungroup(item)
     ]
 
 

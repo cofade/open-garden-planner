@@ -20,6 +20,7 @@ from PyQt6.QtWidgets import (
     QWidget,
 )
 
+from open_garden_planner.core.plain_text import clip_line
 from open_garden_planner.services.crop_rotation_service import (
     CropRotationService,
     RotationRecommendation,
@@ -301,7 +302,7 @@ class CropRotationPanel(QWidget):
         self.refresh_theme_icons()
 
         # Bed name
-        bed_name = getattr(item, "name", "") or self.tr("Unnamed Bed")
+        bed_name = clip_line(getattr(item, "name", "")) or self.tr("Unnamed Bed")
         status_text = {
             RotationStatus.GOOD: self.tr("Good Rotation"),
             RotationStatus.SUBOPTIMAL: self.tr("Suboptimal Rotation"),
