@@ -5581,7 +5581,10 @@ paint time (`CanvasScene.paint_ground_overlays`, clipped to the surface's
 `grid_cover_path`), invalidated by `refresh_ground_overlays` whenever the
 overlay's picture changes. The sun-shadow overlay, the hours-of-sun fill and
 its contour layer all register as ground overlays; a group child's slot is its
-top-level ancestor's z, never the sum of the chain. ADR-043 addendum (#1031).
+top-level ancestor's z, never the sum of the chain. A translucent bed grouped
+with its linked plants keeps the ground band. The scene draws the original
+shadow once, clipped around those plants. Opacity preview updates the band
+and the affected caches when crossing full opacity. ADR-043 (#1031).
 
 ### 8.25.3 The derive-only clamp
 

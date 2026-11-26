@@ -579,6 +579,55 @@ class TestTheGroundBand:
         after = _patch(_render(scene), point)
         assert np.abs(after - before).max() < 3, (before, after)
 
+    def test_layer_opacity_preview_restacks_a_planted_group(self, view) -> None:
+        from open_garden_planner.core.commands import GroupCommand
+
+        scene = view.scene()
+        layer = scene.active_layer
+        bed = RectangleItem(100, 100, 100, 100, object_type=ObjectType.GARDEN_BED,
+                            layer_id=layer.id)
+        plant = CircleItem(120, 120, 10, object_type=ObjectType.PERENNIAL, layer_id=layer.id)
+        plant.parent_bed_id = bed.item_id
+        bed.add_child_id(plant.item_id)
+        for item in (bed, plant):
+            _add(view, item)
+        view.command_manager.execute(GroupCommand(scene, [bed, plant]))
+        group = bed.parentItem()
+        assert group is not None and not _in_ground_band(group)
+
+        scene.preview_layer_opacity(layer.id, 0.25)
+        assert _in_ground_band(group)
+        scene.preview_layer_opacity(layer.id, 1.0)
+        assert not _in_ground_band(group)
+
+    def test_a_dense_planted_bed_keeps_its_shadow_in_export(self, view) -> None:
+        from open_garden_planner.core.commands import GroupCommand
+
+        scene = view.scene()
+        layer = scene.active_layer.id
+        ring = np.linspace(0, 2 * np.pi, 400, endpoint=False)
+        bed = PolygonItem(
+            [QPointF(200 + 70 * np.cos(angle), 200 + 70 * np.sin(angle)) for angle in ring],
+            object_type=ObjectType.GARDEN_BED,
+            layer_id=layer,
+        )
+        plant = CircleItem(180, 180, 10, object_type=ObjectType.PERENNIAL, layer_id=layer)
+        plant.parent_bed_id = bed.item_id
+        bed.add_child_id(plant.item_id)
+        for item in (bed, plant):
+            _add(view, item)
+        controller = SunShadowController(scene, lambda: BERLIN)
+        controller.set_sim_datetime(JUNE_NOON_UTC.replace(hour=0))
+        controller.set_enabled(True)
+        point = (220.0, 220.0)
+        before = _patch(_render(scene), point)
+
+        view.command_manager.execute(GroupCommand(scene, [bed, plant]))
+        controller.recompute_now()
+        assert _in_ground_band(bed.parentItem())
+        after = _patch(_render(scene), point)
+        assert np.abs(after - before).max() < 3, (before, after)
+
     def test_the_layer_order_holds_among_ground_surfaces_across_layers(self, view) -> None:
         scene = view.scene()
         upper = Layer(name="Upper", z_order=1)

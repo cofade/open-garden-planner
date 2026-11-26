@@ -96,6 +96,11 @@ def on_ground(item: QGraphicsItem) -> bool:
 
 def _can_receive_overlay(item: QGraphicsItem) -> bool:
     """A filled shape that hides the original overlay under its body."""
+    if isinstance(item, QGraphicsPolygonItem):
+        from .items.polygon_item import MAX_FULL_DETAIL_VERTICES
+
+        if item.polygon().count() > MAX_FULL_DETAIL_VERTICES:
+            return False
     return (
         isinstance(item, (QGraphicsEllipseItem, QGraphicsPolygonItem, QGraphicsRectItem))
         and item.effectiveOpacity() == 1.0
@@ -2388,8 +2393,7 @@ class CanvasScene(QGraphicsScene):
         """
         layer = self.get_layer_by_id(layer_id)
         if layer:
-            layer.opacity = max(0.0, min(1.0, opacity))
-            self._update_items_visibility()
+            self._apply_layer_opacity(layer, opacity)
             self.layers_changed.emit()
 
     def preview_layer_opacity(self, layer_id: UUID, opacity: float) -> None:
@@ -2406,8 +2410,24 @@ class CanvasScene(QGraphicsScene):
         """
         layer = self.get_layer_by_id(layer_id)
         if layer:
-            layer.opacity = max(0.0, min(1.0, opacity))
-            self._update_items_visibility()
+            self._apply_layer_opacity(layer, opacity)
+
+    def _apply_layer_opacity(self, layer: Layer, opacity: float) -> None:
+        was_opaque = layer.opacity == 1.0
+        layer.opacity = max(0.0, min(1.0, opacity))
+        self._update_items_visibility()
+        if was_opaque != (layer.opacity == 1.0):
+            # The group can now be in a different band. A child's cache may
+            # still contain the shade it received in the old band.
+            self._refresh_layer_z(layer.id)
+            for item in self.items():
+                if (
+                    item.parentItem() is not None
+                    and getattr(item, "layer_id", None) == layer.id
+                    and on_ground(item)
+                ):
+                    item.update()
+            self.note_paint_changed()
 
     # ── Compare overlay (US-10.7) ─────────────────────────────────────────
 
