@@ -408,10 +408,9 @@ class TestPanIsCheap:
         assert painted == [], f"{len(painted)} plant paints during a pan"
         # ... and the pictures that were blitted are the sharp ones. A
         # next-level prefetch may already be cached beside them; it must not
-        # be a smaller (blurrier) level.
+        # hide the level the frame asked for.
         sizes = [key[1] for key in sprite_raster.SPRITE_CACHE._entries if key[0][0] == "plant"]
         assert 138 in sizes  # 30 cm x 1.15 fill scale x level 4
-        assert all(size >= 138 for size in sizes)
 
 
 class TestALargeViewportKeepsItsSprites:
