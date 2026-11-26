@@ -110,6 +110,8 @@ class EllipseItem(RotationHandleMixin, ResizeHandlesMixin, GardenItemMixin, QGra
         # the fill tile at the painter's resolution (#785)
         paint_shape(self, painter, option, widget, super().paint)
 
+        self.paint_ground_overlays(painter)
+
         # F9: soil-mismatch border for bed-typed ellipses (US-12.10d).
         from open_garden_planner.core.object_types import is_bed_type
         if is_bed_type(self.object_type):

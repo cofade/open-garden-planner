@@ -213,7 +213,7 @@
         {
           "path": ".agents/skills/debug-verbose/references/041-case-study-qgraphicspolygonitem-shape-is-the-stroke-envelope-not-the-outline-us-12-10.md",
           "sha256": "4f1309b3e67b335784ad7de100484d54fab5f135c079e5b271d3370c00c58c6e",
-          "current_sha256": "1449cc2ea883adc6dd67382590be3d465cd121353085374571c46b4fb4c6ae7a"
+          "current_sha256": "d4bc410f99e0622bc09a164c2f2b95e3a11489282cb9573c63c7fc076393fb8d"
         },
         {
           "path": ".agents/skills/debug-verbose/references/042-case-study-early-return-inside-a-paint-branch-silently-bypasses-later-draws-us-12-10-.md",
@@ -228,7 +228,7 @@
         {
           "path": ".agents/skills/debug-verbose/references/044-case-study-same-zvalue-items-reverse-stacking-after-ogp-save-load-us-12-10-f2-7-fixed.md",
           "sha256": "fffa21f98a69873aa60e1d06ae01d337bec38c9b9662ee81055a0685102c2835",
-          "current_sha256": "ff11875b46ef9d3c7fd70ced1706b1d73d9158d95444675b191da44abeb5760c"
+          "current_sha256": "e4296895d19de8c4cf074d56025bbc00a2812229fb4d76690f380b327b6620b9"
         },
         {
           "path": ".agents/skills/debug-verbose/references/045-case-study-model-has-display-name-lang-but-call-sites-use-name-us-12-10-f4-fixed-2026.md",
@@ -973,7 +973,7 @@
         {
           "path": ".agents/skills/ogp-3d-sunshade-campaign/references/001-0-verified-foundation-inventory-exists-all-verified-2026-07-04.md",
           "sha256": "bccdfc1c8fa9cb4a64fceb81aac824e43b603ee48ec64919b4a13e0c201b5896",
-          "current_sha256": "26f231ac26b08502dbeb619fabe72e3461e5ac4d1fdc2212ebea4c6fc4425bb7"
+          "current_sha256": "19be008e8feb73673a1c53d772caebb8297ab0a1579cd9d228ef3ad0bdb42c94"
         },
         {
           "path": ".agents/skills/ogp-3d-sunshade-campaign/references/002-1-campaign-map-scope-slices-and-the-solution-menu.md",
@@ -1613,7 +1613,7 @@
         {
           "path": ".claude/skills/debug-verbose/references/041-case-study-qgraphicspolygonitem-shape-is-the-stroke-envelope-not-the-outline-us-12-10.md",
           "sha256": "4f1309b3e67b335784ad7de100484d54fab5f135c079e5b271d3370c00c58c6e",
-          "current_sha256": "1449cc2ea883adc6dd67382590be3d465cd121353085374571c46b4fb4c6ae7a"
+          "current_sha256": "d4bc410f99e0622bc09a164c2f2b95e3a11489282cb9573c63c7fc076393fb8d"
         },
         {
           "path": ".claude/skills/debug-verbose/references/042-case-study-early-return-inside-a-paint-branch-silently-bypasses-later-draws-us-12-10-.md",
@@ -1628,7 +1628,7 @@
         {
           "path": ".claude/skills/debug-verbose/references/044-case-study-same-zvalue-items-reverse-stacking-after-ogp-save-load-us-12-10-f2-7-fixed.md",
           "sha256": "fffa21f98a69873aa60e1d06ae01d337bec38c9b9662ee81055a0685102c2835",
-          "current_sha256": "ff11875b46ef9d3c7fd70ced1706b1d73d9158d95444675b191da44abeb5760c"
+          "current_sha256": "e4296895d19de8c4cf074d56025bbc00a2812229fb4d76690f380b327b6620b9"
         },
         {
           "path": ".claude/skills/debug-verbose/references/045-case-study-model-has-display-name-lang-but-call-sites-use-name-us-12-10-f4-fixed-2026.md",
@@ -2373,7 +2373,7 @@
         {
           "path": ".claude/skills/ogp-3d-sunshade-campaign/references/001-0-verified-foundation-inventory-exists-all-verified-2026-07-04.md",
           "sha256": "bccdfc1c8fa9cb4a64fceb81aac824e43b603ee48ec64919b4a13e0c201b5896",
-          "current_sha256": "26f231ac26b08502dbeb619fabe72e3461e5ac4d1fdc2212ebea4c6fc4425bb7"
+          "current_sha256": "19be008e8feb73673a1c53d772caebb8297ab0a1579cd9d228ef3ad0bdb42c94"
         },
         {
           "path": ".claude/skills/ogp-3d-sunshade-campaign/references/002-1-campaign-map-scope-slices-and-the-solution-menu.md",

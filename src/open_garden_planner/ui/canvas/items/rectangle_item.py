@@ -377,6 +377,10 @@ class RectangleItem(RectVertexEditMixin, RotationHandleMixin, ResizeHandlesMixin
         if self._grid_enabled and is_bed_type(self.object_type):
             self._draw_grid_overlay(painter)
 
+        # The sun-study overlays lie ON the surface when a group lifts it above
+        # them (#1031), over the soil and its grid but under every diagnostic.
+        self.paint_ground_overlays(painter)
+
         # Draw crop rotation status indicator (colored inner border on beds)
         if self._rotation_status is not None:
             self._draw_rotation_status_border(painter, self._rotation_border_path())

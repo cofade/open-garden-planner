@@ -406,6 +406,7 @@ class PolylineItem(PolylineVertexEditMixin, RotationHandleMixin, GardenItemMixin
             painter.setBrush(Qt.BrushStyle.NoBrush)
             painter.drawPath(self.path())
             painter.restore()
+            self.paint_ground_overlays(painter)
             return
         # A string of lights (L5.4): its posts, wire and bulbs — no style, no drop
         # shadow (a 12 cm dark band beside a wire; the owner's manual test of #389)
@@ -425,6 +426,7 @@ class PolylineItem(PolylineVertexEditMixin, RotationHandleMixin, GardenItemMixin
                 and is_interactive_paint(self, widget)
                 and self._paint_dense_selected_cached(painter, option, widget)
             ):
+                self.paint_ground_overlays(painter)
                 return
             self._paint_dense_body(
                 painter,
@@ -432,6 +434,7 @@ class PolylineItem(PolylineVertexEditMixin, RotationHandleMixin, GardenItemMixin
                 widget,
                 include_shadow=self._shadows_enabled,
             )
+            self.paint_ground_overlays(painter)
             return
 
         # Draw shadow first
@@ -481,6 +484,7 @@ class PolylineItem(PolylineVertexEditMixin, RotationHandleMixin, GardenItemMixin
             self._paint_selection(painter, option)
         else:
             super().paint(painter, option, widget)
+        self.paint_ground_overlays(painter)
 
     def _paint_dense_body(
         self,

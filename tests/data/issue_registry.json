@@ -74,6 +74,16 @@
     "state": "OPEN",
     "title": "SVG export: clipped-stroke editability, halo metrics and badge typeface after #850's size fix"
   },
+  "1030": {
+    "is_pr": true,
+    "state": "OPEN",
+    "title": "feat: 2D canvas follow-ups - group rotation, Smart Symbol removal, sprite/SVG sharpness (#1009, #1022, #845, #850, #873)"
+  },
+  "1031": {
+    "is_pr": false,
+    "state": "OPEN",
+    "title": "Native crash on first click after reopening a grouped, scaled plan (stale QGraphicsScene index)"
+  },
   "114": {
     "is_pr": true,
     "state": "MERGED",

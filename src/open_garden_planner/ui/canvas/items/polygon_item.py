@@ -491,6 +491,7 @@ class PolygonItem(VertexEditMixin, RotationHandleMixin, ResizeHandlesMixin, Gard
             painter.setBrush(Qt.BrushStyle.NoBrush)
             painter.drawPolygon(poly)
             painter.restore()
+            self.paint_ground_overlays(painter)
             return
 
         if self._shadows_enabled:
@@ -521,6 +522,8 @@ class PolygonItem(VertexEditMixin, RotationHandleMixin, ResizeHandlesMixin, Gard
         # Draw square-foot grid overlay inside bed
         if self._grid_enabled and is_bed_type(self.object_type):
             self._draw_grid_overlay(painter)
+
+        self.paint_ground_overlays(painter)
 
         # Draw crop rotation status indicator (colored inner border on beds)
         if self._rotation_status is not None:

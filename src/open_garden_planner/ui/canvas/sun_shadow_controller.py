@@ -253,12 +253,6 @@ class SunShadowOverlayItem(QGraphicsPathItem):
         # Rasterised once per solve and zoom, then blitted (#784).
         self.setCacheMode(QGraphicsItem.CacheMode.DeviceCoordinateCache)
         self._clip_rect: QRectF | None = None
-        #: The shadow is not painted over a body that stands on the plan. The
-        #: overlay itself is below every top-level body; this matters for a
-        #: ground group, whose plants are in the same z slot below the overlay
-        #: after grouping (canvas_scene.on_ground). Without it the group's
-        #: plants darken while every ungrouped plant stays bright.
-        self._cover_clip: QPainterPath | None = None
         self._feathered = False  # there is ground beside the shade to feather
         self._weighted_regions: tuple[WeightedShadowRegion, ...] = ()
         self._region_paths: tuple[tuple[QPainterPath, QColor], ...] = ()
@@ -300,19 +294,6 @@ class SunShadowOverlayItem(QGraphicsPathItem):
         self._clip_rect = new_rect
         self._generation += 1
         self._rebuild_feather()
-        self.update()
-
-    def set_cover_clip(self, clip: QPainterPath | None) -> None:
-        """Cut the shade out of bodies that sit BELOW the overlay (#1031).
-
-        The painter clip is in scene coordinates: a rectangle large enough for the
-        overlay's feather, with each below-overlay body's cover path subtracted.
-        A top-level body is above the overlay and is not in the clip, so its
-        pixels stay what they were; a grouped plant in a ground group is in the
-        group's z slot below the overlay and keeps its own colours.
-        """
-        self._cover_clip = QPainterPath(clip) if clip is not None else None
-        self._generation += 1
         self.update()
 
     def set_shadow_path(self, path: QPainterPath) -> None:
@@ -406,15 +387,30 @@ class SunShadowOverlayItem(QGraphicsPathItem):
     ) -> None:
         if painter is None or self.path().isEmpty():
             return
-        if self._cover_clip is None:
-            self._paint_unclipped(painter, option, widget)
+        self._paint_unclipped(painter, option, widget)
+
+    def paint_on_ground(self, painter: QPainter, _item: QGraphicsItem) -> None:
+        """Paint the shade as part of a ground surface drawn ABOVE the overlay (#1031).
+
+        The caller (``CanvasScene.paint_ground_overlays``) has set the painter to
+        the overlay's own frame and clipped it to the surface's cover: the shade
+        lands on the soil exactly as it does for an ungrouped bed, while what
+        stands on the bed is painted later and stays bright. When the overlay
+        keeps a current picture (zoomed out, a settled view) that picture is
+        blitted; at deep zoom, where the whole overlay is too large to keep, the
+        shade is rasterised exact — the same work the overlay itself does per
+        zoom step.
+        """
+        if self.path().isEmpty():
             return
-        painter.save()
-        try:
-            painter.setClipPath(self._cover_clip, Qt.ClipOperation.IntersectClip)
-            self._paint_unclipped(painter, option, widget)
-        finally:
-            painter.restore()
+        from .items.path_style_paint import current_render_walk_cap
+
+        if self.cacheMode() != QGraphicsItem.CacheMode.NoCache and current_render_walk_cap() is None:
+            to_device = painter.deviceTransform()
+            scale = self._picture_scale(to_device)
+            if self._stands_in(scale) and self._draw_upright_picture(painter, to_device):
+                return
+        self._rasterise(painter, feathered=not self._feather_deferred)
 
     def _paint_unclipped(
         self,
@@ -438,38 +434,48 @@ class SunShadowOverlayItem(QGraphicsPathItem):
             self._paint_exact(painter)
             return
         to_device = painter.deviceTransform()
-        scale = (
-            round(to_device.m11(), 6),
-            round(to_device.m12(), 6),
-            round(to_device.m21(), 6),
-            round(to_device.m22(), 6),
-        )
+        scale = self._picture_scale(to_device)
         stepping = bool(self._settled) and scale not in self._settled
         if stepping and not self._stands_in(scale):
             self._keep_stand_in()  # a zoom that began before the timer fired
-        if stepping and self._stands_in(scale) and self._picture is not None:
+        if stepping and self._stands_in(scale) and self._draw_upright_picture(painter, to_device):
             # A zoom step: the last rasterisation, scaled, until the zoom settles.
-            # Laid down in DEVICE pixels (the picture is upright there; the view
-            # paints the scene through a Y-flip), where it now belongs.
-            from_device, invertible = to_device.inverted()
-            if invertible:
-                painter.save()
-                painter.setRenderHint(QPainter.RenderHint.SmoothPixmapTransform, True)
-                painter.setWorldTransform(from_device * painter.worldTransform())
-                painter.drawPixmap(
-                    to_device.mapRect(self._picture_rect),
-                    self._picture,
-                    QRectF(self._picture.rect()),
-                )
-                painter.restore()
-                self._pending = scale
-                self.settle_requested()
-                return
+            self._pending = scale
+            self.settle_requested()
+            return
         if scale in self._settled:
             self._settled.remove(scale)
         self._settled.append(scale)
         del self._settled[:-_SETTLED_SCALES]
         self._paint_and_keep(painter, to_device, scale)
+
+    @staticmethod
+    def _picture_scale(to_device: QTransform) -> tuple[float, ...]:
+        return (
+            round(to_device.m11(), 6),
+            round(to_device.m12(), 6),
+            round(to_device.m21(), 6),
+            round(to_device.m22(), 6),
+        )
+
+    def _draw_upright_picture(self, painter: QPainter, to_device: QTransform) -> bool:
+        """Blit an already rasterised picture in device pixels, preserving the clip."""
+        from_device, invertible = to_device.inverted()
+        if not invertible or self._picture is None or self._picture_rect.isEmpty():
+            return False
+        painter.save()
+        try:
+            # The canvas Y-flip already went into the picture's rasterisation.
+            painter.setRenderHint(QPainter.RenderHint.SmoothPixmapTransform, True)
+            painter.setWorldTransform(from_device * painter.worldTransform())
+            painter.drawPixmap(
+                to_device.mapRect(self._picture_rect),
+                self._picture,
+                QRectF(self._picture.rect()),
+            )
+        finally:
+            painter.restore()
+        return True
 
     def _stands_in(self, scale: tuple[float, ...]) -> bool:
         """Whether the kept picture may be shown at ``scale``: it is of this
@@ -1232,6 +1238,7 @@ class SunShadowController(QObject):
         overlay = self._alive_overlay()
         if overlay is not None:
             overlay.setVisible(self._overlay_wanted and not shown)
+        self._refresh_ground_overlays()
 
     def _needs_live_solve(self) -> bool:
         """True when the 2D canvas is visible or the 3D ground shows the 2D shadow drape (#996)."""
@@ -1477,10 +1484,10 @@ class SunShadowController(QObject):
                 self._scrub_settle.stop()
         overlay.set_feather_deferred(scrubbing)
         overlay.set_clip_rect(canvas_rect)
-        overlay.set_cover_clip(self._cover_clip_for(path))
         overlay.set_shadow_path(path)
         overlay.set_weighted_regions(regions)
         self._show(overlay)
+        self._refresh_ground_overlays()
         self._last_key = key
         self.recompute_count += 1
         self._publish(
@@ -1536,51 +1543,6 @@ class SunShadowController(QObject):
         if overlay is not None:
             overlay.set_feather_deferred(False)
 
-    def _cover_clip_for(self, path: QPainterPath) -> QPainterPath | None:
-        """The shade's painter clip: its area minus bodies that sit BELOW it (#1031).
-
-        A top-level plant stands above the overlay and must not change: cutting
-        its silhouette out of the shade would leave an unshaded halo on the bed.
-        A plant inside a ground group is in the group's z slot below the overlay
-        after grouping; without this cut it would darken while every ungrouped
-        plant stays bright. Only those below-overlay bodies are cut.
-        """
-        from .canvas_scene import is_standing_object
-
-        covers = QPainterPath()
-        covers.setFillRule(Qt.FillRule.WindingFill)
-        any_cover = False
-        try:
-            items = list(self._scene.items())
-        except RuntimeError:
-            return None
-        for item in items:
-            if not is_standing_object(item) or not hasattr(item, "grid_cover_path"):
-                continue
-            z = item.zValue()
-            parent = item.parentItem()
-            while parent is not None:
-                z += parent.zValue()
-                parent = parent.parentItem()
-            if z >= _OVERLAY_Z:
-                continue
-            cover = item.grid_cover_path()
-            if cover.isEmpty():
-                continue
-            covers.addPath(item.sceneTransform().map(cover))
-            any_cover = True
-        if not any_cover:
-            return None
-        base = path.boundingRect().adjusted(
-            -_FEATHER_MARGIN_CM * 4.0,
-            -_FEATHER_MARGIN_CM * 4.0,
-            _FEATHER_MARGIN_CM * 4.0,
-            _FEATHER_MARGIN_CM * 4.0,
-        )
-        base_path = QPainterPath()
-        base_path.addRect(base)
-        return base_path.subtracted(covers)
-
     def _alive_overlay(self) -> SunShadowOverlayItem | None:
         """The overlay if its C++ object still lives in our scene, else None.
 
@@ -1614,7 +1576,16 @@ class SunShadowController(QObject):
             overlay.settle_requested = self._request_settle
             self._scene.addItem(overlay)
             self._overlay = overlay
+            register = getattr(self._scene, "register_ground_overlay", None)
+            if register is not None:
+                register(overlay)
         return overlay
+
+    def _refresh_ground_overlays(self) -> None:
+        """A new shade (or one hidden): repaint the surfaces drawn above it (#1031)."""
+        refresh = getattr(self._scene, "refresh_ground_overlays", None)
+        if refresh is not None:
+            refresh()
 
     def _request_settle(self) -> None:
         """A zoom step showed the overlay's scaled picture: (re)start the wait."""
@@ -1630,6 +1601,7 @@ class SunShadowController(QObject):
         if overlay is not None:
             overlay.set_feather_deferred(False)
             overlay.settle()
+            self._refresh_ground_overlays()
 
     def _clear_overlay(self) -> None:
         self._last_key = None
@@ -1639,11 +1611,11 @@ class SunShadowController(QObject):
         overlay = self._alive_overlay()
         if overlay is not None and self._overlay_wanted:
             overlay.set_feather_deferred(False)
-            overlay.set_cover_clip(None)
             overlay.set_shadow_path(QPainterPath())
             overlay.setVisible(False)
         self._overlay_wanted = False
         self._publish(())
+        self._refresh_ground_overlays()
 
     def _canvas_rect(self) -> QRectF | None:
         """The garden canvas bounds in scene cm (None for a plain scene)."""
@@ -1673,7 +1645,6 @@ class SunShadowController(QObject):
         overlay = self._ensure_overlay()
         overlay.set_feather_deferred(False)
         overlay.set_clip_rect(canvas_rect)
-        overlay.set_cover_clip(self._cover_clip_for(path))
         overlay.set_shadow_path(path)
         left, top, right, bottom = (canvas_rect.left(), canvas_rect.top(), canvas_rect.right(),
                                     canvas_rect.bottom())
@@ -1687,6 +1658,7 @@ class SunShadowController(QObject):
         self._last_key = night_key
         self.recompute_count += 1
         self._publish((night_poly,), night_regions)
+        self._refresh_ground_overlays()
 
     def _set_state(self, state: str) -> None:
         if state != self._state:

@@ -1015,6 +1015,21 @@ class GardenItemMixin(PositionLockMixin):
         """
         return self.shape()  # type: ignore[attr-defined,no-any-return]
 
+    def paint_ground_overlays(self, painter: QPainter) -> None:
+        """Paint the sun-study overlays on this surface when it is drawn above
+        them (#1031).
+
+        A ground surface normally sits below the shadow and sun-map overlays
+        (``canvas_scene.GROUND_Z_RANGE``). A group paints in one z slot, so a
+        surface grouped with a solid sits above them; it then paints them on
+        itself, clipped to its cover, in its own paint — exactly on the soil,
+        under whatever stands on it. A surface still below them does nothing.
+        """
+        scene = self.scene()  # type: ignore[attr-defined]
+        paint = getattr(scene, "paint_ground_overlays", None)
+        if paint is not None:
+            paint(self, painter)
+
     def has_diagnostic_decoration(self) -> bool:
         """Whether a diagnostic flag that this item paints is set right now."""
         return bool(

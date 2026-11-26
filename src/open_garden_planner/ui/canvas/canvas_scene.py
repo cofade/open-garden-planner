@@ -70,41 +70,33 @@ def ground_z(layer_z: float) -> float:
 
 def on_ground(item: QGraphicsItem) -> bool:
     """Whether ``item`` is drawn in ``GROUND_Z_RANGE``: a ground surface
-    (``object_height.lies_on_ground``), or a group that belongs with the ground.
+    (``object_height.lies_on_ground``), or a group made only of those.
 
     A group is drawn in ONE slot, so a grouped lawn left in its layer's band hid
     the sun overlays and lay over a path ranked above the group (review of the
-    owner's manual pass). An all-surface group therefore takes the ground band.
-    A planted ground bed is the same scene: a bed grouped with the plants rooted
-    in it must stay in the ground band, or grouping lifts the bed above the
-    sun-shadow overlay and it renders bright while its soil is shaded. Such a
-    group is ground when every non-ground member is a plant whose
-    ``parent_bed_id`` names one of the group's ground beds. A mixed group that
-    still contains any other solid (a lawn with a bench) keeps its layer's band.
+    owner's manual pass). An all-surface group therefore takes the ground band;
+    a group with any solid in it keeps its layer's band and the surfaces in it
+    paint the overlays on themselves (``paint_ground_overlays``, #1031).
     """
     if isinstance(item, QGraphicsItemGroup):
         members = [child for child in item.childItems() if stacking.supports_stacking(child)]
-        if not members:
-            return False
-        if all(on_ground(child) for child in members):
-            return True
-        ground_ids = {
-            getattr(child, "item_id", None)
-            for child in members
-            if on_ground(child)
-        }
-        ground_ids.discard(None)
-        if not ground_ids:
-            return False
-        for child in members:
-            if on_ground(child):
-                continue
-            if not is_plant_type(getattr(child, "object_type", None)):
-                return False
-            if getattr(child, "parent_bed_id", None) not in ground_ids:
-                return False
-        return True
+        return bool(members) and all(on_ground(child) for child in members)
     return lies_on_ground(getattr(item, "object_type", None), getattr(item, "metadata", None))
+
+
+def _scene_z(item: QGraphicsItem) -> float:
+    """The z-slot an item is drawn in: its top-level ancestor's z.
+
+    A child's own z orders it among its siblings only; a group paints in ONE
+    slot, and that slot is where the whole subtree stands among the scene's
+    overlays (#1031). Summing the chain would read a child left in the ground
+    band and a group in the layer band as one value below the overlay.
+    """
+    parent = item.parentItem()
+    while parent is not None:
+        item = parent
+        parent = item.parentItem()
+    return item.zValue()
 
 
 def is_standing_object(item: QGraphicsItem) -> bool:
@@ -330,6 +322,10 @@ class CanvasScene(QGraphicsScene):
         # Shadow state (painted shadows on garden items)
         self._shadows_enabled = True
 
+        # Runtime overlays that lie ON the ground, in z order when painted (the
+        # sun shadow, the hours-of-sun fill and contours). See #1031.
+        self._ground_overlays: list[QGraphicsItem] = []
+
         # Labels state
         self._labels_enabled = True
 
@@ -529,6 +525,107 @@ class CanvasScene(QGraphicsScene):
         for item in self.items():
             if isinstance(item, GardenItemMixin):
                 item.shadows_enabled = enabled
+
+    # Sun-study overlays on ground surfaces (#1031)
+
+    def register_ground_overlay(self, item: QGraphicsItem) -> None:
+        """Register a runtime overlay that lies ON the ground (the shadow overlay,
+        the hours-of-sun fill and its contours).
+
+        A ground surface is drawn below such an overlay (``GROUND_Z_RANGE``). A
+        group paints in ONE z slot, so a surface grouped with a solid is drawn
+        ABOVE the overlay; that surface then paints the overlays on itself
+        (``paint_ground_overlays``) instead of losing them.
+        """
+        if item not in self._ground_overlays:
+            self._ground_overlays.append(item)
+
+    def unregister_ground_overlay(self, item: QGraphicsItem) -> None:
+        """Forget an overlay that is being removed (``register_ground_overlay``)."""
+        with contextlib.suppress(ValueError):
+            self._ground_overlays.remove(item)
+
+    def _live_ground_overlays(self) -> list[QGraphicsItem]:
+        """The registered overlays still in this scene, bottom to top.
+
+        Drops a wrapper whose C++ object a ``clear`` destroyed (the list is
+        cleared there too; this is the belt-and-braces path) so painting a plan
+        never touches a dead item.
+        """
+        live: list[QGraphicsItem] = []
+        for overlay in self._ground_overlays:
+            try:
+                if overlay.scene() is self:
+                    live.append(overlay)
+            except RuntimeError:
+                continue
+        if len(live) != len(self._ground_overlays):
+            self._ground_overlays[:] = live
+        live.sort(key=lambda entry: entry.zValue())
+        return live
+
+    def paint_ground_overlays(self, item: QGraphicsItem, painter: QPainter) -> None:
+        """Paint the registered ground overlays on ``item``, for a surface drawn
+        ABOVE them (#1031).
+
+        Called by the shape items in their own ``paint``. Each overlay
+        is painted in its item's frame with the painter clipped to the surface's
+        ``grid_cover_path``, so the shade or the sun map lands exactly where it
+        would have landed had the surface stayed in the ground band. A surface
+        BELOW an overlay is skipped — the overlay already paints there — and so
+        is a hidden one (the shadow overlay while the sun map is shown, #794).
+        """
+        overlays = self._live_ground_overlays()
+        if not overlays or not on_ground(item):
+            return
+        cover_path = getattr(item, "grid_cover_path", None)
+        if cover_path is None:
+            return
+        covers = cover_path()
+        if covers.isEmpty():
+            return
+        z = _scene_z(item)
+        try:
+            scene_to_item, invertible = item.sceneTransform().inverted()
+        except (RuntimeError, ValueError):
+            return
+        if not invertible:
+            return
+        for overlay in overlays:
+            try:
+                paint = getattr(overlay, "paint_on_ground", None)
+                if paint is None or not overlay.isVisible() or z <= overlay.zValue():
+                    continue
+                painter.save()
+                try:
+                    painter.setClipPath(covers, Qt.ClipOperation.IntersectClip)
+                    # overlay-local → scene → item → device (the painter already
+                    # maps this item's own coordinates to the device).
+                    painter.setWorldTransform(
+                        overlay.sceneTransform()
+                        * scene_to_item
+                        * painter.worldTransform()
+                    )
+                    paint(painter, item)
+                finally:
+                    painter.restore()
+            except RuntimeError:
+                continue
+
+    def refresh_ground_overlays(self) -> None:
+        """Repaint every ground surface drawn above a registered overlay.
+
+        A surface's own paint reads the overlays (#1031), so a new shade, a new
+        sun map or an overlay shown/hidden must invalidate it — the overlay's own
+        repaint never reaches the cached surface above it.
+        """
+        overlays = self._live_ground_overlays()
+        if not overlays:
+            return
+        lowest = overlays[0].zValue()
+        for item in self.items():
+            if on_ground(item) and _scene_z(item) > lowest:
+                item.update()
 
     # Label management
 
@@ -2403,6 +2500,7 @@ class CanvasScene(QGraphicsScene):
         self._standing_covers = None
         self._annotation_covers = None
         self._edit_decoration_covers = None
+        self._ground_overlays.clear()
         if self._clipped_spacing_ring_items is not None:
             self._clipped_spacing_ring_items.clear()
         if self._live_spacing_ring_items is not None:

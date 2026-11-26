@@ -5574,6 +5574,15 @@ layer, still drawn under the layer's other items (the agent's `stack_index`, "as
 displayed", says so). Before, both overlays sat under every layer item and a
 lawn hid them.
 
+A group paints in ONE z slot, so a group that mixes a ground surface with a
+solid cannot put the surface under an overlay and the solid above it. Such a
+group keeps its layer band, and the surface paints the overlay on itself at
+paint time (`CanvasScene.paint_ground_overlays`, clipped to the surface's
+`grid_cover_path`), invalidated by `refresh_ground_overlays` whenever the
+overlay's picture changes. The sun-shadow overlay, the hours-of-sun fill and
+its contour layer all register as ground overlays; a group child's slot is its
+top-level ancestor's z, never the sum of the chain. ADR-043 addendum (#1031).
+
 ### 8.25.3 The derive-only clamp
 
 `core.stacking.normalize_order` enforces two structural relationships,
