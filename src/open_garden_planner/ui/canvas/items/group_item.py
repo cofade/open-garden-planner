@@ -171,6 +171,9 @@ class GroupItem(RotationHandleMixin, GardenItemMixin, QGraphicsItemGroup):
         self._gesture_pivot: QPointF | None = None
         self._rotation_plan_active = False
         self._rotation_followers: list[tuple[QGraphicsItem, QPointF, QPointF, float, float]] = []
+        #: The pivot state entering the current gesture; the command restores it
+        #: on undo so a reverted turn cannot leave a new saved pivot behind.
+        self._pivot_state_before: tuple[bool, QPointF] | None = None
         #: The member that currently has drill-down edit focus (#771). Drawn as
         #: a solid inner outline, so a second click inside a selected group has
         #: a visible target. Never serialized.
@@ -215,6 +218,22 @@ class GroupItem(RotationHandleMixin, GardenItemMixin, QGraphicsItemGroup):
     # Rotation (#1022)
     # ------------------------------------------------------------------
 
+    @staticmethod
+    def _carried_pose(
+        start_centre: QPointF,
+        start_angle: float,
+        delta: float,
+        pivot: QPointF,
+    ) -> tuple[QPointF, float]:
+        """One formula for a carried item's scene centre and angle.
+
+        Shared by the live gesture and by the command's before/after snapshot
+        so the two can never drift (#1022 review).
+        """
+        rotation = QTransform()
+        rotation.rotate(delta)
+        return pivot + rotation.map(start_centre - pivot), start_angle + delta
+
     def _apply_rotation(self, angle: float) -> None:
         """Turn the whole group about its own outline centre.
 
@@ -228,16 +247,16 @@ class GroupItem(RotationHandleMixin, GardenItemMixin, QGraphicsItemGroup):
             self.setTransformOriginPoint(selection_frame_rect(self).center())
             self._pivot_initialized = True
         pivot = self._gesture_pivot or self.rotation_pivot_scene()
-        rotation = QTransform()
         delta = angle - float(getattr(self, "_rotation_initial_angle", 0.0))
-        rotation.rotate(delta)
         for follower, start_center, _before, start_angle, _after in self._rotation_followers:
             rect_fn = getattr(follower, "rect", None)
             if not callable(rect_fn):
                 continue
-            centre = pivot + rotation.map(start_center - pivot)
+            centre, carried_angle = self._carried_pose(
+                start_center, start_angle, delta, pivot
+            )
             if hasattr(follower, "_apply_rotation"):
-                follower._apply_rotation(start_angle + delta)
+                follower._apply_rotation(carried_angle)
             follower.setPos(centre - rect_fn().center())
         self._rotation_angle = angle
         self.setRotation(angle)
@@ -255,6 +274,25 @@ class GroupItem(RotationHandleMixin, GardenItemMixin, QGraphicsItemGroup):
         if self._pivot_initialized:
             return self.mapToScene(self.transformOriginPoint())
         return self.mapToScene(selection_frame_rect(self).center())
+
+    def rotation_pivot_change(
+        self,
+    ) -> tuple[tuple[bool, QPointF], tuple[bool, QPointF]] | None:
+        """The pivot state before and after the current gesture, if any.
+
+        ``RotateItemCommand`` records both sides so undo cannot leave a pivot
+        the reverted turn introduced (#1022 review).
+        """
+        if self._pivot_state_before is None:
+            return None
+        after = (self._pivot_initialized, QPointF(self.transformOriginPoint()))
+        return (self._pivot_state_before, after)
+
+    def restore_rotation_pivot(self, state: tuple[bool, QPointF]) -> None:
+        """Put the pivot back to a recorded state (undo/redo/no-op gesture)."""
+        initialized, origin = state
+        self._pivot_initialized = bool(initialized)
+        self.setTransformOriginPoint(QPointF(origin))
 
     def rotation_targets(self) -> list[QGraphicsItem]:
         """Everything a turn moves: the Qt subtree plus grouped beds' plants.
@@ -345,6 +383,10 @@ class GroupItem(RotationHandleMixin, GardenItemMixin, QGraphicsItemGroup):
             return
         self._rotation_initial_angle = float(self._rotation_angle)
         self._gesture_pivot = self.rotation_pivot_scene()
+        self._pivot_state_before = (
+            self._pivot_initialized,
+            QPointF(self.transformOriginPoint()),
+        )
         self._rotation_followers = []
         for item in self.rotation_targets():
             if item is self or item.parentItem() is not None:
@@ -370,11 +412,9 @@ class GroupItem(RotationHandleMixin, GardenItemMixin, QGraphicsItemGroup):
         """
         followers: list[tuple[QGraphicsItem, QPointF, QPointF, float, float]] = []
         delta = 0.0
-        rotation = QTransform()
         pivot = self._gesture_pivot or self.rotation_pivot_scene()
         if angle is not None:
             delta = angle - float(getattr(self, "_rotation_initial_angle", 0.0))
-            rotation.rotate(delta)
         for item, start_centre, before, start_angle, _after in self._rotation_followers:
             if angle is None:
                 after = QPointF(item.pos())
@@ -383,9 +423,10 @@ class GroupItem(RotationHandleMixin, GardenItemMixin, QGraphicsItemGroup):
                 rect_fn = getattr(item, "rect", None)
                 if not callable(rect_fn):
                     continue
-                centre = pivot + rotation.map(start_centre - pivot)
+                centre, new_angle = self._carried_pose(
+                    start_centre, start_angle, delta, pivot
+                )
                 after = QPointF(centre - rect_fn().center())
-                new_angle = start_angle + delta
             if after != before or abs(new_angle - start_angle) > 0.01:
                 followers.append((item, before, after, start_angle, new_angle))
         return followers
@@ -395,6 +436,7 @@ class GroupItem(RotationHandleMixin, GardenItemMixin, QGraphicsItemGroup):
         self._rotation_followers = []
         self._gesture_pivot = None
         self._rotation_plan_active = False
+        self._pivot_state_before = None
 
     def _on_rotation_start(self) -> None:
         """Capture the pivot and the linked plants a turn must carry (#1022)."""
@@ -408,7 +450,11 @@ class GroupItem(RotationHandleMixin, GardenItemMixin, QGraphicsItemGroup):
         )
 
         followers = self.rotation_follower_snapshots()
-        register_rotation_command(self, initial_angle, followers or None)
+        registered = register_rotation_command(self, initial_angle, followers or None)
+        if not registered and self._pivot_state_before is not None:
+            # A radial drag that ends where it started must not leave a new
+            # saved pivot behind: no command means no undo state to carry it.
+            self.restore_rotation_pivot(self._pivot_state_before)
         self.finish_rotation_plan()
 
     # ------------------------------------------------------------------

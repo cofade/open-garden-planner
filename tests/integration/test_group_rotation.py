@@ -506,6 +506,44 @@ def test_a_plant_turning_with_its_own_bed_keeps_the_link(canvas: CanvasView) -> 
     assert plant.item_id in bed.child_item_ids
 
 
+def test_a_grouped_bed_and_plant_keep_the_link_through_save_and_reload(
+    canvas: CanvasView, tmp_path: Path,
+) -> None:
+    """Both link endpoints can be group members; the fields must persist (#1022).
+
+    The group serializer writes its children directly, so the relationship
+    fields must be added to each grouped record, not only to top-level ones.
+    """
+    _show(canvas)
+    scene = canvas.scene()
+    bed = _rect(scene, 100.0, 100.0, 200.0, 200.0, kind=ObjectType.RAISED_BED)
+    plant = CircleItem(
+        150.0, 150.0, 15.0,
+        object_type=ObjectType.PERENNIAL, layer_id=scene.active_layer.id,
+    )
+    scene.addItem(plant)
+    plant.parent_bed_id = bed.item_id
+    bed.add_child_id(plant.item_id)
+    peer = _rect(scene, 600.0, 100.0)
+    group = _grouped(canvas, bed, plant, peer)
+    scene.clearSelection()
+    group.setSelected(True)
+    QApplication.processEvents()
+    _drag(group, 0.0, 37.0)
+    assert plant.parent_bed_id == bed.item_id
+
+    target = tmp_path / "grouped-bed.ogp"
+    ProjectManager().save(scene, target)
+    loaded_scene = CanvasScene(width_cm=5000, height_cm=3000)
+    ProjectManager().load(loaded_scene, target)
+    loaded_bed = loaded_scene.find_item_by_id(bed.item_id)
+    loaded_plant = loaded_scene.find_item_by_id(plant.item_id)
+    assert loaded_bed is not None
+    assert loaded_plant is not None
+    assert loaded_plant.parent_bed_id == loaded_bed.item_id
+    assert loaded_plant.item_id in loaded_bed.child_item_ids
+
+
 def test_a_linked_plant_on_a_locked_layer_refuses_the_turn(canvas: CanvasView) -> None:
     """A follower outside the Qt tree can still be locked (#1022 review)."""
     from open_garden_planner.models.layer import Layer
@@ -809,6 +847,39 @@ def test_ungroup_refuses_a_rotated_group_and_keeps_its_geometry(
         (round(_centre(item).x(), 3), round(_centre(item).y(), 3))
         for item in (first, second)
     ) == before
+
+
+def test_undo_removes_the_pivot_a_reverted_turn_introduced(
+    canvas: CanvasView,
+) -> None:
+    """A no-op drag and an undone turn must not leave a saved pivot (#1022)."""
+    _show(canvas)
+    scene = canvas.scene()
+    first = _rect(scene, 100.0, 100.0, 100.0, 80.0)
+    second = _rect(scene, 300.0, 100.0, 100.0, 80.0)
+    group = _grouped(canvas, first, second)
+    scene.clearSelection()
+    group.setSelected(True)
+    QApplication.processEvents()
+    assert group._pivot_initialized is False
+    depth = len(canvas.command_manager._undo_stack)
+
+    _drag(group, 0.0, 0.0)
+    assert group._pivot_initialized is False
+    assert group.transformOriginPoint().isNull()
+    assert len(canvas.command_manager._undo_stack) == depth
+
+    _drag(group, 0.0, 37.0)
+    assert group._pivot_initialized is True
+    saved_pivot = QPointF(group.transformOriginPoint())
+    assert saved_pivot.isNull() is False
+
+    canvas.command_manager.undo()
+    assert group._pivot_initialized is False
+    assert group.transformOriginPoint().isNull()
+    canvas.command_manager.redo()
+    assert group._pivot_initialized is True
+    assert group.transformOriginPoint() == saved_pivot
 
 
 def test_an_unrotated_group_ungroups_and_survives_reload(

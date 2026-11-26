@@ -1195,7 +1195,7 @@ poses. Its membership tracker re-decides only the group's own plants whose paren
 bed did not turn with them: a plant that turns with its own bed keeps the link,
 and a bed's carried top-level plants are followers, never re-solved. The plants
 stay linked and the next move carries them by the group's net scene delta.
-Undo/redo replay only the recorded poses, never a fresh plan.
+Undo/redo replay only the recorded poses and pivot states, never a fresh plan.
 
 ### Creating an orientation constraint beside a locked object
 

@@ -1862,8 +1862,11 @@ def build_server(
 
             A POSITIVE angle rotates the object COUNTER-CLOCKWISE: an object
             whose long axis points east points north after +90. Pass a negative
-            angle to turn it clockwise. The object rotates about its own
-            centre, which does not move.
+            angle to turn it clockwise. A single object rotates about its own
+            centre, which does not move. A GROUP rotates about the pivot fixed at
+            its first turn (the selection frame's centre at that moment); a later
+            member edit does not move it, and a grouped bed's linked top-level
+            plants are carried about the same pivot in the same step.
 
             By default 'angle' is the object's new ABSOLUTE rotation, so
             calling rotate_object(id, 90) twice leaves it at 90 degrees. Pass
@@ -1877,7 +1880,10 @@ def build_server(
 
             Fails if the object participates in a geometric constraint, if it's
             a journal pin or a group member, if it's on a locked layer, or if
-            the angle is not finite.
+            the angle is not finite. A GROUP also fails when any of its members
+            is constrained or on a locked layer, when a linked plant belongs to
+            another group, or when a grouped bed's linked plant would be
+            separated by the turn.
 
             Args:
                 item_id: The object's stable UUID (from list_objects/get_object).

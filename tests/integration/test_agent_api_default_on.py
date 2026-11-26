@@ -1402,11 +1402,17 @@ def test_a_refused_agent_group_turn_leaves_no_plan_and_a_turn_then_undo(
         assert result["rotation_deg"] == pytest.approx(37.0)
         assert group.rotation_angle == pytest.approx(37.0)
         assert group._rotation_plan_active is False
+        assert group._pivot_initialized is True
+        pivot = QPointF(group.transformOriginPoint())
         assert len(win.canvas_view.command_manager._undo_stack) == depth + 1
 
         win.canvas_view.command_manager.undo()
         assert group.rotation_angle == pytest.approx(0.0)
+        assert group._pivot_initialized is False
         assert len(win.canvas_view.command_manager._undo_stack) == depth
+        win.canvas_view.command_manager.redo()
+        assert group.rotation_angle == pytest.approx(37.0)
+        assert group.transformOriginPoint() == pivot
     finally:
         win._stop_agent_api()
 

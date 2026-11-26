@@ -1745,6 +1745,22 @@ class ProjectManager(QObject):
         )
 
     @staticmethod
+    def _serialize_item_links(item: QGraphicsItem, data: dict[str, Any]) -> dict[str, Any]:
+        """Add the relationship fields a top-level or grouped item carries."""
+        from open_garden_planner.ui.canvas.items import GardenItemMixin
+
+        if isinstance(item, GardenItemMixin):
+            if item.parent_bed_id is not None:
+                data["parent_bed_id"] = str(item.parent_bed_id)
+            if item.child_item_ids:
+                data["child_item_ids"] = [str(cid) for cid in item.child_item_ids]
+            # Sparse stacking rank (issue #338); Arc/Bezier items add their
+            # own "stack_order" key in their own to_dict().
+            if item.stack_order is not None:
+                data["stack_order"] = item.stack_order
+        return data
+
+    @staticmethod
     def _serialize_item(item: QGraphicsItem) -> dict[str, Any] | None:
         """Serialize a single graphics item."""
         # Skip items that are Qt children of a GroupItem — they are serialized
@@ -1757,19 +1773,7 @@ class ProjectManager(QObject):
         if data is None:
             return None
 
-        # Add parent-child relationship fields
-        from open_garden_planner.ui.canvas.items import GardenItemMixin
-        if isinstance(item, GardenItemMixin):
-            if item.parent_bed_id is not None:
-                data["parent_bed_id"] = str(item.parent_bed_id)
-            if item.child_item_ids:
-                data["child_item_ids"] = [str(cid) for cid in item.child_item_ids]
-            # Sparse stacking rank (issue #338); Arc/Bezier items add their
-            # own "stack_order" key in their own to_dict().
-            if item.stack_order is not None:
-                data["stack_order"] = item.stack_order
-
-        return data
+        return ProjectManager._serialize_item_links(item, data)
 
     @staticmethod
     def _stored_shape_offset(item: QGraphicsItem, local_centre: QPointF) -> QPointF:
@@ -2092,6 +2096,10 @@ class ProjectManager(QObject):
             for child in item.childItems():
                 child_data = ProjectManager._serialize_item_core(child)
                 if child_data:
+                    # A bed and its plant can BOTH be group members; the
+                    # relationship fields must ride on the grouped records too,
+                    # or reopening the plan loses the link (#1022 review).
+                    ProjectManager._serialize_item_links(child, child_data)
                     children.append(child_data)
             group_data: dict[str, Any] = {
                 "type": "group",
@@ -2508,30 +2516,35 @@ class ProjectManager(QObject):
         self._apply_to_scene(scene, data, prep)
 
     @staticmethod
+    def _restore_item_links(item: QGraphicsItem, obj: dict[str, Any]) -> None:
+        """Restore the relationship fields a top-level or grouped item carries."""
+        from open_garden_planner.ui.canvas.items import GardenItemMixin
+
+        if not isinstance(item, GardenItemMixin):
+            return
+        if "parent_bed_id" in obj:
+            with contextlib.suppress(ValueError, TypeError):
+                item._parent_bed_id = UUID(obj["parent_bed_id"])
+        if "child_item_ids" in obj:
+            item._child_item_ids = []
+            for cid_str in obj["child_item_ids"]:
+                with contextlib.suppress(ValueError, TypeError):
+                    item._child_item_ids.append(UUID(cid_str))
+        # Sparse stacking rank (issue #338). Missing key (older file) or
+        # a malformed value both leave it unset -- an unranked item
+        # simply sorts to the top of its layer's band.
+        if "stack_order" in obj:
+            with contextlib.suppress(ValueError, TypeError):
+                item.stack_order = int(obj["stack_order"])
+
+    @staticmethod
     def _deserialize_item(obj: dict[str, Any]) -> QGraphicsItem | None:
         """Deserialize a single object to a graphics item."""
         item = ProjectManager._deserialize_item_core(obj)
         if item is None:
             return None
 
-        # Restore parent-child relationship fields
-        from open_garden_planner.ui.canvas.items import GardenItemMixin
-        if isinstance(item, GardenItemMixin):
-            if "parent_bed_id" in obj:
-                with contextlib.suppress(ValueError, TypeError):
-                    item._parent_bed_id = UUID(obj["parent_bed_id"])
-            if "child_item_ids" in obj:
-                item._child_item_ids = []
-                for cid_str in obj["child_item_ids"]:
-                    with contextlib.suppress(ValueError, TypeError):
-                        item._child_item_ids.append(UUID(cid_str))
-            # Sparse stacking rank (issue #338). Missing key (older file) or
-            # a malformed value both leave it unset -- an unranked item
-            # simply sorts to the top of its layer's band.
-            if "stack_order" in obj:
-                with contextlib.suppress(ValueError, TypeError):
-                    item.stack_order = int(obj["stack_order"])
-
+        ProjectManager._restore_item_links(item, obj)
         return item
 
     @staticmethod
@@ -2584,6 +2597,7 @@ class ProjectManager(QObject):
             for child_data in obj.get("children", []):
                 child = ProjectManager._deserialize_item_core(child_data)
                 if child is not None:
+                    ProjectManager._restore_item_links(child, child_data)
                     group.addToGroup(child)
             if isinstance(obj.get("smart_symbol"), dict):
                 # The old generator marked layout-only members and plain panel

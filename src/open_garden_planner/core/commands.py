@@ -2052,6 +2052,14 @@ class RotateItemCommand(Command):
             (follow_item, QPointF(before), QPointF(after), old, new)
             for follow_item, before, after, old, new in (followers or [])
         ]
+        #: A group's optional pivot, both sides of the gesture (#1022 review).
+        self._pivot_before: tuple[bool, QPointF] | None = None
+        self._pivot_after: tuple[bool, QPointF] | None = None
+        pivot_change = getattr(item, "rotation_pivot_change", None)
+        if callable(pivot_change):
+            change = pivot_change()
+            if change is not None:
+                self._pivot_before, self._pivot_after = change
         self._membership = _membership_change_for_geometry(
             item.scene(),
             item,
@@ -2101,9 +2109,27 @@ class RotateItemCommand(Command):
         if self._membership is not None:
             self._membership.reconcile()
 
+    def _restore_pivot(self, state: tuple[bool, QPointF] | None) -> None:
+        if state is None:
+            return
+        restore = getattr(self._item, "restore_rotation_pivot", None)
+        if callable(restore):
+            restore(state)
+
+    def _capture_pivot_after(self) -> None:
+        """Record the pivot the first execution chose (the agent path)."""
+        change = getattr(self._item, "rotation_pivot_change", None)
+        if callable(change):
+            states = change()
+            if states is not None:
+                self._pivot_after = states[1]
+
     def execute(self) -> None:
         """Apply the new rotation, every partner correction and the new links."""
+        self._restore_pivot(self._pivot_after)
         self._apply_func(self._item, self._new_angle)
+        if self._pivot_after is None:
+            self._capture_pivot_after()
         for moved_item, _before, after in self._partner_moves:
             moved_item.setPos(after)
         for moved_item, index, _before, after in self._partner_vertex_moves:
@@ -2130,6 +2156,7 @@ class RotateItemCommand(Command):
             if hasattr(follow_item, "_apply_rotation"):
                 follow_item._apply_rotation(old)
             follow_item.setPos(before)
+        self._restore_pivot(self._pivot_before)
 
 
 class PlantSpeciesEditCommand(Command):

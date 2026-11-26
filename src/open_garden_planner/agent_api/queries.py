@@ -48,9 +48,11 @@ def object_bbox(obj: dict[str, Any]) -> tuple[float, float, float, float]:
     A shape's own ``rotation_angle`` is reported separately (its box is the
     stored one); a GROUP's box composes its members' own angles and the group
     transform, because otherwise a region query misses the real footprint.
+    Members with a true curved outline (a circle, an ellipse) keep their exact
+    extent instead of growing their bounding square (#1022 review).
     """
     if obj.get("children"):
-        return _bbox_of(_group_points(obj))
+        return _primitives_bbox(_group_primitives(obj))
     return _object_bbox_unrotated(obj)
 
 
@@ -88,39 +90,136 @@ def _rotate_points(
     ]
 
 
-def _member_points(child: dict[str, Any]) -> list[tuple[float, float]]:
-    """A member's corner points in the group's local frame, own turn applied."""
-    if child.get("children"):
-        return _group_points(child)
-    box = _object_bbox_unrotated(child)
-    angle = float(child.get("rotation_angle", child.get("rotation", 0.0)) or 0.0)
+# A member primitive is one of
+#   ("circle", cx, cy, r)
+#   ("ellipse", cx, cy, semi_x, semi_y, angle_deg)
+#   ("points", [(x, y), ...])
+# Keeping the curved kinds symbolic is what stops a 45° turn from inflating a
+# circle's box to its bounding square.
+_Primitive = tuple[Any, ...]
+
+
+def _leaf_primitives(obj: dict[str, Any]) -> list[_Primitive]:
+    """A member's own geometry in the group's local frame, its turn applied."""
+    if "radius" in obj and "center_x" in obj:  # circle, arc
+        return [
+            (
+                "circle",
+                float(obj["center_x"]),
+                float(obj.get("center_y", 0.0)),
+                float(obj["radius"]),
+            )
+        ]
+    if "semi_x" in obj and "center_x" in obj:  # ellipse
+        return [
+            (
+                "ellipse",
+                float(obj["center_x"]),
+                float(obj.get("center_y", 0.0)),
+                float(obj["semi_x"]),
+                float(obj["semi_y"]),
+                float(obj.get("rotation_angle", obj.get("rotation", 0.0)) or 0.0),
+            )
+        ]
+    box = _object_bbox_unrotated(obj)
+    angle = float(obj.get("rotation_angle", obj.get("rotation", 0.0)) or 0.0)
     centre = (box[0] + box[2] / 2.0, box[1] + box[3] / 2.0)
-    return _rotate_points(_box_corners(box), centre, angle)
+    return [("points", _rotate_points(_box_corners(box), centre, angle))]
 
 
-def _group_points(obj: dict[str, Any]) -> list[tuple[float, float]]:
-    """The group's corner points in its PARENT frame, every turn composed.
+def _primitive_bounds(primitive: _Primitive) -> tuple[float, float, float, float]:
+    kind = primitive[0]
+    if kind == "circle":
+        _, cx, cy, r = primitive
+        return (cx - r, cy - r, 2 * r, 2 * r)
+    if kind == "ellipse":
+        _, cx, cy, sx, sy, angle = primitive
+        rad = math.radians(angle)
+        cos_a, sin_a = math.cos(rad), math.sin(rad)
+        hx = math.hypot(sx * cos_a, sy * sin_a)
+        hy = math.hypot(sx * sin_a, sy * cos_a)
+        return (cx - hx, cy - hy, 2 * hx, 2 * hy)
+    points = primitive[1]
+    return _bbox_of(points)
+
+
+def _primitives_bbox(
+    primitives: list[_Primitive],
+) -> tuple[float, float, float, float]:
+    if not primitives:
+        return (0.0, 0.0, 0.0, 0.0)
+    boxes = [_primitive_bounds(primitive) for primitive in primitives]
+    x0 = min(box[0] for box in boxes)
+    y0 = min(box[1] for box in boxes)
+    x1 = max(box[0] + box[2] for box in boxes)
+    y1 = max(box[1] + box[3] for box in boxes)
+    return (x0, y0, x1 - x0, y1 - y0)
+
+
+def _transform_primitives(
+    primitives: list[_Primitive],
+    origin: tuple[float, float],
+    angle: float,
+    dx: float,
+    dy: float,
+) -> list[_Primitive]:
+    moved: list[_Primitive] = []
+    for primitive in primitives:
+        kind = primitive[0]
+        if kind == "points":
+            points = _rotate_points(primitive[1], origin, angle)
+            moved.append(("points", [(px + dx, py + dy) for px, py in points]))
+        elif kind == "circle":
+            _, cx, cy, r = primitive
+            centre = _rotate_points([(cx, cy)], origin, angle)[0]
+            moved.append(("circle", centre[0] + dx, centre[1] + dy, r))
+        else:  # ellipse
+            _, cx, cy, sx, sy, own_angle = primitive
+            centre = _rotate_points([(cx, cy)], origin, angle)[0]
+            moved.append(
+                (
+                    "ellipse",
+                    centre[0] + dx,
+                    centre[1] + dy,
+                    sx,
+                    sy,
+                    own_angle + angle,
+                )
+            )
+    return moved
+
+
+def _group_primitives(obj: dict[str, Any]) -> list[_Primitive]:
+    """The group's member primitives in its PARENT frame, every turn composed.
 
     Children serialise in the group's local frame. A nested group is recursed
     (its own turn and translation included) rather than boxed to an
     axis-aligned rectangle first: two opposing turns must cancel instead of
     compounding their bounding boxes (#1022 review).
     """
-    points: list[tuple[float, float]] = []
+    primitives: list[_Primitive] = []
     for child in obj.get("children") or []:
-        points.extend(_member_points(child))
+        if child.get("children"):
+            primitives.extend(_group_primitives(child))
+        else:
+            primitives.extend(_leaf_primitives(child))
     angle = float(obj.get("rotation", 0.0) or 0.0)
-    origin = obj.get("transform_origin")
-    if isinstance(origin, dict):
-        pivot = (float(origin.get("x", 0.0)), float(origin.get("y", 0.0)))
+    group_origin = obj.get("transform_origin")
+    if isinstance(group_origin, dict):
+        pivot = (
+            float(group_origin.get("x", 0.0)),
+            float(group_origin.get("y", 0.0)),
+        )
     else:
-        xs = [point[0] for point in points]
-        ys = [point[1] for point in points]
-        pivot = ((min(xs) + max(xs)) / 2.0, (min(ys) + max(ys)) / 2.0)
-    points = _rotate_points(points, pivot, angle)
-    gx = float(obj.get("x", 0.0))
-    gy = float(obj.get("y", 0.0))
-    return [(px + gx, py + gy) for px, py in points]
+        bx, by, bw, bh = _primitives_bbox(primitives)
+        pivot = (bx + bw / 2.0, by + bh / 2.0)
+    return _transform_primitives(
+        primitives,
+        pivot,
+        angle,
+        float(obj.get("x", 0.0)),
+        float(obj.get("y", 0.0)),
+    )
 
 
 def _object_bbox_unrotated(

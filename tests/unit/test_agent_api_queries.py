@@ -524,6 +524,27 @@ class TestBboxNormaliserPerShape:
             assert math.isclose(got, expected, abs_tol=1e-9)
 
 
+    def test_a_circle_inside_a_turned_group_does_not_grow(self) -> None:
+        """A circle's extent is its radius, never its rotated bounding square."""
+        group = {
+            "type": "group", "item_id": "g1", "x": 100.0, "y": 100.0,
+            "rotation": 45.0,
+            "children": [
+                {"type": "circle", "item_id": "c1", "center_x": 0.0,
+                 "center_y": 0.0, "radius": 10.0},
+            ],
+        }
+        assert queries.object_bbox(group) == (90.0, 90.0, 20.0, 20.0)
+        snapshot = {
+            "objects": [group],
+            "layers": [],
+            "canvas": {"width": 1000.0, "height": 1000.0},
+        }
+        # The old inflated box (85.86..114.14) touched this strip; the circle
+        # itself starts at 90, so a region query must not return it.
+        assert queries.objects_in_region(snapshot, 80.0, 80.0, 8.0, 8.0, raw=True) == []
+
+
     def test_bezier_bbox_includes_control_handles(self) -> None:
         # The control hull bounds the curve; ignoring handles under-approximates.
         bez = {
