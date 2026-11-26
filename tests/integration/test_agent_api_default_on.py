@@ -1425,6 +1425,46 @@ def test_a_refused_agent_group_turn_leaves_no_plan_and_a_turn_then_undo(
         win._stop_agent_api()
 
 
+def test_an_agent_tiny_turn_records_a_follower_at_the_pivot(
+    qtbot: Any, monkeypatch: Any
+) -> None:
+    """A follower exactly on the pivot changes only its angle; undo must see it."""
+    from open_garden_planner.core.commands import GroupCommand
+    from open_garden_planner.core.object_types import ObjectType
+    from open_garden_planner.ui.canvas.items import CircleItem
+
+    _discard_on_close(monkeypatch)
+    win = GardenPlannerApp()
+    qtbot.addWidget(win)
+    try:
+        bed = _add_bed(win, 300, 300, 200, 150)
+        peer = _add_bed(win, 700, 300, 200, 150)
+        win.canvas_view.command_manager.execute(
+            GroupCommand(win.canvas_scene, [bed, peer])
+        )
+        group = bed.parentItem()
+        plant = CircleItem(
+            0.0, 0.0, 15.0, object_type=ObjectType.PERENNIAL
+        )
+        win.canvas_scene.addItem(plant)
+        plant.parent_bed_id = bed.item_id
+        bed.add_child_id(plant.item_id)
+        pivot = group.rotation_pivot_scene()
+        plant.setPos(pivot - plant.rect().center())
+        start_angle = plant.rotation_angle
+
+        win._do_agent_rotate_object(str(group.item_id), 0.005, False)
+        assert group.rotation_angle == pytest.approx(0.005)
+        assert plant.rotation_angle == pytest.approx(start_angle + 0.005)
+
+        win.canvas_view.command_manager.undo()
+        assert plant.rotation_angle == pytest.approx(start_angle)
+        win.canvas_view.command_manager.redo()
+        assert plant.rotation_angle == pytest.approx(start_angle + 0.005)
+    finally:
+        win._stop_agent_api()
+
+
 def test_rotate_object_direction_is_counter_clockwise(
     qtbot: Any, monkeypatch: Any
 ) -> None:

@@ -23,6 +23,55 @@ if TYPE_CHECKING:
 _log = logging.getLogger(__name__)
 
 
+def _nested_item_ids(records: list[dict[str, Any]]) -> set[str]:
+    """Every id that appears as a descendant record, at any depth."""
+    result: set[str] = set()
+    for record in records:
+        for child in record.get("children") or []:
+            child_id = child.get("item_id")
+            if child_id:
+                result.add(str(child_id))
+            result.update(_nested_item_ids([child]))
+    return result
+
+
+def _normalized_copy_forest(
+    records: list[dict[str, Any]],
+) -> list[dict[str, Any]]:
+    """One copy forest in which each source item appears exactly once.
+
+    A selected top-level bed can auto-include a plant that already lives inside
+    another selected group. Serializing it as a root as well would give both
+    copies the same id and link claim (#1022 review); a record nested at least
+    once wins, and the root duplicate is dropped.
+    """
+    nested = _nested_item_ids(records)
+    seen: set[str] = set()
+
+    def clean(items: list[dict[str, Any]]) -> list[dict[str, Any]]:
+        result: list[dict[str, Any]] = []
+        for record in items:
+            record_id = record.get("item_id")
+            key = str(record_id) if record_id else None
+            if key is not None and key in seen:
+                continue
+            if key is not None:
+                seen.add(key)
+            copied = dict(record)
+            children = copied.get("children")
+            if isinstance(children, list):
+                copied["children"] = clean(children)
+            result.append(copied)
+        return result
+
+    roots = [
+        record
+        for record in records
+        if not (record.get("item_id") and str(record["item_id"]) in nested)
+    ]
+    return clean(roots)
+
+
 def _new_item_ids(records: list[dict[str, Any]]) -> dict[str, str]:
     """Allocate IDs throughout a forest before resolving any copied links."""
     result: dict[str, str] = {}
@@ -226,6 +275,7 @@ class ClipboardOperations:
             obj_data = host._serialize_item(item)
             if obj_data:
                 host._clipboard.append(obj_data)
+        host._clipboard = _normalized_copy_forest(host._clipboard)
 
         # Show status message
         if len(host._clipboard) > 0:
@@ -269,7 +319,13 @@ class ClipboardOperations:
         pasted_items: list[QGraphicsItem] = []
         from open_garden_planner.ui.guild_copy import copy_guild_records
 
-        records = copy_guild_records(cast("CanvasScene", host.scene()), host._clipboard, getattr(host, "_clipboard_guild_members", None))
+        records = _normalized_copy_forest(
+            copy_guild_records(
+                cast("CanvasScene", host.scene()),
+                host._clipboard,
+                getattr(host, "_clipboard_guild_members", None),
+            )
+        )
         new_ids = _new_item_ids(records)
         for obj_data in records:
             # Apply offset to position and strip item_ids so new UUIDs are minted (AUD-002)
@@ -365,7 +421,9 @@ class ClipboardOperations:
         duplicated_items: list[QGraphicsItem] = []
         from open_garden_planner.ui.guild_copy import copy_guild_records
 
-        source_data = copy_guild_records(cast("CanvasScene", host.scene()), source_data)
+        source_data = _normalized_copy_forest(
+            copy_guild_records(cast("CanvasScene", host.scene()), source_data)
+        )
         new_ids = _new_item_ids(source_data)
         for obj_data in source_data:
             obj_copy = _strip_item_ids(

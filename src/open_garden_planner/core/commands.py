@@ -2135,10 +2135,14 @@ class RotateItemCommand(Command):
         for moved_item, index, _before, after in self._partner_vertex_moves:
             if hasattr(moved_item, "_move_vertex_to"):
                 moved_item._move_vertex_to(index, after)
-        for follow_item, _before, after, _old, new in self._followers:
-            if hasattr(follow_item, "_apply_rotation"):
-                follow_item._apply_rotation(new)
-            follow_item.setPos(after)
+        if not getattr(self._item, "_rotation_plan_active", False):
+            # On the first agent execution the live plan already placed its
+            # followers; re-applying the recorded poses would be a second
+            # implementation of the same transform (#1022 review).
+            for follow_item, _before, after, _old, new in self._followers:
+                if hasattr(follow_item, "_apply_rotation"):
+                    follow_item._apply_rotation(new)
+                follow_item.setPos(after)
         if self._membership is not None:
             self._membership.reconcile()
 

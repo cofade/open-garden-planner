@@ -13876,7 +13876,9 @@ Grouped child records carry their own `parent_bed_id` / `child_item_ids`, so a l
 whose endpoints are both members survives save and reload; copy/duplicate remaps
 both fields through one map for the whole tree and drops uncopied endpoints. That
 map is the only author of copied links; paste/duplicate never rebuild them from a
-top-level-only map.
+top-level-only map, and the forest is normalized so each source item appears once.
+The Agent API's group box applies the same base matrix, turning a curved member
+into the ellipse that matrix describes.
 Ungrouping a turned group is refused: Qt leaves the group rotation in the
 member's Qt transform while the file stores the member's own angle, so a correct
 bake would have to cover every member type and zero-net-angle pairs. Rotate the

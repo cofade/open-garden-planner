@@ -432,7 +432,7 @@ class GroupItem(RotationHandleMixin, GardenItemMixin, QGraphicsItemGroup):
                     start_centre, start_angle, delta, pivot
                 )
                 after = QPointF(centre - rect_fn().center())
-            if after != before or abs(new_angle - start_angle) > 0.01:
+            if after != before or new_angle != start_angle:
                 followers.append((item, before, after, start_angle, new_angle))
         return followers
 

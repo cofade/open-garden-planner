@@ -362,6 +362,80 @@ def test_copy_and_duplicate_keep_one_consistent_link_for_a_grouped_bed(
     assert duplicated_plant.parent_bed_id == duplicated_claimants[0].item_id
 
 
+def _forest_ids(records: list[dict[str, Any]]) -> list[str]:
+    ids: list[str] = []
+    for record in records:
+        if record.get("item_id"):
+            ids.append(str(record["item_id"]))
+        ids.extend(_forest_ids(record.get("children") or []))
+    return ids
+
+
+def test_copying_a_bed_and_a_group_holding_its_plant_uses_one_record(
+    qtbot: Any,
+) -> None:
+    """The same source item must appear once in a copied forest, not twice."""
+    scene = CanvasScene()
+    view = CanvasView(scene)
+    qtbot.addWidget(view)
+
+    bed = RectangleItem(
+        100.0, 100.0, 200.0, 200.0, object_type=ObjectType.RAISED_BED
+    )
+    plant = CircleItem(150.0, 150.0, 15.0, object_type=ObjectType.PERENNIAL)
+    scene.addItem(bed)
+    scene.addItem(plant)
+    plant.parent_bed_id = bed.item_id
+    bed.add_child_id(plant.item_id)
+    peer = RectangleItem(400.0, 100.0, 100.0, 100.0)
+    scene.addItem(peer)
+    scene.clearSelection()
+    plant.setSelected(True)
+    peer.setSelected(True)
+    view.group_selected()
+    group = next(item for item in scene.items() if isinstance(item, GroupItem))
+
+    scene.clearSelection()
+    bed.setSelected(True)
+    group.setSelected(True)
+    view.copy_selected()
+    ids = _forest_ids(view._clipboard)
+    assert len(ids) == len(set(ids))
+    assert str(plant.item_id) not in [
+        str(record.get("item_id")) for record in view._clipboard
+    ]
+
+    view.paste()
+    pasted_bed = next(
+        item for item in scene.selectedItems()
+        if isinstance(item, RectangleItem)
+        and getattr(item, "object_type", None) is ObjectType.RAISED_BED
+    )
+    pasted_group = next(
+        item for item in scene.selectedItems() if isinstance(item, GroupItem)
+    )
+    assert len(pasted_bed.child_item_ids) == 1
+    pasted_plant = scene.find_item_by_id(pasted_bed.child_item_ids[0])
+    assert pasted_plant is not None
+    assert pasted_plant.parentItem() is pasted_group
+    assert pasted_plant.parent_bed_id == pasted_bed.item_id
+
+    view.duplicate_selected()
+    duplicated_bed = next(
+        item for item in scene.selectedItems()
+        if isinstance(item, RectangleItem)
+        and getattr(item, "object_type", None) is ObjectType.RAISED_BED
+    )
+    duplicated_group = next(
+        item for item in scene.selectedItems() if isinstance(item, GroupItem)
+    )
+    assert len(duplicated_bed.child_item_ids) == 1
+    duplicated_plant = scene.find_item_by_id(duplicated_bed.child_item_ids[0])
+    assert duplicated_plant is not None
+    assert duplicated_plant.parentItem() is duplicated_group
+    assert duplicated_plant.parent_bed_id == duplicated_bed.item_id
+
+
 def test_copy_paste_callout_item(qtbot: Any) -> None:
     """Copy/paste must support CalloutItem and offset target position."""
     scene = CanvasScene()

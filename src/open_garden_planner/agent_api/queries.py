@@ -202,18 +202,40 @@ def _apply_base(
     ]
 
 
-def _base_scale(
-    base: tuple[float, float, float, float, float, float],
-) -> float:
-    m11, m12, m21, m22, _dx, _dy = base
-    return math.sqrt(abs(m11 * m22 - m12 * m21)) or 1.0
+def _ellipse_axes(
+    m00: float, m01: float, m10: float, m11: float
+) -> tuple[float, float, float]:
+    """Semi-axes and angle of the ellipse ``M * unit circle`` for a 2x2 M."""
+    e = (m00 * m00 + m01 * m01 + m10 * m10 + m11 * m11) / 2.0
+    f = (m00 * m00 + m01 * m01 - m10 * m10 - m11 * m11) / 2.0
+    g = m00 * m10 + m01 * m11
+    disc = math.hypot(f, g)
+    s1 = math.sqrt(max(0.0, e + disc))
+    s2 = math.sqrt(max(0.0, e - disc))
+    angle = math.degrees(0.5 * math.atan2(2.0 * g, 2.0 * f))
+    return s1, s2, angle
 
 
-def _base_angle(
+def _base_ellipse(
     base: tuple[float, float, float, float, float, float],
-) -> float:
-    m11, m12, _m21, _m22, _dx, _dy = base
-    return math.degrees(math.atan2(m12, m11))
+    centre: tuple[float, float],
+    angle: float,
+    semi_x: float,
+    semi_y: float,
+) -> tuple[float, float, float, float, float]:
+    """Box parameters of a turned ellipse after a general affine base matrix."""
+    m11, m12, m21, m22, dx, dy = base
+    rad = math.radians(angle)
+    cos_a, sin_a = math.cos(rad), math.sin(rad)
+    # M = A @ R(angle) @ diag(semi_x, semi_y), all in Qt's row-vector form.
+    m00 = m11 * semi_x * cos_a + m21 * semi_x * sin_a
+    m01 = -m11 * semi_y * sin_a + m21 * semi_y * cos_a
+    m10 = m12 * semi_x * cos_a + m22 * semi_x * sin_a
+    m11b = -m12 * semi_y * sin_a + m22 * semi_y * cos_a
+    sx, sy, out_angle = _ellipse_axes(m00, m01, m10, m11b)
+    bx = m11 * centre[0] + m21 * centre[1] + dx
+    by = m12 * centre[0] + m22 * centre[1] + dy
+    return bx, by, sx, sy, out_angle
 
 
 def _transform_primitives(
@@ -224,8 +246,6 @@ def _transform_primitives(
     dx: float,
     dy: float,
 ) -> list[_Primitive]:
-    scale = _base_scale(base)
-    base_angle = _base_angle(base)
     moved: list[_Primitive] = []
     for primitive in primitives:
         kind = primitive[0]
@@ -234,25 +254,16 @@ def _transform_primitives(
             moved.append(("points", [(px + dx, py + dy) for px, py in points]))
         elif kind == "circle":
             _, cx, cy, r = primitive
-            centre = _apply_base(
-                _rotate_points([(cx, cy)], origin, angle), base
-            )[0]
-            moved.append(("circle", centre[0] + dx, centre[1] + dy, r * scale))
+            centre = _rotate_points([(cx, cy)], origin, angle)[0]
+            bx, by, sx, sy, out_angle = _base_ellipse(base, centre, 0.0, r, r)
+            moved.append(("ellipse", bx + dx, by + dy, sx, sy, out_angle))
         else:  # ellipse
             _, cx, cy, sx, sy, own_angle = primitive
-            centre = _apply_base(
-                _rotate_points([(cx, cy)], origin, angle), base
-            )[0]
-            moved.append(
-                (
-                    "ellipse",
-                    centre[0] + dx,
-                    centre[1] + dy,
-                    sx * scale,
-                    sy * scale,
-                    own_angle + angle + base_angle,
-                )
+            centre = _rotate_points([(cx, cy)], origin, angle)[0]
+            bx, by, out_x, out_y, out_angle = _base_ellipse(
+                base, centre, own_angle + angle, sx, sy
             )
+            moved.append(("ellipse", bx + dx, by + dy, out_x, out_y, out_angle))
     return moved
 
 
