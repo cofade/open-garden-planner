@@ -1413,6 +1413,14 @@ def test_a_refused_agent_group_turn_leaves_no_plan_and_a_turn_then_undo(
         win.canvas_view.command_manager.redo()
         assert group.rotation_angle == pytest.approx(37.0)
         assert group.transformOriginPoint() == pivot
+
+        # A redo after the frame centre moved must reuse the pivot it chose,
+        # not recompute one from the edited member (#1022 review).
+        win.canvas_view.command_manager.undo()
+        assert group._pivot_initialized is False
+        first.setPos(first.pos() + QPointF(50.0, 0.0))
+        win.canvas_view.command_manager.redo()
+        assert group.transformOriginPoint() == pivot
     finally:
         win._stop_agent_api()
 

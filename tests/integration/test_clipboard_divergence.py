@@ -218,6 +218,71 @@ def test_copy_paste_group_item_mints_new_ids_for_children(qtbot: Any) -> None:
         assert child.item_id not in (orig_c1_id, orig_c2_id, orig_grp_id)
 
 
+def test_copy_paste_group_remaps_bed_links_inside_the_copy(
+    qtbot: Any, tmp_path: Any,
+) -> None:
+    """A copied bed and its plant must link to each other, never to the source."""
+    from open_garden_planner.core.project import ProjectManager
+
+    scene = CanvasScene()
+    view = CanvasView(scene)
+    qtbot.addWidget(view)
+
+    bed = RectangleItem(
+        100.0, 100.0, 200.0, 200.0, object_type=ObjectType.RAISED_BED
+    )
+    plant = CircleItem(
+        150.0, 150.0, 15.0, object_type=ObjectType.PERENNIAL
+    )
+    scene.addItem(bed)
+    scene.addItem(plant)
+    plant.parent_bed_id = bed.item_id
+    bed.add_child_id(plant.item_id)
+    peer = RectangleItem(600.0, 100.0, 100.0, 100.0)
+    scene.addItem(peer)
+    scene.clearSelection()
+    for item in (bed, plant, peer):
+        item.setSelected(True)
+    view.group_selected()
+    group = next(
+        item for item in scene.items()
+        if isinstance(item, GroupItem) and item.parentItem() is None
+    )
+    scene.clearSelection()
+    group.setSelected(True)
+    view.copy_selected()
+    view.paste()
+
+    pasted_group = next(
+        item for item in scene.items()
+        if isinstance(item, GroupItem) and item.isSelected()
+    )
+    pasted_bed = next(
+        child for child in pasted_group.childItems()
+        if getattr(child, "object_type", None) is ObjectType.RAISED_BED
+    )
+    pasted_plant = next(
+        child for child in pasted_group.childItems()
+        if getattr(child, "object_type", None) is ObjectType.PERENNIAL
+    )
+    assert pasted_plant.parent_bed_id == pasted_bed.item_id
+    assert pasted_plant.item_id in pasted_bed.child_item_ids
+    assert pasted_bed.item_id != bed.item_id
+    assert plant.parent_bed_id == bed.item_id
+    assert pasted_plant.item_id not in bed.child_item_ids
+
+    target = tmp_path / "copied-group.ogp"
+    ProjectManager().save(scene, target)
+    loaded_scene = CanvasScene(width_cm=5000, height_cm=3000)
+    ProjectManager().load(loaded_scene, target)
+    loaded_bed = loaded_scene.find_item_by_id(pasted_bed.item_id)
+    loaded_plant = loaded_scene.find_item_by_id(pasted_plant.item_id)
+    assert loaded_bed is not None
+    assert loaded_plant is not None
+    assert loaded_plant.parent_bed_id == loaded_bed.item_id
+    assert loaded_plant.item_id in loaded_bed.child_item_ids
+
+
 def test_copy_paste_callout_item(qtbot: Any) -> None:
     """Copy/paste must support CalloutItem and offset target position."""
     scene = CanvasScene()

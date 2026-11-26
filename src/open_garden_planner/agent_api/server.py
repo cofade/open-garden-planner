@@ -1874,16 +1874,16 @@ def build_server(
             two calls leave it at 180. The resulting angle is normalised into
             [0, 360) and returned as rotation_deg.
 
-            Like resize_object, rotating a bed does NOT move or re-link the
-            plants inside it, so a rotation can leave a plant linked to a bed it
-            no longer sits inside. Use set_parent_bed to correct that.
+            Like resize_object, rotating a bed does not move the plants linked to
+            it, but the same undo step re-decides those links from the turned
+            shape: a plant that no longer stands inside can be unlinked.
 
             Fails if the object participates in a geometric constraint, if it's
             a journal pin or a group member, if it's on a locked layer, or if
-            the angle is not finite. A GROUP also fails when any of its members
-            is constrained or on a locked layer, when a linked plant belongs to
-            another group, or when a grouped bed's linked plant would be
-            separated by the turn.
+            the angle is not finite. A GROUP also fails when any member or
+            carried linked plant is constrained or on a locked layer, when a
+            linked plant belongs to another group, or when a grouped bed's
+            linked plant would be separated by the turn.
 
             Args:
                 item_id: The object's stable UUID (from list_objects/get_object).

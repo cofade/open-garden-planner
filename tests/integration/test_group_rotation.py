@@ -869,6 +869,12 @@ def test_undo_removes_the_pivot_a_reverted_turn_introduced(
     assert group.transformOriginPoint().isNull()
     assert len(canvas.command_manager._undo_stack) == depth
 
+    _drag(group, 0.0, 0.005)
+    assert group.rotation_angle == pytest.approx(0.0)
+    assert group.is_turned() is False
+    assert group._pivot_initialized is False
+    assert len(canvas.command_manager._undo_stack) == depth
+
     _drag(group, 0.0, 37.0)
     assert group._pivot_initialized is True
     saved_pivot = QPointF(group.transformOriginPoint())
@@ -880,6 +886,51 @@ def test_undo_removes_the_pivot_a_reverted_turn_introduced(
     canvas.command_manager.redo()
     assert group._pivot_initialized is True
     assert group.transformOriginPoint() == saved_pivot
+
+
+def test_nesting_a_turned_group_survives_two_save_reload_cycles(
+    canvas: CanvasView, tmp_path: Path,
+) -> None:
+    """A turned group nested in another group must keep its member poses.
+
+    Qt adjusts a nested item's pos when it enters the outer group; the saved
+    pivot and angle must reproduce that pose, twice in a row.
+    """
+    _show(canvas)
+    scene = canvas.scene()
+    first = _rect(scene, 0.0, 0.0, 100.0, 80.0)
+    second = _rect(scene, 200.0, 0.0, 100.0, 80.0)
+    inner = _grouped(canvas, first, second)
+    inner._apply_rotation(37.0)
+    peer = _rect(scene, 600.0, 0.0, 80.0, 80.0)
+    scene.clearSelection()
+    inner.setSelected(True)
+    peer.setSelected(True)
+    canvas.group_selected()
+    QApplication.processEvents()
+
+    def centres(target_scene: CanvasScene) -> list[tuple[float, float]]:
+        return sorted(
+            (
+                round(item.mapToScene(item.rect().center()).x(), 3),
+                round(item.mapToScene(item.rect().center()).y(), 3),
+            )
+            for item in target_scene.items()
+            if isinstance(item, RectangleItem)
+        )
+
+    before = centres(scene)
+    target = tmp_path / "nested-turned.ogp"
+    ProjectManager().save(scene, target)
+    loaded_scene = CanvasScene(width_cm=5000, height_cm=3000)
+    ProjectManager().load(loaded_scene, target)
+    assert centres(loaded_scene) == before
+
+    second_target = tmp_path / "nested-turned-2.ogp"
+    ProjectManager().save(loaded_scene, second_target)
+    loaded_again = CanvasScene(width_cm=5000, height_cm=3000)
+    ProjectManager().load(loaded_again, second_target)
+    assert centres(loaded_again) == before
 
 
 def test_an_unrotated_group_ungroups_and_survives_reload(

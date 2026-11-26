@@ -1477,9 +1477,11 @@ item.
   cannot make reload re-pivot and shift every member. The command records both pivot
   states, so undo restores the previous one and a drag that changes nothing fixes none.
   A pre-#1009 smart-symbol group has no origin and rotated about its local (0, 0), which
-  the loader reproduces. Grouped child records carry their own `parent_bed_id` /
-  `child_item_ids`, so a bed-and-plant link survives save and reload even when both
-  endpoints are members.
+  the loader reproduces. A nested group also saves its compensating base transform, so
+  regrouping a turned group does not apply its translation twice. Grouped child records
+  carry their own `parent_bed_id` / `child_item_ids`, so a bed-and-plant link survives
+  save and reload even when both endpoints are members; copy/duplicate remaps both
+  fields across the whole copied tree and drops an endpoint that was not copied.
 - **Ungroup is refused while turned.** `removeFromGroup` leaves the group's rotation in
   the member's Qt transform; the `.ogp` format stores a member's own `rotation_angle`, so
   a bake would have to cover every type (including arcs) and zero-net-angle pairs.

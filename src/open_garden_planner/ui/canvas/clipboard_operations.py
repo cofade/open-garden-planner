@@ -75,6 +75,23 @@ def _strip_item_ids(
             # built for its HOUSE; keeping it would draw two ridge lines.
             if child.get("object_type") != "ROOF_RIDGE"
         ]
+    # Bed links are identities too: remap them against the same map, and drop
+    # any endpoint that was not copied. Leaving them untouched made a copied
+    # bed point at the source plant (and vice versa) (#1022 review).
+    old_parent = copy_d.pop("parent_bed_id", None)
+    if old_parent is not None and new_ids:
+        replacement = new_ids.get(str(old_parent))
+        if replacement is not None:
+            copy_d["parent_bed_id"] = replacement
+    old_children = copy_d.pop("child_item_ids", None)
+    if isinstance(old_children, list) and new_ids:
+        remapped = [
+            new_ids[str(child_id)]
+            for child_id in old_children
+            if str(child_id) in new_ids
+        ]
+        if remapped:
+            copy_d["child_item_ids"] = remapped
     return copy_d
 
 

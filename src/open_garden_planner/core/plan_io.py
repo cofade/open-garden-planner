@@ -25,10 +25,11 @@ _GEOMETRY_KEYS = frozenset({
     "target_x", "target_y", "box_dx", "box_dy", "position", "scene_x", "scene_y",
     "meters_per_pixel", "object_height_cm", "spacing_radius_cm", "value", "angle",
     "label_offset_x", "label_offset_y", "font_size_cm",
+    "m11", "m12", "m21", "m22", "dx", "dy",
 })
 _GEOMETRY_CONTAINERS = frozenset({
     "objects", "children", "points", "anchors", "handles_in", "handles_out",
-    "position", "transform_origin", "guides", "constraints", "layers",
+    "position", "transform_origin", "transform", "guides", "constraints", "layers",
     "garden_journal_notes", "geo_metadata",
 })
 

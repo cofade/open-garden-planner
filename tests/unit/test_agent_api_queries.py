@@ -545,6 +545,36 @@ class TestBboxNormaliserPerShape:
         assert queries.objects_in_region(snapshot, 80.0, 80.0, 8.0, 8.0, raw=True) == []
 
 
+    def test_a_turned_polygon_uses_its_vertices_not_its_box(self) -> None:
+        """A triangle's corners bound it; rotating its upright box overstates it."""
+        group = {
+            "type": "group", "item_id": "g1", "x": 0.0, "y": 0.0,
+            "rotation": 45.0,
+            "children": [
+                {
+                    "type": "polygon", "item_id": "p1",
+                    "points": [
+                        {"x": 0.0, "y": 0.0},
+                        {"x": 100.0, "y": 0.0},
+                        {"x": 50.0, "y": 50.0},
+                    ],
+                },
+            ],
+        }
+        box = queries.object_bbox(group)
+        for got, expected in zip(
+            box, (32.322, -28.033, 70.711, 70.711), strict=True
+        ):
+            assert math.isclose(got, expected, abs_tol=0.01)
+        snapshot = {
+            "objects": [group],
+            "layers": [],
+            "canvas": {"width": 1000.0, "height": 1000.0},
+        }
+        # The upright box reached ~78 cm; the turned triangle stops at ~42.7.
+        assert queries.objects_in_region(snapshot, 0.0, 70.0, 200.0, 10.0, raw=True) == []
+
+
     def test_bezier_bbox_includes_control_handles(self) -> None:
         # The control hull bounds the curve; ignoring handles under-approximates.
         bez = {

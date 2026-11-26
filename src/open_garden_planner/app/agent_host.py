@@ -2547,6 +2547,11 @@ class AgentHost:
             if callable(plan):
                 plan()
                 planned = True
+            ensure = getattr(item, "ensure_rotation_pivot", None)
+            if callable(ensure):
+                # Fix the pivot before the command records both states; the
+                # command's redo must not recompute it (#1022 review).
+                ensure()
             followers = getattr(item, "rotation_follower_snapshots", None)
             cmd = RotateItemCommand(
                 item,

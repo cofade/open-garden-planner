@@ -13870,9 +13870,12 @@ Persistence is additive: a group may carry a `rotation` key (the same key a
 pre-#1009 smart-symbol group used) and a `transform_origin`; a later member edit
 does not re-pivot, and reloading the saved origin is what keeps every member in
 place. The command records both pivot states, so undo restores the previous one
-and a drag that changes nothing fixes none. Grouped child records carry their own
-`parent_bed_id` / `child_item_ids`, so a link whose endpoints are both members
-survives save and reload. Ungrouping a turned group is refused: Qt leaves the group rotation in the
+and a drag that changes nothing fixes none. A nested group saves its compensating
+base transform, so regrouping a turned group does not apply its translation twice.
+Grouped child records carry their own `parent_bed_id` / `child_item_ids`, so a link
+whose endpoints are both members survives save and reload; copy/duplicate remaps
+both fields through one map for the whole tree and drops uncopied endpoints.
+Ungrouping a turned group is refused: Qt leaves the group rotation in the
 member's Qt transform while the file stores the member's own angle, so a correct
 bake would have to cover every member type and zero-net-angle pairs. Rotate the
 group back to 0° to ungroup it. A legacy symbol

@@ -218,6 +218,12 @@ class GroupItem(RotationHandleMixin, GardenItemMixin, QGraphicsItemGroup):
     # Rotation (#1022)
     # ------------------------------------------------------------------
 
+    def ensure_rotation_pivot(self) -> None:
+        """Fix the pivot a turn uses, before a command records its state."""
+        if not self._pivot_initialized:
+            self.setTransformOriginPoint(selection_frame_rect(self).center())
+            self._pivot_initialized = True
+
     @staticmethod
     def _carried_pose(
         start_centre: QPointF,
@@ -244,8 +250,7 @@ class GroupItem(RotationHandleMixin, GardenItemMixin, QGraphicsItemGroup):
         Qt's group transform is what rotates their scene positions together.
         """
         if not self._pivot_initialized:
-            self.setTransformOriginPoint(selection_frame_rect(self).center())
-            self._pivot_initialized = True
+            self.ensure_rotation_pivot()
         pivot = self._gesture_pivot or self.rotation_pivot_scene()
         delta = angle - float(getattr(self, "_rotation_initial_angle", 0.0))
         for follower, start_center, _before, start_angle, _after in self._rotation_followers:
@@ -452,8 +457,9 @@ class GroupItem(RotationHandleMixin, GardenItemMixin, QGraphicsItemGroup):
         followers = self.rotation_follower_snapshots()
         registered = register_rotation_command(self, initial_angle, followers or None)
         if not registered and self._pivot_state_before is not None:
-            # A radial drag that ends where it started must not leave a new
-            # saved pivot behind: no command means no undo state to carry it.
+            # A drag that ends within the registration threshold must be
+            # discarded wholly: no live angle and no saved pivot (#1022 review).
+            self._apply_rotation(float(initial_angle))
             self.restore_rotation_pivot(self._pivot_state_before)
         self.finish_rotation_plan()
 

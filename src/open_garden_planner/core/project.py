@@ -16,7 +16,7 @@ from typing import Any
 from uuid import UUID
 
 from PyQt6.QtCore import QObject, QPointF, pyqtSignal
-from PyQt6.QtGui import QColor
+from PyQt6.QtGui import QColor, QTransform
 from PyQt6.QtWidgets import QGraphicsItem, QGraphicsScene
 
 from open_garden_planner.config.settings import active_language, get_settings
@@ -2120,6 +2120,19 @@ class ProjectManager(QObject):
             if getattr(item, "_pivot_initialized", False) or not item.transformOriginPoint().isNull():
                 origin = item.transformOriginPoint()
                 group_data["transform_origin"] = {"x": origin.x(), "y": origin.y()}
+            # Qt compensates a nested group's translation with a base transform
+            # (typically translate(-pos)) so the visible pose is unchanged.
+            # Without it, reloading applies pos a second time (#1022 review).
+            base = item.transform()
+            if not base.isIdentity():
+                group_data["transform"] = {
+                    "m11": base.m11(),
+                    "m12": base.m12(),
+                    "m21": base.m21(),
+                    "m22": base.m22(),
+                    "dx": base.dx(),
+                    "dy": base.dy(),
+                }
             return group_data
         elif isinstance(item, TextItem):
             data = {
@@ -2644,6 +2657,31 @@ class ProjectManager(QObject):
                         group.rotation_angle = angle
                     else:
                         group._apply_rotation(angle)
+            base_value = obj.get("transform")
+            if isinstance(base_value, dict):
+                with contextlib.suppress(ValueError, TypeError):
+                    group.setTransform(
+                        QTransform(
+                            finite_number(
+                                base_value.get("m11", 1.0), "group.transform.m11"
+                            ),
+                            finite_number(
+                                base_value.get("m12", 0.0), "group.transform.m12"
+                            ),
+                            finite_number(
+                                base_value.get("m21", 0.0), "group.transform.m21"
+                            ),
+                            finite_number(
+                                base_value.get("m22", 1.0), "group.transform.m22"
+                            ),
+                            finite_number(
+                                base_value.get("dx", 0.0), "group.transform.dx"
+                            ),
+                            finite_number(
+                                base_value.get("dy", 0.0), "group.transform.dy"
+                            ),
+                        )
+                    )
             return group
 
         # Extract common fields

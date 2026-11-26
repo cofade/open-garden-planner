@@ -124,7 +124,26 @@ def _leaf_primitives(obj: dict[str, Any]) -> list[_Primitive]:
     box = _object_bbox_unrotated(obj)
     angle = float(obj.get("rotation_angle", obj.get("rotation", 0.0)) or 0.0)
     centre = (box[0] + box[2] / 2.0, box[1] + box[3] / 2.0)
-    return [("points", _rotate_points(_box_corners(box), centre, angle))]
+    points = obj.get("points")
+    if isinstance(points, list) and points:
+        raw = [(float(point["x"]), float(point["y"])) for point in points]
+    elif "anchors" in obj:
+        raw = [
+            (float(point["x"]), float(point["y"]))
+            for point in (
+                list(obj["anchors"])
+                + list(obj.get("handles_in") or [])
+                + list(obj.get("handles_out") or [])
+            )
+        ]
+    elif "x1" in obj and "x2" in obj:  # construction_line segment
+        raw = [
+            (float(obj["x1"]), float(obj.get("y1", 0.0))),
+            (float(obj["x2"]), float(obj.get("y2", 0.0))),
+        ]
+    else:
+        raw = _box_corners(box)
+    return [("points", _rotate_points(raw, centre, angle))]
 
 
 def _primitive_bounds(primitive: _Primitive) -> tuple[float, float, float, float]:
