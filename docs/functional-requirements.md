@@ -95,7 +95,7 @@ Detailed functional requirements for Open Garden Planner. These serve as the spe
   groupable (it is a plan backdrop; grouping it would re-band it above ground surfaces). The menu
   never offers a row the shortcut would refuse: both read `group_item.groupable_selection` /
   `ungroupable_groups`, and dispatch calls the view's `group_selected` / `ungroup_selected`. No new
-  persisted field. Acceptance: `tests/integration/test_group_context_menu.py` (14 item types, real
+  persisted field. Acceptance: `tests/integration/test_group_context_menu.py` (13 item types, real
   `contextMenuEvent`, menu matrix, the just-grouped state, nested one-level rule, one-step
   multi-group undo, selection normalisation and group-delete subtree cleanup).
 - **FR-EDIT-23** *(issue #665)*: A filled object's texture can be **turned, scaled and shifted**

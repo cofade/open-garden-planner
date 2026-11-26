@@ -13,6 +13,8 @@ from __future__ import annotations
 import math
 from typing import Any
 
+from open_garden_planner.core.angles import is_zero_angle
+
 
 def _anchor_point(obj: dict[str, Any]) -> tuple[float, float]:
     """Best-effort anchor for a shape with no width/height (point-like)."""
@@ -30,6 +32,18 @@ def _anchor_point(obj: dict[str, Any]) -> tuple[float, float]:
     return 0.0, 0.0
 
 
+def _annotation_uses_leaf(obj: dict[str, Any]) -> bool:
+    """Whether this record's region box needs the annotation primitive path."""
+    if not isinstance(obj.get("bounds"), dict):
+        return False
+    if obj.get("type") == "text":
+        return True
+    if obj.get("type") == "callout":
+        angle = float(obj.get("rotation_angle", 0.0) or 0.0)
+        return not is_zero_angle(angle)
+    return False
+
+
 def object_bbox(obj: dict[str, Any]) -> tuple[float, float, float, float]:
     """Return ``(x, y, width, height)`` in scene cm for any serialised object.
 
@@ -40,16 +54,10 @@ def object_bbox(obj: dict[str, Any]) -> tuple[float, float, float, float]:
     extent instead of growing their bounding square. A turned annotation
     (callout/text) reports its turned footprint because it is a region target.
     """
-    from open_garden_planner.core.angles import is_zero_angle
-
     if obj.get("children"):
         return _primitives_bbox(_group_primitives(obj))
-    if obj.get("type") == "text" and isinstance(obj.get("bounds"), dict):
+    if _annotation_uses_leaf(obj):
         return _primitives_bbox(_leaf_primitives(obj))
-    if obj.get("type") == "callout" and isinstance(obj.get("bounds"), dict):
-        angle = float(obj.get("rotation_angle", 0.0) or 0.0)
-        if not is_zero_angle(angle):
-            return _primitives_bbox(_leaf_primitives(obj))
     return _object_bbox_unrotated(obj)
 
 
@@ -64,9 +72,7 @@ def object_bounds_parts(
     """
     if obj.get("children"):
         return [_primitive_bounds(primitive) for primitive in _group_primitives(obj)]
-    if obj.get("type") in {"callout", "text"} and isinstance(
-        obj.get("bounds"), dict
-    ):
+    if _annotation_uses_leaf(obj):
         return [
             _primitive_bounds(primitive) for primitive in _leaf_primitives(obj)
         ]
