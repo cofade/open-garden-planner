@@ -6,6 +6,7 @@ TRANSLATIONS: dict[str, dict[str, str]] = {
     "GroupItem": {
         "A constrained member cannot be rotated with the group": "Un membre contraint ne peut pas être tourné avec le groupe",
         "A linked plant belongs to another group; remove it from that group before turning this one": "Une plante liée appartient à un autre groupe ; retirez-la de ce groupe avant de tourner celui-ci",
+        "A member on a locked layer cannot be rotated with the group": "Un membre sur un calque verrouillé ne peut pas être tourné avec le groupe",
     },
     "CanvasView": {
         "Rotate the group back to 0° before ungrouping": "Ramenez le groupe à 0° avant de dissocier",

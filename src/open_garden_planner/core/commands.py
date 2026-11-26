@@ -2061,17 +2061,32 @@ class RotateItemCommand(Command):
                 for moved_item, _index, _before, _after in self._partner_vertex_moves
             ],
         )
-        from open_garden_planner.ui.canvas.items.group_item import GroupItem
+        from open_garden_planner.ui.canvas.items.group_item import (
+            GroupItem,
+            selection_tree,
+        )
 
         if isinstance(item, GroupItem) and not (
             self._partner_moves or self._partner_vertex_moves
         ):
             # A group's own members are not the group item itself: a Plant Grid
-            # group moved out of a bed must re-decide its plants' links. A
-            # grouped bed's top-level linked plants are carried as followers
+            # group moved out of a bed must re-decide its plants' links. A plant
+            # that turns WITH its own bed keeps the link instead: the two moved
+            # rigidly, so the smallest-bed rule must not transfer it to a
+            # stationary bed the turn happens to carry it over (#1022 review).
+            # A grouped bed's top-level linked plants are carried as followers
             # and are deliberately not in this list.
-            plants = plants_in_items([item])
             scene = item.scene()
+            moving_ids = {
+                member_id
+                for member in selection_tree([item])
+                if (member_id := getattr(member, "item_id", None)) is not None
+            }
+            plants = [
+                plant
+                for plant in plants_in_items([item])
+                if getattr(plant, "parent_bed_id", None) not in moving_ids
+            ]
             self._membership = (
                 BedMembershipChange(scene, plants) if plants and scene is not None else None
             )

@@ -285,11 +285,13 @@ class GroupItem(RotationHandleMixin, GardenItemMixin, QGraphicsItemGroup):
         return targets
 
     def rotation_refusal_reason(self) -> str | None:
-        """Why a turn would violate any affected item's constraint, or None."""
+        """Why a turn would violate an affected item's constraint or lock."""
+        from PyQt6.QtCore import QCoreApplication
+
         scene = self.scene()
-        graph = getattr(scene, "constraint_graph", None) if scene is not None else None
-        if graph is None:
+        if scene is None:
             return None
+        graph = getattr(scene, "constraint_graph", None)
         subtree = {id(entry) for entry in selection_tree([self])}
         find = getattr(scene, "find_item_by_id", None)
         if callable(find):
@@ -301,22 +303,35 @@ class GroupItem(RotationHandleMixin, GardenItemMixin, QGraphicsItemGroup):
                     if item is None or item.parentItem() is None:
                         continue
                     if id(item.parentItem()) not in subtree:
-                        from PyQt6.QtCore import QCoreApplication
-
                         return QCoreApplication.translate(
                             "GroupItem",
                             "A linked plant belongs to another group; "
                             "remove it from that group before turning this one",
                         )
-        for item in self.rotation_targets():
+        targets = self.rotation_targets()
+        for item in targets:
             item_id = getattr(item, "item_id", None)
-            if item_id is not None and graph.get_item_constraints(item_id):
-                from PyQt6.QtCore import QCoreApplication
-
+            if (
+                graph is not None
+                and item_id is not None
+                and graph.get_item_constraints(item_id)
+            ):
                 return QCoreApplication.translate(
                     "GroupItem",
                     "A constrained member cannot be rotated with the group",
                 )
+        get_layer = getattr(scene, "get_layer_by_id", None)
+        if callable(get_layer):
+            for item in targets:
+                layer_id = getattr(item, "layer_id", None)
+                if layer_id is None:
+                    continue
+                layer = get_layer(layer_id)
+                if layer is not None and bool(getattr(layer, "locked", False)):
+                    return QCoreApplication.translate(
+                        "GroupItem",
+                        "A member on a locked layer cannot be rotated with the group",
+                    )
         return None
 
     def begin_rotation_plan(self) -> None:

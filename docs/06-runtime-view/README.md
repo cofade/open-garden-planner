@@ -1186,14 +1186,16 @@ angle or partner changes adds no history entry. Explicit child constraints
 outrank automatic bed carrying; containment is evaluated after geometry settles.
 
 A **group turn** takes the same shape with one addition. The view refuses it
-before any geometry when any item in `GroupItem.rotation_targets()` has a
-constraint. Otherwise `begin_rotation_plan` captures the pivot and every carried
-plant, the live delta turns the group transform and those plants about the same
-pivot, and `RotateItemCommand` records both the group angle and the plants'
-before/after poses. Its membership tracker is skipped for the group, so the turn
-cannot unlink a plant the bed still owns; the plants stay linked and the next
-move carries them by the group's net scene delta. Undo/redo replay only the
-recorded poses, never a fresh plan.
+before any geometry when any item in `GroupItem.rotation_targets()` is constrained,
+sits on a locked layer, or is a linked plant owned by another group. Otherwise
+`begin_rotation_plan` captures the pivot and every carried plant, the live delta
+turns the group transform and those plants about the same pivot, and
+`RotateItemCommand` records both the group angle and the plants' before/after
+poses. Its membership tracker re-decides only the group's own plants whose parent
+bed did not turn with them: a plant that turns with its own bed keeps the link,
+and a bed's carried top-level plants are followers, never re-solved. The plants
+stay linked and the next move carries them by the group's net scene delta.
+Undo/redo replay only the recorded poses, never a fresh plan.
 
 ### Creating an orientation constraint beside a locked object
 

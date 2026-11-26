@@ -13875,12 +13875,13 @@ bake would have to cover every member type and zero-net-angle pairs. Rotate the
 group back to 0° to ungroup it. A legacy symbol
 without an origin rotated about its local (0, 0); the loader reproduces that
 exact geometry. A grouped bed's linked top-level plants are captured at gesture start and
-carried about the same pivot by `RotateItemCommand`'s follower snapshots; the
-group rotation deliberately does not re-decide bed containment, so it cannot
-unlink them. The move command's net-scene-delta rule (PF-CAN-70) handles later
-moves. A constrained linked plant is refused before any geometry changes.
-Roof ridges
-are re-derived by the existing `update_house_ridges_under` listener.
+carried about the same pivot by `RotateItemCommand`'s follower snapshots. Its membership
+tracker re-decides only the group's own plants whose parent bed did not turn with them; a
+plant that turns with its own bed keeps the link because the two moved rigidly, and the
+carried top-level plants are followers, never re-solved. The move command's
+net-scene-delta rule (PF-CAN-70) handles later moves. A constrained member, a member on a
+locked layer, or a linked plant owned by another group is refused before any geometry
+changes. Roof ridges are re-derived by the existing `update_house_ridges_under` listener.
 
 Pinned by `tests/integration/test_group_rotation.py` (handle visibility,
 drill-down, a real viewport drag, rigid member geometry, one-step undo, Shift

@@ -459,6 +459,83 @@ def test_a_grouped_plant_that_leaves_its_bed_is_unlinked_in_the_same_step(
     assert plant.item_id in bed.child_item_ids
 
 
+def test_a_plant_turning_with_its_own_bed_keeps_the_link(canvas: CanvasView) -> None:
+    """A rigid bed+plant pair must not be re-homed by a stationary smaller bed.
+
+    The containment rule only re-decides plants whose parent did NOT turn with
+    them (#1022 review); otherwise the smallest-bed rule can steal a plant that
+    moved together with its own bed.
+    """
+    _show(canvas)
+    scene = canvas.scene()
+    bed = _rect(scene, 100.0, 100.0, 200.0, 200.0, kind=ObjectType.RAISED_BED)
+    plant = CircleItem(
+        150.0, 150.0, 15.0,
+        object_type=ObjectType.PERENNIAL, layer_id=scene.active_layer.id,
+    )
+    scene.addItem(plant)
+    plant.parent_bed_id = bed.item_id
+    bed.add_child_id(plant.item_id)
+    peer = _rect(scene, 400.0, 100.0)
+    group = _grouped(canvas, bed, peer)
+    scene.clearSelection()
+    group.setSelected(True)
+    QApplication.processEvents()
+
+    pivot = group.rotation_pivot_scene()
+    centre = plant.mapToScene(plant.rect().center())
+    # A +90° turn sends (dx, dy) to (-dy, dx) about the pivot.
+    dx, dy = centre.x() - pivot.x(), centre.y() - pivot.y()
+    target = QPointF(pivot.x() - dy, pivot.y() + dx)
+    steal = _rect(
+        scene, target.x() - 20.0, target.y() - 20.0, 40.0, 40.0,
+        kind=ObjectType.RAISED_BED,
+    )
+
+    _drag(group, 0.0, 90.0)
+
+    landed = plant.mapToScene(plant.rect().center())
+    assert landed.x() == pytest.approx(target.x(), abs=0.5)
+    assert landed.y() == pytest.approx(target.y(), abs=0.5)
+    assert plant.parent_bed_id == bed.item_id
+    assert plant.item_id in bed.child_item_ids
+    assert plant.item_id not in steal.child_item_ids
+
+    canvas.command_manager.undo()
+    assert plant.parent_bed_id == bed.item_id
+    assert plant.item_id in bed.child_item_ids
+
+
+def test_a_linked_plant_on_a_locked_layer_refuses_the_turn(canvas: CanvasView) -> None:
+    """A follower outside the Qt tree can still be locked (#1022 review)."""
+    from open_garden_planner.models.layer import Layer
+
+    _show(canvas)
+    scene = canvas.scene()
+    locked = Layer(name="Locked")
+    locked.locked = True
+    scene.add_layer(locked)
+    bed = _rect(scene, 100.0, 100.0, 200.0, 200.0, kind=ObjectType.RAISED_BED)
+    plant = CircleItem(
+        150.0, 150.0, 15.0,
+        object_type=ObjectType.PERENNIAL, layer_id=locked.id,
+    )
+    scene.addItem(plant)
+    plant.parent_bed_id = bed.item_id
+    bed.add_child_id(plant.item_id)
+    group = _grouped(canvas, bed, _rect(scene, 600.0, 100.0))
+    scene.clearSelection()
+    group.setSelected(True)
+    QApplication.processEvents()
+    depth = len(canvas.command_manager._undo_stack)
+
+    handle = _handle(group)
+    assert canvas.begin_drill_handle_drag(handle, handle.scenePos()) is False
+    assert group.rotation_angle == pytest.approx(0.0)
+    assert group._rotation_plan_active is False
+    assert len(canvas.command_manager._undo_stack) == depth
+
+
 def test_a_linked_plant_in_another_group_refuses_the_turn(canvas: CanvasView) -> None:
     _show(canvas)
     scene = canvas.scene()

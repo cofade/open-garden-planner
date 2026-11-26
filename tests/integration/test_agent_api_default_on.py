@@ -1365,6 +1365,52 @@ def test_rotate_object_absolute_vs_relative(qtbot: Any, monkeypatch: Any) -> Non
         win._stop_agent_api()
 
 
+def test_a_refused_agent_group_turn_leaves_no_plan_and_a_turn_then_undo(
+    qtbot: Any, monkeypatch: Any
+) -> None:
+    """The real group endpoint: refuse, then turn, then undo (#1022 review).
+
+    A refused request must not leave ``_rotation_plan_active`` set, or every
+    later turn reports "already in progress"; building the plan by hand in a
+    canvas-only test cannot catch that.
+    """
+    from uuid import uuid4
+
+    from open_garden_planner.core.commands import GroupCommand
+
+    _discard_on_close(monkeypatch)
+    win = GardenPlannerApp()
+    qtbot.addWidget(win)
+    try:
+        first = _add_bed(win, 300, 300, 200, 150)
+        second = _add_bed(win, 700, 300, 200, 150)
+        win.canvas_view.command_manager.execute(
+            GroupCommand(win.canvas_scene, [first, second])
+        )
+        group = first.parentItem()
+        _add_distance_constraint(win, first, uuid4())
+        depth = len(win.canvas_view.command_manager._undo_stack)
+
+        with pytest.raises(ValueError, match="constrained member"):
+            win._do_agent_rotate_object(str(group.item_id), 90.0, False)
+        assert group.rotation_angle == pytest.approx(0.0)
+        assert group._rotation_plan_active is False
+        assert len(win.canvas_view.command_manager._undo_stack) == depth
+
+        win.canvas_scene.constraint_graph.clear()
+        result = win._do_agent_rotate_object(str(group.item_id), 37.0, False)
+        assert result["rotation_deg"] == pytest.approx(37.0)
+        assert group.rotation_angle == pytest.approx(37.0)
+        assert group._rotation_plan_active is False
+        assert len(win.canvas_view.command_manager._undo_stack) == depth + 1
+
+        win.canvas_view.command_manager.undo()
+        assert group.rotation_angle == pytest.approx(0.0)
+        assert len(win.canvas_view.command_manager._undo_stack) == depth
+    finally:
+        win._stop_agent_api()
+
+
 def test_rotate_object_direction_is_counter_clockwise(
     qtbot: Any, monkeypatch: Any
 ) -> None:

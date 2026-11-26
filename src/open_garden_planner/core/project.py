@@ -2605,9 +2605,13 @@ class ProjectManager(QObject):
             origin = obj.get("transform_origin")
             if isinstance(origin, dict):
                 with contextlib.suppress(ValueError, TypeError):
-                    group.setTransformOriginPoint(
-                        QPointF(float(origin.get("x", 0.0)), float(origin.get("y", 0.0)))
+                    origin_x = finite_number(
+                        origin.get("x", 0.0), "group.transform_origin.x"
                     )
+                    origin_y = finite_number(
+                        origin.get("y", 0.0), "group.transform_origin.y"
+                    )
+                    group.setTransformOriginPoint(QPointF(origin_x, origin_y))
                     group._pivot_initialized = True
                     if angle_value is not None:
                         angle = float(angle_value)

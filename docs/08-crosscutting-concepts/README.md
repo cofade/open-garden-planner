@@ -1481,14 +1481,17 @@ item.
   a bake would have to cover every type (including arcs) and zero-net-angle pairs.
   `UngroupCommand` and `CanvasView.ungroup_selected` refuse a turned group and ask the
   user to rotate it back to 0° first.
-- **Linked things follow.** `GroupItem.rotation_targets()` is the one set the turn moves: the
-  Qt subtree plus each grouped bed's linked top-level plants. `begin_rotation_plan`
-  captures their poses, `_apply_rotation` applies the DELTA to them, and the same
-  `RotateItemCommand` stores their before/after poses. A group rotation does not
-  re-decide bed containment, so it cannot unlink a plant the bed still owns. A
-  constrained linked plant refuses the turn before any geometry changes. A grouped
-  house's ridge is re-derived by `update_house_ridges_under` on the group's transform
-  change.
+- **Linked things follow, and a rigid pair keeps its link.** `GroupItem.rotation_targets()`
+  is the one set the turn moves: the Qt subtree plus each grouped bed's linked top-level
+  plants. `begin_rotation_plan` captures their poses, `_apply_rotation` applies the DELTA
+  to them, and the same `RotateItemCommand` stores their before/after poses. Membership is
+  re-decided only for the group's own plants whose parent bed did **not** turn with them (a
+  Plant Grid group moved out of a bed); a plant that turns with its own bed keeps the link
+  because the two moved rigidly, and a grouped bed's carried top-level plants are
+  followers, never re-solved. A constrained member, a member on a locked layer, or a
+  linked plant owned by another group refuses the turn before any geometry changes. A
+  grouped house's ridge is re-derived by `update_house_ridges_under` on the group's
+  transform change.
 
 Tests: `tests/integration/test_group_rotation.py`.
 
@@ -9937,11 +9940,14 @@ the item classes that do not inherit it):
 **Group/Ungroup matrix.** The entries are decided from `scene.selectedItems()`
 at the moment the menu opens, after normalising the selection: a right-click on
 an unselected item replaces the selection with it. Zero or one non-group object
-offers nothing; 2+ objects offer **Group**; exactly one group offers
-**Ungroup**; groups plus a foreign object, or 2+ groups, offer both. Dispatch
+offers nothing; 2+ objects offer **Group**; exactly one unturned group offers
+**Ungroup**; groups plus a foreign object, or 2+ groups, offer both when at least
+one selected group is unturned. A turned group is excluded until it is rotated
+back to 0° (FR-EDIT-22); a mixed selection offers Ungroup only for its unturned
+groups. Dispatch
 calls the view's `group_selected` / `ungroup_selected` — the same methods as
 Ctrl+G / Ctrl+Shift+G — so the menu can never offer a row the shortcut would
-refuse. `ungroupable_groups` keeps only TOP-LEVEL groups (`parentItem() is
+refuse. `ungroupable_groups` keeps only TOP-LEVEL, unturned groups (`parentItem() is
 None`; Qt reports a group child as selected when its parent is, PF-CAN-36);
 a multi-group ungroup is one `CompoundCommand` (one
 undo step). Every menu normalises the selection first — through

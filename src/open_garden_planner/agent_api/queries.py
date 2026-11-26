@@ -49,67 +49,84 @@ def object_bbox(obj: dict[str, Any]) -> tuple[float, float, float, float]:
     stored one); a GROUP's box composes its members' own angles and the group
     transform, because otherwise a region query misses the real footprint.
     """
+    if obj.get("children"):
+        return _bbox_of(_group_points(obj))
     return _object_bbox_unrotated(obj)
 
 
-def _rotated_box(
-    box: tuple[float, float, float, float], angle: float
-) -> tuple[float, float, float, float]:
-    if not angle:
-        return box
+def _bbox_of(points: list[tuple[float, float]]) -> tuple[float, float, float, float]:
+    xs = [point[0] for point in points]
+    ys = [point[1] for point in points]
+    x0, x1 = min(xs), max(xs)
+    y0, y1 = min(ys), max(ys)
+    return (x0, y0, x1 - x0, y1 - y0)
+
+
+def _box_corners(
+    box: tuple[float, float, float, float],
+) -> list[tuple[float, float]]:
     x, y, w, h = box
-    cx, cy = x + w / 2.0, y + h / 2.0
+    return [(x, y), (x + w, y), (x, y + h), (x + w, y + h)]
+
+
+def _rotate_points(
+    points: list[tuple[float, float]],
+    origin: tuple[float, float],
+    angle: float,
+) -> list[tuple[float, float]]:
+    if not angle:
+        return points
+    ox, oy = origin
     rad = math.radians(angle)
     cos_a, sin_a = math.cos(rad), math.sin(rad)
-    xs: list[float] = []
-    ys: list[float] = []
-    for px, py in ((x, y), (x + w, y), (x, y + h), (x + w, y + h)):
-        dx, dy = px - cx, py - cy
-        xs.append(cx + dx * cos_a - dy * sin_a)
-        ys.append(cy + dx * sin_a + dy * cos_a)
-    return (min(xs), min(ys), max(xs) - min(xs), max(ys) - min(ys))
+    return [
+        (
+            ox + (px - ox) * cos_a - (py - oy) * sin_a,
+            oy + (px - ox) * sin_a + (py - oy) * cos_a,
+        )
+        for px, py in points
+    ]
+
+
+def _member_points(child: dict[str, Any]) -> list[tuple[float, float]]:
+    """A member's corner points in the group's local frame, own turn applied."""
+    if child.get("children"):
+        return _group_points(child)
+    box = _object_bbox_unrotated(child)
+    angle = float(child.get("rotation_angle", child.get("rotation", 0.0)) or 0.0)
+    centre = (box[0] + box[2] / 2.0, box[1] + box[3] / 2.0)
+    return _rotate_points(_box_corners(box), centre, angle)
+
+
+def _group_points(obj: dict[str, Any]) -> list[tuple[float, float]]:
+    """The group's corner points in its PARENT frame, every turn composed.
+
+    Children serialise in the group's local frame. A nested group is recursed
+    (its own turn and translation included) rather than boxed to an
+    axis-aligned rectangle first: two opposing turns must cancel instead of
+    compounding their bounding boxes (#1022 review).
+    """
+    points: list[tuple[float, float]] = []
+    for child in obj.get("children") or []:
+        points.extend(_member_points(child))
+    angle = float(obj.get("rotation", 0.0) or 0.0)
+    origin = obj.get("transform_origin")
+    if isinstance(origin, dict):
+        pivot = (float(origin.get("x", 0.0)), float(origin.get("y", 0.0)))
+    else:
+        xs = [point[0] for point in points]
+        ys = [point[1] for point in points]
+        pivot = ((min(xs) + max(xs)) / 2.0, (min(ys) + max(ys)) / 2.0)
+    points = _rotate_points(points, pivot, angle)
+    gx = float(obj.get("x", 0.0))
+    gy = float(obj.get("y", 0.0))
+    return [(px + gx, py + gy) for px, py in points]
 
 
 def _object_bbox_unrotated(
     obj: dict[str, Any],
 ) -> tuple[float, float, float, float]:
-    """The axis-aligned box of *obj* before its own angle is applied."""
-    children = obj.get("children")  # group
-    if children:
-        # Children serialise in the group's LOCAL frame; the group dict carries
-        # x/y, its own angle and (since #1022) the pivot. Union the child boxes,
-        # turn each corner about the pivot, then place the result at x/y.
-        boxes = []
-        for child in children:
-            box = object_bbox(child)
-            if not child.get("children"):
-                box = _rotated_box(
-                    box,
-                    float(child.get("rotation_angle", child.get("rotation", 0.0)) or 0.0),
-                )
-            boxes.append(box)
-        angle = float(obj.get("rotation", 0.0) or 0.0)
-        origin = obj.get("transform_origin")
-        if not isinstance(origin, dict):
-            x0 = min(b[0] for b in boxes)
-            y0 = min(b[1] for b in boxes)
-            x1 = max(b[0] + b[2] for b in boxes)
-            y1 = max(b[1] + b[3] for b in boxes)
-            origin = {"x": (x0 + x1) / 2.0, "y": (y0 + y1) / 2.0}
-        ox, oy = float(origin.get("x", 0.0)), float(origin.get("y", 0.0))
-        rad = math.radians(angle)
-        cos_a, sin_a = math.cos(rad), math.sin(rad)
-        xs: list[float] = []
-        ys: list[float] = []
-        for bx, by, bw, bh in boxes:
-            for px, py in ((bx, by), (bx + bw, by), (bx, by + bh), (bx + bw, by + bh)):
-                dx, dy = px - ox, py - oy
-                xs.append(ox + dx * cos_a - dy * sin_a)
-                ys.append(oy + dx * sin_a + dy * cos_a)
-        gx, gy = float(obj.get("x", 0.0)), float(obj.get("y", 0.0))
-        x0, x1 = min(xs) + gx, max(xs) + gx
-        y0, y1 = min(ys) + gy, max(ys) + gy
-        return (x0, y0, x1 - x0, y1 - y0)
+    """The axis-aligned box of an ungrouped *obj* before its own angle."""
     if "width" in obj and "x" in obj:  # rectangle (group has x but no width)
         return (
             float(obj["x"]),

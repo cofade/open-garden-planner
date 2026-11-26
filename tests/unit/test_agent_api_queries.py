@@ -500,6 +500,30 @@ class TestBboxNormaliserPerShape:
         assert queries.object_bbox(outer) == (40.0, -40.0, 20.0, 100.0)
 
 
+    def test_opposing_nested_turns_cancel_in_the_box(self) -> None:
+        """A nested group is transformed, not boxed to an axis-aligned square.
+
+        Two opposing 45° turns compose to the identity; boxing the inner
+        result first would grow a 100 x 20 cm member to ~120 x 120 (#1022).
+        """
+        inner = {
+            "type": "group", "item_id": "inner", "x": 0.0, "y": 0.0,
+            "rotation": 45.0,
+            "children": [
+                {"type": "rectangle", "item_id": "c1", "x": 0.0, "y": 0.0,
+                 "width": 100.0, "height": 20.0},
+            ],
+        }
+        outer = {
+            "type": "group", "item_id": "outer", "x": 0.0, "y": 0.0,
+            "rotation": -45.0,
+            "children": [inner],
+        }
+        box = queries.object_bbox(outer)
+        for got, expected in zip(box, (0.0, 0.0, 100.0, 20.0), strict=True):
+            assert math.isclose(got, expected, abs_tol=1e-9)
+
+
     def test_bezier_bbox_includes_control_handles(self) -> None:
         # The control hull bounds the curve; ignoring handles under-approximates.
         bez = {

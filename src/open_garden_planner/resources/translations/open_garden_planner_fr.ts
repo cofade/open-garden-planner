@@ -1544,42 +1544,42 @@
     <context>
         <name>Commands</name>
         <message>
-            <location filename="../../core/commands.py" line="2669" />
+            <location filename="../../core/commands.py" line="2685" />
             <source>Add constraint</source>
             <translation>Ajouter une contrainte</translation>
         </message>
         <message>
-            <location filename="../../core/commands.py" line="4841" />
+            <location filename="../../core/commands.py" line="4857" />
             <source>Add garden journal note</source>
             <translation>Ajouter une note au journal du jardin</translation>
         </message>
         <message>
-            <location filename="../../core/commands.py" line="4610" />
+            <location filename="../../core/commands.py" line="4626" />
             <source>Add harvest entry</source>
             <translation>Ajouter une récolte</translation>
         </message>
         <message>
-            <location filename="../../core/commands.py" line="3720" />
+            <location filename="../../core/commands.py" line="3736" />
             <source>Add layer '{name}'</source>
             <translation>Ajouter le calque « {name} »</translation>
         </message>
         <message>
-            <location filename="../../core/commands.py" line="4463" />
+            <location filename="../../core/commands.py" line="4479" />
             <source>Add pest/disease log</source>
             <translation>Ajouter un relevé de ravageur ou maladie</translation>
         </message>
         <message>
-            <location filename="../../core/commands.py" line="4335" />
+            <location filename="../../core/commands.py" line="4351" />
             <source>Add soil test</source>
             <translation>Ajouter une analyse du sol</translation>
         </message>
         <message>
-            <location filename="../../core/commands.py" line="4948" />
+            <location filename="../../core/commands.py" line="4964" />
             <source>Add task</source>
             <translation>Ajouter une tâche</translation>
         </message>
         <message>
-            <location filename="../../core/commands.py" line="2357" />
+            <location filename="../../core/commands.py" line="2373" />
             <source>Add vertex</source>
             <translation>Ajouter un sommet</translation>
         </message>
@@ -1599,7 +1599,7 @@
             <translation>Centrer verticalement</translation>
         </message>
         <message>
-            <location filename="../../core/commands.py" line="2426" />
+            <location filename="../../core/commands.py" line="2442" />
             <location filename="../../ui/canvas/canvas_view.py" line="6429" />
             <source>Align items</source>
             <translation>Aligner les éléments</translation>
@@ -1626,17 +1626,17 @@
             <translation>Appliquer les données de l’espèce</translation>
         </message>
         <message>
-            <location filename="../../core/commands.py" line="3515" />
+            <location filename="../../core/commands.py" line="3531" />
             <source>Array along path ({count} copies)</source>
             <translation>Répétition le long d’un tracé ({count} copies)</translation>
         </message>
         <message>
-            <location filename="../../core/commands.py" line="3215" />
+            <location filename="../../core/commands.py" line="3231" />
             <source>Attach plant to bed</source>
             <translation>Associer la plante à la planche</translation>
         </message>
         <message>
-            <location filename="../../core/commands.py" line="3409" />
+            <location filename="../../core/commands.py" line="3425" />
             <source>Boolean {operation}</source>
             <translation>Opération booléenne {operation}</translation>
         </message>
@@ -1651,7 +1651,7 @@
             <translation>Mettre {count} élément(s) au premier plan</translation>
         </message>
         <message>
-            <location filename="../../core/commands.py" line="4297" />
+            <location filename="../../core/commands.py" line="4313" />
             <source>Chamfer corner</source>
             <translation>Chanfreiner le sommet</translation>
         </message>
@@ -1676,7 +1676,7 @@
             <translation>Modifier {property}</translation>
         </message>
         <message>
-            <location filename="../../core/commands.py" line="2946" />
+            <location filename="../../core/commands.py" line="2962" />
             <source>Create circular array ({count} items)</source>
             <translation>Créer une répétition circulaire ({count} éléments)</translation>
         </message>
@@ -1686,12 +1686,12 @@
             <translation>Créer les calques du jardin-forêt</translation>
         </message>
         <message>
-            <location filename="../../core/commands.py" line="2873" />
+            <location filename="../../core/commands.py" line="2889" />
             <source>Create grid array ({count} items)</source>
             <translation>Créer une répétition en grille ({count} éléments)</translation>
         </message>
         <message>
-            <location filename="../../core/commands.py" line="2791" />
+            <location filename="../../core/commands.py" line="2807" />
             <source>Create linear array ({count} items)</source>
             <translation>Créer une répétition linéaire ({count} éléments)</translation>
         </message>
@@ -1707,17 +1707,17 @@
             <translation>Créer {item_type}</translation>
         </message>
         <message>
-            <location filename="../../core/commands.py" line="5079" />
+            <location filename="../../core/commands.py" line="5095" />
             <source>Delete camera tour</source>
             <translation>Supprimer la visite de caméra</translation>
         </message>
         <message>
-            <location filename="../../core/commands.py" line="4917" />
+            <location filename="../../core/commands.py" line="4933" />
             <source>Delete garden journal note</source>
             <translation>Supprimer une note du journal du jardin</translation>
         </message>
         <message>
-            <location filename="../../core/commands.py" line="4730" />
+            <location filename="../../core/commands.py" line="4746" />
             <source>Delete harvest entry</source>
             <translation>Supprimer une récolte</translation>
         </message>
@@ -1727,27 +1727,27 @@
             <translation>Supprimer l’élément</translation>
         </message>
         <message>
-            <location filename="../../core/commands.py" line="3792" />
+            <location filename="../../core/commands.py" line="3808" />
             <source>Delete layer '{name}'</source>
             <translation>Supprimer le calque « {name} »</translation>
         </message>
         <message>
-            <location filename="../../core/commands.py" line="4543" />
+            <location filename="../../core/commands.py" line="4559" />
             <source>Delete pest/disease log</source>
             <translation>Supprimer un relevé de ravageur ou maladie</translation>
         </message>
         <message>
-            <location filename="../../core/commands.py" line="4423" />
+            <location filename="../../core/commands.py" line="4439" />
             <source>Delete soil test</source>
             <translation>Supprimer une analyse du sol</translation>
         </message>
         <message>
-            <location filename="../../core/commands.py" line="4992" />
+            <location filename="../../core/commands.py" line="5008" />
             <source>Delete task</source>
             <translation>Supprimer une tâche</translation>
         </message>
         <message>
-            <location filename="../../core/commands.py" line="2463" />
+            <location filename="../../core/commands.py" line="2479" />
             <source>Delete vertex</source>
             <translation>Supprimer un sommet</translation>
         </message>
@@ -1757,7 +1757,7 @@
             <translation>Supprimer {count} éléments</translation>
         </message>
         <message>
-            <location filename="../../core/commands.py" line="3214" />
+            <location filename="../../core/commands.py" line="3230" />
             <source>Detach plant from bed</source>
             <translation>Dissocier la plante de la planche</translation>
         </message>
@@ -1777,58 +1777,58 @@
             <translation>Répartir verticalement</translation>
         </message>
         <message>
-            <location filename="../../core/commands.py" line="3158" />
+            <location filename="../../core/commands.py" line="3174" />
             <source>Edit constraint distance</source>
             <translation>Modifier la distance de la contrainte</translation>
         </message>
         <message>
-            <location filename="../../core/commands.py" line="4876" />
+            <location filename="../../core/commands.py" line="4892" />
             <source>Edit garden journal note</source>
             <translation>Modifier une note du journal du jardin</translation>
         </message>
         <message>
-            <location filename="../../core/commands.py" line="4664" />
+            <location filename="../../core/commands.py" line="4680" />
             <source>Edit harvest entry</source>
             <translation>Modifier une récolte</translation>
         </message>
         <message>
-            <location filename="../../core/commands.py" line="4503" />
+            <location filename="../../core/commands.py" line="4519" />
             <source>Edit pest/disease log</source>
             <translation>Modifier un relevé de ravageur ou maladie</translation>
         </message>
         <message>
-            <location filename="../../core/commands.py" line="2151" />
-            <location filename="../../core/commands.py" line="2216" />
+            <location filename="../../core/commands.py" line="2167" />
+            <location filename="../../core/commands.py" line="2232" />
             <source>Edit plant details</source>
             <translation>Modifier les détails de la plante</translation>
         </message>
         <message>
-            <location filename="../../core/commands.py" line="4379" />
+            <location filename="../../core/commands.py" line="4395" />
             <source>Edit soil test</source>
             <translation>Modifier une analyse du sol</translation>
         </message>
         <message>
-            <location filename="../../core/commands.py" line="4970" />
+            <location filename="../../core/commands.py" line="4986" />
             <source>Edit task</source>
             <translation>Modifier une tâche</translation>
         </message>
         <message>
-            <location filename="../../core/commands.py" line="4174" />
+            <location filename="../../core/commands.py" line="4190" />
             <source>Extend polyline</source>
             <translation>Prolonger la polyligne</translation>
         </message>
         <message>
-            <location filename="../../core/commands.py" line="4286" />
+            <location filename="../../core/commands.py" line="4302" />
             <source>Fillet corner</source>
             <translation>Arrondir le sommet</translation>
         </message>
         <message>
-            <location filename="../../core/commands.py" line="3242" />
+            <location filename="../../core/commands.py" line="3258" />
             <source>Group {count} items</source>
             <translation>Grouper {count} éléments</translation>
         </message>
         <message>
-            <location filename="../../core/commands.py" line="4024" />
+            <location filename="../../core/commands.py" line="4040" />
             <source>Hide layer '{name}'</source>
             <translation>Masquer le calque « {name} »</translation>
         </message>
@@ -1838,17 +1838,17 @@
             <translation>Insérer une association</translation>
         </message>
         <message>
-            <location filename="../../core/commands.py" line="4029" />
+            <location filename="../../core/commands.py" line="4045" />
             <source>Lock layer '{name}'</source>
             <translation>Verrouiller le calque « {name} »</translation>
         </message>
         <message>
-            <location filename="../../core/commands.py" line="3027" />
+            <location filename="../../core/commands.py" line="3043" />
             <source>Mirror {count} item(s) (copy)</source>
             <translation>Symétrie de {count} élément(s) (copie)</translation>
         </message>
         <message>
-            <location filename="../../core/commands.py" line="3030" />
+            <location filename="../../core/commands.py" line="3046" />
             <source>Mirror {count} item(s) (move)</source>
             <translation>Symétrie de {count} élément(s) (déplacement)</translation>
         </message>
@@ -1871,13 +1871,13 @@
             <translation>Déplacer les éléments (avec contraintes)</translation>
         </message>
         <message>
-            <location filename="../../core/commands.py" line="2277" />
-            <location filename="../../core/commands.py" line="2532" />
+            <location filename="../../core/commands.py" line="2293" />
+            <location filename="../../core/commands.py" line="2548" />
             <source>Move vertex</source>
             <translation>Déplacer le sommet</translation>
         </message>
         <message>
-            <location filename="../../core/commands.py" line="3626" />
+            <location filename="../../core/commands.py" line="3642" />
             <source>Move {count} item(s) to layer '{name}'</source>
             <translation>Déplacer {count} élément(s) vers le calque « {name} »</translation>
         </message>
@@ -1897,27 +1897,27 @@
             <translation>Point de référence</translation>
         </message>
         <message>
-            <location filename="../../core/commands.py" line="2735" />
+            <location filename="../../core/commands.py" line="2751" />
             <source>Remove constraint</source>
             <translation>Supprimer la contrainte</translation>
         </message>
         <message>
-            <location filename="../../core/commands.py" line="5062" />
+            <location filename="../../core/commands.py" line="5078" />
             <source>Rename camera tour</source>
             <translation>Renommer la visite de caméra</translation>
         </message>
         <message>
-            <location filename="../../core/commands.py" line="3855" />
+            <location filename="../../core/commands.py" line="3871" />
             <source>Rename layer to '{name}'</source>
             <translation>Renommer le calque en « {name} »</translation>
         </message>
         <message>
-            <location filename="../../core/commands.py" line="3892" />
+            <location filename="../../core/commands.py" line="3908" />
             <source>Reorder layers</source>
             <translation>Réordonner les calques</translation>
         </message>
         <message>
-            <location filename="../../core/commands.py" line="2311" />
+            <location filename="../../core/commands.py" line="2327" />
             <source>Reshape curve</source>
             <translation>Remodeler la courbe</translation>
         </message>
@@ -1927,12 +1927,12 @@
             <translation>Redimensionner l’élément</translation>
         </message>
         <message>
-            <location filename="../../core/commands.py" line="2081" />
+            <location filename="../../core/commands.py" line="2097" />
             <source>Rotate item</source>
             <translation>Tourner l’élément</translation>
         </message>
         <message>
-            <location filename="../../core/commands.py" line="5045" />
+            <location filename="../../core/commands.py" line="5061" />
             <source>Save camera tour</source>
             <translation>Enregistrer la visite de caméra</translation>
         </message>
@@ -1947,52 +1947,52 @@
             <translation>Mettre {count} élément(s) à l’arrière-plan</translation>
         </message>
         <message>
-            <location filename="../../core/commands.py" line="4809" />
+            <location filename="../../core/commands.py" line="4825" />
             <source>Set north orientation</source>
             <translation>Définir l’orientation du nord</translation>
         </message>
         <message>
-            <location filename="../../core/commands.py" line="4035" />
+            <location filename="../../core/commands.py" line="4051" />
             <source>Set opacity of layer '{name}' to {pct}%</source>
             <translation>Définir l’opacité du calque « {name} » à {pct} %</translation>
         </message>
         <message>
-            <location filename="../../core/commands.py" line="4777" />
+            <location filename="../../core/commands.py" line="4793" />
             <source>Set succession plan</source>
             <translation>Définir le plan de succession</translation>
         </message>
         <message>
-            <location filename="../../core/commands.py" line="4021" />
+            <location filename="../../core/commands.py" line="4037" />
             <source>Show layer '{name}'</source>
             <translation>Afficher le calque « {name} »</translation>
         </message>
         <message>
-            <location filename="../../core/commands.py" line="3462" />
+            <location filename="../../core/commands.py" line="3478" />
             <source>Split shape</source>
             <translation>Diviser la forme</translation>
         </message>
         <message>
-            <location filename="../../core/commands.py" line="4120" />
+            <location filename="../../core/commands.py" line="4136" />
             <source>Trim polygon edge</source>
             <translation>Rogner le côté du polygone</translation>
         </message>
         <message>
-            <location filename="../../core/commands.py" line="4074" />
+            <location filename="../../core/commands.py" line="4090" />
             <source>Trim polyline</source>
             <translation>Rogner la polyligne</translation>
         </message>
         <message>
-            <location filename="../../core/commands.py" line="4148" />
+            <location filename="../../core/commands.py" line="4164" />
             <source>Trim rectangle edge</source>
             <translation>Rogner le côté du rectangle</translation>
         </message>
         <message>
-            <location filename="../../core/commands.py" line="3341" />
+            <location filename="../../core/commands.py" line="3357" />
             <source>Ungroup</source>
             <translation>Dissocier</translation>
         </message>
         <message>
-            <location filename="../../core/commands.py" line="4032" />
+            <location filename="../../core/commands.py" line="4048" />
             <source>Unlock layer '{name}'</source>
             <translation>Déverrouiller le calque « {name} »</translation>
         </message>
@@ -7077,7 +7077,7 @@ Enregistrer le projet dans un emplacement permanent.</translation>
     <context>
         <name>GroupItem</name>
         <message>
-            <location filename="../../ui/canvas/items/group_item.py" line="316" />
+            <location filename="../../ui/canvas/items/group_item.py" line="319" />
             <source>A constrained member cannot be rotated with the group</source>
             <translation>Un membre contraint ne peut pas être tourné avec le groupe</translation>
         </message>
@@ -7085,6 +7085,11 @@ Enregistrer le projet dans un emplacement permanent.</translation>
             <location filename="../../ui/canvas/items/group_item.py" line="306" />
             <source>A linked plant belongs to another group; remove it from that group before turning this one</source>
             <translation>Une plante liée appartient à un autre groupe ; retirez-la de ce groupe avant de tourner celui-ci</translation>
+        </message>
+        <message>
+            <location filename="../../ui/canvas/items/group_item.py" line="331" />
+            <source>A member on a locked layer cannot be rotated with the group</source>
+            <translation>Un membre sur un calque verrouillé ne peut pas être tourné avec le groupe</translation>
         </message>
     </context>
     <context>
@@ -7499,12 +7504,12 @@ Enregistrer le projet dans un emplacement permanent.</translation>
     <context>
         <name>HarvestJournal</name>
         <message>
-            <location filename="../../core/commands.py" line="4563" />
+            <location filename="../../core/commands.py" line="4579" />
             <source>Harvested {qty} {unit}</source>
             <translation>Récolte de {qty} {unit}</translation>
         </message>
         <message>
-            <location filename="../../core/commands.py" line="4560" />
+            <location filename="../../core/commands.py" line="4576" />
             <source>Harvested {qty} {unit} of {name}</source>
             <translation>Récolte de {qty} {unit} de {name}</translation>
         </message>
