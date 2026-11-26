@@ -1420,11 +1420,17 @@ def test_removing_handles_detaches_them_from_the_item(canvas: CanvasView) -> Non
     display = item._dimension_display
     assert rotation is not None and resize is not None and display is not None
 
+    rotation.grabMouse()
+    assert scene.mouseGrabberItem() is rotation
     item.remove_rotation_handle()
+    assert scene.mouseGrabberItem() is None
     assert rotation.scene() is None
     assert rotation.parentItem() is None
 
+    resize.grabMouse()
+    assert scene.mouseGrabberItem() is resize
     item.remove_resize_handles()
+    assert scene.mouseGrabberItem() is None
     assert resize.scene() is None
     assert resize.parentItem() is None
     assert display.scene() is None

@@ -1110,6 +1110,8 @@ class ResizeHandlesMixin:
         for handle in self._resize_handles:
             scene = handle.scene()
             if scene is not None:
+                if scene.mouseGrabberItem() is handle:
+                    handle.ungrabMouse()
                 scene.removeItem(handle)
             # A scene removal keeps the Qt parent. Detach it explicitly so a
             # removed handle cannot be drawn or destroyed as part of this item
@@ -1306,6 +1308,8 @@ class RotationHandleMixin:
         self._rotation_handle = None
         scene = handle.scene()
         if scene is not None:
+            if scene.mouseGrabberItem() is handle:
+                handle.ungrabMouse()
             scene.removeItem(handle)
         # A scene removal keeps the Qt parent; detach it so a removed handle
         # cannot be drawn or destroyed as part of this item later (#1031).
