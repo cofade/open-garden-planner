@@ -84,10 +84,12 @@ Detailed functional requirements for Open Garden Planner. These serve as the spe
   (order, reverse undo, a step that raises rolls the ones that ran back).
 - **FR-EDIT-22** *(issue #674)*: **Group** and **Ungroup** are reachable from every groupable
   object's right-click menu, not only from `Ctrl+G` / `Ctrl+Shift+G`. The entries are decided from
-  the selection at menu-open time: 2+ objects (no group) offer **Group**; exactly one group offers
-  **Ungroup**; a group plus a foreign object, or 2+ groups, offer both. Group nests the selected
-  items (including a group) into a new outer group; Ungroup dissolves **one nesting level** and
-  dissolves every selected top-level group in **one undo step**. Right-clicking an unselected
+  the selection at menu-open time: 2+ objects (no group) offer **Group**; exactly one unturned
+  group offers **Ungroup**; a group plus a foreign object, or 2+ groups, offer both when at least
+  one selected group is unturned. A turned group is excluded from Ungroup until it is rotated back
+  to 0° (FR-GROUP-01); a mixed selection offers Ungroup only for the unturned groups. Group nests
+  the selected items (including a group) into a new outer group; Ungroup dissolves **one nesting
+  level** and dissolves every eligible selected top-level group in **one undo step**. Right-clicking an unselected
   object replaces the selection first, on every item type including group, callout,
   text, journal pin and construction geometry. The background image is deliberately **not**
   groupable (it is a plan backdrop; grouping it would re-band it above ground surfaces). The menu

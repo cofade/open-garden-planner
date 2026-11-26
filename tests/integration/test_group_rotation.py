@@ -431,6 +431,55 @@ def test_a_command_only_group_turn_carries_the_plant_like_the_agent(
     assert again.y() == pytest.approx(after.y(), abs=0.01)
 
 
+def test_a_grouped_plant_that_leaves_its_bed_is_unlinked_in_the_same_step(
+    canvas: CanvasView,
+) -> None:
+    """A Plant Grid group's own plants are reconciled; a bed's are not."""
+    _show(canvas)
+    scene = canvas.scene()
+    bed = _rect(scene, 100.0, 100.0, 200.0, 200.0, kind=ObjectType.RAISED_BED)
+    plant = CircleItem(
+        150.0, 150.0, 15.0,
+        object_type=ObjectType.PERENNIAL, layer_id=scene.active_layer.id,
+    )
+    scene.addItem(plant)
+    plant.parent_bed_id = bed.item_id
+    bed.add_child_id(plant.item_id)
+    peer = _rect(scene, 1000.0, 1000.0)
+    group = _grouped(canvas, plant, peer)
+    scene.clearSelection()
+    group.setSelected(True)
+    QApplication.processEvents()
+    _drag(group, 0.0, 180.0)
+
+    assert plant.parent_bed_id is None
+    assert plant.item_id not in bed.child_item_ids
+    canvas.command_manager.undo()
+    assert plant.parent_bed_id == bed.item_id
+    assert plant.item_id in bed.child_item_ids
+
+
+def test_a_linked_plant_in_another_group_refuses_the_turn(canvas: CanvasView) -> None:
+    _show(canvas)
+    scene = canvas.scene()
+    bed = _rect(scene, 100.0, 100.0, 200.0, 200.0, kind=ObjectType.RAISED_BED)
+    plant = CircleItem(
+        150.0, 150.0, 15.0,
+        object_type=ObjectType.PERENNIAL, layer_id=scene.active_layer.id,
+    )
+    scene.addItem(plant)
+    plant.parent_bed_id = bed.item_id
+    bed.add_child_id(plant.item_id)
+    _grouped(canvas, plant, _rect(scene, 800.0, 800.0))
+    peer = _rect(scene, 500.0, 0.0)
+    group = _grouped(canvas, bed, peer)
+    scene.clearSelection()
+    group.setSelected(True)
+    QApplication.processEvents()
+    handle = _handle(group)
+    assert canvas.begin_drill_handle_drag(handle, handle.scenePos()) is False
+
+
 def test_a_constrained_member_refuses_the_group_turn(canvas: CanvasView) -> None:
     """A group turn must not move a FIXED/constrained descendant (#1022)."""
     from uuid import uuid4

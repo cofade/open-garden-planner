@@ -2061,6 +2061,20 @@ class RotateItemCommand(Command):
                 for moved_item, _index, _before, _after in self._partner_vertex_moves
             ],
         )
+        from open_garden_planner.ui.canvas.items.group_item import GroupItem
+
+        if isinstance(item, GroupItem) and not (
+            self._partner_moves or self._partner_vertex_moves
+        ):
+            # A group's own members are not the group item itself: a Plant Grid
+            # group moved out of a bed must re-decide its plants' links. A
+            # grouped bed's top-level linked plants are carried as followers
+            # and are deliberately not in this list.
+            plants = plants_in_items([item])
+            scene = item.scene()
+            self._membership = (
+                BedMembershipChange(scene, plants) if plants and scene is not None else None
+            )
 
     @property
     def description(self) -> str:

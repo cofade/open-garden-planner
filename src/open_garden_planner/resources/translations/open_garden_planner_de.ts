@@ -586,23 +586,23 @@
             <translation>Ein Mitglied oder eine Gruppe mit Randbedingung kann im Drilldown nicht bewegt werden</translation>
         </message>
         <message>
-            <location filename="../../ui/canvas/canvas_view.py" line="6015" />
-            <location filename="../../ui/canvas/canvas_view.py" line="6030" />
+            <location filename="../../ui/canvas/canvas_view.py" line="6017" />
+            <location filename="../../ui/canvas/canvas_view.py" line="6032" />
             <source>A constrained shape cannot be split</source>
             <translation>Eine Form mit Randbedingung kann nicht geteilt werden</translation>
         </message>
         <message>
-            <location filename="../../ui/canvas/canvas_view.py" line="6170" />
+            <location filename="../../ui/canvas/canvas_view.py" line="6172" />
             <source>All shapes must be on the same layer</source>
             <translation>Alle Formen müssen auf derselben Ebene liegen</translation>
         </message>
         <message>
-            <location filename="../../ui/canvas/canvas_view.py" line="6448" />
+            <location filename="../../ui/canvas/canvas_view.py" line="6450" />
             <source>Already at back</source>
             <translation>Bereits ganz hinten</translation>
         </message>
         <message>
-            <location filename="../../ui/canvas/canvas_view.py" line="6447" />
+            <location filename="../../ui/canvas/canvas_view.py" line="6449" />
             <source>Already at front</source>
             <translation>Bereits ganz vorn</translation>
         </message>
@@ -612,12 +612,12 @@
             <translation>Winkel</translation>
         </message>
         <message>
-            <location filename="../../ui/canvas/canvas_view.py" line="6306" />
+            <location filename="../../ui/canvas/canvas_view.py" line="6308" />
             <source>Applied boolean {op}</source>
             <translation>Bool'sche Operation {op} angewendet</translation>
         </message>
         <message>
-            <location filename="../../ui/canvas/canvas_view.py" line="6264" />
+            <location filename="../../ui/canvas/canvas_view.py" line="6266" />
             <source>Apply boolean {op}?</source>
             <translation>Bool'sche Operation {op} anwenden?</translation>
         </message>
@@ -637,12 +637,12 @@
             <translation>Vogeltränke</translation>
         </message>
         <message>
-            <location filename="../../ui/canvas/canvas_view.py" line="6151" />
+            <location filename="../../ui/canvas/canvas_view.py" line="6153" />
             <source>Boolean operations refuse plants, linked objects, constraints, and locked layers</source>
             <translation>Bool'sche Operationen lehnen Pflanzen, verknüpfte Objekte, Randbedingungen und gesperrte Ebenen ab</translation>
         </message>
         <message>
-            <location filename="../../ui/canvas/canvas_view.py" line="6193" />
+            <location filename="../../ui/canvas/canvas_view.py" line="6195" />
             <source>Boolean operations require closed shapes (polygon, rectangle, circle, or ellipse)</source>
             <translation>Bool'sche Operationen erfordern geschlossene Formen (Polygon, Rechteck, Kreis oder Ellipse)</translation>
         </message>
@@ -651,12 +651,12 @@
             <translation type="vanished">Bool'sche Operationen erfordern geschlossene Formen (Polygon, Rechteck oder Kreis)</translation>
         </message>
         <message>
-            <location filename="../../ui/canvas/canvas_view.py" line="6263" />
+            <location filename="../../ui/canvas/canvas_view.py" line="6265" />
             <source>Boolean {op}</source>
             <translation>Bool'sche Operation {op}</translation>
         </message>
         <message>
-            <location filename="../../ui/canvas/canvas_view.py" line="6235" />
+            <location filename="../../ui/canvas/canvas_view.py" line="6237" />
             <source>Boolean {op} produced an empty result</source>
             <translation>Bool'sche Operation {op} hat ein leeres Ergebnis erzeugt</translation>
         </message>
@@ -670,7 +670,7 @@
             <translation type="vanished">Klicken Sie die geschlossene Form zum Teilen an</translation>
         </message>
         <message>
-            <location filename="../../ui/canvas/canvas_view.py" line="6070" />
+            <location filename="../../ui/canvas/canvas_view.py" line="6072" />
             <source>Click the first point of the cutting line. Esc cancels.</source>
             <translation>Klicken Sie den ersten Punkt der Schnittlinie. Esc bricht ab.</translation>
         </message>
@@ -767,7 +767,7 @@
             <translation>Abstand in cm</translation>
         </message>
         <message>
-            <location filename="../../ui/canvas/canvas_view.py" line="6362" />
+            <location filename="../../ui/canvas/canvas_view.py" line="6364" />
             <source>Distance must be positive</source>
             <translation>Abstand muss positiv sein</translation>
         </message>
@@ -886,12 +886,12 @@
             <translation>Hintergrundbild importieren...</translation>
         </message>
         <message>
-            <location filename="../../ui/canvas/canvas_view.py" line="6366" />
+            <location filename="../../ui/canvas/canvas_view.py" line="6368" />
             <source>Invalid distance. Enter a length such as 12' 6" or 150 in.</source>
             <translation>Ungültige Entfernung. Eine Länge wie 12' 6" oder 150 in eingeben.</translation>
         </message>
         <message>
-            <location filename="../../ui/canvas/canvas_view.py" line="6365" />
+            <location filename="../../ui/canvas/canvas_view.py" line="6367" />
             <source>Invalid distance. Enter a number in centimeters.</source>
             <translation>Ungültiger Abstand. Geben Sie eine Zahl in Zentimetern ein.</translation>
         </message>
@@ -916,17 +916,17 @@
             <translation>N</translation>
         </message>
         <message>
-            <location filename="../../ui/canvas/canvas_view.py" line="5911" />
+            <location filename="../../ui/canvas/canvas_view.py" line="5922" />
             <source>No group selected</source>
             <translation>Keine Gruppe ausgewählt</translation>
         </message>
         <message>
-            <location filename="../../ui/canvas/canvas_view.py" line="6450" />
+            <location filename="../../ui/canvas/canvas_view.py" line="6452" />
             <source>No overlapping object behind</source>
             <translation>Kein überlappendes Objekt dahinter</translation>
         </message>
         <message>
-            <location filename="../../ui/canvas/canvas_view.py" line="6449" />
+            <location filename="../../ui/canvas/canvas_view.py" line="6451" />
             <source>No overlapping object in front</source>
             <translation>Kein überlappendes Objekt davor</translation>
         </message>
@@ -948,7 +948,7 @@
             <translation>Versatzergebnis ist leer – versuchen Sie einen kleineren Abstand</translation>
         </message>
         <message>
-            <location filename="../../ui/canvas/canvas_view.py" line="5994" />
+            <location filename="../../ui/canvas/canvas_view.py" line="5996" />
             <source>Only closed shapes (polygon, rectangle, circle, or ellipse) can be split</source>
             <translation>Nur geschlossene Formen (Polygon, Rechteck, Kreis oder Ellipse) können geteilt werden</translation>
         </message>
@@ -998,7 +998,7 @@
             <translation>Pflanzgefäß/Topf</translation>
         </message>
         <message>
-            <location filename="../../ui/canvas/canvas_view.py" line="6017" />
+            <location filename="../../ui/canvas/canvas_view.py" line="6019" />
             <source>Plants and linked objects cannot be split</source>
             <translation>Pflanzen und verknüpfte Objekte können nicht geteilt werden</translation>
         </message>
@@ -1019,7 +1019,7 @@
         </message>
         <message>
             <location filename="../../ui/canvas/canvas_view.py" line="3986" />
-            <location filename="../../ui/canvas/canvas_view.py" line="5944" />
+            <location filename="../../ui/canvas/canvas_view.py" line="5946" />
             <source>Press Esc to leave the group before cutting or deleting one of its members</source>
             <translation>Mit Esc die Gruppe verlassen, bevor ein Mitglied ausgeschnitten oder gelöscht wird</translation>
         </message>
@@ -1059,23 +1059,23 @@
             <translation>Form zum Versetzen auswählen</translation>
         </message>
         <message>
-            <location filename="../../ui/canvas/canvas_view.py" line="6446" />
-            <location filename="../../ui/canvas/canvas_view.py" line="6453" />
+            <location filename="../../ui/canvas/canvas_view.py" line="6448" />
+            <location filename="../../ui/canvas/canvas_view.py" line="6455" />
             <source>Select an object to arrange</source>
             <translation>Ein Objekt zum Anordnen auswählen</translation>
         </message>
         <message>
-            <location filename="../../ui/canvas/canvas_view.py" line="6408" />
+            <location filename="../../ui/canvas/canvas_view.py" line="6410" />
             <source>Select at least 2 objects to align</source>
             <translation>Wählen Sie mindestens 2 Objekte zum Ausrichten</translation>
         </message>
         <message>
-            <location filename="../../ui/canvas/canvas_view.py" line="6468" />
+            <location filename="../../ui/canvas/canvas_view.py" line="6470" />
             <source>Select at least 3 objects to distribute</source>
             <translation>Wählen Sie mindestens 3 Objekte zum Verteilen</translation>
         </message>
         <message>
-            <location filename="../../ui/canvas/canvas_view.py" line="6113" />
+            <location filename="../../ui/canvas/canvas_view.py" line="6115" />
             <source>Select at least two shapes (intersection and subtraction need exactly two)</source>
             <translation>Mindestens zwei Formen auswählen (Schnittmenge und Subtraktion benötigen genau zwei)</translation>
         </message>
@@ -1113,12 +1113,12 @@
             <translation type="vanished">Formen müssen sich für Bool'sche Operationen überlappen</translation>
         </message>
         <message>
-            <location filename="../../ui/canvas/canvas_view.py" line="6225" />
+            <location filename="../../ui/canvas/canvas_view.py" line="6227" />
             <source>Shapes must overlap for this operation</source>
             <translation>Für diese Operation müssen sich die Formen überlappen</translation>
         </message>
         <message>
-            <location filename="../../ui/canvas/canvas_view.py" line="6204" />
+            <location filename="../../ui/canvas/canvas_view.py" line="6206" />
             <source>Shapes must touch or overlap</source>
             <translation>Formen müssen sich berühren oder überlappen</translation>
         </message>
@@ -1158,17 +1158,17 @@
             <translation>Terrasse/Patio</translation>
         </message>
         <message>
-            <location filename="../../ui/canvas/canvas_view.py" line="6214" />
+            <location filename="../../ui/canvas/canvas_view.py" line="6216" />
             <source>The merged outline would contain a hole; keep the shapes separate</source>
             <translation>Die zusammengeführte Kontur würde ein Loch enthalten; die Formen getrennt lassen</translation>
         </message>
         <message>
-            <location filename="../../ui/canvas/canvas_view.py" line="6245" />
+            <location filename="../../ui/canvas/canvas_view.py" line="6247" />
             <source>The result would have {count} vertices; the plan supports at most {limit}. Keep the shapes separate.</source>
             <translation>Das Ergebnis hätte {count} Knoten; der Plan unterstützt höchstens {limit}. Die Formen getrennt lassen.</translation>
         </message>
         <message>
-            <location filename="../../ui/canvas/canvas_view.py" line="6024" />
+            <location filename="../../ui/canvas/canvas_view.py" line="6026" />
             <source>The roof ridge is on a locked layer</source>
             <translation>Der Dachfirst liegt auf einer gesperrten Ebene</translation>
         </message>
@@ -1178,27 +1178,27 @@
             <translation>Das/die ausgewählte(n) Beet(e) enthält/enthalten Pflanzen. Was möchten Sie tun?</translation>
         </message>
         <message>
-            <location filename="../../ui/canvas/canvas_view.py" line="6041" />
+            <location filename="../../ui/canvas/canvas_view.py" line="6043" />
             <source>The shape carries links that a split cannot preserve</source>
             <translation>Die Form trägt Verknüpfungen, die ein Teilen nicht bewahren kann</translation>
         </message>
         <message>
-            <location filename="../../ui/canvas/canvas_view.py" line="6051" />
+            <location filename="../../ui/canvas/canvas_view.py" line="6053" />
             <source>The shape has tracking records that a split cannot preserve</source>
             <translation>Die Form hat Nachverfolgungsdaten, die ein Teilen nicht bewahren kann</translation>
         </message>
         <message>
-            <location filename="../../ui/canvas/canvas_view.py" line="5998" />
+            <location filename="../../ui/canvas/canvas_view.py" line="6000" />
             <source>The shape is no longer in this plan</source>
             <translation>Die Form ist nicht mehr in diesem Plan</translation>
         </message>
         <message>
-            <location filename="../../ui/canvas/canvas_view.py" line="6010" />
+            <location filename="../../ui/canvas/canvas_view.py" line="6012" />
             <source>The shape is on a locked layer</source>
             <translation>Die Form liegt auf einer gesperrten Ebene</translation>
         </message>
         <message>
-            <location filename="../../ui/canvas/canvas_view.py" line="6183" />
+            <location filename="../../ui/canvas/canvas_view.py" line="6185" />
             <source>The shapes contain different data; keep them separate or make their data consistent</source>
             <translation>Die Formen enthalten unterschiedliche Daten; getrennt lassen oder die Daten angleichen</translation>
         </message>
@@ -1212,12 +1212,12 @@
             <translation type="vanished">Diese Kantenlänge gehört zu einer starren Form. Ändern Sie stattdessen die Größe der Form.</translation>
         </message>
         <message>
-            <location filename="../../ui/canvas/canvas_view.py" line="6002" />
+            <location filename="../../ui/canvas/canvas_view.py" line="6004" />
             <source>This shape has no closed outline to split</source>
             <translation>Diese Form hat keine geschlossene Kontur zum Teilen</translation>
         </message>
         <message>
-            <location filename="../../ui/canvas/canvas_view.py" line="6043" />
+            <location filename="../../ui/canvas/canvas_view.py" line="6045" />
             <source>This shape type has no polygonal form to split into</source>
             <translation>Dieser Formtyp hat keine polygonale Form zum Teilen</translation>
         </message>
@@ -1242,22 +1242,22 @@
             <translation>Rankgitter</translation>
         </message>
         <message>
-            <location filename="../../ui/canvas/canvas_view.py" line="6000" />
+            <location filename="../../ui/canvas/canvas_view.py" line="6002" />
             <source>Ungroup the shape before splitting it</source>
             <translation>Gruppierung der Form vor dem Teilen aufheben</translation>
         </message>
         <message>
-            <location filename="../../ui/canvas/canvas_view.py" line="5928" />
+            <location filename="../../ui/canvas/canvas_view.py" line="5930" />
             <source>Ungroup {n} groups</source>
             <translation>{n} Gruppen aufheben</translation>
         </message>
         <message>
-            <location filename="../../ui/canvas/canvas_view.py" line="5933" />
+            <location filename="../../ui/canvas/canvas_view.py" line="5935" />
             <source>Ungrouped</source>
             <translation>Gruppierung aufgelöst</translation>
         </message>
         <message>
-            <location filename="../../ui/canvas/canvas_view.py" line="5935" />
+            <location filename="../../ui/canvas/canvas_view.py" line="5937" />
             <source>Ungrouped {n} groups</source>
             <translation>{n} Gruppen aufgehoben</translation>
         </message>
@@ -1616,99 +1616,99 @@
     <context>
         <name>Commands</name>
         <message>
-            <location filename="../../core/commands.py" line="2656" />
+            <location filename="../../core/commands.py" line="2669" />
             <source>Add constraint</source>
             <translation>Bedingung hinzufügen</translation>
         </message>
         <message>
-            <location filename="../../core/commands.py" line="4827" />
+            <location filename="../../core/commands.py" line="4841" />
             <source>Add garden journal note</source>
             <translation>Gartentagebuch-Notiz hinzufügen</translation>
         </message>
         <message>
-            <location filename="../../core/commands.py" line="4596" />
+            <location filename="../../core/commands.py" line="4610" />
             <source>Add harvest entry</source>
             <translation>Ernte-Eintrag hinzufügen</translation>
         </message>
         <message>
-            <location filename="../../core/commands.py" line="3706" />
+            <location filename="../../core/commands.py" line="3720" />
             <source>Add layer '{name}'</source>
             <translation>Ebene '{name}' hinzufügen</translation>
         </message>
         <message>
-            <location filename="../../core/commands.py" line="4449" />
+            <location filename="../../core/commands.py" line="4463" />
             <source>Add pest/disease log</source>
             <translation>Schädlings-/Krankheitseintrag hinzufügen</translation>
         </message>
         <message>
-            <location filename="../../core/commands.py" line="4321" />
+            <location filename="../../core/commands.py" line="4335" />
             <source>Add soil test</source>
             <translation>Bodenprobe hinzufügen</translation>
         </message>
         <message>
-            <location filename="../../core/commands.py" line="4934" />
+            <location filename="../../core/commands.py" line="4948" />
             <source>Add task</source>
             <translation>Aufgabe hinzufügen</translation>
         </message>
         <message>
-            <location filename="../../core/commands.py" line="2344" />
+            <location filename="../../core/commands.py" line="2357" />
             <source>Add vertex</source>
             <translation>Stützpunkt hinzufügen</translation>
         </message>
         <message>
-            <location filename="../../ui/canvas/canvas_view.py" line="6422" />
+            <location filename="../../ui/canvas/canvas_view.py" line="6424" />
             <source>Align bottom</source>
             <translation>Unten ausrichten</translation>
         </message>
         <message>
-            <location filename="../../ui/canvas/canvas_view.py" line="6423" />
+            <location filename="../../ui/canvas/canvas_view.py" line="6425" />
             <source>Align center horizontally</source>
             <translation>Horizontal zentrieren</translation>
         </message>
         <message>
-            <location filename="../../ui/canvas/canvas_view.py" line="6424" />
+            <location filename="../../ui/canvas/canvas_view.py" line="6426" />
             <source>Align center vertically</source>
             <translation>Vertikal zentrieren</translation>
         </message>
         <message>
-            <location filename="../../core/commands.py" line="2413" />
-            <location filename="../../ui/canvas/canvas_view.py" line="6427" />
+            <location filename="../../core/commands.py" line="2426" />
+            <location filename="../../ui/canvas/canvas_view.py" line="6429" />
             <source>Align items</source>
             <translation>Objekte ausrichten</translation>
         </message>
         <message>
-            <location filename="../../ui/canvas/canvas_view.py" line="6419" />
+            <location filename="../../ui/canvas/canvas_view.py" line="6421" />
             <source>Align left</source>
             <translation>Links ausrichten</translation>
         </message>
         <message>
-            <location filename="../../ui/canvas/canvas_view.py" line="6420" />
+            <location filename="../../ui/canvas/canvas_view.py" line="6422" />
             <source>Align right</source>
             <translation>Rechts ausrichten</translation>
         </message>
         <message>
-            <location filename="../../ui/canvas/canvas_view.py" line="6421" />
+            <location filename="../../ui/canvas/canvas_view.py" line="6423" />
             <source>Align top</source>
             <translation>Oben ausrichten</translation>
         </message>
         <message>
-            <location filename="../../app/agent_host.py" line="2887" />
+            <location filename="../../app/agent_host.py" line="2906" />
             <location filename="../../core/commands.py" line="1884" />
             <source>Apply species data</source>
             <translation>Artdaten anwenden</translation>
         </message>
         <message>
-            <location filename="../../core/commands.py" line="3501" />
+            <location filename="../../core/commands.py" line="3515" />
             <source>Array along path ({count} copies)</source>
             <translation>Reihung entlang Pfad ({count} Kopien)</translation>
         </message>
         <message>
-            <location filename="../../core/commands.py" line="3202" />
+            <location filename="../../core/commands.py" line="3215" />
             <source>Attach plant to bed</source>
             <translation>Pflanze dem Beet zuordnen</translation>
         </message>
         <message>
-            <location filename="../../core/commands.py" line="3395" />
+            <location filename="../../core/commands.py" line="3409" />
             <source>Boolean {operation}</source>
             <translation>Boolesche Operation {operation}</translation>
         </message>
@@ -1723,7 +1723,7 @@
             <translation>{count} Objekt(e) ganz nach vorn</translation>
         </message>
         <message>
-            <location filename="../../core/commands.py" line="4283" />
+            <location filename="../../core/commands.py" line="4297" />
             <source>Chamfer corner</source>
             <translation>Ecke abschrägen</translation>
         </message>
@@ -1748,7 +1748,7 @@
             <translation>{property} ändern</translation>
         </message>
         <message>
-            <location filename="../../core/commands.py" line="2933" />
+            <location filename="../../core/commands.py" line="2946" />
             <source>Create circular array ({count} items)</source>
             <translation>Kreisraster erstellen ({count} Objekte)</translation>
         </message>
@@ -1758,12 +1758,12 @@
             <translation>Waldgarten-Ebenen erstellen</translation>
         </message>
         <message>
-            <location filename="../../core/commands.py" line="2860" />
+            <location filename="../../core/commands.py" line="2873" />
             <source>Create grid array ({count} items)</source>
             <translation>Gitterraster erstellen ({count} Objekte)</translation>
         </message>
         <message>
-            <location filename="../../core/commands.py" line="2778" />
+            <location filename="../../core/commands.py" line="2791" />
             <source>Create linear array ({count} items)</source>
             <translation>Lineares Raster erstellen ({count} Objekte)</translation>
         </message>
@@ -1779,17 +1779,17 @@
             <translation>{item_type} erstellen</translation>
         </message>
         <message>
-            <location filename="../../core/commands.py" line="5065" />
+            <location filename="../../core/commands.py" line="5079" />
             <source>Delete camera tour</source>
             <translation>Kamerafahrt löschen</translation>
         </message>
         <message>
-            <location filename="../../core/commands.py" line="4903" />
+            <location filename="../../core/commands.py" line="4917" />
             <source>Delete garden journal note</source>
             <translation>Gartentagebuch-Notiz löschen</translation>
         </message>
         <message>
-            <location filename="../../core/commands.py" line="4716" />
+            <location filename="../../core/commands.py" line="4730" />
             <source>Delete harvest entry</source>
             <translation>Ernte-Eintrag löschen</translation>
         </message>
@@ -1799,27 +1799,27 @@
             <translation>Objekt löschen</translation>
         </message>
         <message>
-            <location filename="../../core/commands.py" line="3778" />
+            <location filename="../../core/commands.py" line="3792" />
             <source>Delete layer '{name}'</source>
             <translation>Ebene '{name}' löschen</translation>
         </message>
         <message>
-            <location filename="../../core/commands.py" line="4529" />
+            <location filename="../../core/commands.py" line="4543" />
             <source>Delete pest/disease log</source>
             <translation>Schädlings-/Krankheitseintrag löschen</translation>
         </message>
         <message>
-            <location filename="../../core/commands.py" line="4409" />
+            <location filename="../../core/commands.py" line="4423" />
             <source>Delete soil test</source>
             <translation>Bodenprobe löschen</translation>
         </message>
         <message>
-            <location filename="../../core/commands.py" line="4978" />
+            <location filename="../../core/commands.py" line="4992" />
             <source>Delete task</source>
             <translation>Aufgabe löschen</translation>
         </message>
         <message>
-            <location filename="../../core/commands.py" line="2450" />
+            <location filename="../../core/commands.py" line="2463" />
             <source>Delete vertex</source>
             <translation>Stützpunkt löschen</translation>
         </message>
@@ -1829,78 +1829,78 @@
             <translation>{count} Objekte löschen</translation>
         </message>
         <message>
-            <location filename="../../core/commands.py" line="3201" />
+            <location filename="../../core/commands.py" line="3214" />
             <source>Detach plant from bed</source>
             <translation>Pflanze vom Beet lösen</translation>
         </message>
         <message>
-            <location filename="../../ui/canvas/canvas_view.py" line="6478" />
+            <location filename="../../ui/canvas/canvas_view.py" line="6480" />
             <source>Distribute horizontally</source>
             <translation>Horizontal verteilen</translation>
         </message>
         <message>
-            <location filename="../../ui/canvas/canvas_view.py" line="6482" />
+            <location filename="../../ui/canvas/canvas_view.py" line="6484" />
             <source>Distribute items</source>
             <translation>Objekte verteilen</translation>
         </message>
         <message>
-            <location filename="../../ui/canvas/canvas_view.py" line="6479" />
+            <location filename="../../ui/canvas/canvas_view.py" line="6481" />
             <source>Distribute vertically</source>
             <translation>Vertikal verteilen</translation>
         </message>
         <message>
-            <location filename="../../core/commands.py" line="3145" />
+            <location filename="../../core/commands.py" line="3158" />
             <source>Edit constraint distance</source>
             <translation>Bedingungsabstand bearbeiten</translation>
         </message>
         <message>
-            <location filename="../../core/commands.py" line="4862" />
+            <location filename="../../core/commands.py" line="4876" />
             <source>Edit garden journal note</source>
             <translation>Gartentagebuch-Notiz bearbeiten</translation>
         </message>
         <message>
-            <location filename="../../core/commands.py" line="4650" />
+            <location filename="../../core/commands.py" line="4664" />
             <source>Edit harvest entry</source>
             <translation>Ernte-Eintrag bearbeiten</translation>
         </message>
         <message>
-            <location filename="../../core/commands.py" line="4489" />
+            <location filename="../../core/commands.py" line="4503" />
             <source>Edit pest/disease log</source>
             <translation>Schädlings-/Krankheitseintrag bearbeiten</translation>
         </message>
         <message>
-            <location filename="../../core/commands.py" line="2138" />
-            <location filename="../../core/commands.py" line="2203" />
+            <location filename="../../core/commands.py" line="2151" />
+            <location filename="../../core/commands.py" line="2216" />
             <source>Edit plant details</source>
             <translation>Pflanzendetails bearbeiten</translation>
         </message>
         <message>
-            <location filename="../../core/commands.py" line="4365" />
+            <location filename="../../core/commands.py" line="4379" />
             <source>Edit soil test</source>
             <translation>Bodenprobe bearbeiten</translation>
         </message>
         <message>
-            <location filename="../../core/commands.py" line="4956" />
+            <location filename="../../core/commands.py" line="4970" />
             <source>Edit task</source>
             <translation>Aufgabe bearbeiten</translation>
         </message>
         <message>
-            <location filename="../../core/commands.py" line="4160" />
+            <location filename="../../core/commands.py" line="4174" />
             <source>Extend polyline</source>
             <translation>Polylinie verlängern</translation>
         </message>
         <message>
-            <location filename="../../core/commands.py" line="4272" />
+            <location filename="../../core/commands.py" line="4286" />
             <source>Fillet corner</source>
             <translation>Ecke abrunden</translation>
         </message>
         <message>
-            <location filename="../../core/commands.py" line="3229" />
+            <location filename="../../core/commands.py" line="3242" />
             <source>Group {count} items</source>
             <translation>{count} Objekte gruppieren</translation>
         </message>
         <message>
-            <location filename="../../core/commands.py" line="4010" />
+            <location filename="../../core/commands.py" line="4024" />
             <source>Hide layer '{name}'</source>
             <translation>Ebene '{name}' ausblenden</translation>
         </message>
@@ -1910,17 +1910,17 @@
             <translation>Pflanzengilde einfügen</translation>
         </message>
         <message>
-            <location filename="../../core/commands.py" line="4015" />
+            <location filename="../../core/commands.py" line="4029" />
             <source>Lock layer '{name}'</source>
             <translation>Ebene '{name}' sperren</translation>
         </message>
         <message>
-            <location filename="../../core/commands.py" line="3014" />
+            <location filename="../../core/commands.py" line="3027" />
             <source>Mirror {count} item(s) (copy)</source>
             <translation>{count} Objekt(e) spiegeln (kopieren)</translation>
         </message>
         <message>
-            <location filename="../../core/commands.py" line="3017" />
+            <location filename="../../core/commands.py" line="3030" />
             <source>Mirror {count} item(s) (move)</source>
             <translation>{count} Objekt(e) spiegeln (verschieben)</translation>
         </message>
@@ -1943,13 +1943,13 @@
             <translation>Objekte verschieben (mit Bedingung)</translation>
         </message>
         <message>
-            <location filename="../../core/commands.py" line="2264" />
-            <location filename="../../core/commands.py" line="2519" />
+            <location filename="../../core/commands.py" line="2277" />
+            <location filename="../../core/commands.py" line="2532" />
             <source>Move vertex</source>
             <translation>Stützpunkt verschieben</translation>
         </message>
         <message>
-            <location filename="../../core/commands.py" line="3612" />
+            <location filename="../../core/commands.py" line="3626" />
             <source>Move {count} item(s) to layer '{name}'</source>
             <translation>{count} Objekt(e) auf Ebene '{name}' verschieben</translation>
         </message>
@@ -1969,27 +1969,27 @@
             <translation>Referenzpunkt</translation>
         </message>
         <message>
-            <location filename="../../core/commands.py" line="2722" />
+            <location filename="../../core/commands.py" line="2735" />
             <source>Remove constraint</source>
             <translation>Bedingung entfernen</translation>
         </message>
         <message>
-            <location filename="../../core/commands.py" line="5048" />
+            <location filename="../../core/commands.py" line="5062" />
             <source>Rename camera tour</source>
             <translation>Kamerafahrt umbenennen</translation>
         </message>
         <message>
-            <location filename="../../core/commands.py" line="3841" />
+            <location filename="../../core/commands.py" line="3855" />
             <source>Rename layer to '{name}'</source>
             <translation>Ebene umbenennen in '{name}'</translation>
         </message>
         <message>
-            <location filename="../../core/commands.py" line="3878" />
+            <location filename="../../core/commands.py" line="3892" />
             <source>Reorder layers</source>
             <translation>Ebenen neu anordnen</translation>
         </message>
         <message>
-            <location filename="../../core/commands.py" line="2298" />
+            <location filename="../../core/commands.py" line="2311" />
             <source>Reshape curve</source>
             <translation>Kurve umformen</translation>
         </message>
@@ -1999,12 +1999,12 @@
             <translation>Objektgröße ändern</translation>
         </message>
         <message>
-            <location filename="../../core/commands.py" line="2068" />
+            <location filename="../../core/commands.py" line="2081" />
             <source>Rotate item</source>
             <translation>Objekt drehen</translation>
         </message>
         <message>
-            <location filename="../../core/commands.py" line="5031" />
+            <location filename="../../core/commands.py" line="5045" />
             <source>Save camera tour</source>
             <translation>Kamerafahrt speichern</translation>
         </message>
@@ -2019,52 +2019,52 @@
             <translation>{count} Objekt(e) ganz nach hinten</translation>
         </message>
         <message>
-            <location filename="../../core/commands.py" line="4795" />
+            <location filename="../../core/commands.py" line="4809" />
             <source>Set north orientation</source>
             <translation>Nordausrichtung festlegen</translation>
         </message>
         <message>
-            <location filename="../../core/commands.py" line="4021" />
+            <location filename="../../core/commands.py" line="4035" />
             <source>Set opacity of layer '{name}' to {pct}%</source>
             <translation>Deckkraft der Ebene '{name}' auf {pct}% setzen</translation>
         </message>
         <message>
-            <location filename="../../core/commands.py" line="4763" />
+            <location filename="../../core/commands.py" line="4777" />
             <source>Set succession plan</source>
             <translation>Folgepflanzung festlegen</translation>
         </message>
         <message>
-            <location filename="../../core/commands.py" line="4007" />
+            <location filename="../../core/commands.py" line="4021" />
             <source>Show layer '{name}'</source>
             <translation>Ebene '{name}' einblenden</translation>
         </message>
         <message>
-            <location filename="../../core/commands.py" line="3448" />
+            <location filename="../../core/commands.py" line="3462" />
             <source>Split shape</source>
             <translation>Form teilen</translation>
         </message>
         <message>
-            <location filename="../../core/commands.py" line="4106" />
+            <location filename="../../core/commands.py" line="4120" />
             <source>Trim polygon edge</source>
             <translation>Polygonkante stutzen</translation>
         </message>
         <message>
-            <location filename="../../core/commands.py" line="4060" />
+            <location filename="../../core/commands.py" line="4074" />
             <source>Trim polyline</source>
             <translation>Polylinie stutzen</translation>
         </message>
         <message>
-            <location filename="../../core/commands.py" line="4134" />
+            <location filename="../../core/commands.py" line="4148" />
             <source>Trim rectangle edge</source>
             <translation>Rechteckkante stutzen</translation>
         </message>
         <message>
-            <location filename="../../core/commands.py" line="3327" />
+            <location filename="../../core/commands.py" line="3341" />
             <source>Ungroup</source>
             <translation>Gruppierung aufheben</translation>
         </message>
         <message>
-            <location filename="../../core/commands.py" line="4018" />
+            <location filename="../../core/commands.py" line="4032" />
             <source>Unlock layer '{name}'</source>
             <translation>Ebene '{name}' entsperren</translation>
         </message>
@@ -5792,17 +5792,17 @@ Möchten Sie diese Datei wiederherstellen?</translation>
             <translation>Aktives Werkzeug</translation>
         </message>
         <message>
-            <location filename="../../app/agent_host.py" line="3686" />
+            <location filename="../../app/agent_host.py" line="3705" />
             <source>Agent API failed to start (see log)</source>
             <translation>Agent-API konnte nicht gestartet werden (siehe Protokoll)</translation>
         </message>
         <message>
-            <location filename="../../app/agent_host.py" line="3691" />
+            <location filename="../../app/agent_host.py" line="3710" />
             <source>Agent API running at {url}</source>
             <translation>Agent-API läuft unter {url}</translation>
         </message>
         <message>
-            <location filename="../../app/agent_host.py" line="3678" />
+            <location filename="../../app/agent_host.py" line="3697" />
             <source>Agent API: port {port} is already in use</source>
             <translation>Agent-API: Port {port} wird bereits verwendet</translation>
         </message>
@@ -7532,9 +7532,14 @@ Bitte speichern Sie Ihr Projekt an einem dauerhaften Speicherort.</translation>
     <context>
         <name>GroupItem</name>
         <message>
-            <location filename="../../ui/canvas/items/group_item.py" line="259" />
+            <location filename="../../ui/canvas/items/group_item.py" line="316" />
             <source>A constrained member cannot be rotated with the group</source>
             <translation>Ein Mitglied mit Randbedingung kann nicht mit der Gruppe gedreht werden</translation>
+        </message>
+        <message>
+            <location filename="../../ui/canvas/items/group_item.py" line="306" />
+            <source>A linked plant belongs to another group; remove it from that group before turning this one</source>
+            <translation>Eine verknüpfte Pflanze gehört zu einer anderen Gruppe; entfernen Sie sie vor dem Drehen aus dieser Gruppe</translation>
         </message>
         <message>
             <source>Ungroup</source>
@@ -7961,12 +7966,12 @@ Bitte speichern Sie Ihr Projekt an einem dauerhaften Speicherort.</translation>
     <context>
         <name>HarvestJournal</name>
         <message>
-            <location filename="../../core/commands.py" line="4549" />
+            <location filename="../../core/commands.py" line="4563" />
             <source>Harvested {qty} {unit}</source>
             <translation>{qty} {unit} geerntet</translation>
         </message>
         <message>
-            <location filename="../../core/commands.py" line="4546" />
+            <location filename="../../core/commands.py" line="4560" />
             <source>Harvested {qty} {unit} of {name}</source>
             <translation>{qty} {unit} {name} geerntet</translation>
         </message>

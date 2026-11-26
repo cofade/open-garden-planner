@@ -328,6 +328,10 @@ def paint_sprite(
     painter.setRenderHint(QPainter.RenderHint.SmoothPixmapTransform)
     painter.save()
     if abs(rotate_degrees) > 0.5:
+        # The oversized route draws the vector inside the target's device area;
+        # intersect the cached bitmap with the same target, never replace the
+        # clip the caller handed the painter (PF-CAN-54).
+        painter.setClipRect(target, Qt.ClipOperation.IntersectClip)
         centre = target.center()
         painter.translate(centre)
         painter.rotate(rotate_degrees)

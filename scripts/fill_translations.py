@@ -882,6 +882,7 @@ TRANSLATIONS: dict[str, dict[str, str]] = {
     # ── GardenPlannerApp ──
     "GroupItem": {
         "A constrained member cannot be rotated with the group": "Ein Mitglied mit Randbedingung kann nicht mit der Gruppe gedreht werden",
+        "A linked plant belongs to another group; remove it from that group before turning this one": "Eine verknüpfte Pflanze gehört zu einer anderen Gruppe; entfernen Sie sie vor dem Drehen aus dieser Gruppe",
     },
     "GardenPlannerApp": {
         "Tasks": "Aufgaben",

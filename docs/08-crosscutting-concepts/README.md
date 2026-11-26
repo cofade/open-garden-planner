@@ -767,10 +767,11 @@ centimetres**.
   16 MB and would still be shown 4.4 times too large. Nothing is cached for it
   — Qt's device cache already keeps the item's picture between paints — so it
   is drawn again at every zoom step, at a cost that grows with the window.
-- Both routes draw the sprite with one callback (`draw(painter, rect)`), so they
-  cannot disagree about a turn, a flip or a tint, and a zoom that crosses the
-  1024-px threshold does not move the picture
-  (`TestCachedAndExposedAgree`, `TestOversizedSprite`).
+- Both routes compose the same picture. The cached route turns the bitmap when it
+  is laid down and clips it to the target rectangle; the oversized route bakes
+  the turn into its layer, which is bounded by the same unturned target. A flip
+  or a tint is shared, and a zoom that crosses the 1024-px threshold does not
+  move the picture (`TestCachedAndExposedAgree`, `TestOversizedSprite`).
 - **A plant's decorative turn is applied when its bitmap is laid down, not baked
   into it (#845).** `paint_plant` passes `rotate_degrees` and an unrotated
   `draw`; the cache key is the species file and the level, so six plants of one

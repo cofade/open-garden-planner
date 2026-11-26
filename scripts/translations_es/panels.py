@@ -3,6 +3,7 @@
 TRANSLATIONS = {
     "GroupItem": {
         "A constrained member cannot be rotated with the group": "Un miembro con restricción no se puede girar con el grupo",
+        "A linked plant belongs to another group; remove it from that group before turning this one": "Una planta vinculada pertenece a otro grupo; retírela de ese grupo antes de girar este",
     },
     "CanopyPanel": {
         "Estimated direct sun": "Sol directo estimado",

@@ -290,6 +290,24 @@ class GroupItem(RotationHandleMixin, GardenItemMixin, QGraphicsItemGroup):
         graph = getattr(scene, "constraint_graph", None) if scene is not None else None
         if graph is None:
             return None
+        subtree = {id(entry) for entry in selection_tree([self])}
+        find = getattr(scene, "find_item_by_id", None)
+        if callable(find):
+            from open_garden_planner.core.commands import iter_plant_parents
+
+            for parent in iter_plant_parents([self]):
+                for child_id in getattr(parent, "child_item_ids", ()):
+                    item = find(child_id)
+                    if item is None or item.parentItem() is None:
+                        continue
+                    if id(item.parentItem()) not in subtree:
+                        from PyQt6.QtCore import QCoreApplication
+
+                        return QCoreApplication.translate(
+                            "GroupItem",
+                            "A linked plant belongs to another group; "
+                            "remove it from that group before turning this one",
+                        )
         for item in self.rotation_targets():
             item_id = getattr(item, "item_id", None)
             if item_id is not None and graph.get_item_constraints(item_id):

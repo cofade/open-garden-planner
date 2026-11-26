@@ -2526,9 +2526,6 @@ class AgentHost:
             reason = refusal()
             if reason:
                 raise ValueError(reason)
-        plan = getattr(item, "begin_rotation_plan", None)
-        if callable(plan):
-            plan()
 
         current_angle = float(getattr(item, "rotation_angle", 0.0))
         if not hasattr(item, "_apply_rotation"):
@@ -2540,20 +2537,27 @@ class AgentHost:
         new_angle = edits.validate_rotation(
             angle, relative=relative, current_angle=current_angle
         )
+        if getattr(item, "_rotation_plan_active", False):
+            raise ValueError("A group rotation is already in progress.")
 
-        followers = getattr(item, "rotation_follower_snapshots", None)
-        cmd = RotateItemCommand(
-            item,
-            current_angle,
-            new_angle,
-            apply_rotation,
-            followers=followers(new_angle) if callable(followers) else None,
-        )
+        plan = getattr(item, "begin_rotation_plan", None)
+        finish = getattr(item, "finish_rotation_plan", None)
+        planned = False
         try:
+            if callable(plan):
+                plan()
+                planned = True
+            followers = getattr(item, "rotation_follower_snapshots", None)
+            cmd = RotateItemCommand(
+                item,
+                current_angle,
+                new_angle,
+                apply_rotation,
+                followers=followers(new_angle) if callable(followers) else None,
+            )
             host.canvas_view.command_manager.execute(cmd)
         finally:
-            finish = getattr(item, "finish_rotation_plan", None)
-            if callable(finish):
+            if planned and callable(finish):
                 finish()
 
         cx, cy = host._agent_item_center(item)

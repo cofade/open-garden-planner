@@ -5,6 +5,7 @@ from __future__ import annotations
 TRANSLATIONS: dict[str, dict[str, str]] = {
     "GroupItem": {
         "A constrained member cannot be rotated with the group": "Un membre contraint ne peut pas être tourné avec le groupe",
+        "A linked plant belongs to another group; remove it from that group before turning this one": "Une plante liée appartient à un autre groupe ; retirez-la de ce groupe avant de tourner celui-ci",
     },
     "CanvasView": {
         "Rotate the group back to 0° before ungrouping": "Ramenez le groupe à 0° avant de dissocier",
