@@ -5144,10 +5144,9 @@ class DeleteCameraTourCommand(_CameraToursCommand):
 
 
 # Commands whose effect cannot change an item's ground band (#592). Every one of
-# them moves, resizes, rotates, edits vertices/curves, copies, links/reparents,
-# or changes constraints: ``canvas_scene.on_ground`` reads the item's object
-# type, height metadata and group membership, none of which these touch. The
-# base default stays True, so a future command is safe until it says otherwise.
+# them preserves the inputs to ``canvas_scene.on_ground``. Vertex insertions and
+# deletions keep the scan because a grouped polygon can cross the detail limit
+# for drawing its own sun overlays. The base default stays True.
 # Create is neutral because `addItem` derives a ground surface's band
 # synchronously and bulk adds end in `_update_items_z_order`; Delete/Group/
 # Ungroup/Boolean/ChangeProperty keep the scan.
@@ -5160,8 +5159,6 @@ _GROUND_BAND_NEUTRAL_COMMANDS: tuple[type[Command], ...] = (
     RotateItemCommand,
     MoveVertexCommand,
     SetCurveGeometryCommand,
-    AddVertexCommand,
-    DeleteVertexCommand,
     MultiVertexMoveCommand,
     LinearArrayCommand,
     GridArrayCommand,

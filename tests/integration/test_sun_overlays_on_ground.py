@@ -602,10 +602,12 @@ class TestTheGroundBand:
 
     def test_a_dense_planted_bed_keeps_its_shadow_in_export(self, view) -> None:
         from open_garden_planner.core.commands import GroupCommand
+        from open_garden_planner.ui.canvas.geometry_apply import build_add_vertex_command
+        from open_garden_planner.ui.canvas.items.polygon_item import MAX_FULL_DETAIL_VERTICES
 
         scene = view.scene()
         layer = scene.active_layer.id
-        ring = np.linspace(0, 2 * np.pi, 400, endpoint=False)
+        ring = np.linspace(0, 2 * np.pi, MAX_FULL_DETAIL_VERTICES, endpoint=False)
         bed = PolygonItem(
             [QPointF(200 + 70 * np.cos(angle), 200 + 70 * np.sin(angle)) for angle in ring],
             object_type=ObjectType.GARDEN_BED,
@@ -623,10 +625,18 @@ class TestTheGroundBand:
         before = _patch(_render(scene), point)
 
         view.command_manager.execute(GroupCommand(scene, [bed, plant]))
+        group = bed.parentItem()
+        assert group is not None and not _in_ground_band(group)
+        vertices = bed.polygon()
+        midpoint = (vertices[0] + vertices[1]) / 2
+        view.command_manager.execute(build_add_vertex_command(bed, 1, midpoint))
         controller.recompute_now()
-        assert _in_ground_band(bed.parentItem())
+        assert _in_ground_band(group)
         after = _patch(_render(scene), point)
         assert np.abs(after - before).max() < 3, (before, after)
+
+        view.command_manager.undo()
+        assert not _in_ground_band(group)
 
     def test_the_layer_order_holds_among_ground_surfaces_across_layers(self, view) -> None:
         scene = view.scene()
