@@ -42,6 +42,7 @@ from PyQt6.QtGui import (
 from PyQt6.QtWidgets import (
     QApplication,
     QGraphicsItem,
+    QGraphicsRectItem,
     QGraphicsScene,
     QWidget,
 )
@@ -67,6 +68,7 @@ from open_garden_planner.ui.canvas.items.garden_item import (
     disable_cache,
     is_interactive_paint,
 )
+from open_garden_planner.ui.canvas.items.group_item import GroupItem
 
 
 class TestItemCacheToggling:
@@ -184,6 +186,123 @@ class TestItemCacheToggling:
 
         item.setSelected(False)
         assert item.cacheMode() == QGraphicsItem.CacheMode.DeviceCoordinateCache
+
+
+class _CountingCircle(CircleItem):
+    """A real canvas item that records how often its paint is actually called."""
+
+    def __init__(self, *args: object, **kwargs: object) -> None:
+        super().__init__(*args, **kwargs)  # type: ignore[arg-type]
+        self.paints = 0
+
+    def paint(self, painter: QPainter, option: object, widget: QWidget | None = None) -> None:
+        self.paints += 1
+        super().paint(painter, option, widget)  # type: ignore[arg-type]
+
+
+class TestGroupMemberSelectionCache:
+    """A selected group must repaint its members like directly selected items.
+
+    Qt selects a group's members as a unit and does not send them the
+    selection-change notification a standalone item gets, so a member keeps
+    DeviceCoordinateCache while it is visually selected. The selected picture
+    (a plant's spacing ring, a shape's highlight) is then baked into its pixmap
+    and survives deselection. GroupItem.itemChange now repaints every member for
+    the group's own selection state (#1031).
+    """
+
+    def test_group_selection_repaints_members(self, qtbot) -> None:
+        scene = CanvasScene()
+        scene.setSceneRect(QRectF(-200, -200, 400, 400))
+        group = GroupItem()
+        scene.addItem(group)
+        circle = _CountingCircle(0, 0, 50, object_type=ObjectType.TREE)
+        scene.addItem(circle)
+        group.addToGroup(circle)
+
+        view = CanvasView(scene)
+        qtbot.addWidget(view)
+        view.resize(400, 300)
+        view.show()
+        qtbot.waitExposed(view)
+        view.viewport().grab()
+        assert circle.cacheMode() == QGraphicsItem.CacheMode.DeviceCoordinateCache
+
+        circle.paints = 0
+        group.setSelected(True)
+        qtbot.wait(10)
+        view.viewport().grab()
+        assert circle.isSelected()
+        assert circle.cacheMode() == QGraphicsItem.CacheMode.DeviceCoordinateCache
+        assert circle.paints > 0, "a selected group member must repaint"
+
+        circle.paints = 0
+        group.setSelected(False)
+        qtbot.wait(10)
+        view.viewport().grab()
+        assert not circle.isSelected()
+        assert circle.cacheMode() == QGraphicsItem.CacheMode.DeviceCoordinateCache
+        assert circle.paints > 0, "a deselected group member must repaint out of its cached selected picture"
+
+    def test_a_deselected_group_drops_its_members_selected_picture(self, qtbot) -> None:
+        scene = CanvasScene()
+        scene.setSceneRect(QRectF(-100, -100, 400, 300))
+        item = _SelectedBandItem()
+        item.setPos(20, 20)
+        scene.addItem(item)
+        group = GroupItem()
+        scene.addItem(group)
+
+        view = CanvasView(scene)
+        qtbot.addWidget(view)
+        view.resize(420, 320)
+        view.show()
+        qtbot.waitExposed(view)
+        view.viewport().grab()
+
+        # The owner's flow: the member is selected (and paints uncached) before
+        # grouping, so its selected picture is what the group membership turns
+        # into a cached pixmap.
+        item.setSelected(True)
+        qtbot.wait(10)
+        view.viewport().grab()
+        assert self._centre_colour(view, item) == (0, 128, 255)
+
+        group.addToGroup(item)
+        group.setSelected(True)
+        qtbot.wait(10)
+        view.viewport().grab()
+        assert self._centre_colour(view, item) == (0, 128, 255)
+
+        group.setSelected(False)
+        qtbot.wait(10)
+        view.viewport().grab()
+        assert not item.isSelected()
+        assert self._centre_colour(view, item) == (180, 60, 40), (
+            "the group member still shows the picture painted while it was selected"
+        )
+
+    @staticmethod
+    def _centre_colour(view: CanvasView, item: QGraphicsItem) -> tuple[int, int, int]:
+        image = view.viewport().grab().toImage()
+        ratio = image.devicePixelRatio()
+        centre = view.mapFromScene(item.sceneBoundingRect().center())
+        colour = image.pixelColor(round(centre.x() * ratio), round(centre.y() * ratio))
+        return colour.red(), colour.green(), colour.blue()
+
+
+class _SelectedBandItem(QGraphicsRectItem):
+    """Document-like member whose whole face says whether it is selected."""
+
+    def __init__(self) -> None:
+        super().__init__(0, 0, 120, 60)
+        self.item_id = "selected-band"
+        self.setFlag(QGraphicsItem.GraphicsItemFlag.ItemIsSelectable, True)
+        self.setCacheMode(QGraphicsItem.CacheMode.DeviceCoordinateCache)
+
+    def paint(self, painter: QPainter, option: object, widget: QWidget | None = None) -> None:
+        del option, widget
+        painter.fillRect(self.rect(), QColor(0, 128, 255) if self.isSelected() else QColor(180, 60, 40))
 
 
 class TestExportCacheFidelity:

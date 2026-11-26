@@ -369,4 +369,14 @@ The first WER dump named `QGraphicsSceneIndexPrivate::recursive_items_helper` re
 
 Two later dumps from the same manual test show the same use-after-free **without** a document replacement. The 14:55 crash was `QGraphicsItem::topLevelItem` inside `QGraphicsSceneBspTree::items`, reached from `estimateItems` and `drawItems` during the first paint after Ctrl+G; the 14:59 crash was a purecall in `QGraphicsItemPrivate::effectiveBoundingRect` inside `drawSubtreeRecursive`, i.e. a virtual call on an already-deleted item during that same paint. Both are the scene index naming an item that grouping had reparented or removed. Group and ungroup now reparent under the linear index and restore it before the z refresh, and editing handles/displays detach from their owner instead of remaining Qt children. A drill-down group turn starts through `begin_drag` without a mouse grab, so `end_drag` releases the grab only when this handle actually owns it; the old unconditional release printed `QGraphicsItem::ungrabMouse: not a mouse grabber`. A Qt-only minimal sequence (add, group, remove, delete) did **not** leave a stale search entry in isolation, so there is no upstream repro to file yet.
 
+### PF-CAN-77
+
+- **Rule:** Changing a `GroupItem`'s selection must repaint every member, not only the group. Qt selects a group's members as a unit and does not send them the selection-change notification a standalone item receives, so a member keeps its `DeviceCoordinateCache` picture across the transition. Any selection decoration painted into that picture (a plant's spacing ring, a bed's highlight frame) otherwise survives deselection and makes the object look changed even though its fill is untouched. Invalidate (and thereby repaint) each document member on the group's selection and membership changes; leave the member's cache mode as it is, so selecting a large group does not turn every member into a live paint.
+- **Pinned by:** `tests/integration/test_canvas_item_cache.py`
+- **Source:** #1031 manual test of #1022 (owner report: grouped bed looked brighter after deselection)
+- **Status:** standing
+- **Legacy:** none (new entry)
+
+The owner grouped a bed and two plants, deselected the group and saw the bed still brighter and two plants still ringed. The bed's `.ogp` record was identical to the same bed before grouping, fixed samples of its soil were identical in every state, and the pixel difference was confined to the bed's selection frame and the plants' selected-only spacing rings. A forced cache rebuild or a fresh reopen was pixel-identical to the pre-group render; the fill never changed. Repainting each member on the group's `ItemSelectedHasChanged` now makes the deselected group pixel-identical to the pre-group render (measured mean difference `0.0` over the whole bed), and a re-opened plan was already identical because its caches are built from scratch.
+
 

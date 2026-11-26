@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import contextlib
 import math
 import uuid
 from typing import Any
@@ -81,6 +82,27 @@ def selection_tree(items: list[QGraphicsItem]) -> list[QGraphicsItem]:
         result.append(item)
         pending.extend(item.childItems())
     return result
+
+
+def repaint_group_member(item: QGraphicsItem) -> None:
+    """Drop one group member's cached picture after the group's selection moved (#1031).
+
+    Qt selects a group's members as a unit and does not send each member the
+    selection-change notification a standalone item receives. A member therefore
+    keeps its ``DeviceCoordinateCache`` while it is visually selected, which bakes
+    selection decorations — a plant's spacing ring, a shape's highlight — into its
+    cached pixmap. Deselecting the group then leaves those decorations on screen
+    because nothing invalidated that picture. ``update()`` both drops the cached
+    pixmap and schedules the member's repaint for its new selection state; its
+    cache mode stays as it is, so selecting a large group does not turn every
+    plant into a live paint.
+    """
+    if getattr(item, "item_id", None) is None:
+        return
+    # A member deleted by an undo between the group's selection change and this
+    # walk has already left the scene.
+    with contextlib.suppress(RuntimeError):
+        item.update()
 
 
 def ungroupable_groups(items: list[QGraphicsItem]) -> list[GroupItem]:
@@ -201,6 +223,8 @@ class GroupItem(RotationHandleMixin, GardenItemMixin, QGraphicsItemGroup):
                 self.hide_rotation_handle()
         elif change == QGraphicsItem.GraphicsItemChange.ItemSceneChange and value is None:
             self.remove_rotation_handle()
+        elif change == QGraphicsItem.GraphicsItemChange.ItemSelectedHasChanged:
+            self.repaint_member_selections()
         if change in (
             QGraphicsItem.GraphicsItemChange.ItemPositionHasChanged,
             QGraphicsItem.GraphicsItemChange.ItemTransformHasChanged,
@@ -558,15 +582,23 @@ class GroupItem(RotationHandleMixin, GardenItemMixin, QGraphicsItemGroup):
         self._drill_down_child = child
         self.update()
 
+    def repaint_member_selections(self) -> None:
+        """Repaint each member for the group's own selection state (#1031)."""
+        for item in selection_tree([self]):
+            if item is not self:
+                repaint_group_member(item)
+
     def addToGroup(self, item: QGraphicsItem) -> None:  # type: ignore[override]
         """Add a member and keep a visible rotation handle on the new outline."""
         super().addToGroup(item)
+        repaint_group_member(item)
         if self.isSelected():
             self.update_rotation_handle()
 
     def removeFromGroup(self, item: QGraphicsItem) -> None:  # type: ignore[override]
         """Remove a member and keep a visible rotation handle on the new outline."""
         super().removeFromGroup(item)
+        repaint_group_member(item)
         if self.isSelected():
             self.update_rotation_handle()
 
