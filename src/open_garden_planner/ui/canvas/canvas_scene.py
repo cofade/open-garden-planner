@@ -70,13 +70,40 @@ def ground_z(layer_z: float) -> float:
 
 def on_ground(item: QGraphicsItem) -> bool:
     """Whether ``item`` is drawn in ``GROUND_Z_RANGE``: a ground surface
-    (``object_height.lies_on_ground``), or a group whose every member is one — a
-    group is drawn in ONE slot, so a grouped lawn left in its layer's band hid the
-    sun overlays and lay over a path ranked above the group (review of the owner's
-    manual pass). A group that mixes surfaces and solids stays in its layer's band."""
+    (``object_height.lies_on_ground``), or a group that belongs with the ground.
+
+    A group is drawn in ONE slot, so a grouped lawn left in its layer's band hid
+    the sun overlays and lay over a path ranked above the group (review of the
+    owner's manual pass). An all-surface group therefore takes the ground band.
+    A planted ground bed is the same scene: a bed grouped with the plants rooted
+    in it must stay in the ground band, or grouping lifts the bed above the
+    sun-shadow overlay and it renders bright while its soil is shaded. Such a
+    group is ground when every non-ground member is a plant whose
+    ``parent_bed_id`` names one of the group's ground beds. A mixed group that
+    still contains any other solid (a lawn with a bench) keeps its layer's band.
+    """
     if isinstance(item, QGraphicsItemGroup):
         members = [child for child in item.childItems() if stacking.supports_stacking(child)]
-        return bool(members) and all(on_ground(child) for child in members)
+        if not members:
+            return False
+        if all(on_ground(child) for child in members):
+            return True
+        ground_ids = {
+            getattr(child, "item_id", None)
+            for child in members
+            if on_ground(child)
+        }
+        ground_ids.discard(None)
+        if not ground_ids:
+            return False
+        for child in members:
+            if on_ground(child):
+                continue
+            if not is_plant_type(getattr(child, "object_type", None)):
+                return False
+            if getattr(child, "parent_bed_id", None) not in ground_ids:
+                return False
+        return True
     return lies_on_ground(getattr(item, "object_type", None), getattr(item, "metadata", None))
 
 

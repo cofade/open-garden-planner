@@ -373,10 +373,20 @@ Two later dumps from the same manual test show the same use-after-free **without
 
 - **Rule:** Changing a `GroupItem`'s selection must repaint every member, not only the group. Qt selects a group's members as a unit and does not send them the selection-change notification a standalone item receives, so a member keeps its `DeviceCoordinateCache` picture across the transition. Any selection decoration painted into that picture (a plant's spacing ring, a bed's highlight frame) otherwise survives deselection and makes the object look changed even though its fill is untouched. Invalidate (and thereby repaint) each document member on the group's selection and membership changes; leave the member's cache mode as it is, so selecting a large group does not turn every member into a live paint.
 - **Pinned by:** `tests/integration/test_canvas_item_cache.py`
-- **Source:** #1031 manual test of #1022 (owner report: grouped bed looked brighter after deselection)
+- **Source:** #1031 manual test of #1022 (owner report: selection decorations left on a grouped bed and its plants)
 - **Status:** standing
 - **Legacy:** none (new entry)
 
-The owner grouped a bed and two plants, deselected the group and saw the bed still brighter and two plants still ringed. The bed's `.ogp` record was identical to the same bed before grouping, fixed samples of its soil were identical in every state, and the pixel difference was confined to the bed's selection frame and the plants' selected-only spacing rings. A forced cache rebuild or a fresh reopen was pixel-identical to the pre-group render; the fill never changed. Repainting each member on the group's `ItemSelectedHasChanged` now makes the deselected group pixel-identical to the pre-group render (measured mean difference `0.0` over the whole bed), and a re-opened plan was already identical because its caches are built from scratch.
+The owner grouped a bed and two plants, deselected the group and saw the bed's selection frame and both plants' selected-only spacing rings remain. The bed's `.ogp` record was identical to the same bed before grouping, fixed samples of its soil were identical in every state, and the pixel difference was confined to that decoration layer. A forced cache rebuild or a fresh reopen was pixel-identical to the pre-group render; the fill itself never changed. Repainting each member on the group's `ItemSelectedHasChanged` clears those decorations. This was **not** the brightness the owner reported in the same message; that one was PF-CAN-78, and the earlier before/after soil average could not see either decoration.
+
+### PF-CAN-78
+
+- **Rule:** A group paints in ONE z slot, so a bed grouped with its plants must stay in `GROUND_Z_RANGE` if those plants are rooted in it (`parent_bed_id` names the bed), even though the group mixes a ground surface with solids. Otherwise the whole group sits above the sun-shadow overlay (`-500`) and the bed loses its shade while every ungrouped bed keeps it; ungrouping is the only way back. When such a group is below the overlay, the overlay must also cut the group's plants out of its shade — but only bodies below the overlay, never top-level ones. Cutting every standing body out would leave an unshaded halo around every ungrouped plant on a shaded bed.
+- **Pinned by:** `tests/integration/test_sun_overlays_on_ground.py`
+- **Source:** #1031 manual test of #1022 (owner: "the unselected group is still bright, only at ungrouping does it return")
+- **Status:** standing
+- **Legacy:** none (new entry)
+
+The first diagnosis compared soil averages without the sun-shadow overlay, so both grouped and ungrouped renders were shadow-free and looked identical. With the app's shadow controller enabled, a grouped bed rendered `122.7 / 88.8 / 40.9` while the same bed ungrouped was `91.5 / 75.1 / 47.7`; the group's z slot was ~`0.0006` against the overlay's `-500`, while the ungrouped ground was `-750`. The z rule fixed the bed but shaded the group's plants as well; the overlay's cover clip (only below-overlay bodies) keeps the grouped plants' pixels identical to their ungrouped state. Measured after both: grouped versus ungrouped differ only by a sub-pixel cover-edge halo (`12.7` mean on the amplified probe) and the ungrouped plan is pixel-identical (`0.0`) to the pre-change render.
 
 

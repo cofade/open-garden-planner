@@ -243,6 +243,71 @@ class TestTheGroundBand:
         _add(view, later)
         assert later.zValue() < -500.0 < mixed.zValue()
 
+    def test_a_bed_grouped_with_its_planted_plant_stays_on_the_ground(self, view) -> None:
+        """A bed grouped with the plants rooted in it is one ground scene (#1031).
+
+        A group paints in one z slot. If a planted bed stayed in its layer band,
+        grouping lifted the bed above the sun-shadow overlay: the soil rendered
+        bright while every ungrouped bed was shaded, and ungrouping was the only
+        way back.
+        """
+        from open_garden_planner.core.commands import GroupCommand
+
+        scene = view.scene()
+        bed = RectangleItem(200, 180, 80, 40, object_type=ObjectType.GARDEN_BED,
+                            layer_id=scene.active_layer.id)
+        plant = CircleItem(220, 200, 15, object_type=ObjectType.PERENNIAL,
+                           layer_id=scene.active_layer.id)
+        plant.parent_bed_id = bed.item_id
+        for item in (bed, plant):
+            _add(view, item)
+        view.command_manager.execute(GroupCommand(scene, [bed, plant]))
+        group = bed.parentItem()
+        assert group is not None and _in_ground_band(group)
+        assert group.zValue() < -500.0, "the sun-shadow overlay is above the group"
+
+    def test_a_bed_grouped_with_its_plant_still_receives_the_shadow(self, view) -> None:
+        """The pixels, not only the band: grouping must not lift the soil out."""
+        from open_garden_planner.core.commands import GroupCommand
+
+        scene = view.scene()
+        _shed(view)   # (200, 100) 200 cm tall; its noon shadow reaches (235, 200)
+        _lawn(view)
+        bed = RectangleItem(200, 180, 80, 40, object_type=ObjectType.GARDEN_BED,
+                            layer_id=scene.active_layer.id)
+        plant = CircleItem(215, 185, 10, object_type=ObjectType.PERENNIAL,
+                           layer_id=scene.active_layer.id)
+        plant.parent_bed_id = bed.item_id
+        for item in (bed, plant):
+            _add(view, item)
+        view.command_manager.execute(GroupCommand(scene, [bed, plant]))
+        controller = SunShadowController(scene, lambda: BERLIN)
+        before = _render(scene)
+        controller.set_enabled(True)
+        controller.set_sim_datetime(JUNE_NOON_UTC)
+        after = _render(scene)
+        shaded = _patch(before, (250.0, 200.0)) - _patch(after, (250.0, 200.0))
+        assert shaded.sum() > 30.0, f"the grouped bed did not receive the shadow ({shaded})"
+        crown = np.abs(_patch(before, (215.0, 185.0), 3) - _patch(after, (215.0, 185.0), 3))
+        assert crown.max() < 1.0, f"the grouped plant was tinted by the ground shadow ({crown})"
+
+    def test_a_bed_grouped_with_an_unrelated_solid_stays_above_the_overlays(self, view) -> None:
+        from open_garden_planner.core.commands import GroupCommand
+
+        scene = view.scene()
+        bed = RectangleItem(200, 180, 80, 40, object_type=ObjectType.GARDEN_BED,
+                            layer_id=scene.active_layer.id)
+        plant = CircleItem(220, 200, 15, object_type=ObjectType.PERENNIAL,
+                           layer_id=scene.active_layer.id)
+        plant.parent_bed_id = bed.item_id
+        table = RectangleItem(300, 300, 40, 40, object_type=ObjectType.TABLE_RECTANGULAR,
+                              layer_id=scene.active_layer.id)
+        for item in (bed, plant, table):
+            _add(view, item)
+        view.command_manager.execute(GroupCommand(scene, [bed, plant, table]))
+        group = bed.parentItem()
+        assert group is not None and group.zValue() >= 0.0
+
     def test_the_layer_order_holds_among_ground_surfaces_across_layers(self, view) -> None:
         scene = view.scene()
         upper = Layer(name="Upper", z_order=1)

@@ -253,6 +253,12 @@ class SunShadowOverlayItem(QGraphicsPathItem):
         # Rasterised once per solve and zoom, then blitted (#784).
         self.setCacheMode(QGraphicsItem.CacheMode.DeviceCoordinateCache)
         self._clip_rect: QRectF | None = None
+        #: The shadow is not painted over a body that stands on the plan. The
+        #: overlay itself is below every top-level body; this matters for a
+        #: ground group, whose plants are in the same z slot below the overlay
+        #: after grouping (canvas_scene.on_ground). Without it the group's
+        #: plants darken while every ungrouped plant stays bright.
+        self._cover_clip: QPainterPath | None = None
         self._feathered = False  # there is ground beside the shade to feather
         self._weighted_regions: tuple[WeightedShadowRegion, ...] = ()
         self._region_paths: tuple[tuple[QPainterPath, QColor], ...] = ()
@@ -294,6 +300,19 @@ class SunShadowOverlayItem(QGraphicsPathItem):
         self._clip_rect = new_rect
         self._generation += 1
         self._rebuild_feather()
+        self.update()
+
+    def set_cover_clip(self, clip: QPainterPath | None) -> None:
+        """Cut the shade out of bodies that sit BELOW the overlay (#1031).
+
+        The painter clip is in scene coordinates: a rectangle large enough for the
+        overlay's feather, with each below-overlay body's cover path subtracted.
+        A top-level body is above the overlay and is not in the clip, so its
+        pixels stay what they were; a grouped plant in a ground group is in the
+        group's z slot below the overlay and keeps its own colours.
+        """
+        self._cover_clip = QPainterPath(clip) if clip is not None else None
+        self._generation += 1
         self.update()
 
     def set_shadow_path(self, path: QPainterPath) -> None:
@@ -382,11 +401,27 @@ class SunShadowOverlayItem(QGraphicsPathItem):
     def paint(
         self,
         painter: QPainter | None,
-        _option: QStyleOptionGraphicsItem | None,
-        _widget: QWidget | None = None,
+        option: QStyleOptionGraphicsItem | None,
+        widget: QWidget | None = None,
     ) -> None:
         if painter is None or self.path().isEmpty():
             return
+        if self._cover_clip is None:
+            self._paint_unclipped(painter, option, widget)
+            return
+        painter.save()
+        try:
+            painter.setClipPath(self._cover_clip, Qt.ClipOperation.IntersectClip)
+            self._paint_unclipped(painter, option, widget)
+        finally:
+            painter.restore()
+
+    def _paint_unclipped(
+        self,
+        painter: QPainter,
+        _option: QStyleOptionGraphicsItem | None,
+        _widget: QWidget | None = None,
+    ) -> None:
         from .items.path_style_paint import current_render_walk_cap
 
         if (
@@ -1442,6 +1477,7 @@ class SunShadowController(QObject):
                 self._scrub_settle.stop()
         overlay.set_feather_deferred(scrubbing)
         overlay.set_clip_rect(canvas_rect)
+        overlay.set_cover_clip(self._cover_clip_for(path))
         overlay.set_shadow_path(path)
         overlay.set_weighted_regions(regions)
         self._show(overlay)
@@ -1499,6 +1535,51 @@ class SunShadowController(QObject):
         overlay = self._alive_overlay()
         if overlay is not None:
             overlay.set_feather_deferred(False)
+
+    def _cover_clip_for(self, path: QPainterPath) -> QPainterPath | None:
+        """The shade's painter clip: its area minus bodies that sit BELOW it (#1031).
+
+        A top-level plant stands above the overlay and must not change: cutting
+        its silhouette out of the shade would leave an unshaded halo on the bed.
+        A plant inside a ground group is in the group's z slot below the overlay
+        after grouping; without this cut it would darken while every ungrouped
+        plant stays bright. Only those below-overlay bodies are cut.
+        """
+        from .canvas_scene import is_standing_object
+
+        covers = QPainterPath()
+        covers.setFillRule(Qt.FillRule.WindingFill)
+        any_cover = False
+        try:
+            items = list(self._scene.items())
+        except RuntimeError:
+            return None
+        for item in items:
+            if not is_standing_object(item) or not hasattr(item, "grid_cover_path"):
+                continue
+            z = item.zValue()
+            parent = item.parentItem()
+            while parent is not None:
+                z += parent.zValue()
+                parent = parent.parentItem()
+            if z >= _OVERLAY_Z:
+                continue
+            cover = item.grid_cover_path()
+            if cover.isEmpty():
+                continue
+            covers.addPath(item.sceneTransform().map(cover))
+            any_cover = True
+        if not any_cover:
+            return None
+        base = path.boundingRect().adjusted(
+            -_FEATHER_MARGIN_CM * 4.0,
+            -_FEATHER_MARGIN_CM * 4.0,
+            _FEATHER_MARGIN_CM * 4.0,
+            _FEATHER_MARGIN_CM * 4.0,
+        )
+        base_path = QPainterPath()
+        base_path.addRect(base)
+        return base_path.subtracted(covers)
 
     def _alive_overlay(self) -> SunShadowOverlayItem | None:
         """The overlay if its C++ object still lives in our scene, else None.
@@ -1558,6 +1639,7 @@ class SunShadowController(QObject):
         overlay = self._alive_overlay()
         if overlay is not None and self._overlay_wanted:
             overlay.set_feather_deferred(False)
+            overlay.set_cover_clip(None)
             overlay.set_shadow_path(QPainterPath())
             overlay.setVisible(False)
         self._overlay_wanted = False
@@ -1591,6 +1673,7 @@ class SunShadowController(QObject):
         overlay = self._ensure_overlay()
         overlay.set_feather_deferred(False)
         overlay.set_clip_rect(canvas_rect)
+        overlay.set_cover_clip(self._cover_clip_for(path))
         overlay.set_shadow_path(path)
         left, top, right, bottom = (canvas_rect.left(), canvas_rect.top(), canvas_rect.right(),
                                     canvas_rect.bottom())
