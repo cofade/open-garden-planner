@@ -426,6 +426,15 @@ class TestBboxNormaliserPerShape:
         assert queries.object_bbox(poly) == (0.0, 0.0, 30.0, 40.0)
 
     def test_callout_spans_its_leader(self) -> None:
+        callout = {
+            "type": "callout", "target_x": 12.0, "target_y": 34.0,
+            "box_dx": 5, "box_dy": 6,
+            "bounds": {"x": -10.0, "y": -20.0, "width": 30.0, "height": 40.0},
+        }
+        assert queries.object_bbox(callout) == (2.0, 14.0, 30.0, 40.0)
+        assert queries.object_center(callout) == (12.0, 34.0)
+
+    def test_a_legacy_callout_without_bounds_spans_its_leader(self) -> None:
         callout = {"type": "callout", "target_x": 12.0, "target_y": 34.0, "box_dx": 5, "box_dy": 6}
         assert queries.object_bbox(callout) == (12.0, 34.0, 5.0, 6.0)
 

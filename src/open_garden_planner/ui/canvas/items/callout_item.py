@@ -352,14 +352,26 @@ class CalloutItem(RotationHandleMixin, GardenItemMixin, QGraphicsItem):
     # ── Serialization ─────────────────────────────────────────────
 
     def to_dict(self) -> dict[str, Any]:
+        # Qt's addToGroup folds a compensation into the item transform; the
+        # serialized target is the pre-rotation origin in the parent frame,
+        # exactly as the loader reconstructs it (#1022).
+        base = self.transform()
+        target = self.pos() + QPointF(base.dx(), base.dy())
         data: dict[str, Any] = {
             "type": "callout",
             "item_id": str(self.item_id),
-            "target_x": self.pos().x(),
-            "target_y": self.pos().y(),
+            "target_x": target.x(),
+            "target_y": target.y(),
             "box_dx": self._box_offset.x(),
             "box_dy": self._box_offset.y(),
             "content": self._content,
+        }
+        rect = self.boundingRect()
+        data["bounds"] = {
+            "x": rect.x(),
+            "y": rect.y(),
+            "width": rect.width(),
+            "height": rect.height(),
         }
         if self._name:
             data["name"] = self._name

@@ -22,7 +22,12 @@ from open_garden_planner.core.object_types import ObjectType
 from open_garden_planner.core.project import ProjectManager
 from open_garden_planner.ui.canvas.canvas_scene import CanvasScene
 from open_garden_planner.ui.canvas.canvas_view import CanvasView
-from open_garden_planner.ui.canvas.items import CircleItem, GroupItem, RectangleItem
+from open_garden_planner.ui.canvas.items import (
+    CalloutItem,
+    CircleItem,
+    GroupItem,
+    RectangleItem,
+)
 from open_garden_planner.ui.canvas.items.handle_geometry import selection_frame_rect
 from open_garden_planner.ui.canvas.roof_ridge_link import build_linked_ridge, linked_ridge
 
@@ -1053,6 +1058,32 @@ def test_ungrouping_a_loaded_nested_group_survives_save_and_reload(
     reopened = CanvasScene(width_cm=5000, height_cm=3000)
     ProjectManager().load(reopened, reopened_target)
     assert centres(reopened) == before
+
+
+def test_a_grouped_callout_box_matches_its_live_geometry(canvas: CanvasView) -> None:
+    """Own turn and group turn compose about the saved callout bounds."""
+    _show(canvas)
+    scene = canvas.scene()
+    callout = CalloutItem(
+        target=QPointF(100.0, 100.0),
+        box_offset=QPointF(100.0, 50.0),
+        content="A",
+    )
+    scene.addItem(callout)
+    callout._apply_rotation(30.0)
+    peer = _rect(scene, 500.0, 100.0)
+    group = _grouped(canvas, callout, peer)
+    group._apply_rotation(45.0)
+    saved = ProjectManager._serialize_item(group)
+    assert saved is not None
+    x, y, w, h = queries.object_bbox(saved)
+    callout_box = callout.mapToScene(callout.boundingRect()).boundingRect()
+    peer_box = peer.mapToScene(peer.rect()).boundingRect()
+    live = callout_box.united(peer_box)
+    assert x == pytest.approx(live.left(), abs=3.0)
+    assert y == pytest.approx(live.top(), abs=3.0)
+    assert x + w == pytest.approx(live.right(), abs=3.0)
+    assert y + h == pytest.approx(live.bottom(), abs=3.0)
 
 
 def test_a_small_turned_group_can_return_to_zero(canvas: CanvasView) -> None:

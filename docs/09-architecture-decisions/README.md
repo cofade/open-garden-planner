@@ -13887,7 +13887,8 @@ whose endpoints are both members survives save and reload; copy/duplicate remaps
 both fields through one map for the whole tree and drops uncopied endpoints. That
 map is the only author of copied links; paste/duplicate never rebuild them from a
 top-level-only map, and the forest is normalized so each source item appears once.
-The Agent API's group box applies the same base translation.
+The Agent API's group box applies the same base translation; a callout saves its
+local bounds for its own turn and keeps its leader tip as the API position.
 Ungrouping a turned group is refused: Qt leaves the group rotation in the
 member's Qt transform while the file stores the member's own angle, so a correct
 bake would have to cover every member type and zero-net-angle pairs. Rotate the

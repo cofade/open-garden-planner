@@ -290,8 +290,18 @@ def _object_bbox_unrotated(
         sx, sy = float(obj["semi_x"]), float(obj["semi_y"])
         return (cx - sx, cy - sy, 2 * sx, 2 * sy)
     if "target_x" in obj and ("box_dx" in obj or "box_dy" in obj):
-        # Callout: the arrow tip and the serialized box anchor (leader end).
+        # Callout: the arrow tip plus its serialized box. The live item's own
+        # turn uses the bounding box centre, so a saved bounds block is the
+        # pivot-exact form; older files fall back to the leader segment.
         tx, ty = float(obj["target_x"]), float(obj.get("target_y", 0.0))
+        bounds = obj.get("bounds")
+        if isinstance(bounds, dict):
+            return (
+                tx + float(bounds.get("x", 0.0)),
+                ty + float(bounds.get("y", 0.0)),
+                float(bounds.get("width", 0.0)),
+                float(bounds.get("height", 0.0)),
+            )
         bx = tx + float(obj.get("box_dx", 0.0))
         by = ty + float(obj.get("box_dy", 0.0))
         return (min(tx, bx), min(ty, by), abs(bx - tx), abs(by - ty))

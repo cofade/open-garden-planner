@@ -28,7 +28,17 @@ from open_garden_planner.core.object_bounds import object_bbox
 
 
 def object_center(obj: dict[str, Any]) -> tuple[float, float]:
-    """Return the bounding-box centre ``(cx, cy)`` in scene cm."""
+    """Return the object's API position ``(cx, cy)`` in scene cm.
+
+    A callout's addressable position is its leader tip (the same point it
+    always reported), even though its region footprint spans the leader and
+    text box.
+    """
+    if obj.get("type") == "callout":
+        return (
+            float(obj.get("target_x", 0.0)),
+            float(obj.get("target_y", 0.0)),
+        )
     x, y, w, h = object_bbox(obj)
     return (x + w / 2.0, y + h / 2.0)
 

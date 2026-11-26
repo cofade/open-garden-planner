@@ -213,7 +213,7 @@ def validate_plan_data(data: dict[str, Any]) -> None:
             parts = plan_object_bounds_parts(obj)
         except OverflowError as exc:
             raise PlanValidationError("object.bounds") from exc
-        except (KeyError, TypeError, ValueError):
+        except (KeyError, TypeError, ValueError, AttributeError):
             # Structurally malformed objects keep the loader's existing
             # skip/placeholder policy; only numeric finiteness is this gate.
             continue
