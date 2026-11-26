@@ -2443,15 +2443,16 @@ class ProjectManager(QObject):
 
     @contextlib.contextmanager
     def _linear_scene_index(self, scene: QGraphicsScene) -> Any:
-        """Use Qt's linear index while one document replaces another.
+        """Use Qt's linear index while the old document is being cleared.
 
-        ``QGraphicsSceneBspTreeIndex`` can keep a child of a removed group (or
-        an editing decoration whose owner is gone) as a top-level entry.  A
-        later hit test then walks a pointer whose C++ object has been deleted —
-        a native crash on the first click after reopening a plan (#1022 review).
-        The linear index is built from ``topLevelItems``, which Qt keeps
-        consistent, so the BSP tree is rebuilt from truth when the method is
-        restored.
+        Replacing a document is the one phase where an item can leave the
+        scene while the BSP tree still names it.  Switching to the linear index
+        makes Qt rebuild the index from the live item inventory (the outgoing
+        index's item list is migrated, not its spatial search tree), so a stale
+        BSP search entry cannot be reached afterwards.  A dangling pointer that
+        is already in that inventory is not recoverable here; the orphan sweep
+        below removes the known decoration class.  The caller restores the
+        previous index once the old document is gone (#1031).
         """
         previous = scene.itemIndexMethod()
         if previous == QGraphicsScene.ItemIndexMethod.NoIndex:
@@ -2469,10 +2470,9 @@ class ProjectManager(QObject):
 
         A resize handle owns a top-level ``DimensionDisplay``.  When its item
         leaves the scene the display can outlive it (the handle is a child and
-        disappears, the display is not).  The old document is gone at this
-        point, so any such item still at the top level is an orphan.  Leaving
-        it in the scene also leaves it in the item index, which is how a later
-        hit test can reach a deleted item (#1022 review).
+        disappears, the display is not), so the old document's decoration would
+        otherwise enter the new document's item index.  The old document is gone
+        at this point, so any such item still at the top level is an orphan.
         """
         from open_garden_planner.ui.canvas.items.resize_handle import (
             DRAG_HANDLE_TYPES,
@@ -2494,22 +2494,24 @@ class ProjectManager(QObject):
     ) -> None:
         """Phase 2: Apply in-memory validated items and layers to the scene.
 
-        The scene's index is linear for the whole replacement: converting the
-        old BSP tree at the start serialises only live items, and restoring it
-        at the end rebuilds from ``topLevelItems`` instead of carrying a stale
-        entry into the next document (#1022 review).
+        Only the OLD document is cleared under the linear index: that is the
+        phase where a BSP entry can outlive its item.  The new document is
+        added under the scene's own index, so stacking order (and the z
+        renumbering that reads it) keeps the scene's normal ordering rules
+        (#1031 review).
         """
         with self._linear_scene_index(scene):
-            self._apply_to_scene_unindexed(scene, data, prep)
+            self._clear_previous_document(scene)
+        self._apply_to_scene_unindexed(scene, data, prep)
 
-    def _apply_to_scene_unindexed(
-        self,
-        scene: QGraphicsScene,
-        data: ProjectData,
-        prep: tuple[list[QGraphicsItem], list[Layer] | None, Any, list[Any] | None],
-    ) -> None:
-        """Phase 2 body; the caller owns the scene index choice."""
-        deserialized_items, parsed_layers, parsed_constraints, parsed_guides = prep
+    def _clear_previous_document(self, scene: QGraphicsScene) -> None:
+        """Clear the old document while the scene uses the linear index.
+
+        The caller runs this under :meth:`_linear_scene_index`, so the BSP
+        search tree is not consulted while its items leave.  The orphan sweep
+        is the second half of the same guarantee: a top-level editing
+        decoration whose owner is gone must not enter the next document index.
+        """
         if hasattr(scene, "reset_document_diagnostics"):
             scene.reset_document_diagnostics()
 
@@ -2536,6 +2538,15 @@ class ProjectManager(QObject):
                 scene.removeItem(item)
 
         self._remove_orphaned_editing_decorations(scene)
+
+    def _apply_to_scene_unindexed(
+        self,
+        scene: QGraphicsScene,
+        data: ProjectData,
+        prep: tuple[list[QGraphicsItem], list[Layer] | None, Any, list[Any] | None],
+    ) -> None:
+        """Phase 2 body; the old document is already cleared."""
+        deserialized_items, parsed_layers, parsed_constraints, parsed_guides = prep
 
         # Resize canvas if needed
         if hasattr(scene, "resize_canvas"):

@@ -15,8 +15,10 @@ from pathlib import Path
 from typing import Any
 
 import pytest
+from PyQt6.QtCore import QPointF
 
 from open_garden_planner.app.application import GardenPlannerApp
+from open_garden_planner.core import stacking
 from open_garden_planner.core.project import ProjectManager
 from open_garden_planner.ui.canvas.canvas_scene import CanvasScene
 from open_garden_planner.ui.canvas.items import CircleItem, RectangleItem
@@ -217,3 +219,35 @@ def test_app_surfaces_skipped_items_warning(
     assert "Warning: 1 unrecognized item(s)" in app.statusBar().currentMessage()
 
     app.close()
+
+
+def test_loading_keeps_equal_ranked_items_in_stacking_order(
+    tmp_path: Path, qtbot: Any
+) -> None:
+    """The load must not flip overlapping items that share a saved rank.
+
+    The old document is cleared under the linear index, but the new document is
+    added under the scene's normal BSP index: ``suspend_z_refresh(renumber=True)``
+    reads the scene's stacking order, and the linear index does not report it
+    (#1031 review, PF-CAN-76).
+    """
+    scene = CanvasScene()
+    bottom = RectangleItem(0.0, 0.0, 100.0, 100.0)
+    bottom.name = "bottom"
+    bottom.stack_order = stacking.STACK_STEP
+    top = RectangleItem(0.0, 0.0, 100.0, 100.0)
+    top.name = "top"
+    top.stack_order = stacking.STACK_STEP
+    scene.addItem(bottom)
+    scene.addItem(top)
+    scene._update_items_z_order()
+    before = [item.name for item in scene.items(QPointF(50.0, 50.0))]
+    assert before[0] == "top"
+
+    target = tmp_path / "equal-ranks.ogp"
+    ProjectManager().save(scene, target)
+    loaded = CanvasScene()
+    ProjectManager().load(loaded, target)
+    after = [item.name for item in loaded.items(QPointF(50.0, 50.0))]
+    assert after[0] == "top"
+
