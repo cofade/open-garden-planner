@@ -15,7 +15,7 @@ from pathlib import Path
 import pytest
 from PyQt6.QtCore import QPointF, Qt
 from PyQt6.QtTest import QTest
-from PyQt6.QtWidgets import QApplication
+from PyQt6.QtWidgets import QApplication, QGraphicsScene
 
 from open_garden_planner.agent_api import queries
 from open_garden_planner.core.object_types import ObjectType
@@ -819,6 +819,96 @@ def test_a_saved_group_keeps_its_angle_and_composition(
     )
     assert loaded_group.rotation() == pytest.approx(37.0, abs=0.01)
     assert loaded_children == before
+
+
+def test_reloading_clears_the_previous_documents_editing_decorations(
+    canvas: CanvasView, tmp_path: Path,
+) -> None:
+    """A fresh document must not inherit a dead item's top-level decoration.
+
+    A selected member's resize handles own a top-level ``DimensionDisplay``.
+    Removing the item leaves that display behind; the next document then keeps
+    it in the scene and its item index. A later hit test can reach the deleted
+    decoration — the native crash the owner hit on the first click after
+    reopening a plan (#1022 review).
+    """
+    from open_garden_planner.ui.canvas.items.resize_handle import (
+        AngleDisplay,
+        DimensionDisplay,
+    )
+
+    _show(canvas)
+    scene = canvas.scene()
+    first = _rect(scene, 100.0, 100.0, 120.0, 60.0)
+    second = _rect(scene, 300.0, 100.0, 120.0, 60.0)
+    group = _grouped(canvas, first, second)
+    scene.clearSelection()
+    group.setSelected(True)
+    first.create_resize_handles()
+    first.create_rotation_handle()
+    assert any(
+        isinstance(item, (AngleDisplay, DimensionDisplay)) for item in scene.items()
+    )
+    assert scene.itemIndexMethod() == QGraphicsScene.ItemIndexMethod.BspTreeIndex
+
+    target = tmp_path / "decorated-group.ogp"
+    ProjectManager().save(scene, target)
+    ProjectManager().load(scene, target)
+
+    assert scene.itemIndexMethod() == QGraphicsScene.ItemIndexMethod.BspTreeIndex
+    orphans = [
+        item
+        for item in scene.items()
+        if item.parentItem() is None
+        and isinstance(item, (AngleDisplay, DimensionDisplay))
+    ]
+    assert orphans == []
+    loaded = next(item for item in scene.items() if isinstance(item, GroupItem))
+    point = loaded.mapToScene(loaded.childrenBoundingRect().center())
+    assert loaded in scene.items(point)
+
+
+def test_a_document_replacement_removes_items_under_the_linear_index(
+    tmp_path: Path,
+) -> None:
+    """The old BSP tree must not be queried after its items start leaving.
+
+    ``QGraphicsSceneBspTreeIndex`` can hold an entry for an item that a group
+    removal has already freed.  The replacement therefore switches the scene
+    to the linear index first; every removal during the second load must see
+    that method, whatever the scene's configured index is afterwards.
+    """
+
+    class RecordingScene(CanvasScene):
+        def __init__(self) -> None:
+            super().__init__(width_cm=5000, height_cm=3000)
+            self.removal_methods: list[QGraphicsScene.ItemIndexMethod] = []
+
+        def removeItem(self, item) -> None:
+            self.removal_methods.append(self.itemIndexMethod())
+            super().removeItem(item)
+
+    source = CanvasScene(width_cm=5000, height_cm=3000)
+    first = _rect(source, 100.0, 100.0, 100.0, 80.0)
+    second = _rect(source, 300.0, 100.0, 100.0, 80.0)
+    group = GroupItem(layer_id=source.active_layer.id)
+    source.addItem(group)
+    group.addToGroup(first)
+    group.addToGroup(second)
+    target = tmp_path / "replace.ogp"
+    ProjectManager().save(source, target)
+
+    scene = RecordingScene()
+    ProjectManager().load(scene, target)
+    scene.removal_methods.clear()
+    ProjectManager().load(scene, target)
+
+    assert scene.removal_methods
+    assert all(
+        method == QGraphicsScene.ItemIndexMethod.NoIndex
+        for method in scene.removal_methods
+    )
+    assert scene.itemIndexMethod() == QGraphicsScene.ItemIndexMethod.BspTreeIndex
 
 
 def test_a_member_edit_after_a_turn_survives_save_and_reload(

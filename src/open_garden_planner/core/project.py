@@ -2441,13 +2441,74 @@ class ProjectManager(QObject):
                     elif it.item_id not in parent.child_item_ids:
                         parent._child_item_ids.append(it.item_id)
 
+    @contextlib.contextmanager
+    def _linear_scene_index(self, scene: QGraphicsScene) -> Any:
+        """Use Qt's linear index while one document replaces another.
+
+        ``QGraphicsSceneBspTreeIndex`` can keep a child of a removed group (or
+        an editing decoration whose owner is gone) as a top-level entry.  A
+        later hit test then walks a pointer whose C++ object has been deleted —
+        a native crash on the first click after reopening a plan (#1022 review).
+        The linear index is built from ``topLevelItems``, which Qt keeps
+        consistent, so the BSP tree is rebuilt from truth when the method is
+        restored.
+        """
+        previous = scene.itemIndexMethod()
+        if previous == QGraphicsScene.ItemIndexMethod.NoIndex:
+            yield
+            return
+        scene.setItemIndexMethod(QGraphicsScene.ItemIndexMethod.NoIndex)
+        try:
+            yield
+        finally:
+            scene.setItemIndexMethod(previous)
+
+    @staticmethod
+    def _remove_orphaned_editing_decorations(scene: QGraphicsScene) -> None:
+        """Drop top-level editing decorations left by the previous document.
+
+        A resize handle owns a top-level ``DimensionDisplay``.  When its item
+        leaves the scene the display can outlive it (the handle is a child and
+        disappears, the display is not).  The old document is gone at this
+        point, so any such item still at the top level is an orphan.  Leaving
+        it in the scene also leaves it in the item index, which is how a later
+        hit test can reach a deleted item (#1022 review).
+        """
+        from open_garden_planner.ui.canvas.items.resize_handle import (
+            DRAG_HANDLE_TYPES,
+            AngleDisplay,
+            DimensionDisplay,
+        )
+
+        for item in list(scene.items()):
+            if item.parentItem() is not None:
+                continue
+            if isinstance(item, (DimensionDisplay, AngleDisplay, *DRAG_HANDLE_TYPES)):
+                scene.removeItem(item)
+
     def _apply_to_scene(
         self,
         scene: QGraphicsScene,
         data: ProjectData,
         prep: tuple[list[QGraphicsItem], list[Layer] | None, Any, list[Any] | None],
     ) -> None:
-        """Phase 2: Apply in-memory validated items and layers to the scene."""
+        """Phase 2: Apply in-memory validated items and layers to the scene.
+
+        The scene's index is linear for the whole replacement: converting the
+        old BSP tree at the start serialises only live items, and restoring it
+        at the end rebuilds from ``topLevelItems`` instead of carrying a stale
+        entry into the next document (#1022 review).
+        """
+        with self._linear_scene_index(scene):
+            self._apply_to_scene_unindexed(scene, data, prep)
+
+    def _apply_to_scene_unindexed(
+        self,
+        scene: QGraphicsScene,
+        data: ProjectData,
+        prep: tuple[list[QGraphicsItem], list[Layer] | None, Any, list[Any] | None],
+    ) -> None:
+        """Phase 2 body; the caller owns the scene index choice."""
         deserialized_items, parsed_layers, parsed_constraints, parsed_guides = prep
         if hasattr(scene, "reset_document_diagnostics"):
             scene.reset_document_diagnostics()
@@ -2473,6 +2534,8 @@ class ProjectManager(QObject):
                 continue
             if self._is_project_document_item(item):
                 scene.removeItem(item)
+
+        self._remove_orphaned_editing_decorations(scene)
 
         # Resize canvas if needed
         if hasattr(scene, "resize_canvas"):

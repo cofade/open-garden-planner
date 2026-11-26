@@ -53,6 +53,11 @@ def _add_pieces(scene) -> list[PolygonItem]:
     return [item for item in scene.items() if isinstance(item, PolygonItem)]
 
 
+def _polygon_points(polygon) -> list[tuple[float, float]]:
+    """Compare plan geometry by value; QPolygonF equality is object identity."""
+    return [(point.x(), point.y()) for point in polygon]
+
+
 def _all_pieces(scene) -> list:
     """Every piece, polygon or rectangle (#828: a straight cut may keep a frame)."""
     from open_garden_planner.ui.canvas.items import RectangleItem
@@ -811,15 +816,20 @@ def test_a_save_and_reopen_preserves_the_pieces(canvas, mouse_event, tmp_path) -
 
     pieces = [item for item in restored.items() if isinstance(item, PolygonItem)]
     assert len(pieces) == 2
-    assert [piece.polygon() for piece in pieces] == geometry
+    assert sorted(_polygon_points(piece.polygon()) for piece in pieces) == sorted(
+        _polygon_points(polygon) for polygon in geometry
+    )
     assert all(piece.metadata["future_field"] == {"keep": True} for piece in pieces)
 
-    # A second save/reload must be stable (issue #664 acceptance).
+    # A second save/reload must be stable (issue #664 acceptance). The scene's
+    # stacking order is not part of the geometry, so compare the pieces as a set.
     second = tmp_path / "split-second.ogp"
     ProjectManager().save(restored, second)
     ProjectManager().load(restored, second)
     again = [item for item in restored.items() if isinstance(item, PolygonItem)]
-    assert [piece.polygon() for piece in again] == geometry
+    assert sorted(_polygon_points(piece.polygon()) for piece in again) == sorted(
+        _polygon_points(polygon) for polygon in geometry
+    )
 
 
 def test_a_deleted_source_clears_the_piece_preview(canvas, mouse_event) -> None:

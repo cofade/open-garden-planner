@@ -356,3 +356,14 @@ The first dedupe wrote `<use x="new_x" y="new_y">`; because the defined image al
 - **Legacy:** none (new entry)
 
 A centre pivot and an origin pivot produce the same picture only while the pivot does not move. Rotate a group, drill into a member and move it, then save: reloading with the new frame centre moved every member. The same class of error appears on ungroup — the screen looked right until reopen, because Qt had hidden the turn in a matrix the serializer never wrote. A legacy smart-symbol group rotated about its local (0, 0) (its class had no mixin), so the loader must use that pivot for an old record, not the new frame centre.
+
+### PF-CAN-76
+
+- **Rule:** Replacing a document in a live `QGraphicsScene` must not let the old BSP tree survive the removal. Switch the scene to `NoIndex` before the old document is cleared, remove the old items, delete any top-level editing decoration its owners left behind (`DimensionDisplay`, `AngleDisplay`, a parentless handle), add the new document, then restore the previous index method. `QGraphicsSceneBspTreeIndex` can keep a removed group's child, or a decoration whose owner is gone, as a top-level entry; a later point query then dereferences freed memory.
+- **Pinned by:** `tests/integration/test_group_rotation.py::test_reloading_clears_the_previous_documents_editing_decorations`; `tests/unit/test_project.py`; `tests/integration/test_split_shapes.py::test_a_save_and_reopen_preserves_the_pieces`
+- **Source:** #1031 (manual test of #1022; WER dump in the issue)
+- **Status:** standing
+- **Legacy:** none (new entry)
+
+The WER dump of the crash named `QGraphicsSceneIndexPrivate::recursive_items_helper` reading `item->d_ptr->visible`; `item` was a freed top-level BSP entry and its `d_ptr` had been overwritten. The saved plan itself was sound. In the same flow the old chairs' `DimensionDisplay` objects were still top-level in the reloaded scene, because `RectangleItem` removes only its rotation handle on `ItemSceneChange`; the displays outlived their owners. Switching to the linear index during the replacement means the stale tree is never queried after the old items are gone, and the sweep keeps orphan decorations out of the new document. Restoring `BspTreeIndex` afterwards rebuilds from `topLevelItems`, so the first hit test after reopen walks live items only.
+
