@@ -1449,6 +1449,18 @@ def test_a_zero_angle_agent_turn_changes_nothing(
         assert group._pivot_initialized is False
         assert group._rotation_plan_active is False
         assert len(win.canvas_view.command_manager._undo_stack) == depth
+
+        result = win._do_agent_rotate_object(str(group.item_id), 0.0000005, False)
+        assert result["undo_description"] == "No change"
+        assert group._pivot_initialized is False
+        assert len(win.canvas_view.command_manager._undo_stack) == depth
+
+        group._apply_rotation(-30.0)
+        depth = len(win.canvas_view.command_manager._undo_stack)
+        result = win._do_agent_rotate_object(str(group.item_id), 330.0, False)
+        assert result["rotation_deg"] == pytest.approx(330.0)
+        assert result["undo_description"] == "No change"
+        assert len(win.canvas_view.command_manager._undo_stack) == depth
     finally:
         win._stop_agent_api()
 

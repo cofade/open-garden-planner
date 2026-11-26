@@ -272,9 +272,10 @@ class GroupItem(RotationHandleMixin, GardenItemMixin, QGraphicsItemGroup):
 
     def is_turned(self) -> bool:
         """Whether the group's angle is not a whole 360° multiple (#1022)."""
+        from open_garden_planner.core.angles import is_zero_angle
+
         angle = float(getattr(self, "rotation_angle", self.rotation()))
-        normalized = angle % 360.0
-        return min(normalized, 360.0 - normalized) > 1e-6
+        return not is_zero_angle(angle)
 
     def has_unsupported_base_transform(self) -> bool:
         """Whether Qt gave the group a base matrix the format cannot round-trip.

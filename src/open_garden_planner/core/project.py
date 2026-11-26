@@ -2116,7 +2116,9 @@ class ProjectManager(QObject):
             # The group's own angle and pivot (#1022). The pivot is saved even at
             # zero: a member edit can move the frame centre, and a reload must
             # keep turning about the pivot the last gesture used.
-            if abs(item.rotation()) > 1e-6:
+            from open_garden_planner.core.angles import is_zero_angle
+
+            if not is_zero_angle(item.rotation()):
                 group_data["rotation"] = item.rotation()
             if getattr(item, "_pivot_initialized", False) or not item.transformOriginPoint().isNull():
                 origin = item.transformOriginPoint()

@@ -2516,6 +2516,7 @@ class AgentHost:
         """
         host = self._host
         from open_garden_planner.agent_api import edits
+        from open_garden_planner.core.angles import is_zero_angle
         from open_garden_planner.core.commands import RotateItemCommand
         from open_garden_planner.ui.canvas.geometry_apply import apply_rotation
 
@@ -2537,9 +2538,11 @@ class AgentHost:
         new_angle = edits.validate_rotation(
             angle, relative=relative, current_angle=current_angle
         )
-        if abs((new_angle - current_angle + 180.0) % 360.0 - 180.0) < 1e-9:
+        if is_zero_angle(new_angle - current_angle):
             # A zero turn must not fix a pivot, reconcile links or add an undo
             # step (#1022 review); the object is already where it was asked.
+            # The API reports [0, 360) even when the stored angle is negative.
+            normalized = current_angle % 360.0
             cx, cy = host._agent_item_center(item)
             return {
                 "item_id": item_id,
@@ -2547,7 +2550,7 @@ class AgentHost:
                 "undo_description": "No change",
                 "x": cx,
                 "y": cy,
-                "rotation_deg": current_angle,
+                "rotation_deg": normalized,
             }
         if getattr(item, "_rotation_plan_active", False):
             raise ValueError("A group rotation is already in progress.")

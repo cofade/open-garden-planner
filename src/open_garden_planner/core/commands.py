@@ -3367,8 +3367,9 @@ class UngroupCommand(Command):
 
     def __init__(self, scene: QGraphicsScene, group: QGraphicsItem) -> None:
         angle = float(getattr(group, "rotation_angle", group.rotation()))
-        normalized = angle % 360.0
-        if min(normalized, 360.0 - normalized) > 1e-6:
+        from open_garden_planner.core.angles import is_zero_angle
+
+        if not is_zero_angle(angle):
             raise ValueError(
                 "A rotated group cannot be ungrouped; rotate it back to 0° first."
             )
