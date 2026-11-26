@@ -24,10 +24,11 @@ from pathlib import Path
 import numpy as np
 import pytest
 from PyQt6.QtCore import QPointF, QRect, QRectF, Qt
-from PyQt6.QtGui import QImage, QPainter
+from PyQt6.QtGui import QBrush, QColor, QImage, QPainter
 
 from open_garden_planner.core import ProjectManager
 from open_garden_planner.core.commands import ChangePropertyCommand, CreateItemCommand
+from open_garden_planner.core.fill_patterns import FillPattern
 from open_garden_planner.core.object_height import METADATA_KEY
 from open_garden_planner.core.object_types import ObjectType
 from open_garden_planner.models.layer import Layer
@@ -546,6 +547,37 @@ class TestTheGroundBand:
         view.command_manager.execute(GroupCommand(scene, [bed, plant, table]))
         group = bed.parentItem()
         assert group is not None and group.zValue() >= 0.0
+
+    @pytest.mark.parametrize("alpha", (0, 128))
+    def test_a_translucent_bed_grouped_with_its_plant_keeps_one_shadow(self, view, alpha) -> None:
+        from open_garden_planner.core.commands import GroupCommand
+
+        scene = view.scene()
+        _shed(view)
+        _lawn(view)
+        layer = scene.active_layer.id
+        bed = RectangleItem(200, 245, 80, 40, object_type=ObjectType.GARDEN_BED,
+                            layer_id=layer)
+        tint = QColor(170, 100, 50, alpha)
+        bed.fill_pattern = FillPattern.SOLID
+        bed.fill_color = tint
+        bed.setBrush(QBrush(tint))
+        plant = CircleItem(220, 255, 12, object_type=ObjectType.PERENNIAL, layer_id=layer)
+        plant.parent_bed_id = bed.item_id
+        bed.add_child_id(plant.item_id)
+        for item in (bed, plant):
+            _add(view, item)
+        controller = SunShadowController(scene, lambda: BERLIN)
+        controller.set_sim_datetime(JUNE_NOON_UTC)
+        controller.set_enabled(True)
+        point = (250.0, 250.0)
+        before = _patch(_render(scene), point)
+
+        view.command_manager.execute(GroupCommand(scene, [bed, plant]))
+        controller.recompute_now()
+        assert _in_ground_band(bed.parentItem())
+        after = _patch(_render(scene), point)
+        assert np.abs(after - before).max() < 3, (before, after)
 
     def test_the_layer_order_holds_among_ground_surfaces_across_layers(self, view) -> None:
         scene = view.scene()

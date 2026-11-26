@@ -5576,7 +5576,7 @@ lawn hid them.
 
 A group paints in ONE z slot, so a group that mixes a ground surface with a
 solid cannot put the surface under an overlay and the solid above it. Such a
-group keeps its layer band, and the surface paints the overlay on itself at
+group keeps its layer band, and an opaque surface paints the overlay on itself at
 paint time (`CanvasScene.paint_ground_overlays`, clipped to the surface's
 `grid_cover_path`), invalidated by `refresh_ground_overlays` whenever the
 overlay's picture changes. The sun-shadow overlay, the hours-of-sun fill and

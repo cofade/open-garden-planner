@@ -1034,6 +1034,7 @@ class SunHeatmapController(QObject):
         try:
             if layer.scene() is not None:
                 layer.update()
+                self._refresh_ground_overlays()
         except RuntimeError:   # the C++ item is already gone
             self._contour_layer = None
 

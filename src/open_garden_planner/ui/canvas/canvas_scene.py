@@ -29,6 +29,8 @@ from PyQt6.QtWidgets import (
     QGraphicsItem,
     QGraphicsItemGroup,
     QGraphicsLineItem,
+    QGraphicsPolygonItem,
+    QGraphicsRectItem,
     QGraphicsScene,
     QGraphicsSimpleTextItem,
     QWidget,
@@ -69,22 +71,40 @@ def ground_z(layer_z: float) -> float:
 
 
 def on_ground(item: QGraphicsItem) -> bool:
-    """Whether ``item`` is drawn in ``GROUND_Z_RANGE``: a ground surface
-    (``object_height.lies_on_ground``), or a group made only of those.
-
-    A group is drawn in ONE slot, so a grouped lawn left in its layer's band hid
-    the sun overlays and lay over a path ranked above the group (review of the
-    owner's manual pass). An all-surface group therefore takes the ground band;
-    a group with any solid in it keeps its layer's band and the surfaces in it
-    paint the overlays on themselves (``paint_ground_overlays``, #1031).
-    """
+    """Whether the item or group belongs below the sun-study overlays."""
     if isinstance(item, QGraphicsItemGroup):
         members = [child for child in item.childItems() if stacking.supports_stacking(child)]
-        return bool(members) and all(on_ground(child) for child in members)
+        surfaces = [child for child in members if on_ground(child)]
+        if not surfaces:
+            return False
+        if len(surfaces) == len(members):
+            return True
+        if all(_can_receive_overlay(child) for child in surfaces):
+            return False  # The opaque surfaces can receive shade in the layer band.
+        # Preserve the ground-band treatment of a planted bed whose own fill
+        # shows the overlay beneath it. Drawing it again would darken that fill.
+        bed_ids = {getattr(child, "item_id", None) for child in surfaces} - {None}
+        return all(
+            child in surfaces or (
+                is_plant_type(getattr(child, "object_type", None))
+                and getattr(child, "parent_bed_id", None) in bed_ids
+            )
+            for child in members
+        )
     return lies_on_ground(getattr(item, "object_type", None), getattr(item, "metadata", None))
 
 
-def _scene_z(item: QGraphicsItem) -> float:
+def _can_receive_overlay(item: QGraphicsItem) -> bool:
+    """A filled shape that hides the original overlay under its body."""
+    return (
+        isinstance(item, (QGraphicsEllipseItem, QGraphicsPolygonItem, QGraphicsRectItem))
+        and item.effectiveOpacity() == 1.0
+        and item.brush().isOpaque()
+        and item.pen().brush().isOpaque()
+    )
+
+
+def scene_item_z(item: QGraphicsItem) -> float:
     """The z-slot an item is drawn in: its top-level ancestor's z.
 
     A child's own z orders it among its siblings only; a group paints in ONE
@@ -575,8 +595,10 @@ class CanvasScene(QGraphicsScene):
         BELOW an overlay is skipped — the overlay already paints there — and so
         is a hidden one (the shadow overlay while the sun map is shown, #794).
         """
+        if item.parentItem() is None or not on_ground(item) or not _can_receive_overlay(item):
+            return
         overlays = self._live_ground_overlays()
-        if not overlays or not on_ground(item):
+        if not overlays:
             return
         cover_path = getattr(item, "grid_cover_path", None)
         if cover_path is None:
@@ -584,7 +606,7 @@ class CanvasScene(QGraphicsScene):
         covers = cover_path()
         if covers.isEmpty():
             return
-        z = _scene_z(item)
+        z = scene_item_z(item)
         try:
             scene_to_item, invertible = item.sceneTransform().inverted()
         except (RuntimeError, ValueError):
@@ -624,7 +646,12 @@ class CanvasScene(QGraphicsScene):
             return
         lowest = overlays[0].zValue()
         for item in self.items():
-            if on_ground(item) and _scene_z(item) > lowest:
+            if (
+                item.parentItem() is not None
+                and on_ground(item)
+                and _can_receive_overlay(item)
+                and scene_item_z(item) > lowest
+            ):
                 item.update()
 
     # Label management
