@@ -1481,7 +1481,14 @@ item.
   regrouping a turned group does not apply its translation twice. Grouped child records
   carry their own `parent_bed_id` / `child_item_ids`, so a bed-and-plant link survives
   save and reload even when both endpoints are members; copy/duplicate remaps both
-  fields across the whole copied tree and drops an endpoint that was not copied.
+  fields through one whole-tree map and drops an endpoint that was not copied. The
+  remap is the only author of copied links: paste/duplicate do not rebuild them from
+  a top-level-only map, so a nested bed and a top-level plant cannot both claim the
+  copy.
+
+The Agent API's group box composes every member's own turn, each nested group's
+compensating base transform, and the group transform before taking bounds, so a
+region query matches the visible geometry.
 - **Ungroup is refused while turned.** `removeFromGroup` leaves the group's rotation in
   the member's Qt transform; the `.ogp` format stores a member's own `rotation_angle`, so
   a bake would have to cover every type (including arcs) and zero-net-angle pairs.

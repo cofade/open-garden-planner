@@ -256,7 +256,6 @@ class ClipboardOperations:
         """Paste items from clipboard."""
         item: QGraphicsItem | None
         host = self._host
-        from open_garden_planner.ui.canvas.items import GardenItemMixin
 
         if not host._clipboard:
             host.set_status_message(QCoreApplication.translate("CanvasView", "Nothing to paste"))
@@ -268,7 +267,6 @@ class ClipboardOperations:
 
         # Create new items from clipboard
         pasted_items: list[QGraphicsItem] = []
-        clipboard_data: list[dict[str, Any]] = []
         from open_garden_planner.ui.guild_copy import copy_guild_records
 
         records = copy_guild_records(cast("CanvasScene", host.scene()), host._clipboard, getattr(host, "_clipboard_guild_members", None))
@@ -284,34 +282,14 @@ class ClipboardOperations:
             if item:
                 host._restore_layer_id(item, obj_copy)
                 pasted_items.append(item)
-                clipboard_data.append(obj_data)
 
         # Rebuild parent-child relationships with new UUIDs
         if pasted_items:
-            old_id_to_new: dict[str, QGraphicsItem] = {}
-            for obj_data, item in zip(clipboard_data, pasted_items, strict=True):
-                old_id = obj_data.get("item_id")
-                if old_id:
-                    old_id_to_new[old_id] = item
-
-            for obj_data, item in zip(clipboard_data, pasted_items, strict=True):
-                if not isinstance(item, GardenItemMixin):
-                    continue
-                # Clear auto-detect fields so CreateItemsCommand doesn't double-parent
-                item._parent_bed_id = None
-                item._child_item_ids = []
-
-                # Remap parent — the scene derives z from the normalized
-                # stacking order (issue #338), so a plant renders above its
-                # bed automatically once CreateItemsCommand adds both items.
-                old_parent = obj_data.get("parent_bed_id")
-                if old_parent and old_parent in old_id_to_new:
-                    parent = old_id_to_new[old_parent]
-                    if isinstance(parent, GardenItemMixin):
-                        item.parent_bed_id = parent.item_id
-                        parent.add_child_id(item.item_id)
-
-            # Use command for undo support
+            # Links were already remapped through the whole copied tree by
+            # ``_strip_item_ids``; clearing and rebuilding them only for
+            # top-level items would split a nested bed's claim from its plant
+            # (#1022 review). CreateItemsCommand reconciles copied plants from
+            # geometry and records the restored prior link for undo.
             from open_garden_planner.core import CreateItemsCommand
 
             created = _with_house_ridges(pasted_items)
@@ -385,7 +363,6 @@ class ClipboardOperations:
 
         # Create new items with offset
         duplicated_items: list[QGraphicsItem] = []
-        dup_source: list[dict[str, Any]] = []
         from open_garden_planner.ui.guild_copy import copy_guild_records
 
         source_data = copy_guild_records(cast("CanvasScene", host.scene()), source_data)
@@ -400,29 +377,12 @@ class ClipboardOperations:
             if item:
                 host._restore_layer_id(item, obj_copy)
                 duplicated_items.append(item)
-                dup_source.append(obj_data)
 
         # Rebuild parent-child relationships with new UUIDs
         if duplicated_items:
-            old_id_to_new: dict[str, QGraphicsItem] = {}
-            for obj_data, item in zip(dup_source, duplicated_items, strict=True):
-                old_id = obj_data.get("item_id")
-                if old_id:
-                    old_id_to_new[old_id] = item
-
-            for obj_data, item in zip(dup_source, duplicated_items, strict=True):
-                if not isinstance(item, GardenItemMixin):
-                    continue
-                item._parent_bed_id = None
-                item._child_item_ids = []
-
-                old_parent = obj_data.get("parent_bed_id")
-                if old_parent and old_parent in old_id_to_new:
-                    parent = old_id_to_new[old_parent]
-                    if isinstance(parent, GardenItemMixin):
-                        item.parent_bed_id = parent.item_id
-                        parent.add_child_id(item.item_id)
-
+            # The whole-tree remap already owns both link fields; rebuilding
+            # them from top-level records only would corrupt a nested pair
+            # (#1022 review).
             from open_garden_planner.core import CreateItemsCommand
 
             created = _with_house_ridges(duplicated_items)

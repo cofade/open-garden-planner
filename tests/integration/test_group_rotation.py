@@ -17,6 +17,7 @@ from PyQt6.QtCore import QPointF, Qt
 from PyQt6.QtTest import QTest
 from PyQt6.QtWidgets import QApplication
 
+from open_garden_planner.agent_api import queries
 from open_garden_planner.core.object_types import ObjectType
 from open_garden_planner.core.project import ProjectManager
 from open_garden_planner.ui.canvas.canvas_scene import CanvasScene
@@ -544,6 +545,42 @@ def test_a_grouped_bed_and_plant_keep_the_link_through_save_and_reload(
     assert loaded_plant.item_id in loaded_bed.child_item_ids
 
 
+def test_a_sub_threshold_turn_rolls_back_a_carried_plant(
+    canvas: CanvasView,
+) -> None:
+    """A carried plant must not turn for a group angle below the 0.01° gate."""
+    _show(canvas)
+    scene = canvas.scene()
+    bed = _rect(scene, 100.0, 100.0, 200.0, 200.0, kind=ObjectType.RAISED_BED)
+    plant = CircleItem(
+        150.0, 150.0, 15.0,
+        object_type=ObjectType.PERENNIAL, layer_id=scene.active_layer.id,
+    )
+    scene.addItem(plant)
+    plant.parent_bed_id = bed.item_id
+    bed.add_child_id(plant.item_id)
+    group = _grouped(canvas, bed, _rect(scene, 600.0, 100.0))
+    scene.clearSelection()
+    group.setSelected(True)
+    QApplication.processEvents()
+    start_centre = plant.mapToScene(plant.rect().center())
+    start_angle = plant.rotation_angle
+    depth = len(canvas.command_manager._undo_stack)
+
+    _drag(group, 0.0, 0.005)
+
+    assert group.rotation_angle == pytest.approx(0.0)
+    assert group._pivot_initialized is False
+    assert plant.rotation_angle == pytest.approx(start_angle)
+    assert plant.mapToScene(plant.rect().center()).x() == pytest.approx(
+        start_centre.x(), abs=1e-6
+    )
+    assert plant.mapToScene(plant.rect().center()).y() == pytest.approx(
+        start_centre.y(), abs=1e-6
+    )
+    assert len(canvas.command_manager._undo_stack) == depth
+
+
 def test_a_linked_plant_on_a_locked_layer_refuses_the_turn(canvas: CanvasView) -> None:
     """A follower outside the Qt tree can still be locked (#1022 review)."""
     from open_garden_planner.models.layer import Layer
@@ -920,6 +957,29 @@ def test_nesting_a_turned_group_survives_two_save_reload_cycles(
         )
 
     before = centres(scene)
+
+    outer = next(
+        item for item in scene.items()
+        if isinstance(item, GroupItem) and item.parentItem() is None
+    )
+    saved_outer = ProjectManager._serialize_item(outer)
+    assert saved_outer is not None
+    saved_inner = next(
+        child for child in saved_outer["children"] if child.get("type") == "group"
+    )
+    xs: list[float] = []
+    ys: list[float] = []
+    for member in inner.childItems():
+        if isinstance(member, RectangleItem):
+            polygon = member.mapToScene(member.rect())
+            xs.extend(point.x() for point in polygon)
+            ys.extend(point.y() for point in polygon)
+    live_box = (
+        min(xs), min(ys), max(xs) - min(xs), max(ys) - min(ys),
+    )
+    for got, expected in zip(queries.object_bbox(saved_inner), live_box, strict=True):
+        assert got == pytest.approx(expected, abs=0.01)
+
     target = tmp_path / "nested-turned.ogp"
     ProjectManager().save(scene, target)
     loaded_scene = CanvasScene(width_cm=5000, height_cm=3000)

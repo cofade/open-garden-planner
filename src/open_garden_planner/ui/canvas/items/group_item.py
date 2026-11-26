@@ -454,11 +454,26 @@ class GroupItem(RotationHandleMixin, GardenItemMixin, QGraphicsItemGroup):
             register_rotation_command,
         )
 
+        current_angle = float(getattr(self, "_rotation_angle", 0.0))
+        if abs(current_angle - float(initial_angle)) < 0.01:
+            # The shared command threshold, applied BEFORE follower snapshots:
+            # a carried plant's sub-threshold movement must not commit a turn
+            # (#1022 review). Put the group, its followers and the pivot back.
+            self._apply_rotation(float(initial_angle))
+            for follower, _start_centre, before, old_angle, _after in self._rotation_followers:
+                if hasattr(follower, "_apply_rotation"):
+                    follower._apply_rotation(old_angle)
+                follower.setPos(before)
+            if self._pivot_state_before is not None:
+                self.restore_rotation_pivot(self._pivot_state_before)
+            self.finish_rotation_plan()
+            return
+
         followers = self.rotation_follower_snapshots()
         registered = register_rotation_command(self, initial_angle, followers or None)
         if not registered and self._pivot_state_before is not None:
-            # A drag that ends within the registration threshold must be
-            # discarded wholly: no live angle and no saved pivot (#1022 review).
+            # A drag that produces no command must not leave a live angle or a
+            # new saved pivot behind.
             self._apply_rotation(float(initial_angle))
             self.restore_rotation_pivot(self._pivot_state_before)
         self.finish_rotation_plan()

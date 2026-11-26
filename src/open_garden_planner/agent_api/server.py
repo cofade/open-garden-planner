@@ -1824,10 +1824,10 @@ def build_server(
             These are ABSOLUTE targets, not deltas -- width=120 means "make it
             120 cm wide", the same vocabulary create_object uses.
 
-            Resizing a bed does NOT move or re-link the plants inside it (the
-            app's own resize behaves the same way), so shrinking a bed can leave
-            a plant linked to a bed it no longer sits inside. Use
-            set_parent_bed if you need to correct that.
+            Resizing a bed does not move the plants linked to it, but the same
+            undo step re-decides those links from the resized shape: shrinking
+            a bed can unlink a plant it no longer contains. Use set_parent_bed
+            if you need to make a deliberate link afterwards.
 
             Fails if the object is drawn from vertices rather than a
             width/height box (polygons, polylines, fences, paths — use
