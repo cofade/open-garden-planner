@@ -1482,11 +1482,13 @@ item.
   translation-only: a plan carrying a rotation or scale there is refused at the numeric
   boundary, and edit surfaces refuse such a group rather than losing geometry on
   ungroup. The boundary also composes each group's x/y with its base translation and
-  every parent offset, and asks the same Qt-free `core/object_bounds.object_bbox`
-  used by the Agent API for every object's composed box, so a finite pair that
-  overflows under a pivot rotation is refused before Qt sees it. One
-  `core/angles.is_zero_angle` rule (1e-6°) decides an Agent no-op, whether a group
-  angle is written, and whether Ungroup treats the group as turned. A committed member
+  every parent offset, and asks the same Qt-free `core/object_bounds` code used by the
+  Agent API for every transformed primitive's box before the union, so a finite pair
+  that overflows under a pivot rotation is refused before Qt sees it (a legacy symbol
+  without a saved pivot uses (0, 0) in both places, as the loader does). One
+  `core/angles` rule (1e-6°) decides an Agent no-op, whether a group angle is written,
+  and whether Ungroup treats the group as turned; an absolute Agent target inside that
+  tolerance is canonicalized to 0 before it is applied. A committed member
   angle is saved even below 0.01° (a
   tiny group turn must survive reload). Grouped child records
   carry their own `parent_bed_id` / `child_item_ids`, so a bed-and-plant link survives

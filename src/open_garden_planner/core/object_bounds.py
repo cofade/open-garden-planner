@@ -44,6 +44,20 @@ def object_bbox(obj: dict[str, Any]) -> tuple[float, float, float, float]:
     return _object_bbox_unrotated(obj)
 
 
+def object_bounds_parts(
+    obj: dict[str, Any],
+) -> list[tuple[float, float, float, float]]:
+    """Every transformed primitive's box, before the union hides a bad one.
+
+    The plan boundary checks these individually: ``min``/``max`` on a union can
+    discard a NaN member, so a finite aggregate must not be taken as proof that
+    every child is finite (#1022 review).
+    """
+    if obj.get("children"):
+        return [_primitive_bounds(primitive) for primitive in _group_primitives(obj)]
+    return [_object_bbox_unrotated(obj)]
+
+
 def _bbox_of(points: list[tuple[float, float]]) -> tuple[float, float, float, float]:
     xs = [point[0] for point in points]
     ys = [point[1] for point in points]
@@ -147,6 +161,8 @@ def _primitive_bounds(primitive: _Primitive) -> tuple[float, float, float, float
         hy = math.hypot(sx * sin_a, sy * cos_a)
         return (cx - hx, cy - hy, 2 * hx, 2 * hy)
     points = primitive[1]
+    if not all(math.isfinite(value) for point in points for value in point):
+        return (math.nan, math.nan, math.nan, math.nan)
     return _bbox_of(points)
 
 
@@ -156,6 +172,10 @@ def _primitives_bbox(
     if not primitives:
         return (0.0, 0.0, 0.0, 0.0)
     boxes = [_primitive_bounds(primitive) for primitive in primitives]
+    if any(
+        not all(math.isfinite(value) for value in box) for box in boxes
+    ):
+        return (math.nan, math.nan, math.nan, math.nan)
     x0 = min(box[0] for box in boxes)
     y0 = min(box[1] for box in boxes)
     x1 = max(box[0] + box[2] for box in boxes)
@@ -232,6 +252,10 @@ def _group_primitives(obj: dict[str, Any]) -> list[_Primitive]:
             float(group_origin.get("x", 0.0)),
             float(group_origin.get("y", 0.0)),
         )
+    elif isinstance(obj.get("smart_symbol"), dict):
+        # A pre-#1009 symbol had no centre pivot; the loader rotates it about
+        # its local (0, 0). The numeric gate must share that rule (#1022).
+        pivot = (0.0, 0.0)
     else:
         bx, by, bw, bh = _primitives_bbox(primitives)
         pivot = (bx + bw / 2.0, by + bh / 2.0)

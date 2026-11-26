@@ -128,9 +128,12 @@ def normalise_angle_deg(angle: float) -> float:
 
     Applied to the *resulting* angle so ``rotate_object`` is idempotent in the
     absolute case (calling it twice with 90 leaves the item at 90, not 180) and
-    accumulates predictably in the relative case.
+    accumulates predictably in the relative case. A value that rounds to 360 is
+    folded to 0, so the response never leaves the documented half-open range.
     """
-    return angle % 360.0
+    from open_garden_planner.core.angles import normalize_angle_deg
+
+    return normalize_angle_deg(angle)
 
 
 def validate_rotation(

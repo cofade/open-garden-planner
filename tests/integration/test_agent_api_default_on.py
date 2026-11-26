@@ -1465,6 +1465,54 @@ def test_a_zero_angle_agent_turn_changes_nothing(
         win._stop_agent_api()
 
 
+def test_a_sub_tolerance_target_cannot_leave_an_unsaved_angle(
+    qtbot: Any, monkeypatch: Any, tmp_path: Any
+) -> None:
+    """An accepted turn must always be above the persisted zero tolerance."""
+    from open_garden_planner.core.commands import GroupCommand, UngroupCommand
+    from open_garden_planner.core.project import ProjectManager
+    from open_garden_planner.ui.canvas.canvas_scene import CanvasScene
+
+    _discard_on_close(monkeypatch)
+    win = GardenPlannerApp()
+    qtbot.addWidget(win)
+    try:
+        first = _add_bed(win, 300, 300, 200, 150)
+        second = _add_bed(win, 700, 300, 200, 150)
+        win.canvas_view.command_manager.execute(
+            GroupCommand(win.canvas_scene, [first, second])
+        )
+        group = first.parentItem()
+        depth = len(win.canvas_view.command_manager._undo_stack)
+
+        win._do_agent_rotate_object(str(group.item_id), 2e-6, False)
+        assert group.rotation_angle == pytest.approx(2e-6)
+        assert len(win.canvas_view.command_manager._undo_stack) == depth + 1
+
+        target = tmp_path / "tiny-group.ogp"
+        ProjectManager().save(win.canvas_scene, target)
+        loaded_scene = CanvasScene(width_cm=5000, height_cm=3000)
+        ProjectManager().load(loaded_scene, target)
+        loaded_group = loaded_scene.find_item_by_id(group.item_id)
+        assert loaded_group is not None
+        assert loaded_group.rotation_angle == pytest.approx(2e-6)
+
+        win._do_agent_rotate_object(str(group.item_id), 5e-7, False)
+        assert group.rotation_angle == pytest.approx(0.0)
+        assert group.is_turned() is False
+        assert len(win.canvas_view.command_manager._undo_stack) == depth + 2
+
+        ProjectManager().save(win.canvas_scene, target)
+        loaded_again = CanvasScene(width_cm=5000, height_cm=3000)
+        ProjectManager().load(loaded_again, target)
+        reloaded = loaded_again.find_item_by_id(group.item_id)
+        assert reloaded is not None
+        assert reloaded.rotation_angle == pytest.approx(0.0)
+        UngroupCommand(loaded_again, reloaded).execute()
+    finally:
+        win._stop_agent_api()
+
+
 def test_an_agent_tiny_turn_records_a_follower_at_the_pivot(
     qtbot: Any, monkeypatch: Any, tmp_path: Any
 ) -> None:

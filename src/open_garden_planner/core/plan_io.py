@@ -13,7 +13,9 @@ import tempfile
 from pathlib import Path
 from typing import Any, cast
 
-from open_garden_planner.core.object_bounds import object_bbox as plan_object_bbox
+from open_garden_planner.core.object_bounds import (
+    object_bounds_parts as plan_object_bounds_parts,
+)
 
 MIN_CANVAS_CM = 50.0
 MAX_CANVAS_CM = 100_000.0
@@ -205,15 +207,16 @@ def validate_plan_data(data: dict[str, Any]) -> None:
         if not isinstance(obj, dict):
             continue
         try:
-            bounds = plan_object_bbox(obj)
+            parts = plan_object_bounds_parts(obj)
         except OverflowError as exc:
             raise PlanValidationError("object.bounds") from exc
         except (KeyError, TypeError, ValueError):
             # Structurally malformed objects keep the loader's existing
             # skip/placeholder policy; only numeric finiteness is this gate.
             continue
-        for index, value in enumerate(bounds):
-            finite_number(value, f"object.bounds[{index}]")
+        for part_index, bounds in enumerate(parts):
+            for index, value in enumerate(bounds):
+                finite_number(value, f"object.bounds[{part_index}][{index}]")
 
 
 def _check_group_offsets(records: Any, dx: float = 0.0, dy: float = 0.0) -> None:

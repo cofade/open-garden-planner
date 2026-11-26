@@ -2516,7 +2516,7 @@ class AgentHost:
         """
         host = self._host
         from open_garden_planner.agent_api import edits
-        from open_garden_planner.core.angles import is_zero_angle
+        from open_garden_planner.core.angles import is_zero_angle, normalize_angle_deg
         from open_garden_planner.core.commands import RotateItemCommand
         from open_garden_planner.ui.canvas.geometry_apply import apply_rotation
 
@@ -2538,11 +2538,16 @@ class AgentHost:
         new_angle = edits.validate_rotation(
             angle, relative=relative, current_angle=current_angle
         )
+        if is_zero_angle(new_angle):
+            # The same tolerance that decides persistence and Ungroup also
+            # canonicalizes the target, so an accepted turn can never leave a
+            # sub-tolerance live angle that save would omit (#1022 review).
+            new_angle = 0.0
         if is_zero_angle(new_angle - current_angle):
             # A zero turn must not fix a pivot, reconcile links or add an undo
             # step (#1022 review); the object is already where it was asked.
             # The API reports [0, 360) even when the stored angle is negative.
-            normalized = current_angle % 360.0
+            normalized = normalize_angle_deg(current_angle)
             cx, cy = host._agent_item_center(item)
             return {
                 "item_id": item_id,

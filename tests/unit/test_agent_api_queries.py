@@ -456,6 +456,22 @@ class TestBboxNormaliserPerShape:
         # child1 abs (100,100,50,50); child2 abs (290,290,20,20) -> union:
         assert queries.object_bbox(group) == (100.0, 100.0, 210.0, 210.0)
 
+    def test_a_legacy_symbol_without_origin_rotates_about_zero(self) -> None:
+        """The numeric gate and the loader share the pre-#1009 zero pivot."""
+        group = {
+            "type": "group", "item_id": "g1", "x": 100.0, "y": 0.0,
+            "rotation": 90.0,
+            "smart_symbol": {"kind": "legacy"},
+            "children": [
+                {"type": "rectangle", "item_id": "c1", "x": 0.0, "y": 0.0,
+                 "width": 100.0, "height": 20.0},
+            ],
+        }
+        assert queries.object_bbox(group) == (80.0, 0.0, 20.0, 100.0)
+        assert queries.object_bbox(group) == queries.object_bbox(
+            {**group, "transform_origin": {"x": 0.0, "y": 0.0}}
+        )
+
     def test_a_rotated_group_uses_its_pivot_not_an_upright_union(self) -> None:
         group = {
             "type": "group",

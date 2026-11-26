@@ -13874,10 +13874,11 @@ and a drag that changes nothing fixes none. A nested group saves its compensatin
 base transform, so regrouping a turned group does not apply its translation twice.
 That matrix is translation-only; a plan with a rotation or scale there is refused at
 the numeric boundary, and edit surfaces refuse such a group. The boundary composes
-x/y with that translation, every parent offset and the pivot-rotation box through the
-same Qt-free `core/object_bounds` function the Agent API uses. One
-`core/angles.is_zero_angle` rule decides an Agent no-op, saving a group angle, and
-Ungroup's turned test. A committed
+x/y with that translation, every parent offset and every transformed primitive's box
+through the same Qt-free `core/object_bounds` code the Agent API uses; a legacy symbol
+without an origin rotates about (0, 0) in both. One `core/angles` rule decides an
+Agent no-op, saving a group angle, and Ungroup's turned test, and canonicalizes a
+sub-tolerance target to 0. A committed
 member angle is saved even below 0.01°, so a tiny group turn survives reload.
 Grouped child records carry their own `parent_bed_id` / `child_item_ids`, so a link
 whose endpoints are both members survives save and reload; copy/duplicate remaps

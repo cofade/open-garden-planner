@@ -57,6 +57,20 @@ def test_invalid_save_keeps_existing_file(qtbot, tmp_path):
                   "transform_origin": {"x": 1e308, "y": 0.0},
                   "children": [{"type": "rectangle", "x": -1e308, "y": 0.0,
                                 "width": 100.0, "height": 100.0}]}]},
+    {"objects": [{"type": "group", "rotation": 180.0,
+                  "transform_origin": {"x": 1e308, "y": 0.0},
+                  "children": [
+                      {"type": "rectangle", "x": 1e308, "y": 0.0,
+                       "width": 100.0, "height": 100.0},
+                      {"type": "rectangle", "x": -1e308, "y": 0.0,
+                       "width": 100.0, "height": 100.0}]}]},
+    {"objects": [{"type": "group", "rotation": 180.0,
+                  "transform_origin": {"x": 1e308, "y": 0.0},
+                  "children": [
+                      {"type": "rectangle", "x": -1e308, "y": 0.0,
+                       "width": 100.0, "height": 100.0},
+                      {"type": "rectangle", "x": 1e308, "y": 0.0,
+                       "width": 100.0, "height": 100.0}]}]},
     {"objects": [{"type": "bezier", "handles_in": [{"x": "1e309", "y": 0}]}]},
     {"objects": [{"type": "background_image", "scale_factor": 1e-320}]},
     {"guides": [{"position": "NaN"}]},
@@ -64,8 +78,8 @@ def test_invalid_save_keeps_existing_file(qtbot, tmp_path):
     {"layers": [{"opacity": "NaN"}]},
 ], ids=["small-canvas", "large-canvas", "extent-overflow", "radius-string",
         "group", "pivot", "group-transform", "group-base-overflow",
-        "pivot-overflow", "bezier", "image-scale", "guide", "constraint",
-        "layer"])
+        "pivot-overflow", "parts-good-first", "parts-bad-first", "bezier",
+        "image-scale", "guide", "constraint", "layer"])
 def test_numeric_errors_cover_nested_geometry(payload):
     with pytest.raises(ValueError):
         validate_plan_data(payload)
