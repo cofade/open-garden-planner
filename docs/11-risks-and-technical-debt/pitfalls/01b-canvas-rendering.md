@@ -349,8 +349,8 @@ The first dedupe wrote `<use x="new_x" y="new_y">`; because the defined image al
 
 ### PF-CAN-75
 
-- **Rule:** A Qt item group's rotation is not fully described by its angle and position. Persist the pivot (`transform_origin`) with it, fix that pivot when the group first turns rather than recomputing it from a frame a later member edit can move, and before ungrouping bake the group's rotation into each member's own angle and position. `removeFromGroup` keeps the composed rotation in the member's Qt transform matrix, while the `.ogp` format stores only the member's own `rotation_angle`.
-- **Pinned by:** `tests/integration/test_group_rotation.py::test_a_member_edit_after_a_turn_survives_save_and_reload`; `tests/integration/test_group_rotation.py::test_ungroup_bakes_the_turn_into_the_members_and_survives_reload`; `tests/integration/test_smart_symbol_removal.py::test_a_legacy_rotated_symbol_keeps_the_old_origin_pivot`
+- **Rule:** A Qt item group's rotation is not fully described by its angle and position. Persist the pivot (`transform_origin`) with it, fix that pivot when the group first turns rather than recomputing it from a frame a later member edit can move, and refuse to ungroup while the group is turned: `removeFromGroup` keeps the composed rotation in the member's Qt transform matrix, while the `.ogp` format stores only the member's own `rotation_angle`, so a bake would have to cover every member type (including arcs) and zero-net-angle pairs.
+- **Pinned by:** `tests/integration/test_group_rotation.py::test_a_member_edit_after_a_turn_survives_save_and_reload`; `tests/integration/test_group_rotation.py::test_ungroup_refuses_a_rotated_group_and_keeps_its_geometry`; `tests/integration/test_smart_symbol_removal.py::test_a_legacy_rotated_symbol_keeps_the_old_origin_pivot`
 - **Source:** #1022 review P0s
 - **Status:** standing
 - **Legacy:** none (new entry)

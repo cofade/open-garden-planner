@@ -5636,6 +5636,13 @@ class CanvasView(QGraphicsView):
         parent = handle.parentItem()
         if parent is None:
             return False
+        if isinstance(handle, RotationHandle):
+            refusal = getattr(parent, "rotation_refusal_reason", None)
+            if callable(refusal):
+                reason = refusal()
+                if reason:
+                    self.set_status_message(reason)
+                    return False
         reason = self.drill_down_movement_reason(parent)
         if reason is not None:
             self.set_status_message(reason)
@@ -5902,6 +5909,15 @@ class CanvasView(QGraphicsView):
         groups = ungroupable_groups(list(self.scene().selectedItems()))
         if not groups:
             self.set_status_message(self.tr("No group selected"))
+            return
+        rotated = [
+            group for group in groups
+            if abs(float(getattr(group, "rotation_angle", group.rotation()))) > 1e-6
+        ]
+        if rotated:
+            self.set_status_message(
+                self.tr("Rotate the group back to 0° before ungrouping")
+            )
             return
         commands = [UngroupCommand(self.scene(), group) for group in groups]
         command = (

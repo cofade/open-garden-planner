@@ -27,7 +27,7 @@ from collections.abc import Callable
 import numpy as np
 import pytest
 from PyQt6.QtCore import QPointF, QRectF, Qt
-from PyQt6.QtGui import QImage, QPainter, QPixmapCache
+from PyQt6.QtGui import QColor, QImage, QPainter, QPixmapCache
 from PyQt6.QtSvg import QSvgRenderer
 from PyQt6.QtWidgets import QApplication, QGraphicsItem
 
@@ -427,10 +427,16 @@ class TestALargeViewportKeepsItsSprites:
         kinds = (ObjectType.TREE, ObjectType.SHRUB, ObjectType.PERENNIAL)
         for row in range(20):
             for column in range(30):
-                scene.addItem(CircleItem(
+                plant = CircleItem(
                     50.0 + 100.0 * column, 50.0 + 100.0 * row, 50.0,
                     object_type=kinds[(row + column) % 3],
-                ))
+                )
+                # A distinct tint per plant defeats the species-level sharing
+                # on purpose: this fixture must still need more than 64 MB.
+                plant.fill_color = QColor.fromHsv(
+                    (row * 30 + column) * 37 % 360, 200, 230
+                )
+                scene.addItem(plant)
         view = CanvasView(scene)
         qtbot.addWidget(view)
         view.resize(3000, 2000)
@@ -454,7 +460,9 @@ class TestALargeViewportKeepsItsSprites:
             view.centerOn(QPointF(1500.0, 1000.0))
             view.viewport().repaint()
         assert rasterised == [], f"{len(rasterised)} sprites rasterised again"
-        assert sprite_raster.SPRITE_CACHE.bytes_used > 0
+        assert sprite_raster.SPRITE_CACHE.bytes_used > sprite_raster.SPRITE_CACHE_MAX_BYTES, (
+            "this frame fits 64 MB: the test shows nothing"
+        )
         viewport = view.viewport()
         pixels = viewport.width() * viewport.height() * viewport.devicePixelRatioF() ** 2
         assert sprite_raster.SPRITE_CACHE.max_bytes == sprite_raster.sprite_cache_budget(pixels)

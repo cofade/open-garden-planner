@@ -473,6 +473,18 @@ class TestBboxNormaliserPerShape:
         }
         assert queries.object_bbox(group) == (110.0, -110.0, 80.0, 300.0)
 
+    def test_a_rotated_member_uses_its_own_angle(self) -> None:
+        member = {
+            "type": "rectangle", "item_id": "c1", "x": 0.0, "y": 0.0,
+            "width": 100.0, "height": 20.0, "rotation_angle": 90.0,
+        }
+        group = {
+            "type": "group", "item_id": "g1", "x": 0.0, "y": 0.0,
+            "children": [member],
+        }
+        assert queries.object_bbox(group) == (40.0, -40.0, 20.0, 100.0)
+
+
     def test_bezier_bbox_includes_control_handles(self) -> None:
         # The control hull bounds the curve; ignoring handles under-approximates.
         bez = {

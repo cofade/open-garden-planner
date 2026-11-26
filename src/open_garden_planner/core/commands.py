@@ -2013,6 +2013,7 @@ class RotateItemCommand(Command):
         apply_func: Callable[[QGraphicsItem, float], None],
         partner_moves: list[tuple[QGraphicsItem, QPointF, QPointF]] | None = None,
         partner_vertex_moves: "list[tuple[QGraphicsItem, int, QPointF, QPointF]] | None" = None,
+        followers: "list[tuple[QGraphicsItem, QPointF, QPointF, float, float]] | None" = None,
     ) -> None:
         """Initialize the rotate command.
 
@@ -2027,6 +2028,9 @@ class RotateItemCommand(Command):
             partner_vertex_moves: Deformable partners' corrected vertices, as
                 ``(item, vertex_index, local_before, local_after)`` — the solver's
                 vertex-level corrections, recorded the same way.
+            followers: Items carried by a group turn (a bed's top-level linked
+                plants), as ``(item, position_before, position_after,
+                angle_before, angle_after)``. They are part of the same undo step.
         """
         self._item = item
         self._old_angle = old_angle
@@ -2041,6 +2045,12 @@ class RotateItemCommand(Command):
         ] = [
             (moved_item, index, QPointF(before), QPointF(after))
             for moved_item, index, before, after in (partner_vertex_moves or [])
+        ]
+        self._followers: list[
+            tuple[QGraphicsItem, QPointF, QPointF, float, float]
+        ] = [
+            (follow_item, QPointF(before), QPointF(after), old, new)
+            for follow_item, before, after, old, new in (followers or [])
         ]
         self._membership = _membership_change_for_geometry(
             item.scene(),
@@ -2070,6 +2080,10 @@ class RotateItemCommand(Command):
         for moved_item, index, _before, after in self._partner_vertex_moves:
             if hasattr(moved_item, "_move_vertex_to"):
                 moved_item._move_vertex_to(index, after)
+        for follow_item, _before, after, _old, new in self._followers:
+            if hasattr(follow_item, "_apply_rotation"):
+                follow_item._apply_rotation(new)
+            follow_item.setPos(after)
         if self._membership is not None:
             self._membership.reconcile()
 
@@ -2083,6 +2097,10 @@ class RotateItemCommand(Command):
         for moved_item, before, _after in reversed(self._partner_moves):
             moved_item.setPos(before)
         self._apply_func(self._item, self._old_angle)
+        for follow_item, before, _after, old, _new in reversed(self._followers):
+            if hasattr(follow_item, "_apply_rotation"):
+                follow_item._apply_rotation(old)
+            follow_item.setPos(before)
 
 
 class PlantSpeciesEditCommand(Command):
@@ -3288,6 +3306,11 @@ class UngroupCommand(Command):
     """Ungroup a GroupItem back into independent items."""
 
     def __init__(self, scene: QGraphicsScene, group: QGraphicsItem) -> None:
+        angle = float(getattr(group, "rotation_angle", group.rotation()))
+        if abs(angle) > 1e-6:
+            raise ValueError(
+                "A rotated group cannot be ungrouped; rotate it back to 0° first."
+            )
         self._scene = scene
         self._group = group
         self._items: list[QGraphicsItem] = [
@@ -3298,40 +3321,15 @@ class UngroupCommand(Command):
         self._member_layers = {
             item: getattr(item, "layer_id", None) for item in self._items
         }
-        # `removeFromGroup` bakes the group's rotation into the member's Qt
-        # transform; undo must restore the member's own pre-ungroup transform,
-        # not let `addToGroup` compose the group angle a second time (#1022).
-        self._member_transforms = [
-            (
-                item,
-                QPointF(item.pos()),
-                float(item.transformOriginPoint().x()),
-                float(item.transformOriginPoint().y()),
-                QTransform(item.transform()),
-                item.rotation(),
-                float(getattr(item, "rotation_angle", item.rotation())),
-            )
-            for item in self._items
-            if hasattr(item, "item_id")
-        ]
 
     @property
     def description(self) -> str:
         return QCoreApplication.translate("Commands", "Ungroup")
 
     def execute(self) -> None:
-        from open_garden_planner.ui.canvas.items.group_item import (
-            bake_inherited_rotation,
-        )
-
         group_layer = getattr(self._group, "layer_id", None)
         for item in self._items:
-            composed = QTransform(item.sceneTransform())
-            old_origin = QPointF(item.scenePos())
             self._group.removeFromGroup(item)  # type: ignore[attr-defined]
-            bake_inherited_rotation(
-                item, scene_transform=composed, old_origin=old_origin
-            )
             item.setFlag(QGraphicsItem.GraphicsItemFlag.ItemIsSelectable, True)
             item.setFlag(QGraphicsItem.GraphicsItemFlag.ItemIsMovable, True)
             item.setSelected(True)
@@ -3363,13 +3361,6 @@ class UngroupCommand(Command):
             self._group.addToGroup(item)  # type: ignore[attr-defined]
             if hasattr(item, "layer_id"):
                 item.layer_id = self._member_layers[item]
-        for item, pos, origin_x, origin_y, transform, rotation, angle in self._member_transforms:
-            item.setTransformOriginPoint(origin_x, origin_y)
-            item.setTransform(transform)
-            item.setPos(pos)
-            item.setRotation(rotation)
-            if hasattr(item, "rotation_angle"):
-                item.rotation_angle = angle
         self._group.setSelected(True)
         self._scene._update_items_visibility()  # type: ignore[attr-defined]
         refresh_all = getattr(self._scene, "_update_items_z_order", None)

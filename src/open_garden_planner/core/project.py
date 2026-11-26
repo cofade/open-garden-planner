@@ -2104,12 +2104,12 @@ class ProjectManager(QObject):
                 group_data["layer_id"] = str(item.layer_id)
             if item.name:
                 group_data["name"] = item.name
-            # The group's own angle and pivot (#1022). Children keep their local
-            # positions, so the pivot is part of the persisted transform: a
-            # member edit can move the frame centre, and reloading it as the
-            # pivot would shift every member.
+            # The group's own angle and pivot (#1022). The pivot is saved even at
+            # zero: a member edit can move the frame centre, and a reload must
+            # keep turning about the pivot the last gesture used.
             if abs(item.rotation()) > 1e-6:
                 group_data["rotation"] = item.rotation()
+            if getattr(item, "_pivot_initialized", False) or not item.transformOriginPoint().isNull():
                 origin = item.transformOriginPoint()
                 group_data["transform_origin"] = {"x": origin.x(), "y": origin.y()}
             return group_data
@@ -2601,21 +2601,27 @@ class ProjectManager(QObject):
                     metadata.pop("smart_symbol_member_key", None)
             if "x" in obj and "y" in obj:
                 group.setPos(float(obj["x"]), float(obj["y"]))
-            if "rotation" in obj:
+            angle_value = obj.get("rotation")
+            origin = obj.get("transform_origin")
+            if isinstance(origin, dict):
                 with contextlib.suppress(ValueError, TypeError):
-                    angle = float(obj["rotation"])
-                    origin = obj.get("transform_origin")
-                    if isinstance(origin, dict):
-                        group.setTransformOriginPoint(
-                            QPointF(float(origin.get("x", 0.0)), float(origin.get("y", 0.0)))
-                        )
+                    group.setTransformOriginPoint(
+                        QPointF(float(origin.get("x", 0.0)), float(origin.get("y", 0.0)))
+                    )
+                    group._pivot_initialized = True
+                    if angle_value is not None:
+                        angle = float(angle_value)
                         group.setRotation(angle)
                         group.rotation_angle = angle
-                    elif isinstance(obj.get("smart_symbol"), dict):
+            elif angle_value is not None:
+                with contextlib.suppress(ValueError, TypeError):
+                    angle = float(angle_value)
+                    if isinstance(obj.get("smart_symbol"), dict):
                         # A pre-#1009 symbol rotated about its local origin
                         # (its class had no centre pivot). Reproduce that exact
                         # geometry; the saved origin then keeps it stable.
                         group.setTransformOriginPoint(QPointF(0.0, 0.0))
+                        group._pivot_initialized = True
                         group.setRotation(angle)
                         group.rotation_angle = angle
                     else:

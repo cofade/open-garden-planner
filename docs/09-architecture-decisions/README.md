@@ -13869,9 +13869,10 @@ own for the duration (`CanvasView.begin_group_drill_down` /
 Persistence is additive: a group may carry a `rotation` key (the same key a
 pre-#1009 smart-symbol group used) and a `transform_origin`; a later member edit
 does not re-pivot, and reloading the saved origin is what keeps every member in
-place. Ungrouping turns the group's rotation into each member's own angle (and
-translates it so the member's scene position is unchanged), because Qt leaves
-the group rotation in a matrix the file format does not store. A legacy symbol
+place. Ungrouping a turned group is refused: Qt leaves the group rotation in the
+member's Qt transform while the file stores the member's own angle, so a correct
+bake would have to cover every member type and zero-net-angle pairs. Rotate the
+group back to 0° to ungroup it. A legacy symbol
 without an origin rotated about its local (0, 0); the loader reproduces that
 exact geometry. A grouped bed's linked plants follow as before: `iter_plant_parents`
 walks the group, so `RotateItemCommand`'s membership tracker and the move
@@ -13883,7 +13884,8 @@ are re-derived by the existing `update_house_ridges_under` listener.
 Pinned by `tests/integration/test_group_rotation.py` (handle visibility,
 drill-down, a real viewport drag, rigid member geometry, one-step undo, Shift
 snapping, a nested group, a grouped bed, a grouped house ridge, DXF ellipse
-orientation, and save/load after a member edit and after ungroup).
+orientation, zero-angle pivot, constraint refusal, and save/load after a member
+edit and an ungroup refusal).
 
 ## ADR-076: Exports paint one picture - a recorded SVG, raster plan pages in the PDF, live SVG text (#787, #788, #789)
 

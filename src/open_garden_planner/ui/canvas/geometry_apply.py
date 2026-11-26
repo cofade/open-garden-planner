@@ -280,7 +280,11 @@ def apply_rotation(item: QGraphicsItem, angle: float) -> None:
     _update_house_ridge_if_any(item)
 
 
-def register_rotation_command(item: QGraphicsItem, initial_angle: float) -> bool:
+def register_rotation_command(
+    item: QGraphicsItem,
+    initial_angle: float,
+    followers: list[tuple[QGraphicsItem, QPointF, QPointF, float, float]] | None = None,
+) -> bool:
     """Register the ONE ``RotateItemCommand`` a finished rotation gesture produced.
 
     Called by every item class's ``_on_rotation_end`` (all five had an identical
@@ -325,6 +329,7 @@ def register_rotation_command(item: QGraphicsItem, initial_angle: float) -> bool
         abs(initial_angle - current_angle) < 0.01
         and not partner_moves
         and not partner_vertex_moves
+        and not followers
     ):
         return False
 
@@ -335,6 +340,7 @@ def register_rotation_command(item: QGraphicsItem, initial_angle: float) -> bool
         apply_rotation,
         partner_moves=partner_moves or None,
         partner_vertex_moves=partner_vertex_moves or None,
+        followers=followers or None,
     )
     # Turning a BED turns its boundary: the plants it holds must be re-decided
     # in the same undo step (#443). The command carries that tracker itself;

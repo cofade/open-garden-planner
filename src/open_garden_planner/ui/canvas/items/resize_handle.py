@@ -938,14 +938,19 @@ class RotationHandle(EditDecorationMixin, QGraphicsEllipseItem):
         self._drag_start_pos = QPointF(scene_pos)
 
         # Store initial rotation angle and calculate center: of the item's own
-        # outline, never of its repaint region (#790).
+        # outline, never of its repaint region (#790). A group may have fixed
+        # its pivot at an earlier turn; sample around that same point.
         if self._parent_item is not None:
-            rect = selection_frame_rect(self._parent_item)
-            self._center = (
-                self._parent_item.mapToParent(rect.center())
-                if parent_frame
-                else self._parent_item.mapToScene(rect.center())
-            )
+            pivot_scene = getattr(self._parent_item, "rotation_pivot_scene", None)
+            if callable(pivot_scene):
+                self._center = pivot_scene()
+            else:
+                rect = selection_frame_rect(self._parent_item)
+                self._center = (
+                    self._parent_item.mapToParent(rect.center())
+                    if parent_frame
+                    else self._parent_item.mapToScene(rect.center())
+                )
             if hasattr(self._parent_item, 'rotation_angle'):
                 self._initial_angle = self._parent_item.rotation_angle
             else:

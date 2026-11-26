@@ -880,6 +880,9 @@ TRANSLATIONS: dict[str, dict[str, str]] = {
     },
 
     # ── GardenPlannerApp ──
+    "GroupItem": {
+        "A constrained member cannot be rotated with the group": "Ein Mitglied mit Randbedingung kann nicht mit der Gruppe gedreht werden",
+    },
     "GardenPlannerApp": {
         "Tasks": "Aufgaben",
         "Plant Lists": "Pflanzenlisten",
@@ -1746,10 +1749,6 @@ TRANSLATIONS: dict[str, dict[str, str]] = {
         "Corten steel": "Cortenstahl",
         "No objects selected": "Keine Objekte ausgewählt",
         "{count} objects selected": "{count} Objekte ausgewählt",
-        "Symbol definition not found — showing cached geometry.":
-            "Symboldefinition nicht gefunden — zwischengespeicherte Geometrie wird angezeigt.",
-        "Symbol definition version mismatch — saved geometry is read-only.":
-            "Symboldefinitions-Version stimmt nicht überein — gespeicherte Geometrie ist schreibgeschützt.",
         "Multi-selection editing\nnot yet implemented":
             "Mehrfachauswahl-Bearbeitung\nnoch nicht implementiert",
         "Type:": "Typ:",
@@ -3649,6 +3648,7 @@ _DRAWING_TOOLS_TRANSLATIONS: dict[str, dict[str, str]] = {
         "Ungroup": "Gruppe aufheben",
     },
     "CanvasView": {
+        "Rotate the group back to 0° before ungrouping": "Drehen Sie die Gruppe vor dem Aufheben der Gruppierung auf 0° zurück",
         "Ungroup {n} groups": "{n} Gruppen aufheben",
         "Ungrouped {n} groups": "{n} Gruppen aufgehoben",
     },

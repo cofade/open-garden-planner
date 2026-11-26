@@ -70,6 +70,7 @@ TRANSLATIONS: dict[str, dict[str, str]] = {
         'Calibration: Click second point on the image': 'Calibración: Haga clic en el segundo punto de la imagen',
     },
     'CanvasView': {
+        'Rotate the group back to 0° before ungrouping': 'Gire el grupo de nuevo a 0° antes de desagrupar',
         'Already at back': 'Ya está al fondo',
         'Already at front': 'Ya está al frente',
         'Ungroup {n} groups': 'Desagrupar {n} grupos',

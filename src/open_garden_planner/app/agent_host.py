@@ -2521,6 +2521,11 @@ class AgentHost:
 
         item = host._resolve_agent_item(item_id)
         host._agent_require_unconstrained(item, item_id, "rotate_object")
+        refusal = getattr(item, "rotation_refusal_reason", None)
+        if callable(refusal):
+            reason = refusal()
+            if reason:
+                raise ValueError(reason)
 
         current_angle = float(getattr(item, "rotation_angle", 0.0))
         if not hasattr(item, "_apply_rotation"):

@@ -45,14 +45,47 @@ def _anchor_point(obj: dict[str, Any]) -> tuple[float, float]:
 def object_bbox(obj: dict[str, Any]) -> tuple[float, float, float, float]:
     """Return ``(x, y, width, height)`` in scene cm for any serialised object.
 
-    Indeterminate shapes collapse to a zero-size box at their anchor point.
+    A shape's own ``rotation_angle`` is reported separately (its box is the
+    stored one); a GROUP's box composes its members' own angles and the group
+    transform, because otherwise a region query misses the real footprint.
     """
+    return _object_bbox_unrotated(obj)
+
+
+def _rotated_box(
+    box: tuple[float, float, float, float], angle: float
+) -> tuple[float, float, float, float]:
+    if not angle:
+        return box
+    x, y, w, h = box
+    cx, cy = x + w / 2.0, y + h / 2.0
+    rad = math.radians(angle)
+    cos_a, sin_a = math.cos(rad), math.sin(rad)
+    xs: list[float] = []
+    ys: list[float] = []
+    for px, py in ((x, y), (x + w, y), (x, y + h), (x + w, y + h)):
+        dx, dy = px - cx, py - cy
+        xs.append(cx + dx * cos_a - dy * sin_a)
+        ys.append(cy + dx * sin_a + dy * cos_a)
+    return (min(xs), min(ys), max(xs) - min(xs), max(ys) - min(ys))
+
+
+def _object_bbox_unrotated(
+    obj: dict[str, Any],
+) -> tuple[float, float, float, float]:
+    """The axis-aligned box of *obj* before its own angle is applied."""
     children = obj.get("children")  # group
     if children:
         # Children serialise in the group's LOCAL frame; the group dict carries
         # x/y, its own angle and (since #1022) the pivot. Union the child boxes,
         # turn each corner about the pivot, then place the result at x/y.
-        boxes = [object_bbox(child) for child in children]
+        boxes = [
+            _rotated_box(
+                object_bbox(child),
+                float(child.get("rotation_angle", child.get("rotation", 0.0)) or 0.0),
+            )
+            for child in children
+        ]
         angle = float(obj.get("rotation", 0.0) or 0.0)
         origin = obj.get("transform_origin")
         if not isinstance(origin, dict):

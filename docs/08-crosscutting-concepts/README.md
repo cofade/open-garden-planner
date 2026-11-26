@@ -1475,10 +1475,11 @@ item.
   `transform_origin` keys; the pivot is fixed at the first turn, so a later member edit
   cannot make reload re-pivot and shift every member. A pre-#1009 smart-symbol group
   has no origin and rotated about its local (0, 0), which the loader reproduces.
-- **Ungroup bakes the turn.** `removeFromGroup` leaves the group's rotation in the
-  member's Qt transform; `bake_inherited_rotation` turns it into the member's own angle
-  and translates the member so its scene position is unchanged. `UngroupCommand.undo`
-  restores the pre-ungroup transform instead of composing the group angle twice.
+- **Ungroup is refused while turned.** `removeFromGroup` leaves the group's rotation in
+  the member's Qt transform; the `.ogp` format stores a member's own `rotation_angle`, so
+  a bake would have to cover every type (including arcs) and zero-net-angle pairs.
+  `UngroupCommand` and `CanvasView.ungroup_selected` refuse a turned group and ask the
+  user to rotate it back to 0° first.
 - **Linked things follow.** A grouped bed's plants are found by `iter_plant_parents`
   (which walks groups), so the move command's net-scene-delta rule (PF-CAN-70) applies
   without a second path. A group rotation does not re-decide bed containment, so it

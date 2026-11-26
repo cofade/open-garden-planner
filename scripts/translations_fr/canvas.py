@@ -3,7 +3,11 @@
 from __future__ import annotations
 
 TRANSLATIONS: dict[str, dict[str, str]] = {
+    "GroupItem": {
+        "A constrained member cannot be rotated with the group": "Un membre contraint ne peut pas être tourné avec le groupe",
+    },
     "CanvasView": {
+        "Rotate the group back to 0° before ungrouping": "Ramenez le groupe à 0° avant de dissocier",
         "A constrained member or group cannot be moved while drilled down": (
             "Un membre ou un groupe contraint ne peut pas être déplacé pendant l’exploration"
         ),
