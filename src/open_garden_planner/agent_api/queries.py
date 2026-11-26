@@ -79,13 +79,15 @@ def _object_bbox_unrotated(
         # Children serialise in the group's LOCAL frame; the group dict carries
         # x/y, its own angle and (since #1022) the pivot. Union the child boxes,
         # turn each corner about the pivot, then place the result at x/y.
-        boxes = [
-            _rotated_box(
-                object_bbox(child),
-                float(child.get("rotation_angle", child.get("rotation", 0.0)) or 0.0),
-            )
-            for child in children
-        ]
+        boxes = []
+        for child in children:
+            box = object_bbox(child)
+            if not child.get("children"):
+                box = _rotated_box(
+                    box,
+                    float(child.get("rotation_angle", child.get("rotation", 0.0)) or 0.0),
+                )
+            boxes.append(box)
         angle = float(obj.get("rotation", 0.0) or 0.0)
         origin = obj.get("transform_origin")
         if not isinstance(origin, dict):

@@ -389,6 +389,48 @@ def test_a_grouped_ellipse_exports_its_turned_major_axis_to_dxf(
     assert abs(axis.y) == pytest.approx(100.0, abs=0.1)
 
 
+def test_a_command_only_group_turn_carries_the_plant_like_the_agent(
+    canvas: CanvasView,
+) -> None:
+    """The Agent API turns through a command, not a handle; the plan must match."""
+    from open_garden_planner.core.commands import RotateItemCommand
+    from open_garden_planner.ui.canvas.geometry_apply import apply_rotation
+
+    _show(canvas)
+    scene = canvas.scene()
+    bed = _rect(scene, 100.0, 100.0, 200.0, 200.0, kind=ObjectType.RAISED_BED)
+    plant = CircleItem(
+        150.0, 150.0, 15.0,
+        object_type=ObjectType.PERENNIAL, layer_id=scene.active_layer.id,
+    )
+    scene.addItem(plant)
+    plant.parent_bed_id = bed.item_id
+    bed.add_child_id(plant.item_id)
+    peer = _rect(scene, 500.0, 0.0)
+    group = _grouped(canvas, bed, peer)
+    before = plant.mapToScene(plant.rect().center())
+
+    group.begin_rotation_plan()
+    command = RotateItemCommand(
+        group, 0.0, 90.0, apply_rotation,
+        followers=group.rotation_follower_snapshots(90.0),
+    )
+    canvas.command_manager.execute(command)
+    group.finish_rotation_plan()
+    after = plant.mapToScene(plant.rect().center())
+    assert (after.x(), after.y()) != (before.x(), before.y())
+    assert plant.parent_bed_id == bed.item_id
+
+    canvas.command_manager.undo()
+    restored = plant.mapToScene(plant.rect().center())
+    assert restored.x() == pytest.approx(before.x(), abs=0.01)
+    assert restored.y() == pytest.approx(before.y(), abs=0.01)
+    canvas.command_manager.redo()
+    again = plant.mapToScene(plant.rect().center())
+    assert again.x() == pytest.approx(after.x(), abs=0.01)
+    assert again.y() == pytest.approx(after.y(), abs=0.01)
+
+
 def test_a_constrained_member_refuses_the_group_turn(canvas: CanvasView) -> None:
     """A group turn must not move a FIXED/constrained descendant (#1022)."""
     from uuid import uuid4
@@ -409,6 +451,73 @@ def test_a_constrained_member_refuses_the_group_turn(canvas: CanvasView) -> None
         AnchorRef(uuid4(), AnchorType.CENTER),
         100.0,
     )
+    handle = _handle(group)
+    assert canvas.begin_drill_handle_drag(handle, handle.scenePos()) is False
+    assert group.rotation_angle == pytest.approx(0.0)
+
+
+def test_two_turns_and_a_return_to_zero_carry_a_plant_once(
+    canvas: CanvasView,
+) -> None:
+    """Each turn applies a DELTA to the captured follower pose (#1022 review)."""
+    _show(canvas)
+    scene = canvas.scene()
+    bed = _rect(scene, 100.0, 100.0, 200.0, 200.0, kind=ObjectType.RAISED_BED)
+    plant = CircleItem(
+        150.0, 150.0, 15.0,
+        object_type=ObjectType.PERENNIAL, layer_id=scene.active_layer.id,
+    )
+    scene.addItem(plant)
+    plant.parent_bed_id = bed.item_id
+    bed.add_child_id(plant.item_id)
+    peer = _rect(scene, 500.0, 0.0)
+    group = _grouped(canvas, bed, peer)
+    scene.clearSelection()
+    group.setSelected(True)
+    QApplication.processEvents()
+    start_angle = plant.rotation_angle
+    start_centre = plant.mapToScene(plant.rect().center())
+
+    _drag(group, 0.0, 90.0)
+    assert plant.rotation_angle == pytest.approx(start_angle + 90.0, abs=0.1)
+    _drag(group, 90.0, 0.0)
+    assert plant.rotation_angle == pytest.approx(start_angle, abs=0.1)
+    assert plant.mapToScene(plant.rect().center()).x() == pytest.approx(
+        start_centre.x(), abs=0.1
+    )
+    assert plant.mapToScene(plant.rect().center()).y() == pytest.approx(
+        start_centre.y(), abs=0.1
+    )
+    assert plant.parent_bed_id == bed.item_id
+
+
+def test_a_fixed_linked_plant_refuses_the_group_turn(canvas: CanvasView) -> None:
+    """A linked plant is outside the Qt tree but the turn moves it (#1022)."""
+    from uuid import uuid4
+
+    from open_garden_planner.core.constraints import AnchorRef
+    from open_garden_planner.core.measure_snapper import AnchorType
+
+    _show(canvas)
+    scene = canvas.scene()
+    bed = _rect(scene, 100.0, 100.0, 200.0, 200.0, kind=ObjectType.RAISED_BED)
+    plant = CircleItem(
+        150.0, 150.0, 15.0,
+        object_type=ObjectType.PERENNIAL, layer_id=scene.active_layer.id,
+    )
+    scene.addItem(plant)
+    plant.parent_bed_id = bed.item_id
+    bed.add_child_id(plant.item_id)
+    scene.constraint_graph.add_constraint(
+        AnchorRef(plant.item_id, AnchorType.CENTER),
+        AnchorRef(uuid4(), AnchorType.CENTER),
+        100.0,
+    )
+    peer = _rect(scene, 500.0, 0.0)
+    group = _grouped(canvas, bed, peer)
+    scene.clearSelection()
+    group.setSelected(True)
+    QApplication.processEvents()
     handle = _handle(group)
     assert canvas.begin_drill_handle_drag(handle, handle.scenePos()) is False
     assert group.rotation_angle == pytest.approx(0.0)

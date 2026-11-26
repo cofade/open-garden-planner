@@ -13874,11 +13874,12 @@ member's Qt transform while the file stores the member's own angle, so a correct
 bake would have to cover every member type and zero-net-angle pairs. Rotate the
 group back to 0° to ungroup it. A legacy symbol
 without an origin rotated about its local (0, 0); the loader reproduces that
-exact geometry. A grouped bed's linked plants follow as before: `iter_plant_parents`
-walks the group, so `RotateItemCommand`'s membership tracker and the move
-command's net-scene-delta rule (PF-CAN-70) already cover members; a group
-rotation itself deliberately does not re-decide bed containment, so it cannot
-unlink a top-level plant the bed still owns. Roof ridges
+exact geometry. A grouped bed's linked top-level plants are captured at gesture start and
+carried about the same pivot by `RotateItemCommand`'s follower snapshots; the
+group rotation deliberately does not re-decide bed containment, so it cannot
+unlink them. The move command's net-scene-delta rule (PF-CAN-70) handles later
+moves. A constrained linked plant is refused before any geometry changes.
+Roof ridges
 are re-derived by the existing `update_house_ridges_under` listener.
 
 Pinned by `tests/integration/test_group_rotation.py` (handle visibility,

@@ -485,6 +485,21 @@ class TestBboxNormaliserPerShape:
         assert queries.object_bbox(group) == (40.0, -40.0, 20.0, 100.0)
 
 
+    def test_a_nested_group_does_not_apply_its_turn_twice(self) -> None:
+        inner = {
+            "type": "group", "item_id": "inner", "x": 0.0, "y": 0.0,
+            "children": [
+                {"type": "rectangle", "item_id": "c1", "x": 0.0, "y": 0.0,
+                 "width": 100.0, "height": 20.0, "rotation_angle": 90.0},
+            ],
+        }
+        outer = {
+            "type": "group", "item_id": "outer", "x": 0.0, "y": 0.0,
+            "children": [inner],
+        }
+        assert queries.object_bbox(outer) == (40.0, -40.0, 20.0, 100.0)
+
+
     def test_bezier_bbox_includes_control_handles(self) -> None:
         # The control hull bounds the curve; ignoring handles under-approximates.
         bez = {

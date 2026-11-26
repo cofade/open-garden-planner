@@ -2526,6 +2526,9 @@ class AgentHost:
             reason = refusal()
             if reason:
                 raise ValueError(reason)
+        plan = getattr(item, "begin_rotation_plan", None)
+        if callable(plan):
+            plan()
 
         current_angle = float(getattr(item, "rotation_angle", 0.0))
         if not hasattr(item, "_apply_rotation"):
@@ -2538,8 +2541,20 @@ class AgentHost:
             angle, relative=relative, current_angle=current_angle
         )
 
-        cmd = RotateItemCommand(item, current_angle, new_angle, apply_rotation)
-        host.canvas_view.command_manager.execute(cmd)
+        followers = getattr(item, "rotation_follower_snapshots", None)
+        cmd = RotateItemCommand(
+            item,
+            current_angle,
+            new_angle,
+            apply_rotation,
+            followers=followers(new_angle) if callable(followers) else None,
+        )
+        try:
+            host.canvas_view.command_manager.execute(cmd)
+        finally:
+            finish = getattr(item, "finish_rotation_plan", None)
+            if callable(finish):
+                finish()
 
         cx, cy = host._agent_item_center(item)
         return {

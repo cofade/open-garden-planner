@@ -1480,11 +1480,14 @@ item.
   a bake would have to cover every type (including arcs) and zero-net-angle pairs.
   `UngroupCommand` and `CanvasView.ungroup_selected` refuse a turned group and ask the
   user to rotate it back to 0° first.
-- **Linked things follow.** A grouped bed's plants are found by `iter_plant_parents`
-  (which walks groups), so the move command's net-scene-delta rule (PF-CAN-70) applies
-  without a second path. A group rotation does not re-decide bed containment, so it
-  cannot unlink a top-level plant the bed still owns. A grouped house's ridge is
-  re-derived by `update_house_ridges_under` on the group's transform change.
+- **Linked things follow.** `GroupItem.rotation_targets()` is the one set the turn moves: the
+  Qt subtree plus each grouped bed's linked top-level plants. `begin_rotation_plan`
+  captures their poses, `_apply_rotation` applies the DELTA to them, and the same
+  `RotateItemCommand` stores their before/after poses. A group rotation does not
+  re-decide bed containment, so it cannot unlink a plant the bed still owns. A
+  constrained linked plant refuses the turn before any geometry changes. A grouped
+  house's ridge is re-derived by `update_house_ridges_under` on the group's transform
+  change.
 
 Tests: `tests/integration/test_group_rotation.py`.
 

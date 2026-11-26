@@ -5908,16 +5908,18 @@ class CanvasView(QGraphicsView):
 
         groups = ungroupable_groups(list(self.scene().selectedItems()))
         if not groups:
-            self.set_status_message(self.tr("No group selected"))
-            return
-        rotated = [
-            group for group in groups
-            if abs(float(getattr(group, "rotation_angle", group.rotation()))) > 1e-6
-        ]
-        if rotated:
-            self.set_status_message(
-                self.tr("Rotate the group back to 0° before ungrouping")
-            )
+            from open_garden_planner.ui.canvas.items.group_item import GroupItem
+
+            turned = [
+                item for item in self.scene().selectedItems()
+                if isinstance(item, GroupItem) and item.is_turned()
+            ]
+            if turned:
+                self.set_status_message(
+                    self.tr("Rotate the group back to 0° before ungrouping")
+                )
+            else:
+                self.set_status_message(self.tr("No group selected"))
             return
         commands = [UngroupCommand(self.scene(), group) for group in groups]
         command = (

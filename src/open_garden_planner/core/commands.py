@@ -3307,7 +3307,8 @@ class UngroupCommand(Command):
 
     def __init__(self, scene: QGraphicsScene, group: QGraphicsItem) -> None:
         angle = float(getattr(group, "rotation_angle", group.rotation()))
-        if abs(angle) > 1e-6:
+        normalized = angle % 360.0
+        if min(normalized, 360.0 - normalized) > 1e-6:
             raise ValueError(
                 "A rotated group cannot be ungrouped; rotate it back to 0° first."
             )

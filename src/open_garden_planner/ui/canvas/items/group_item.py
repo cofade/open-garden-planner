@@ -88,12 +88,15 @@ def ungroupable_groups(items: list[QGraphicsItem]) -> list[GroupItem]:
     Only TOP-LEVEL groups are dissolved: Qt can keep a just-grouped child group
     flagged selected inside its new parent, and ungrouping one gesture must not
     silently cascade into the nested levels the issue documents as a second
-    deliberate step.
+    deliberate step. A turned group is not a valid target: its members' saved
+    own angles cannot reproduce the composed Qt matrix (#1022).
     """
     return [
         item
         for item in items
-        if isinstance(item, GroupItem) and item.parentItem() is None
+        if isinstance(item, GroupItem)
+        and item.parentItem() is None
+        and not item.is_turned()
     ]
 
 
@@ -166,6 +169,7 @@ class GroupItem(RotationHandleMixin, GardenItemMixin, QGraphicsItemGroup):
         #: frame centre, and re-pivoting would shift every member (#1022).
         self._pivot_initialized = False
         self._gesture_pivot: QPointF | None = None
+        self._rotation_plan_active = False
         self._rotation_followers: list[tuple[QGraphicsItem, QPointF, QPointF, float, float]] = []
         #: The member that currently has drill-down edit focus (#771). Drawn as
         #: a solid inner outline, so a second click inside a selected group has
@@ -225,19 +229,26 @@ class GroupItem(RotationHandleMixin, GardenItemMixin, QGraphicsItemGroup):
             self._pivot_initialized = True
         pivot = self._gesture_pivot or self.rotation_pivot_scene()
         rotation = QTransform()
-        rotation.rotate(angle)
+        delta = angle - float(getattr(self, "_rotation_initial_angle", 0.0))
+        rotation.rotate(delta)
         for follower, start_center, _before, start_angle, _after in self._rotation_followers:
             rect_fn = getattr(follower, "rect", None)
             if not callable(rect_fn):
                 continue
             centre = pivot + rotation.map(start_center - pivot)
             if hasattr(follower, "_apply_rotation"):
-                follower._apply_rotation(start_angle + angle)
+                follower._apply_rotation(start_angle + delta)
             follower.setPos(centre - rect_fn().center())
         self._rotation_angle = angle
         self.setRotation(angle)
         self.update_rotation_handle()
         self._position_label()
+
+    def is_turned(self) -> bool:
+        """Whether the group's angle is not a whole 360° multiple (#1022)."""
+        angle = float(getattr(self, "rotation_angle", self.rotation()))
+        normalized = angle % 360.0
+        return min(normalized, 360.0 - normalized) > 1e-6
 
     def rotation_pivot_scene(self) -> QPointF:
         """The scene point a gesture turns about: the saved pivot once chosen."""
@@ -245,13 +256,41 @@ class GroupItem(RotationHandleMixin, GardenItemMixin, QGraphicsItemGroup):
             return self.mapToScene(self.transformOriginPoint())
         return self.mapToScene(selection_frame_rect(self).center())
 
+    def rotation_targets(self) -> list[QGraphicsItem]:
+        """Everything a turn moves: the Qt subtree plus grouped beds' plants.
+
+        Linked plants are top-level items, so they are not in the subtree but
+        the gesture and its command carry them. This is the one set both the
+        constraint refusal and the follower capture use.
+        """
+        targets = selection_tree([self])
+        scene = self.scene()
+        find = getattr(scene, "find_item_by_id", None) if scene is not None else None
+        if not callable(find):
+            return targets
+        from open_garden_planner.core.commands import iter_plant_parents
+
+        seen = {id(item) for item in targets}
+        for parent in iter_plant_parents([self]):
+            for child_id in getattr(parent, "child_item_ids", ()):
+                item = find(child_id)
+                if (
+                    item is not None
+                    and id(item) not in seen
+                    and item.parentItem() is None
+                    and callable(getattr(item, "rect", None))
+                ):
+                    targets.append(item)
+                    seen.add(id(item))
+        return targets
+
     def rotation_refusal_reason(self) -> str | None:
-        """Why a turn would violate a descendant's constraint, or None."""
+        """Why a turn would violate any affected item's constraint, or None."""
         scene = self.scene()
         graph = getattr(scene, "constraint_graph", None) if scene is not None else None
         if graph is None:
             return None
-        for item in selection_tree([self]):
+        for item in self.rotation_targets():
             item_id = getattr(item, "item_id", None)
             if item_id is not None and graph.get_item_constraints(item_id):
                 from PyQt6.QtCore import QCoreApplication
@@ -262,38 +301,72 @@ class GroupItem(RotationHandleMixin, GardenItemMixin, QGraphicsItemGroup):
                 )
         return None
 
+    def begin_rotation_plan(self) -> None:
+        """Capture the pivot, start angle and carried plants for a turn.
+
+        Called by the handle gesture and by the Agent API before one command.
+        Idempotent within a live gesture: a second call does not recapture the
+        followers after they have already moved.
+        """
+        if self._rotation_plan_active:
+            return
+        self._rotation_initial_angle = float(self._rotation_angle)
+        self._gesture_pivot = self.rotation_pivot_scene()
+        self._rotation_followers = []
+        for item in self.rotation_targets():
+            if item is self or item.parentItem() is not None:
+                continue
+            rect_fn = getattr(item, "rect", None)
+            if not callable(rect_fn):
+                continue
+            centre = item.mapToScene(rect_fn().center())
+            angle = float(getattr(item, "rotation_angle", item.rotation()))
+            self._rotation_followers.append(
+                (item, QPointF(centre), QPointF(item.pos()), angle, angle)
+            )
+        self._rotation_plan_active = True
+
+    def rotation_follower_snapshots(
+        self, angle: float | None = None
+    ) -> list[tuple[QGraphicsItem, QPointF, QPointF, float, float]]:
+        """The carried items as ``(item, before, after, old angle, new angle)``.
+
+        With *angle*, the after-pose is computed from the captured start pose
+        (the Agent API path, before the command has run); without it, the live
+        poses after a handle gesture are read.
+        """
+        followers: list[tuple[QGraphicsItem, QPointF, QPointF, float, float]] = []
+        delta = 0.0
+        rotation = QTransform()
+        pivot = self._gesture_pivot or self.rotation_pivot_scene()
+        if angle is not None:
+            delta = angle - float(getattr(self, "_rotation_initial_angle", 0.0))
+            rotation.rotate(delta)
+        for item, start_centre, before, start_angle, _after in self._rotation_followers:
+            if angle is None:
+                after = QPointF(item.pos())
+                new_angle = float(getattr(item, "rotation_angle", item.rotation()))
+            else:
+                rect_fn = getattr(item, "rect", None)
+                if not callable(rect_fn):
+                    continue
+                centre = pivot + rotation.map(start_centre - pivot)
+                after = QPointF(centre - rect_fn().center())
+                new_angle = start_angle + delta
+            if after != before or abs(new_angle - start_angle) > 0.01:
+                followers.append((item, before, after, start_angle, new_angle))
+        return followers
+
+    def finish_rotation_plan(self) -> None:
+        """Drop the live plan; the command owns the recorded poses afterwards."""
+        self._rotation_followers = []
+        self._gesture_pivot = None
+        self._rotation_plan_active = False
+
     def _on_rotation_start(self) -> None:
         """Capture the pivot and the linked plants a turn must carry (#1022)."""
         super()._on_rotation_start()
-        self._gesture_pivot = self.rotation_pivot_scene()
-        self._rotation_followers = []
-        scene = self.scene()
-        if scene is None:
-            return
-        from open_garden_planner.core.commands import iter_plant_parents
-
-        find = getattr(scene, "find_item_by_id", None)
-        if not callable(find):
-            return
-        for parent in iter_plant_parents([self]):
-            for child_id in getattr(parent, "child_item_ids", ()):
-                item = find(child_id)
-                if (
-                    item is None
-                    or item.parentItem() is not None
-                    or not callable(getattr(item, "rect", None))
-                ):
-                    continue
-                centre = item.mapToScene(item.rect().center())
-                self._rotation_followers.append(
-                    (
-                        item,
-                        QPointF(centre),
-                        QPointF(item.pos()),
-                        float(getattr(item, "rotation_angle", item.rotation())),
-                        float(getattr(item, "rotation_angle", item.rotation())),
-                    )
-                )
+        self.begin_rotation_plan()
 
     def _on_rotation_end(self, initial_angle: float) -> None:
         """Register the finished group rotation and its carried plants (#1022)."""
@@ -301,13 +374,9 @@ class GroupItem(RotationHandleMixin, GardenItemMixin, QGraphicsItemGroup):
             register_rotation_command,
         )
 
-        followers: list[tuple[QGraphicsItem, QPointF, QPointF, float, float]] = []
-        for item, _start_centre, before, start_angle, _after in self._rotation_followers:
-            after = QPointF(item.pos())
-            new_angle = float(getattr(item, "rotation_angle", item.rotation()))
-            if after != before or abs(new_angle - start_angle) > 0.01:
-                followers.append((item, before, after, start_angle, new_angle))
+        followers = self.rotation_follower_snapshots()
         register_rotation_command(self, initial_angle, followers or None)
+        self.finish_rotation_plan()
 
     # ------------------------------------------------------------------
     # Paint
