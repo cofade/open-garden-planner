@@ -171,6 +171,34 @@ def test_the_family_garden_bed_keeps_its_live_shadow_when_grouped(qtbot, monkeyp
     assert np.abs(again - before).max() < 3, (before, again)
 
 
+def test_a_moved_group_resamples_its_beds_cached_shadow(view, qtbot) -> None:
+    from open_garden_planner.core.commands import GroupCommand
+
+    scene = view.scene()
+    view.resize(600, 500)
+    view.show()
+    view.centerOn(scene.canvas_rect.center())
+    _shed(view)
+    _lawn(view)
+    layer = scene.active_layer.id
+    bed = RectangleItem(200, 180, 80, 80, object_type=ObjectType.GARDEN_BED, layer_id=layer)
+    note = TextItem(430, 360, "A note", layer_id=layer)
+    for item in (bed, note):
+        _add(view, item)
+    controller = SunShadowController(scene, lambda: BERLIN)
+    controller.set_sim_datetime(JUNE_NOON_UTC)
+    controller.set_enabled(True)
+    view.command_manager.execute(GroupCommand(scene, [bed, note]))
+    scene.clearSelection()
+    group = bed.parentItem()
+    assert group is not None
+    shaded = _view_patch(view, (235, 215), half=3)
+
+    group.moveBy(100, 0)
+    sunny = _view_patch(view, (335, 215), half=3)
+    assert sunny[0] - shaded[0] > 20, (shaded, sunny)
+
+
 class TestTheShadowLiesOnTheLawn:
     def test_a_shadow_darkens_the_lawn_and_leaves_the_shed_alone(self, view) -> None:
         scene = view.scene()
@@ -637,6 +665,29 @@ class TestTheGroundBand:
 
         view.command_manager.undo()
         assert not _in_ground_band(group)
+
+    def test_an_ungrouped_plant_stays_above_its_bed_in_a_nested_group(self, view) -> None:
+        from open_garden_planner.core.commands import GroupCommand
+
+        scene = view.scene()
+        layer = scene.active_layer.id
+        bed = RectangleItem(100, 100, 120, 100, object_type=ObjectType.GARDEN_BED, layer_id=layer)
+        other_bed = RectangleItem(280, 100, 120, 100, object_type=ObjectType.GARDEN_BED,
+                                  layer_id=layer)
+        inside = CircleItem(130, 140, 14, object_type=ObjectType.PERENNIAL, layer_id=layer)
+        outside = CircleItem(185, 140, 14, object_type=ObjectType.PERENNIAL, layer_id=layer)
+        for plant in (inside, outside):
+            plant.parent_bed_id = bed.item_id
+            bed.add_child_id(plant.item_id)
+        for item in (bed, other_bed, inside, outside):
+            _add(view, item)
+        view.command_manager.execute(GroupCommand(scene, [bed, inside]))
+        inner = bed.parentItem()
+        assert inner is not None
+        view.command_manager.execute(GroupCommand(scene, [inner, other_bed]))
+        outer = inner.parentItem()
+        assert outer is not None
+        assert outside.parentItem() is None and outside.zValue() > outer.zValue() >= 0.0
 
     def test_the_layer_order_holds_among_ground_surfaces_across_layers(self, view) -> None:
         scene = view.scene()

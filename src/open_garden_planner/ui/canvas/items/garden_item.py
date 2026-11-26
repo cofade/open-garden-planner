@@ -454,16 +454,16 @@ _CHANGE = QGraphicsItem.GraphicsItemChange
 #: it is. (Position and transform notices need ``ItemSendsGeometryChanges``, which
 #: every garden item sets.) A selection, a hover, a flag, an opacity are not here: they
 #: repaint the canvas and leave the plan as it was.
-PLAN_CHANGES: frozenset[QGraphicsItem.GraphicsItemChange] = frozenset({
+_OVERLAY_TRANSFORM_CHANGES = frozenset({
     _CHANGE.ItemPositionHasChanged,
     _CHANGE.ItemTransformHasChanged,
     _CHANGE.ItemRotationHasChanged,
     _CHANGE.ItemScaleHasChanged,
     _CHANGE.ItemTransformOriginPointHasChanged,
-    _CHANGE.ItemVisibleHasChanged,
     _CHANGE.ItemZValueHasChanged,
     _CHANGE.ItemParentHasChanged,
 })
+PLAN_CHANGES = _OVERLAY_TRANSFORM_CHANGES | {_CHANGE.ItemVisibleHasChanged}
 #: Where an item keeps, between Qt's two visibility notices, whether it WAS visible.
 _VISIBLE_BEFORE = "_plan_visible_before_change"
 
@@ -520,6 +520,10 @@ def handle_item_change(
     """
     handle_selection_change_for_cache(item, change, value)
     announce_plan_change(item, change, value)
+    if change in _OVERLAY_TRANSFORM_CHANGES:
+        refresh = getattr(item.scene(), "refresh_ground_overlays", None)
+        if refresh is not None:
+            refresh(item)
 
 
 class PositionLockMixin:

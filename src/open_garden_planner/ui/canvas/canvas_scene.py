@@ -639,13 +639,32 @@ class CanvasScene(QGraphicsScene):
             except RuntimeError:
                 continue
 
-    def refresh_ground_overlays(self) -> None:
+    def refresh_ground_overlays(self, changed: QGraphicsItem | None = None) -> None:
         """Repaint every ground surface drawn above a registered overlay.
 
         A surface's own paint reads the overlays (#1031), so a new shade, a new
         sun map or an overlay shown/hidden must invalidate it — the overlay's own
         repaint never reaches the cached surface above it.
         """
+        if not self._ground_overlays:
+            return
+        if changed is not None:
+            if not isinstance(changed, QGraphicsItemGroup):
+                if changed.parentItem() is not None and on_ground(changed):
+                    changed.update()
+                return
+            from .items.group_item import selection_tree
+
+            # A local or ancestor transform changes what part of the world the
+            # item sees. Crossing a z band may remove shade already in its cache.
+            for item in selection_tree([changed]):
+                if (
+                    item.parentItem() is not None
+                    and not isinstance(item, QGraphicsItemGroup)
+                    and on_ground(item)
+                ):
+                    item.update()
+            return
         overlays = self._live_ground_overlays()
         if not overlays:
             return
@@ -1851,6 +1870,8 @@ class CanvasScene(QGraphicsScene):
             is_plant_type,
         )
 
+        from .items.group_item import selection_tree
+
         items_by_id: dict[object, QGraphicsItem] = {}
         bounds = {id(item): item.sceneBoundingRect() for item in candidates}
         plant_parents: list[tuple[QRectF, QGraphicsItem]] = []
@@ -1860,7 +1881,7 @@ class CanvasScene(QGraphicsScene):
             if item_type is not None and is_plant_parent_type(item_type):
                 plant_parents.append((bounds[id(item)], item))
             elif isinstance(item, QGraphicsItemGroup):
-                for child in item.childItems():
+                for child in selection_tree([item])[1:]:
                     child_id = getattr(child, "item_id", None)
                     if child_id is not None:
                         items_by_id[child_id] = item
@@ -2131,6 +2152,8 @@ class CanvasScene(QGraphicsScene):
             is_plant_type,
         )
 
+        from .items.group_item import selection_tree
+
         items_by_layer: dict[Any, dict[object, QGraphicsItem]] = {}
         parents_by_layer: dict[Any, list[tuple[QRectF, QGraphicsItem]]] = {}
         top_parent_z: dict[Any, float] = {}
@@ -2149,7 +2172,7 @@ class CanvasScene(QGraphicsScene):
             layer_map = items_by_layer.setdefault(layer_id, {})
             layer_map[self._stack_identity(item)] = item
             if isinstance(item, QGraphicsItemGroup):
-                for child in item.childItems():
+                for child in selection_tree([item])[1:]:
                     child_id = getattr(child, "item_id", None)
                     if child_id is not None:
                         layer_map[child_id] = item
