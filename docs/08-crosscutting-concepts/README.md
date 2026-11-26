@@ -1503,7 +1503,8 @@ item.
 
 The Agent API's group box composes every member's own turn, each nested group's
 compensating base translation, and the group transform before taking bounds, so a
-region query matches the visible geometry.
+region query matches the visible geometry; a callout's leader endpoint is part of its
+composed box.
 - **Ungroup is refused while turned.** `removeFromGroup` leaves the group's rotation in
   the member's Qt transform; the `.ogp` format stores a member's own `rotation_angle`, so
   a bake would have to cover every type (including arcs) and zero-net-angle pairs.

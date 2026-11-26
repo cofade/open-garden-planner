@@ -485,7 +485,7 @@ class GroupItem(RotationHandleMixin, GardenItemMixin, QGraphicsItemGroup):
             # always leaves an angle the serializer writes (#1022 review).
             self._apply_rotation(0.0)
             current_angle = 0.0
-        if abs(current_angle - float(initial_angle)) < 0.01:
+        if is_zero_angle(current_angle - float(initial_angle)):
             # The shared command threshold, applied BEFORE follower snapshots:
             # a carried plant's sub-threshold movement must not commit a turn
             # (#1022 review). Put the group, its followers and the pivot back.

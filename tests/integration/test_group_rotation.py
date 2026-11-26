@@ -567,7 +567,7 @@ def test_a_sub_threshold_turn_rolls_back_a_carried_plant(
     start_angle = plant.rotation_angle
     depth = len(canvas.command_manager._undo_stack)
 
-    _drag(group, 0.0, 0.005)
+    _drag(group, 0.0, 0.0000005)
 
     assert group.rotation_angle == pytest.approx(0.0)
     assert group._pivot_initialized is False
@@ -906,7 +906,7 @@ def test_undo_removes_the_pivot_a_reverted_turn_introduced(
     assert group.transformOriginPoint().isNull()
     assert len(canvas.command_manager._undo_stack) == depth
 
-    _drag(group, 0.0, 0.005)
+    _drag(group, 0.0, 0.0000005)
     assert group.rotation_angle == pytest.approx(0.0)
     assert group.is_turned() is False
     assert group._pivot_initialized is False
@@ -1053,6 +1053,26 @@ def test_ungrouping_a_loaded_nested_group_survives_save_and_reload(
     reopened = CanvasScene(width_cm=5000, height_cm=3000)
     ProjectManager().load(reopened, reopened_target)
     assert centres(reopened) == before
+
+
+def test_a_small_turned_group_can_return_to_zero(canvas: CanvasView) -> None:
+    """A 0.005° group is turned; releasing it at 0° must commit that change."""
+    _show(canvas)
+    scene = canvas.scene()
+    first = _rect(scene, 0.0, 0.0, 100.0, 80.0)
+    second = _rect(scene, 200.0, 0.0, 100.0, 80.0)
+    group = _grouped(canvas, first, second)
+    group._apply_rotation(0.005)
+    scene.clearSelection()
+    group.setSelected(True)
+    QApplication.processEvents()
+    depth = len(canvas.command_manager._undo_stack)
+
+    _drag(group, 0.0, -0.005)
+
+    assert group.rotation_angle == pytest.approx(0.0)
+    assert group.is_turned() is False
+    assert len(canvas.command_manager._undo_stack) == depth + 1
 
 
 def test_a_turn_back_to_a_rounded_zero_is_saved_as_zero(

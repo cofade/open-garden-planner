@@ -45,6 +45,13 @@ for sun-map contours. See the ADR-076 editing addendum and section 8.9.17.
 | `core/tools/reference_point_tool.py` | The toolbar's one-click placement tool; returns to Select when the dialog closes. |
 | `core/commands.py` | `expand_with_bed_children` carries annexed reference points with their parent's delta, so a parent move and its point are one undo step. |
 
+### Shared angle and group-bounds rules (#1022)
+
+| Block | Responsibility |
+|---|---|
+| `core/angles.py` | Qt-free 1e-6° zero-angle rule and `[0, 360)` normalizer. The Agent no-op, group-angle persistence, the gesture release and Ungroup all ask it, so an accepted turn can never be dropped by a different threshold. |
+| `core/object_bounds.py` | Qt-free composed bounding box over serialized objects: member primitive boxes (rectangle/circle/ellipse/points), each group's pivot rotation and nested base translation. `core/plan_io.validate_plan_data` checks every transformed part, far edge and union for finiteness before Qt; `agent_api.queries` uses the same box for region reads. |
+
 ```mermaid
 flowchart TD
     subgraph Pres["Presentation Layer"]

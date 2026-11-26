@@ -289,6 +289,12 @@ def _object_bbox_unrotated(
         cx, cy = float(obj["center_x"]), float(obj["center_y"])
         sx, sy = float(obj["semi_x"]), float(obj["semi_y"])
         return (cx - sx, cy - sy, 2 * sx, 2 * sy)
+    if "target_x" in obj and ("box_dx" in obj or "box_dy" in obj):
+        # Callout: the arrow tip and the serialized box anchor (leader end).
+        tx, ty = float(obj["target_x"]), float(obj.get("target_y", 0.0))
+        bx = tx + float(obj.get("box_dx", 0.0))
+        by = ty + float(obj.get("box_dy", 0.0))
+        return (min(tx, bx), min(ty, by), abs(bx - tx), abs(by - ty))
     if "x1" in obj and "x2" in obj:  # construction_line segment
         x1, y1 = float(obj["x1"]), float(obj.get("y1", 0.0))
         x2, y2 = float(obj["x2"]), float(obj.get("y2", 0.0))

@@ -300,6 +300,7 @@ def register_rotation_command(
     A returned-to-start angle can still leave solver corrections; those need
     the same undo entry as any other completed gesture.
     """
+    from open_garden_planner.core.angles import is_zero_angle
     from open_garden_planner.core.commands import RotateItemCommand
 
     scene = item.scene()
@@ -326,7 +327,7 @@ def register_rotation_command(
             partner_vertex_moves = collect_vertices()
 
     if (
-        abs(initial_angle - current_angle) < 0.01
+        is_zero_angle(initial_angle - current_angle)
         and not partner_moves
         and not partner_vertex_moves
         and not followers

@@ -425,9 +425,9 @@ class TestBboxNormaliserPerShape:
         }
         assert queries.object_bbox(poly) == (0.0, 0.0, 30.0, 40.0)
 
-    def test_callout_is_point(self) -> None:
-        callout = {"type": "callout", "target_x": 12.0, "target_y": 34.0, "box_dx": 5, "box_dy": 5}
-        assert queries.object_bbox(callout) == (12.0, 34.0, 0.0, 0.0)
+    def test_callout_spans_its_leader(self) -> None:
+        callout = {"type": "callout", "target_x": 12.0, "target_y": 34.0, "box_dx": 5, "box_dy": 6}
+        assert queries.object_bbox(callout) == (12.0, 34.0, 5.0, 6.0)
 
     def test_journal_pin_is_point(self) -> None:
         pin = {"type": "journal_pin", "item_id": "jp", "x": 7.0, "y": 8.0, "note_id": "n"}
@@ -606,6 +606,23 @@ class TestBboxNormaliserPerShape:
         }
         assert queries.object_bbox(group) == (90.0, 40.0, 20.0, 20.0)
 
+
+    def test_a_grouped_callout_includes_its_rotated_leader(self) -> None:
+        group = {
+            "type": "group", "item_id": "g1", "x": 0.0, "y": 0.0,
+            "rotation": 90.0,
+            "children": [
+                {"type": "callout", "item_id": "c1", "target_x": 0.0,
+                 "target_y": 0.0, "box_dx": 100.0, "box_dy": 50.0},
+            ],
+        }
+        snapshot = {
+            "objects": [group],
+            "layers": [],
+            "canvas": {"width": 1000.0, "height": 1000.0},
+        }
+        found = queries.objects_in_region(snapshot, 25.0, 55.0, 10.0, 10.0, raw=True)
+        assert [obj["item_id"] for obj in found] == ["g1"]
 
     def test_bezier_bbox_includes_control_handles(self) -> None:
         # The control hull bounds the curve; ignoring handles under-approximates.

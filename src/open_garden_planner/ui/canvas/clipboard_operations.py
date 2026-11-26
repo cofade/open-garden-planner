@@ -256,7 +256,7 @@ class ClipboardOperations:
                 for child_id in item.child_item_ids:
                     if child_id not in selected_ids:
                         child = host._canvas_scene.find_item_by_id(child_id)
-                        if child is not None:
+                        if child is not None and child.parentItem() is None:
                             selected.append(child)
                             selected_ids.add(child_id)
 
@@ -393,7 +393,7 @@ class ClipboardOperations:
                 for child_id in item.child_item_ids:
                     if child_id not in selected_ids:
                         child = host._canvas_scene.find_item_by_id(child_id)
-                        if child is not None:
+                        if child is not None and child.parentItem() is None:
                             selected.append(child)
                             selected_ids.add(child_id)
 
