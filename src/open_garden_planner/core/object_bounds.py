@@ -37,10 +37,19 @@ def object_bbox(obj: dict[str, Any]) -> tuple[float, float, float, float]:
     stored one); a GROUP's box composes its members' own angles and the group
     transform, because otherwise a region query misses the real footprint.
     Members with a true curved outline (a circle, an ellipse) keep their exact
-    extent instead of growing their bounding square.
+    extent instead of growing their bounding square. A turned annotation
+    (callout/text) reports its turned footprint because it is a region target.
     """
+    from open_garden_planner.core.angles import is_zero_angle
+
     if obj.get("children"):
         return _primitives_bbox(_group_primitives(obj))
+    if obj.get("type") == "text" and isinstance(obj.get("bounds"), dict):
+        return _primitives_bbox(_leaf_primitives(obj))
+    if obj.get("type") == "callout" and isinstance(obj.get("bounds"), dict):
+        angle = float(obj.get("rotation_angle", 0.0) or 0.0)
+        if not is_zero_angle(angle):
+            return _primitives_bbox(_leaf_primitives(obj))
     return _object_bbox_unrotated(obj)
 
 
@@ -154,7 +163,13 @@ def _leaf_primitives(obj: dict[str, Any]) -> list[_Primitive]:
         ]
     else:
         raw = _box_corners(box)
-    return [("points", _rotate_points(raw, centre, angle))]
+    raw = _rotate_points(raw, centre, angle)
+    if obj.get("type") == "text":
+        # TextItem carries a local Y reflection for the canvas Y-flip; the
+        # saved bounds are unreflected, so reflect about the item's anchor.
+        anchor_y = float(obj.get("y", 0.0))
+        raw = [(px, 2.0 * anchor_y - py) for px, py in raw]
+    return [("points", raw)]
 
 
 def _primitive_bounds(primitive: _Primitive) -> tuple[float, float, float, float]:

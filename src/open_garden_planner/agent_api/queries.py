@@ -30,15 +30,26 @@ from open_garden_planner.core.object_bounds import object_bbox
 def object_center(obj: dict[str, Any]) -> tuple[float, float]:
     """Return the object's API position ``(cx, cy)`` in scene cm.
 
-    A callout's addressable position is its leader tip (the same point it
-    always reported), even though its region footprint spans the leader and
-    text box.
+    A callout's stored ``target_x/target_y`` is its pre-turn leader tip; a
+    turned callout reports the scene-space tip so a move lands where the arrow
+    is painted. Its region footprint spans the leader and text box.
     """
     if obj.get("type") == "callout":
-        return (
-            float(obj.get("target_x", 0.0)),
-            float(obj.get("target_y", 0.0)),
-        )
+        target_x = float(obj.get("target_x", 0.0))
+        target_y = float(obj.get("target_y", 0.0))
+        origin = obj.get("transform_origin")
+        angle = float(obj.get("rotation_angle", 0.0) or 0.0)
+        from open_garden_planner.core.angles import is_zero_angle
+
+        if isinstance(origin, dict) and not is_zero_angle(angle):
+            rad = math.radians(angle)
+            cos_a, sin_a = math.cos(rad), math.sin(rad)
+            ox, oy = float(origin.get("x", 0.0)), float(origin.get("y", 0.0))
+            return (
+                target_x + ox - (ox * cos_a - oy * sin_a),
+                target_y + oy - (ox * sin_a + oy * cos_a),
+            )
+        return (target_x, target_y)
     x, y, w, h = object_bbox(obj)
     return (x + w / 2.0, y + h / 2.0)
 

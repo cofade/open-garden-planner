@@ -649,8 +649,27 @@ class TestBboxNormaliserPerShape:
             "layers": [],
             "canvas": {"width": 1000.0, "height": 1000.0},
         }
-        found = queries.objects_in_region(snapshot, 135.0, 80.0, 10.0, 10.0, raw=True)
+        found = queries.objects_in_region(snapshot, 135.0, 60.0, 10.0, 10.0, raw=True)
         assert [obj["item_id"] for obj in found] == ["g1"]
+
+    def test_a_standalone_turned_callout_uses_its_turned_box(self) -> None:
+        callout = {
+            "type": "callout", "item_id": "c1", "target_x": 100.0,
+            "target_y": 100.0,
+            "box_dx": 100.0, "box_dy": 40.0,
+            "bounds": {"x": 0.0, "y": 0.0, "width": 100.0, "height": 40.0},
+            "transform_origin": {"x": 50.0, "y": 20.0},
+            "rotation_angle": 90.0,
+        }
+        assert queries.object_bbox(callout) == (130.0, 70.0, 40.0, 100.0)
+        assert queries.object_center(callout) == (170.0, 70.0)
+        snapshot = {
+            "objects": [callout],
+            "layers": [],
+            "canvas": {"width": 1000.0, "height": 1000.0},
+        }
+        found = queries.objects_in_region(snapshot, 135.0, 150.0, 10.0, 10.0, raw=True)
+        assert [obj["item_id"] for obj in found] == ["c1"]
 
     def test_bezier_bbox_includes_control_handles(self) -> None:
         # The control hull bounds the curve; ignoring handles under-approximates.

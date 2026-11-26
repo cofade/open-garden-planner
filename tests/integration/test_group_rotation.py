@@ -27,6 +27,7 @@ from open_garden_planner.ui.canvas.items import (
     CircleItem,
     GroupItem,
     RectangleItem,
+    TextItem,
 )
 from open_garden_planner.ui.canvas.items.handle_geometry import selection_frame_rect
 from open_garden_planner.ui.canvas.roof_ridge_link import build_linked_ridge, linked_ridge
@@ -1080,6 +1081,29 @@ def test_a_grouped_callout_box_matches_its_live_geometry(canvas: CanvasView) -> 
     callout_box = callout.mapToScene(callout.boundingRect()).boundingRect()
     peer_box = peer.mapToScene(peer.rect()).boundingRect()
     live = callout_box.united(peer_box)
+    assert x == pytest.approx(live.left(), abs=3.0)
+    assert y == pytest.approx(live.top(), abs=3.0)
+    assert x + w == pytest.approx(live.right(), abs=3.0)
+    assert y + h == pytest.approx(live.bottom(), abs=3.0)
+
+
+def test_a_grouped_text_note_box_matches_its_reflected_geometry(
+    canvas: CanvasView,
+) -> None:
+    """The note's local Y reflection must be composed before the group box."""
+    _show(canvas)
+    scene = canvas.scene()
+    note = TextItem(100.0, 100.0, content="Hello garden note")
+    scene.addItem(note)
+    peer = _rect(scene, 500.0, 100.0)
+    group = _grouped(canvas, note, peer)
+    group._apply_rotation(45.0)
+    saved = ProjectManager._serialize_item(group)
+    assert saved is not None
+    x, y, w, h = queries.object_bbox(saved)
+    note_box = note.mapToScene(note.boundingRect()).boundingRect()
+    peer_box = peer.mapToScene(peer.rect()).boundingRect()
+    live = note_box.united(peer_box)
     assert x == pytest.approx(live.left(), abs=3.0)
     assert y == pytest.approx(live.top(), abs=3.0)
     assert x + w == pytest.approx(live.right(), abs=3.0)
