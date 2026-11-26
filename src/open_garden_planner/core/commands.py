@@ -3372,6 +3372,11 @@ class UngroupCommand(Command):
             raise ValueError(
                 "A rotated group cannot be ungrouped; rotate it back to 0° first."
             )
+        unsupported = getattr(group, "has_unsupported_base_transform", None)
+        if callable(unsupported) and unsupported():
+            raise ValueError(
+                "A group with an unsupported transform cannot be ungrouped."
+            )
         self._scene = scene
         self._group = group
         self._items: list[QGraphicsItem] = [

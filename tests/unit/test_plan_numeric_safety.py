@@ -48,13 +48,16 @@ def test_invalid_save_keeps_existing_file(qtbot, tmp_path):
     {"objects": [{"type": "circle", "center_x": 0, "radius": "Infinity"}]},
     {"objects": [{"type": "group", "children": [{"rotation": "NaN"}]}]},
     {"objects": [{"type": "group", "transform_origin": {"x": "NaN", "y": 0}}]},
+    {"objects": [{"type": "group", "transform": {"m11": 2.0, "m12": 0.0,
+                                                  "m21": 0.0, "m22": 1.0}}]},
     {"objects": [{"type": "bezier", "handles_in": [{"x": "1e309", "y": 0}]}]},
     {"objects": [{"type": "background_image", "scale_factor": 1e-320}]},
     {"guides": [{"position": "NaN"}]},
     {"constraints": [{"value": "NaN"}]},
     {"layers": [{"opacity": "NaN"}]},
 ], ids=["small-canvas", "large-canvas", "extent-overflow", "radius-string",
-        "group", "pivot", "bezier", "image-scale", "guide", "constraint", "layer"])
+        "group", "pivot", "group-transform", "bezier", "image-scale", "guide",
+        "constraint", "layer"])
 def test_numeric_errors_cover_nested_geometry(payload):
     with pytest.raises(ValueError):
         validate_plan_data(payload)

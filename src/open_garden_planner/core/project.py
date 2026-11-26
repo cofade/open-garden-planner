@@ -7,6 +7,7 @@ from __future__ import annotations
 
 import contextlib
 import logging
+import math
 from collections.abc import Iterable
 from copy import deepcopy
 from dataclasses import dataclass, field
@@ -1900,7 +1901,7 @@ class ProjectManager(QObject):
             if hasattr(item, "stroke_style") and item.stroke_style:
                 data["stroke_style"] = item.stroke_style.name
             # Save rotation angle
-            if hasattr(item, "rotation_angle") and abs(item.rotation_angle) > 0.01:
+            if hasattr(item, "rotation_angle") and abs(item.rotation_angle) > 1e-9:
                 data["rotation_angle"] = item.rotation_angle
             if hasattr(item, "area_label_visible") and item.area_label_visible:
                 data["area_label_visible"] = True
@@ -1936,7 +1937,7 @@ class ProjectManager(QObject):
                 data["fill_transform"] = fill_transform
             if hasattr(item, "stroke_style") and item.stroke_style:
                 data["stroke_style"] = item.stroke_style.name
-            if hasattr(item, "rotation_angle") and abs(item.rotation_angle) > 0.01:
+            if hasattr(item, "rotation_angle") and abs(item.rotation_angle) > 1e-9:
                 data["rotation_angle"] = item.rotation_angle
             if hasattr(item, "area_label_visible") and item.area_label_visible:
                 data["area_label_visible"] = True
@@ -1976,7 +1977,7 @@ class ProjectManager(QObject):
             if hasattr(item, "stroke_style") and item.stroke_style:
                 data["stroke_style"] = item.stroke_style.name
             # Save rotation angle
-            if hasattr(item, "rotation_angle") and abs(item.rotation_angle) > 0.01:
+            if hasattr(item, "rotation_angle") and abs(item.rotation_angle) > 1e-9:
                 data["rotation_angle"] = item.rotation_angle
             # Save plant category and species (for plant types)
             if hasattr(item, "plant_category") and item.plant_category is not None:
@@ -2032,7 +2033,7 @@ class ProjectManager(QObject):
             if hasattr(item, "path_fence_style") and item.path_fence_style and item.path_fence_style.name != "NONE":
                 data["path_fence_style"] = item.path_fence_style.name
             # Save rotation angle
-            if hasattr(item, "rotation_angle") and abs(item.rotation_angle) > 0.01:
+            if hasattr(item, "rotation_angle") and abs(item.rotation_angle) > 1e-9:
                 data["rotation_angle"] = item.rotation_angle
             return data
         elif isinstance(item, PolygonItem):
@@ -2076,7 +2077,7 @@ class ProjectManager(QObject):
             if hasattr(item, "stroke_style") and item.stroke_style:
                 data["stroke_style"] = item.stroke_style.name
             # Save rotation angle
-            if hasattr(item, "rotation_angle") and abs(item.rotation_angle) > 0.01:
+            if hasattr(item, "rotation_angle") and abs(item.rotation_angle) > 1e-9:
                 data["rotation_angle"] = item.rotation_angle
             if hasattr(item, "area_label_visible") and item.area_label_visible:
                 data["area_label_visible"] = True
@@ -2153,7 +2154,7 @@ class ProjectManager(QObject):
                 data["name"] = item.name
             if hasattr(item, "metadata") and item.metadata:
                 data["metadata"] = item.metadata
-            if hasattr(item, "rotation_angle") and abs(item.rotation_angle) > 0.01:
+            if hasattr(item, "rotation_angle") and abs(item.rotation_angle) > 1e-9:
                 data["rotation_angle"] = item.rotation_angle
             return data
 
@@ -2659,29 +2660,39 @@ class ProjectManager(QObject):
                         group._apply_rotation(angle)
             base_value = obj.get("transform")
             if isinstance(base_value, dict):
-                with contextlib.suppress(ValueError, TypeError):
-                    group.setTransform(
-                        QTransform(
-                            finite_number(
-                                base_value.get("m11", 1.0), "group.transform.m11"
-                            ),
-                            finite_number(
-                                base_value.get("m12", 0.0), "group.transform.m12"
-                            ),
-                            finite_number(
-                                base_value.get("m21", 0.0), "group.transform.m21"
-                            ),
-                            finite_number(
-                                base_value.get("m22", 1.0), "group.transform.m22"
-                            ),
-                            finite_number(
-                                base_value.get("dx", 0.0), "group.transform.dx"
-                            ),
-                            finite_number(
-                                base_value.get("dy", 0.0), "group.transform.dy"
-                            ),
-                        )
+                m11 = finite_number(
+                    base_value.get("m11", 1.0), "group.transform.m11"
+                )
+                m12 = finite_number(
+                    base_value.get("m12", 0.0), "group.transform.m12"
+                )
+                m21 = finite_number(
+                    base_value.get("m21", 0.0), "group.transform.m21"
+                )
+                m22 = finite_number(
+                    base_value.get("m22", 1.0), "group.transform.m22"
+                )
+                if (
+                    not math.isclose(m11, 1.0, abs_tol=1e-9)
+                    or not math.isclose(m12, 0.0, abs_tol=1e-9)
+                    or not math.isclose(m21, 0.0, abs_tol=1e-9)
+                    or not math.isclose(m22, 1.0, abs_tol=1e-9)
+                ):
+                    raise PlanValidationError("group.transform", "transform")
+                group.setTransform(
+                    QTransform(
+                        m11,
+                        m12,
+                        m21,
+                        m22,
+                        finite_number(
+                            base_value.get("dx", 0.0), "group.transform.dx"
+                        ),
+                        finite_number(
+                            base_value.get("dy", 0.0), "group.transform.dy"
+                        ),
                     )
+                )
             return group
 
         # Extract common fields

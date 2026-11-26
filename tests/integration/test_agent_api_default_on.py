@@ -1426,11 +1426,13 @@ def test_a_refused_agent_group_turn_leaves_no_plan_and_a_turn_then_undo(
 
 
 def test_an_agent_tiny_turn_records_a_follower_at_the_pivot(
-    qtbot: Any, monkeypatch: Any
+    qtbot: Any, monkeypatch: Any, tmp_path: Any
 ) -> None:
     """A follower exactly on the pivot changes only its angle; undo must see it."""
     from open_garden_planner.core.commands import GroupCommand
     from open_garden_planner.core.object_types import ObjectType
+    from open_garden_planner.core.project import ProjectManager
+    from open_garden_planner.ui.canvas.canvas_scene import CanvasScene
     from open_garden_planner.ui.canvas.items import CircleItem
 
     _discard_on_close(monkeypatch)
@@ -1461,6 +1463,14 @@ def test_an_agent_tiny_turn_records_a_follower_at_the_pivot(
         assert plant.rotation_angle == pytest.approx(start_angle)
         win.canvas_view.command_manager.redo()
         assert plant.rotation_angle == pytest.approx(start_angle + 0.005)
+
+        target = tmp_path / "tiny-follower.ogp"
+        ProjectManager().save(win.canvas_scene, target)
+        loaded_scene = CanvasScene(width_cm=5000, height_cm=3000)
+        ProjectManager().load(loaded_scene, target)
+        loaded_plant = loaded_scene.find_item_by_id(plant.item_id)
+        assert loaded_plant is not None
+        assert loaded_plant.rotation_angle == pytest.approx(start_angle + 0.005)
     finally:
         win._stop_agent_api()
 

@@ -884,6 +884,7 @@ TRANSLATIONS: dict[str, dict[str, str]] = {
         "A constrained member cannot be rotated with the group": "Ein Mitglied mit Randbedingung kann nicht mit der Gruppe gedreht werden",
         "A linked plant belongs to another group; remove it from that group before turning this one": "Eine verknüpfte Pflanze gehört zu einer anderen Gruppe; entfernen Sie sie vor dem Drehen aus dieser Gruppe",
         "A member on a locked layer cannot be rotated with the group": "Ein Mitglied auf einer gesperrten Ebene kann nicht mit der Gruppe gedreht werden",
+        "This group has an unsupported transform and cannot be edited": "Diese Gruppe hat eine nicht unterstützte Transformation und kann nicht bearbeitet werden",
     },
     "GardenPlannerApp": {
         "Tasks": "Aufgaben",
@@ -3651,6 +3652,7 @@ _DRAWING_TOOLS_TRANSLATIONS: dict[str, dict[str, str]] = {
     },
     "CanvasView": {
         "Rotate the group back to 0° before ungrouping": "Drehen Sie die Gruppe vor dem Aufheben der Gruppierung auf 0° zurück",
+        "This group has an unsupported transform and cannot be edited": "Diese Gruppe hat eine nicht unterstützte Transformation und kann nicht bearbeitet werden",
         "Ungroup {n} groups": "{n} Gruppen aufheben",
         "Ungrouped {n} groups": "{n} Gruppen aufgehoben",
     },

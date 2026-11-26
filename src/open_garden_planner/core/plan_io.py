@@ -154,6 +154,39 @@ def _check_extents(record: dict[str, Any], path: str) -> None:
             _check_segment(a, b, f"{path}.segment")
 
 
+def _check_group_transforms(records: Any) -> None:
+    """A group's compensating base transform must be a pure translation.
+
+    That is the only base matrix the app writes (Qt's nesting compensation);
+    a rotation or scale there would be lost by member serializers and by the
+    rigid follower turn, so the document is refused at the boundary (#1022).
+    """
+    if not isinstance(records, list):
+        return
+    for record in records:
+        if not isinstance(record, dict):
+            continue
+        if record.get("type") == "group":
+            matrix = record.get("transform")
+            if isinstance(matrix, dict):
+                linear = [
+                    finite_number(matrix.get("m11", 1.0), "group.transform.m11"),
+                    finite_number(matrix.get("m12", 0.0), "group.transform.m12"),
+                    finite_number(matrix.get("m21", 0.0), "group.transform.m21"),
+                    finite_number(matrix.get("m22", 1.0), "group.transform.m22"),
+                ]
+                if (
+                    not math.isclose(linear[0], 1.0, abs_tol=1e-9)
+                    or not math.isclose(linear[1], 0.0, abs_tol=1e-9)
+                    or not math.isclose(linear[2], 0.0, abs_tol=1e-9)
+                    or not math.isclose(linear[3], 1.0, abs_tol=1e-9)
+                ):
+                    raise PlanValidationError("group.transform", "transform")
+                finite_number(matrix.get("dx", 0.0), "group.transform.dx")
+                finite_number(matrix.get("dy", 0.0), "group.transform.dy")
+        _check_group_transforms(record.get("children", []))
+
+
 def validate_plan_data(data: dict[str, Any]) -> None:
     """Validate a complete raw payload without changing it or the scene."""
     if not isinstance(data, dict):
@@ -165,6 +198,7 @@ def validate_plan_data(data: dict[str, Any]) -> None:
             raise PlanValidationError(f"canvas.{dimension}")
     validate_canvas_size(canvas.get("width", 5000.0), canvas.get("height", 3000.0))
     _check_group_offsets(data.get("objects", []))
+    _check_group_transforms(data.get("objects", []))
 
 
 def _check_group_offsets(records: Any, dx: float = 0.0, dy: float = 0.0) -> None:

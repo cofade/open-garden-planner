@@ -175,95 +175,50 @@ def _primitives_bbox(
     return (x0, y0, x1 - x0, y1 - y0)
 
 
-def _group_base_transform(
-    obj: dict[str, Any],
-) -> tuple[float, float, float, float, float, float]:
+def _group_base_offset(obj: dict[str, Any]) -> tuple[float, float]:
+    """The group's compensating base transform, which is translation-only."""
     base = obj.get("transform")
     if isinstance(base, dict):
-        return (
-            float(base.get("m11", 1.0)),
-            float(base.get("m12", 0.0)),
-            float(base.get("m21", 0.0)),
-            float(base.get("m22", 1.0)),
-            float(base.get("dx", 0.0)),
-            float(base.get("dy", 0.0)),
-        )
-    return (1.0, 0.0, 0.0, 1.0, 0.0, 0.0)
-
-
-def _apply_base(
-    points: list[tuple[float, float]],
-    base: tuple[float, float, float, float, float, float],
-) -> list[tuple[float, float]]:
-    m11, m12, m21, m22, dx, dy = base
-    return [
-        (m11 * px + m21 * py + dx, m12 * px + m22 * py + dy)
-        for px, py in points
-    ]
-
-
-def _ellipse_axes(
-    m00: float, m01: float, m10: float, m11: float
-) -> tuple[float, float, float]:
-    """Semi-axes and angle of the ellipse ``M * unit circle`` for a 2x2 M."""
-    e = (m00 * m00 + m01 * m01 + m10 * m10 + m11 * m11) / 2.0
-    f = (m00 * m00 + m01 * m01 - m10 * m10 - m11 * m11) / 2.0
-    g = m00 * m10 + m01 * m11
-    disc = math.hypot(f, g)
-    s1 = math.sqrt(max(0.0, e + disc))
-    s2 = math.sqrt(max(0.0, e - disc))
-    angle = math.degrees(0.5 * math.atan2(2.0 * g, 2.0 * f))
-    return s1, s2, angle
-
-
-def _base_ellipse(
-    base: tuple[float, float, float, float, float, float],
-    centre: tuple[float, float],
-    angle: float,
-    semi_x: float,
-    semi_y: float,
-) -> tuple[float, float, float, float, float]:
-    """Box parameters of a turned ellipse after a general affine base matrix."""
-    m11, m12, m21, m22, dx, dy = base
-    rad = math.radians(angle)
-    cos_a, sin_a = math.cos(rad), math.sin(rad)
-    # M = A @ R(angle) @ diag(semi_x, semi_y), all in Qt's row-vector form.
-    m00 = m11 * semi_x * cos_a + m21 * semi_x * sin_a
-    m01 = -m11 * semi_y * sin_a + m21 * semi_y * cos_a
-    m10 = m12 * semi_x * cos_a + m22 * semi_x * sin_a
-    m11b = -m12 * semi_y * sin_a + m22 * semi_y * cos_a
-    sx, sy, out_angle = _ellipse_axes(m00, m01, m10, m11b)
-    bx = m11 * centre[0] + m21 * centre[1] + dx
-    by = m12 * centre[0] + m22 * centre[1] + dy
-    return bx, by, sx, sy, out_angle
+        return float(base.get("dx", 0.0)), float(base.get("dy", 0.0))
+    return 0.0, 0.0
 
 
 def _transform_primitives(
     primitives: list[_Primitive],
     origin: tuple[float, float],
     angle: float,
-    base: tuple[float, float, float, float, float, float],
+    base_dx: float,
+    base_dy: float,
     dx: float,
     dy: float,
 ) -> list[_Primitive]:
     moved: list[_Primitive] = []
     for primitive in primitives:
         kind = primitive[0]
+        shift_x = base_dx + dx
+        shift_y = base_dy + dy
         if kind == "points":
-            points = _apply_base(_rotate_points(primitive[1], origin, angle), base)
-            moved.append(("points", [(px + dx, py + dy) for px, py in points]))
+            points = _rotate_points(primitive[1], origin, angle)
+            moved.append(
+                ("points", [(px + shift_x, py + shift_y) for px, py in points])
+            )
         elif kind == "circle":
             _, cx, cy, r = primitive
             centre = _rotate_points([(cx, cy)], origin, angle)[0]
-            bx, by, sx, sy, out_angle = _base_ellipse(base, centre, 0.0, r, r)
-            moved.append(("ellipse", bx + dx, by + dy, sx, sy, out_angle))
+            moved.append(("circle", centre[0] + shift_x, centre[1] + shift_y, r))
         else:  # ellipse
             _, cx, cy, sx, sy, own_angle = primitive
             centre = _rotate_points([(cx, cy)], origin, angle)[0]
-            bx, by, out_x, out_y, out_angle = _base_ellipse(
-                base, centre, own_angle + angle, sx, sy
+            moved.append(
+                (
+                    "ellipse",
+                    centre[0] + shift_x,
+                    centre[1] + shift_y,
+                    sx,
+                    sy,
+                    own_angle + angle,
+                )
             )
-            moved.append(("ellipse", bx + dx, by + dy, out_x, out_y, out_angle))
     return moved
 
 
@@ -293,11 +248,13 @@ def _group_primitives(obj: dict[str, Any]) -> list[_Primitive]:
     else:
         bx, by, bw, bh = _primitives_bbox(primitives)
         pivot = (bx + bw / 2.0, by + bh / 2.0)
+    base_dx, base_dy = _group_base_offset(obj)
     return _transform_primitives(
         primitives,
         pivot,
         angle,
-        _group_base_transform(obj),
+        base_dx,
+        base_dy,
         float(obj.get("x", 0.0)),
         float(obj.get("y", 0.0)),
     )

@@ -1478,7 +1478,11 @@ item.
   states, so undo restores the previous one and a drag that changes nothing fixes none.
   A pre-#1009 smart-symbol group has no origin and rotated about its local (0, 0), which
   the loader reproduces. A nested group also saves its compensating base transform, so
-  regrouping a turned group does not apply its translation twice. Grouped child records
+  regrouping a turned group does not apply its translation twice. That saved matrix is
+  translation-only: a plan carrying a rotation or scale there is refused at the numeric
+  boundary, and edit surfaces refuse such a group rather than losing geometry on
+  ungroup. A committed member angle is saved even below 0.01° (a tiny group turn must
+  survive reload). Grouped child records
   carry their own `parent_bed_id` / `child_item_ids`, so a bed-and-plant link survives
   save and reload even when both endpoints are members; copy/duplicate remaps both
   fields through one whole-tree map and drops an endpoint that was not copied. The
@@ -1488,9 +1492,8 @@ item.
   root and inside a selected group appears once.
 
 The Agent API's group box composes every member's own turn, each nested group's
-compensating base transform, and the group transform before taking bounds, so a
-region query matches the visible geometry; a curved member under a general affine
-base becomes the ellipse its matrix describes.
+compensating base translation, and the group transform before taking bounds, so a
+region query matches the visible geometry.
 - **Ungroup is refused while turned.** `removeFromGroup` leaves the group's rotation in
   the member's Qt transform; the `.ogp` format stores a member's own `rotation_angle`, so
   a bake would have to cover every type (including arcs) and zero-net-angle pairs.

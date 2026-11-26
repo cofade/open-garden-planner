@@ -5914,7 +5914,18 @@ class CanvasView(QGraphicsView):
                 item for item in self.scene().selectedItems()
                 if isinstance(item, GroupItem) and item.is_turned()
             ]
-            if turned:
+            unsupported = [
+                item for item in self.scene().selectedItems()
+                if isinstance(item, GroupItem)
+                and item.has_unsupported_base_transform()
+            ]
+            if unsupported:
+                self.set_status_message(
+                    self.tr(
+                        "This group has an unsupported transform and cannot be edited"
+                    )
+                )
+            elif turned:
                 self.set_status_message(
                     self.tr("Rotate the group back to 0° before ungrouping")
                 )

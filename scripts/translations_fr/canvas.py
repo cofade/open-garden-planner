@@ -7,9 +7,11 @@ TRANSLATIONS: dict[str, dict[str, str]] = {
         "A constrained member cannot be rotated with the group": "Un membre contraint ne peut pas être tourné avec le groupe",
         "A linked plant belongs to another group; remove it from that group before turning this one": "Une plante liée appartient à un autre groupe ; retirez-la de ce groupe avant de tourner celui-ci",
         "A member on a locked layer cannot be rotated with the group": "Un membre sur un calque verrouillé ne peut pas être tourné avec le groupe",
+        "This group has an unsupported transform and cannot be edited": "Ce groupe a une transformation non prise en charge et ne peut pas être modifié",
     },
     "CanvasView": {
         "Rotate the group back to 0° before ungrouping": "Ramenez le groupe à 0° avant de dissocier",
+        "This group has an unsupported transform and cannot be edited": "Ce groupe a une transformation non prise en charge et ne peut pas être modifié",
         "A constrained member or group cannot be moved while drilled down": (
             "Un membre ou un groupe contraint ne peut pas être déplacé pendant l’exploration"
         ),

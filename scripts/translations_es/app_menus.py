@@ -344,6 +344,7 @@ TRANSLATIONS = {
         "Tasks": "Tareas",
         "The canvas dimension at {field} must be between 50 and 100000 cm.": "La dimensión del lienzo en {field} debe estar entre 50 y 100000 cm.",
         "The plan contains an invalid or non-finite number at {field}.": "El plano contiene un número no válido o no finito en {field}.",
+        "The plan uses an unsupported group transform at {field}.": "El plano usa una transformación de grupo no admitida en {field}.",
         "The plan value at {field} must be positive.": "El valor del plano en {field} debe ser positivo.",
         "Theme changed to {theme}": "Tema cambiado a {theme}",
         "Tint beds by soil-health rating (excluded from exports)": "Colorear bancales según valoración de salud del suelo (excluido de exportaciones)",

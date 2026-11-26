@@ -5,6 +5,7 @@ TRANSLATIONS = {
         "A constrained member cannot be rotated with the group": "Un miembro con restricción no se puede girar con el grupo",
         "A linked plant belongs to another group; remove it from that group before turning this one": "Una planta vinculada pertenece a otro grupo; retírela de ese grupo antes de girar este",
         "A member on a locked layer cannot be rotated with the group": "Un miembro en una capa bloqueada no se puede girar con el grupo",
+        "This group has an unsupported transform and cannot be edited": "Este grupo tiene una transformación no admitida y no se puede editar",
     },
     "CanopyPanel": {
         "Estimated direct sun": "Sol directo estimado",

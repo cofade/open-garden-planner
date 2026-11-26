@@ -13872,13 +13872,15 @@ does not re-pivot, and reloading the saved origin is what keeps every member in
 place. The command records both pivot states, so undo restores the previous one
 and a drag that changes nothing fixes none. A nested group saves its compensating
 base transform, so regrouping a turned group does not apply its translation twice.
+That matrix is translation-only; a plan with a rotation or scale there is refused at
+the numeric boundary, and edit surfaces refuse such a group. A committed member
+angle is saved even below 0.01°, so a tiny group turn survives reload.
 Grouped child records carry their own `parent_bed_id` / `child_item_ids`, so a link
 whose endpoints are both members survives save and reload; copy/duplicate remaps
 both fields through one map for the whole tree and drops uncopied endpoints. That
 map is the only author of copied links; paste/duplicate never rebuild them from a
 top-level-only map, and the forest is normalized so each source item appears once.
-The Agent API's group box applies the same base matrix, turning a curved member
-into the ellipse that matrix describes.
+The Agent API's group box applies the same base translation.
 Ungrouping a turned group is refused: Qt leaves the group rotation in the
 member's Qt transform while the file stores the member's own angle, so a correct
 bake would have to cover every member type and zero-net-angle pairs. Rotate the

@@ -575,20 +575,20 @@ class TestBboxNormaliserPerShape:
         assert queries.objects_in_region(snapshot, 0.0, 70.0, 200.0, 10.0, raw=True) == []
 
 
-    def test_a_stretched_base_transform_widens_curved_bounds(self) -> None:
-        """A saved affine base matrix must shape the circle, not just scale it."""
+    def test_a_translated_base_transform_shifts_curved_bounds(self) -> None:
+        """The only supported base matrix is Qt's nesting translation."""
         group = {
             "type": "group", "item_id": "g1", "x": 0.0, "y": 0.0,
             "transform": {
-                "m11": 2.0, "m12": 0.0, "m21": 0.0, "m22": 1.0,
-                "dx": 0.0, "dy": 0.0,
+                "m11": 1.0, "m12": 0.0, "m21": 0.0, "m22": 1.0,
+                "dx": 100.0, "dy": 50.0,
             },
             "children": [
                 {"type": "circle", "item_id": "c1", "center_x": 0.0,
                  "center_y": 0.0, "radius": 10.0},
             ],
         }
-        assert queries.object_bbox(group) == (-20.0, -10.0, 40.0, 20.0)
+        assert queries.object_bbox(group) == (90.0, 40.0, 20.0, 20.0)
 
 
     def test_bezier_bbox_includes_control_handles(self) -> None:

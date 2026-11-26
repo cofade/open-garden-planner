@@ -993,6 +993,59 @@ def test_nesting_a_turned_group_survives_two_save_reload_cycles(
     assert centres(loaded_again) == before
 
 
+def test_ungrouping_a_loaded_nested_group_survives_save_and_reload(
+    canvas: CanvasView, tmp_path: Path,
+) -> None:
+    """A loaded nesting translation must bake into members losslessly."""
+    from open_garden_planner.core.commands import UngroupCommand
+
+    _show(canvas)
+    scene = canvas.scene()
+    first = _rect(scene, 0.0, 0.0, 100.0, 80.0)
+    second = _rect(scene, 200.0, 0.0, 100.0, 80.0)
+    inner = _grouped(canvas, first, second)
+    inner._apply_rotation(37.0)
+    peer = _rect(scene, 600.0, 0.0, 80.0, 80.0)
+    scene.clearSelection()
+    inner.setSelected(True)
+    peer.setSelected(True)
+    canvas.group_selected()
+    QApplication.processEvents()
+
+    target = tmp_path / "nested-ungroup.ogp"
+    ProjectManager().save(scene, target)
+    loaded_scene = CanvasScene(width_cm=5000, height_cm=3000)
+    ProjectManager().load(loaded_scene, target)
+    outer = next(
+        item for item in loaded_scene.items()
+        if isinstance(item, GroupItem) and item.parentItem() is None
+    )
+    UngroupCommand(loaded_scene, outer).execute()
+    imported_inner = next(
+        item for item in loaded_scene.items()
+        if isinstance(item, GroupItem) and item.parentItem() is None
+    )
+    imported_inner._apply_rotation(0.0)
+    UngroupCommand(loaded_scene, imported_inner).execute()
+
+    def centres(target_scene: CanvasScene) -> list[tuple[float, float]]:
+        return sorted(
+            (
+                round(item.mapToScene(item.rect().center()).x(), 3),
+                round(item.mapToScene(item.rect().center()).y(), 3),
+            )
+            for item in target_scene.items()
+            if isinstance(item, RectangleItem)
+        )
+
+    before = centres(loaded_scene)
+    reopened_target = tmp_path / "nested-ungroup-2.ogp"
+    ProjectManager().save(loaded_scene, reopened_target)
+    reopened = CanvasScene(width_cm=5000, height_cm=3000)
+    ProjectManager().load(reopened, reopened_target)
+    assert centres(reopened) == before
+
+
 def test_an_unrotated_group_ungroups_and_survives_reload(
     canvas: CanvasView, tmp_path: Path,
 ) -> None:

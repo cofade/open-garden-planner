@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import math
 import uuid
 from typing import Any
 
@@ -97,6 +98,7 @@ def ungroupable_groups(items: list[QGraphicsItem]) -> list[GroupItem]:
         if isinstance(item, GroupItem)
         and item.parentItem() is None
         and not item.is_turned()
+        and not item.has_unsupported_base_transform()
     ]
 
 
@@ -274,6 +276,21 @@ class GroupItem(RotationHandleMixin, GardenItemMixin, QGraphicsItemGroup):
         normalized = angle % 360.0
         return min(normalized, 360.0 - normalized) > 1e-6
 
+    def has_unsupported_base_transform(self) -> bool:
+        """Whether Qt gave the group a base matrix the format cannot round-trip.
+
+        The saved/loaded base is Qt's nesting translation only; a rotation or
+        scale there would be lost by member serializers and by the rigid
+        follower turn, so edit surfaces refuse it (#1022 review).
+        """
+        base = self.transform()
+        return not (
+            math.isclose(base.m11(), 1.0, abs_tol=1e-9)
+            and math.isclose(base.m12(), 0.0, abs_tol=1e-9)
+            and math.isclose(base.m21(), 0.0, abs_tol=1e-9)
+            and math.isclose(base.m22(), 1.0, abs_tol=1e-9)
+        )
+
     def rotation_pivot_scene(self) -> QPointF:
         """The scene point a gesture turns about: the saved pivot once chosen."""
         if self._pivot_initialized:
@@ -334,6 +351,11 @@ class GroupItem(RotationHandleMixin, GardenItemMixin, QGraphicsItemGroup):
         scene = self.scene()
         if scene is None:
             return None
+        if self.has_unsupported_base_transform():
+            return QCoreApplication.translate(
+                "GroupItem",
+                "This group has an unsupported transform and cannot be edited",
+            )
         graph = getattr(scene, "constraint_graph", None)
         subtree = {id(entry) for entry in selection_tree([self])}
         find = getattr(scene, "find_item_by_id", None)
