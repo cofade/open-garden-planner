@@ -1530,14 +1530,14 @@ class GardenItemMixin(PositionLockMixin):
             self._position_label()
 
     def _remove_label(self) -> None:
-        """Remove the label item from the scene."""
+        """Remove the label item from the scene and detach it."""
         if self._label_item is not None:
-            self._label_item.setParentItem(None)
-            if hasattr(self, 'scene') and callable(self.scene):
-                scene = self.scene()
-                if scene is not None:
-                    scene.removeItem(self._label_item)
+            label = self._label_item
             self._label_item = None
+            scene = label.scene()
+            if scene is not None:
+                scene.removeItem(label)
+            label.setParentItem(None)
 
     def _update_label(self) -> None:
         """Update or create label based on current state."""
@@ -1761,12 +1761,12 @@ class GardenItemMixin(PositionLockMixin):
         """Create, update, or remove the area label child item."""
         if not self._area_label_visible or not hasattr(self, "boundingRect"):
             if self._area_label_item is not None:
-                self._area_label_item.setParentItem(None)
-                if hasattr(self, "scene") and callable(self.scene):
-                    s = self.scene()
-                    if s is not None:
-                        s.removeItem(self._area_label_item)
+                label = self._area_label_item
                 self._area_label_item = None
+                s = label.scene()
+                if s is not None:
+                    s.removeItem(label)
+                label.setParentItem(None)
             return
         area = self._compute_area_cm2()
         if area is None:

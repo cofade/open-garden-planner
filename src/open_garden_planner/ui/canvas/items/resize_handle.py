@@ -524,7 +524,12 @@ class ResizeHandle(EditDecorationMixin, QGraphicsRectItem):
         """Complete the active resize gesture."""
         if not self._is_dragging:
             return
-        self.ungrabMouse()
+        # A view-driven drill-down gesture (a handle inside a selected group)
+        # starts through begin_drag, which does not grab the mouse. Releasing a
+        # grab this handle does not own makes Qt warn "not a mouse grabber".
+        scene = self.scene()
+        if scene is not None and scene.mouseGrabberItem() is self:
+            self.ungrabMouse()
         self._is_dragging = False
 
         # Hide dimension display
@@ -990,7 +995,11 @@ class RotationHandle(EditDecorationMixin, QGraphicsEllipseItem):
         """Complete the active rotation gesture."""
         if not self._is_dragging:
             return
-        self.ungrabMouse()
+        # The drill-down path starts a rotation through begin_drag without a
+        # mouse grab; ungrabMouse would warn "not a mouse grabber".
+        scene = self.scene()
+        if scene is not None and scene.mouseGrabberItem() is self:
+            self.ungrabMouse()
         self._is_dragging = False
 
         # Hide angle display
@@ -1094,19 +1103,26 @@ class ResizeHandlesMixin:
                 self._dimension_display.hide()
 
     def remove_resize_handles(self) -> None:
-        """Remove all resize handles."""
+        """Remove all resize handles and detach them from this item."""
         if not hasattr(self, '_resize_handles'):
             return
 
         for handle in self._resize_handles:
-            if handle.scene() is not None:
-                handle.scene().removeItem(handle)
+            scene = handle.scene()
+            if scene is not None:
+                scene.removeItem(handle)
+            # A scene removal keeps the Qt parent. Detach it explicitly so a
+            # removed handle cannot be drawn or destroyed as part of this item
+            # after it has left the scene (#1031, PF-CAN-76).
+            handle.setParentItem(None)
         self._resize_handles = []
 
         # Remove dimension display
         if hasattr(self, '_dimension_display') and self._dimension_display is not None:
-            if self._dimension_display.scene() is not None:
-                self._dimension_display.scene().removeItem(self._dimension_display)
+            display = self._dimension_display
+            scene = display.scene()
+            if scene is not None:
+                scene.removeItem(display)
             self._dimension_display = None
 
     def update_resize_handles(self) -> None:
@@ -1282,19 +1298,26 @@ class RotationHandleMixin:
                 self._angle_display.hide()
 
     def remove_rotation_handle(self) -> None:
-        """Remove the rotation handle."""
+        """Remove the rotation handle and detach it from this item."""
         if not hasattr(self, '_rotation_handle') or self._rotation_handle is None:
             return
 
-        if self._rotation_handle.scene() is not None:
-            self._rotation_handle.scene().removeItem(self._rotation_handle)
+        handle = self._rotation_handle
         self._rotation_handle = None
+        scene = handle.scene()
+        if scene is not None:
+            scene.removeItem(handle)
+        # A scene removal keeps the Qt parent; detach it so a removed handle
+        # cannot be drawn or destroyed as part of this item later (#1031).
+        handle.setParentItem(None)
 
         # Remove angle display
         if hasattr(self, '_angle_display') and self._angle_display is not None:
-            if self._angle_display.scene() is not None:
-                self._angle_display.scene().removeItem(self._angle_display)
+            display = self._angle_display
             self._angle_display = None
+            scene = display.scene()
+            if scene is not None:
+                scene.removeItem(display)
 
     def update_rotation_handle(self) -> None:
         """Update position of the rotation handle."""

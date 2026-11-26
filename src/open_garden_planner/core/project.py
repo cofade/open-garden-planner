@@ -45,6 +45,7 @@ from open_garden_planner.core.plan_north import (
     north_angle_from_plan,
 )
 from open_garden_planner.core.scene3d.weather import WEATHERS, normalise_weather
+from open_garden_planner.core.scene_index import rebuilt_scene_index
 from open_garden_planner.models.layer import Layer, create_default_layers
 from open_garden_planner.models.task import TASK_BED_ID_SEGMENTS
 
@@ -2454,15 +2455,8 @@ class ProjectManager(QObject):
         below removes the known decoration class.  The caller restores the
         previous index once the old document is gone (#1031).
         """
-        previous = scene.itemIndexMethod()
-        if previous == QGraphicsScene.ItemIndexMethod.NoIndex:
+        with rebuilt_scene_index(scene):
             yield
-            return
-        scene.setItemIndexMethod(QGraphicsScene.ItemIndexMethod.NoIndex)
-        try:
-            yield
-        finally:
-            scene.setItemIndexMethod(previous)
 
     @staticmethod
     def _remove_orphaned_editing_decorations(scene: QGraphicsScene) -> None:

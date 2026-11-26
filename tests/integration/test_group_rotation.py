@@ -13,7 +13,7 @@ import math
 from pathlib import Path
 
 import pytest
-from PyQt6.QtCore import QPointF, Qt
+from PyQt6.QtCore import QPointF, Qt, qInstallMessageHandler
 from PyQt6.QtTest import QTest
 from PyQt6.QtWidgets import QApplication, QGraphicsScene
 
@@ -1346,3 +1346,85 @@ def test_an_unrotated_group_ungroups_and_survives_reload(
         if isinstance(item, RectangleItem)
     )
     assert loaded == before
+
+def test_group_and_ungroup_restore_the_scene_index(canvas: CanvasView) -> None:
+    """The reparent batch must not leave the scene on the linear index.
+
+    The index rebuild is scoped to the reparent itself (#1031, PF-CAN-76); the
+    z-order refresh that follows needs the scene's normal stacking order.
+    """
+    _show(canvas)
+    scene = canvas.scene()
+    before = scene.itemIndexMethod()
+    first = _rect(scene, 100.0, 100.0, 120.0, 60.0)
+    second = _rect(scene, 300.0, 100.0, 120.0, 60.0)
+    group = _grouped(canvas, first, second)
+    assert scene.itemIndexMethod() == before
+    assert first.parentItem() is group and second.parentItem() is group
+
+    scene.clearSelection()
+    group.setSelected(True)
+    QApplication.processEvents()
+    canvas.ungroup_selected()
+    assert scene.itemIndexMethod() == before
+    assert first.parentItem() is None and second.parentItem() is None
+
+
+def test_a_drill_down_group_turn_does_not_release_a_foreign_mouse_grab(
+    canvas: CanvasView,
+) -> None:
+    """A synthetic handle gesture must not call ungrabMouse when it never grabbed.
+
+    begin_drill_handle_drag starts the handle's drag state without a
+    QGraphicsItem mouse grab, so the old unconditional ungrab printed
+    "QGraphicsItem::ungrabMouse: not a mouse grabber" on every group turn.
+    """
+    _show(canvas)
+    scene = canvas.scene()
+    first = _rect(scene, 100.0, 100.0, 120.0, 60.0)
+    second = _rect(scene, 300.0, 100.0, 120.0, 60.0)
+    group = _grouped(canvas, first, second)
+    handle = _handle(group)
+    start = handle.scenePos()
+    messages: list[str] = []
+    previous = qInstallMessageHandler(
+        lambda _mode, _context, message: messages.append(message)
+    )
+    try:
+        assert canvas.begin_drill_handle_drag(handle, start)
+        canvas._move_drill_handle(start + QPointF(30.0, -30.0))
+        canvas._finish_drill_handle()
+        QApplication.processEvents()
+    finally:
+        qInstallMessageHandler(previous)
+    assert not any("ungrabMouse" in message for message in messages), messages
+
+
+def test_removing_handles_detaches_them_from_the_item(canvas: CanvasView) -> None:
+    """A removed handle must not stay a Qt child of its owner (#1031).
+
+    A child left behind after its scene removal can be drawn or destroyed as
+    part of the owner later, which is how a stale decoration reaches the scene
+    index. The display is top-level; the handle must lose its parent too.
+    """
+    _show(canvas)
+    scene = canvas.scene()
+    item = _rect(scene, 100.0, 100.0, 120.0, 60.0)
+    scene.clearSelection()
+    item.setSelected(True)
+    QApplication.processEvents()
+    item.show_resize_handles()
+    QApplication.processEvents()
+    rotation = item._rotation_handle
+    resize = item._resize_handles[0]
+    display = item._dimension_display
+    assert rotation is not None and resize is not None and display is not None
+
+    item.remove_rotation_handle()
+    assert rotation.scene() is None
+    assert rotation.parentItem() is None
+
+    item.remove_resize_handles()
+    assert resize.scene() is None
+    assert resize.parentItem() is None
+    assert display.scene() is None

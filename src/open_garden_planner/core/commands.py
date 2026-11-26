@@ -20,6 +20,7 @@ from open_garden_planner.core.camera_tours import SavedTour, checked_tours, find
 from open_garden_planner.core.harvest_units import harvest_unit_label
 from open_garden_planner.core.i18n import format_trimmed
 from open_garden_planner.core.plan_north import normalize_north_angle
+from open_garden_planner.core.scene_index import rebuilt_scene_index
 from open_garden_planner.core.stacking import STACK_STEP
 
 if TYPE_CHECKING:
@@ -3319,10 +3320,15 @@ class GroupCommand(Command):
                     seen.add(id(it))
                     self._original_layers.append((it, it.layer_id))
 
-        for item in self._items:
-            item.setSelected(False)
-            self._group.addToGroup(item)  # type: ignore[attr-defined]
-        self._group.setSelected(True)
+        # Reparenting a batch can leave a stale BSP search entry behind, which
+        # the next paint dereferences (#1031, PF-CAN-76). Clear the old index
+        # only for the reparent itself; the z refresh below must read the
+        # scene's normal stacking order, which the linear index does not report.
+        with rebuilt_scene_index(self._scene):
+            for item in self._items:
+                item.setSelected(False)
+                self._group.addToGroup(item)  # type: ignore[attr-defined]
+            self._group.setSelected(True)
 
         # Normalise members and their linked ridges to the group's layer (issue #741)
         if group_layer is not None:
@@ -3343,18 +3349,19 @@ class GroupCommand(Command):
     def undo(self) -> None:
         if self._group is None:
             return
-        for item in self._items:
-            self._group.removeFromGroup(item)  # type: ignore[attr-defined]
-            # Restore standard interaction flags cleared by addToGroup
-            item.setFlag(QGraphicsItem.GraphicsItemFlag.ItemIsSelectable, True)
-            item.setFlag(QGraphicsItem.GraphicsItemFlag.ItemIsMovable, True)
-            item.setSelected(True)
+        with rebuilt_scene_index(self._scene):
+            for item in self._items:
+                self._group.removeFromGroup(item)  # type: ignore[attr-defined]
+                # Restore standard interaction flags cleared by addToGroup
+                item.setFlag(QGraphicsItem.GraphicsItemFlag.ItemIsSelectable, True)
+                item.setFlag(QGraphicsItem.GraphicsItemFlag.ItemIsMovable, True)
+                item.setSelected(True)
 
-        # Restore original individual layers on undo (issue #741)
-        for it, old_layer in self._original_layers:
-            it.layer_id = old_layer
+            # Restore original individual layers on undo (issue #741)
+            for it, old_layer in self._original_layers:
+                it.layer_id = old_layer
 
-        self._scene.removeItem(self._group)
+            self._scene.removeItem(self._group)
         refresh_all = getattr(self._scene, "_update_items_z_order", None)
         if callable(refresh_all):
             refresh_all()
@@ -3395,40 +3402,44 @@ class UngroupCommand(Command):
 
     def execute(self) -> None:
         group_layer = getattr(self._group, "layer_id", None)
-        for item in self._items:
-            self._group.removeFromGroup(item)  # type: ignore[attr-defined]
-            item.setFlag(QGraphicsItem.GraphicsItemFlag.ItemIsSelectable, True)
-            item.setFlag(QGraphicsItem.GraphicsItemFlag.ItemIsMovable, True)
-            item.setSelected(True)
-            # Top-level again (issue #338); keeps its pre-group stack_order
-            # rank so execute() is the exact inverse of undo() -- see the
-            # matching note in GroupCommand.undo above. The group's layer is
-            # the one the user saw, so a member drawn on another layer joins
-            # it instead of snapping back (PF-PER-27).
-            if group_layer is not None and hasattr(item, "layer_id"):
-                item.layer_id = group_layer
-        if group_layer is not None:
-            from open_garden_planner.ui.canvas.roof_ridge_link import linked_ridges_under
-
+        # Same stale-index risk as GroupCommand.execute: the members leave the
+        # group and the group leaves the scene in one batch (#1031, PF-CAN-76).
+        with rebuilt_scene_index(self._scene):
             for item in self._items:
-                for ridge in linked_ridges_under(item):
-                    if hasattr(ridge, "layer_id"):
-                        ridge.layer_id = group_layer
-        self._scene.removeItem(self._group)
+                self._group.removeFromGroup(item)  # type: ignore[attr-defined]
+                item.setFlag(QGraphicsItem.GraphicsItemFlag.ItemIsSelectable, True)
+                item.setFlag(QGraphicsItem.GraphicsItemFlag.ItemIsMovable, True)
+                item.setSelected(True)
+                # Top-level again (issue #338); keeps its pre-group stack_order
+                # rank so execute() is the exact inverse of undo() -- see the
+                # matching note in GroupCommand.undo above. The group's layer is
+                # the one the user saw, so a member drawn on another layer joins
+                # it instead of snapping back (PF-PER-27).
+                if group_layer is not None and hasattr(item, "layer_id"):
+                    item.layer_id = group_layer
+            if group_layer is not None:
+                from open_garden_planner.ui.canvas.roof_ridge_link import linked_ridges_under
+
+                for item in self._items:
+                    for ridge in linked_ridges_under(item):
+                        if hasattr(ridge, "layer_id"):
+                            ridge.layer_id = group_layer
+            self._scene.removeItem(self._group)
         self._scene._update_items_visibility()  # type: ignore[attr-defined]
         refresh_all = getattr(self._scene, "_update_items_z_order", None)
         if callable(refresh_all):
             refresh_all()
 
     def undo(self) -> None:
-        if self._group.scene() is None:
-            self._scene.addItem(self._group)
-        for item in self._items:
-            item.setSelected(False)
-            self._group.addToGroup(item)  # type: ignore[attr-defined]
-            if hasattr(item, "layer_id"):
-                item.layer_id = self._member_layers[item]
-        self._group.setSelected(True)
+        with rebuilt_scene_index(self._scene):
+            if self._group.scene() is None:
+                self._scene.addItem(self._group)
+            for item in self._items:
+                item.setSelected(False)
+                self._group.addToGroup(item)  # type: ignore[attr-defined]
+                if hasattr(item, "layer_id"):
+                    item.layer_id = self._member_layers[item]
+            self._group.setSelected(True)
         self._scene._update_items_visibility()  # type: ignore[attr-defined]
         refresh_all = getattr(self._scene, "_update_items_z_order", None)
         if callable(refresh_all):
