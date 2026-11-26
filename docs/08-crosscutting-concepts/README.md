@@ -1483,12 +1483,14 @@ item.
   boundary, and edit surfaces refuse such a group rather than losing geometry on
   ungroup. The boundary also composes each group's x/y with its base translation and
   every parent offset, and asks the same Qt-free `core/object_bounds` code used by the
-  Agent API for every transformed primitive's box before the union, so a finite pair
+  Agent API for every transformed primitive's box before the union — including each
+  part's far edges and the group union width/height — so a finite pair
   that overflows under a pivot rotation is refused before Qt sees it (a legacy symbol
   without a saved pivot uses (0, 0) in both places, as the loader does). One
   `core/angles` rule (1e-6°) decides an Agent no-op, whether a group angle is written,
   and whether Ungroup treats the group as turned; an absolute Agent target inside that
-  tolerance is canonicalized to 0 before it is applied. A committed member
+  tolerance is canonicalized to 0 before it is applied, and a gesture that returns
+  inside the tolerance commits as exactly 0°. A committed member
   angle is saved even below 0.01° (a
   tiny group turn must survive reload). Grouped child records
   carry their own `parent_bed_id` / `child_item_ids`, so a bed-and-plant link survives

@@ -1055,6 +1055,34 @@ def test_ungrouping_a_loaded_nested_group_survives_save_and_reload(
     assert centres(reopened) == before
 
 
+def test_a_turn_back_to_a_rounded_zero_is_saved_as_zero(
+    canvas: CanvasView, tmp_path: Path,
+) -> None:
+    """A gesture target inside the zero tolerance commits as exactly 0°."""
+    _show(canvas)
+    scene = canvas.scene()
+    first = _rect(scene, 0.0, 0.0, 100.0, 80.0)
+    second = _rect(scene, 200.0, 0.0, 100.0, 80.0)
+    group = _grouped(canvas, first, second)
+    group._apply_rotation(45.0000005)
+    scene.clearSelection()
+    group.setSelected(True)
+    QApplication.processEvents()
+
+    _drag(group, 0.0, -45.0)
+
+    assert group.rotation_angle == pytest.approx(0.0)
+    assert group.is_turned() is False
+    target = tmp_path / "rounded-zero.ogp"
+    ProjectManager().save(scene, target)
+    loaded_scene = CanvasScene(width_cm=5000, height_cm=3000)
+    ProjectManager().load(loaded_scene, target)
+    loaded_group = next(
+        item for item in loaded_scene.items() if isinstance(item, GroupItem)
+    )
+    assert loaded_group.rotation_angle == pytest.approx(0.0)
+
+
 def test_an_unrotated_group_ungroups_and_survives_reload(
     canvas: CanvasView, tmp_path: Path,
 ) -> None:

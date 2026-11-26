@@ -478,6 +478,13 @@ class GroupItem(RotationHandleMixin, GardenItemMixin, QGraphicsItemGroup):
         )
 
         current_angle = float(getattr(self, "_rotation_angle", 0.0))
+        from open_garden_planner.core.angles import is_zero_angle
+
+        if is_zero_angle(current_angle):
+            # Canonicalize a target that rounds to zero, so a committed turn
+            # always leaves an angle the serializer writes (#1022 review).
+            self._apply_rotation(0.0)
+            current_angle = 0.0
         if abs(current_angle - float(initial_angle)) < 0.01:
             # The shared command threshold, applied BEFORE follower snapshots:
             # a carried plant's sub-threshold movement must not commit a turn

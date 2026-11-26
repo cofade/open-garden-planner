@@ -14,6 +14,9 @@ from pathlib import Path
 from typing import Any, cast
 
 from open_garden_planner.core.object_bounds import (
+    object_bbox as plan_object_bbox,
+)
+from open_garden_planner.core.object_bounds import (
     object_bounds_parts as plan_object_bounds_parts,
 )
 
@@ -217,6 +220,23 @@ def validate_plan_data(data: dict[str, Any]) -> None:
         for part_index, bounds in enumerate(parts):
             for index, value in enumerate(bounds):
                 finite_number(value, f"object.bounds[{part_index}][{index}]")
+            # The far corners are derived sums the parts check would miss.
+            finite_number(
+                bounds[0] + bounds[2],
+                f"object.bounds[{part_index}].right",
+            )
+            finite_number(
+                bounds[1] + bounds[3],
+                f"object.bounds[{part_index}].top",
+            )
+        try:
+            union = plan_object_bbox(obj)
+        except OverflowError as exc:
+            raise PlanValidationError("object.union") from exc
+        for index, value in enumerate(union):
+            finite_number(value, f"object.union[{index}]")
+        finite_number(union[0] + union[2], "object.union.right")
+        finite_number(union[1] + union[3], "object.union.top")
 
 
 def _check_group_offsets(records: Any, dx: float = 0.0, dy: float = 0.0) -> None:
