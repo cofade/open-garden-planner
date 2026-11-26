@@ -633,6 +633,25 @@ class TestBboxNormaliserPerShape:
         found = queries.objects_in_region(snapshot, 25.0, 55.0, 10.0, 10.0, raw=True)
         assert [obj["item_id"] for obj in found] == ["g1"]
 
+    def test_a_grouped_text_note_contributes_its_footprint(self) -> None:
+        group = {
+            "type": "group", "item_id": "g1", "x": 0.0, "y": 0.0,
+            "rotation": 90.0,
+            "children": [
+                {"type": "text", "item_id": "t1", "x": 100.0, "y": 100.0,
+                 "content": "note",
+                 "bounds": {"x": 0.0, "y": 0.0, "width": 80.0, "height": 20.0},
+                 "transform_origin": {"x": 40.0, "y": 10.0}},
+            ],
+        }
+        snapshot = {
+            "objects": [group],
+            "layers": [],
+            "canvas": {"width": 1000.0, "height": 1000.0},
+        }
+        found = queries.objects_in_region(snapshot, 135.0, 80.0, 10.0, 10.0, raw=True)
+        assert [obj["item_id"] for obj in found] == ["g1"]
+
     def test_bezier_bbox_includes_control_handles(self) -> None:
         # The control hull bounds the curve; ignoring handles under-approximates.
         bez = {

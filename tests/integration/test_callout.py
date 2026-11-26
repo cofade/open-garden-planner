@@ -11,6 +11,7 @@ Tests exercise the full click → drag → release gesture and verify that:
 
 from unittest.mock import MagicMock
 
+import pytest
 from PyQt6.QtCore import QPointF, Qt
 from PyQt6.QtGui import QKeyEvent, QMouseEvent
 
@@ -193,6 +194,45 @@ class TestUndo:
 
 
 class TestSerialization:
+    def test_editing_a_turned_callout_keeps_its_pivot_through_reload(
+        self, canvas: CanvasView, qtbot: object, tmp_path: object
+    ) -> None:
+        """A width-changing text edit must not re-pivot a turned callout."""
+        from open_garden_planner.agent_api import queries
+        from open_garden_planner.core.project import ProjectManager
+
+        _draw_callout(canvas, QPointF(200, 300), QPointF(400, 200))
+        item = _callouts(canvas)[0]
+        item.content = "Callout"
+        item._apply_rotation(30.0)
+        pivot = QPointF(item.transformOriginPoint())
+
+        item.content = "A much longer callout text that changes the box width"
+        live = item.mapToScene(item.boundingRect()).boundingRect()
+        saved = ProjectManager._serialize_item(item)
+        assert saved is not None
+        x, y, w, h = queries.object_bbox(
+            {"type": "group", "x": 0.0, "y": 0.0, "children": [saved]}
+        )
+        assert x == pytest.approx(live.left(), abs=1.0)
+        assert y == pytest.approx(live.top(), abs=1.0)
+        assert x + w == pytest.approx(live.right(), abs=1.0)
+        assert y + h == pytest.approx(live.bottom(), abs=1.0)
+
+        path = tmp_path / "turned-callout.ogp"  # type: ignore[operator]
+        ProjectManager().save(canvas.scene(), path)
+        canvas.scene().clear()
+        ProjectManager().load(canvas.scene(), path)
+
+        reloaded = _callouts(canvas)[0]
+        assert reloaded.transformOriginPoint() == pivot
+        after = reloaded.mapToScene(reloaded.boundingRect()).boundingRect()
+        assert after.left() == pytest.approx(live.left(), abs=1.0)
+        assert after.top() == pytest.approx(live.top(), abs=1.0)
+        assert after.right() == pytest.approx(live.right(), abs=1.0)
+        assert after.bottom() == pytest.approx(live.bottom(), abs=1.0)
+
+
     def test_save_load_preserves_target_and_offset(
         self, canvas: CanvasView, qtbot: object, tmp_path: object
     ) -> None:

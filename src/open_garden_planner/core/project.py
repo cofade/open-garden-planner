@@ -2156,7 +2156,22 @@ class ProjectManager(QObject):
                 data["name"] = item.name
             if hasattr(item, "metadata") and item.metadata:
                 data["metadata"] = item.metadata
-            if hasattr(item, "rotation_angle") and abs(item.rotation_angle) > 1e-9:
+            from open_garden_planner.core.angles import is_zero_angle
+
+            rect = item.boundingRect()
+            rotated = hasattr(item, "rotation_angle") and not is_zero_angle(
+                item.rotation_angle
+            )
+            if rotated or item.parentItem() is not None:
+                data["bounds"] = {
+                    "x": rect.x(),
+                    "y": rect.y(),
+                    "width": rect.width(),
+                    "height": rect.height(),
+                }
+                origin = item.transformOriginPoint()
+                data["transform_origin"] = {"x": origin.x(), "y": origin.y()}
+            if rotated:
                 data["rotation_angle"] = item.rotation_angle
             return data
 
@@ -3087,5 +3102,14 @@ class ProjectManager(QObject):
             if "rotation_angle" in obj:
                 with contextlib.suppress(ValueError, TypeError):
                     item._apply_rotation(float(obj["rotation_angle"]))
+            origin = obj.get("transform_origin")
+            if isinstance(origin, dict):
+                with contextlib.suppress(ValueError, TypeError):
+                    item.setTransformOriginPoint(
+                        QPointF(
+                            float(origin.get("x", 0.0)),
+                            float(origin.get("y", 0.0)),
+                        )
+                    )
             return item
         return None

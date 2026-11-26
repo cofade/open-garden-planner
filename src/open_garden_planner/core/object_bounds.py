@@ -125,7 +125,16 @@ def _leaf_primitives(obj: dict[str, Any]) -> list[_Primitive]:
         ]
     box = _object_bbox_unrotated(obj)
     angle = float(obj.get("rotation_angle", obj.get("rotation", 0.0)) or 0.0)
-    centre = (box[0] + box[2] / 2.0, box[1] + box[3] / 2.0)
+    origin = obj.get("transform_origin")
+    if isinstance(origin, dict):
+        base_x = float(obj.get("target_x", obj.get("x", 0.0)))
+        base_y = float(obj.get("target_y", obj.get("y", 0.0)))
+        centre = (
+            base_x + float(origin.get("x", 0.0)),
+            base_y + float(origin.get("y", 0.0)),
+        )
+    else:
+        centre = (box[0] + box[2] / 2.0, box[1] + box[3] / 2.0)
     points = obj.get("points")
     if isinstance(points, list) and points:
         raw = [(float(point["x"]), float(point["y"])) for point in points]
@@ -275,6 +284,14 @@ def _object_bbox_unrotated(
     obj: dict[str, Any],
 ) -> tuple[float, float, float, float]:
     """The axis-aligned box of an ungrouped *obj* before its own angle."""
+    if obj.get("type") == "text" and isinstance(obj.get("bounds"), dict):
+        bounds = obj["bounds"]
+        return (
+            float(obj.get("x", 0.0)) + float(bounds.get("x", 0.0)),
+            float(obj.get("y", 0.0)) + float(bounds.get("y", 0.0)),
+            float(bounds.get("width", 0.0)),
+            float(bounds.get("height", 0.0)),
+        )
     if "width" in obj and "x" in obj:  # rectangle (group has x but no width)
         return (
             float(obj["x"]),

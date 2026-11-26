@@ -1503,8 +1503,10 @@ item.
 
 The Agent API's group box composes every member's own turn, each nested group's
 compensating base translation, and the group transform before taking bounds, so a
-region query matches the visible geometry; a callout saves its local bounds so its own
-turn uses the live item's centre, while its API position stays the leader tip.
+region query matches the visible geometry; a grouped or turned callout saves its local
+bounds and turn pivot (a later text edit does not re-pivot it), its API position stays
+the leader tip, and a grouped text note saves its footprint so a region sees the text,
+not only its anchor.
 - **Ungroup is refused while turned.** `removeFromGroup` leaves the group's rotation in
   the member's Qt transform; the `.ogp` format stores a member's own `rotation_angle`, so
   a bake would have to cover every type (including arcs) and zero-net-angle pairs.

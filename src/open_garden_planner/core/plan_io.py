@@ -36,8 +36,8 @@ _GEOMETRY_KEYS = frozenset({
 })
 _GEOMETRY_CONTAINERS = frozenset({
     "objects", "children", "points", "anchors", "handles_in", "handles_out",
-    "position", "transform_origin", "transform", "guides", "constraints", "layers",
-    "garden_journal_notes", "geo_metadata",
+    "position", "bounds", "transform_origin", "transform", "guides",
+    "constraints", "layers", "garden_journal_notes", "geo_metadata",
 })
 
 
