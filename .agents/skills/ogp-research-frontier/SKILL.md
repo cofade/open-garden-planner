@@ -282,7 +282,7 @@ reusable pattern for Python CAD-lite apps — without importing a kernel?
 
 ### (b) This project's specific asset (verified in-repo)
 
-- ADR-012 (`docs/09-architecture-decisions/README.md` ~line 93): hybrid
+- ADR-012 (`docs/09-architecture-decisions/ADR-012-hybrid-constraint-solver-gauss-seidel-warm-start-newton.md`): hybrid
   Gauss-Seidel warm-start + damped Newton-Raphson refinement
   (`constraint_solver_newton.py`), closed-form circle-circle fast path, numpy
   `linalg.lstsq`. scipy was **considered and rejected** (~40 MB installer
@@ -363,7 +363,7 @@ evaluation harness for agent horticulture.
   imports `QCoreApplication` solely for `translate()`, no widgets/scene; its
   docstring says exactly this) with `build_plan_state(...)` +
   `generate_all(...)`; companion/succession/soil logic follows the same
-  pattern (ADR-029, `docs/09-architecture-decisions/README.md` ~line 359).
+  pattern (ADR-029, `docs/09-architecture-decisions/ADR-029-unified-task-model-pure-generators-render-time-status-dual.md`).
 - The judge already exists and is agent-reachable: D1.2's `get_diagnostics`
   (`agent_api/diagnostics.py`) reports the canvas's own computed warnings —
   antagonist, spacing overlap, capacity overrun, soil mismatch, rotation
@@ -461,7 +461,7 @@ one-liners from repo root; expected hits noted):
 - Solver debt: `grep -n "TD-007\|TD-008" docs/11-risks-and-technical-debt/README.md` (if gone, Frontier 4 milestones may be met — update this file)
 - Qt-free engines: `head -25 src/open_garden_planner/services/task_generator.py`
 - Boolean vs offset kernels: `head -1 src/open_garden_planner/core/shape_boolean.py && grep -rn pyclipper src/open_garden_planner/core/tools/offset_tool.py pyproject.toml`
-- US-B7 stays dead: `grep -n "US-B7\|Paper Space" docs/functional-requirements.md docs/09-architecture-decisions/README.md`
+- US-B7 stays dead: `grep -n "US-B7\|Paper Space" docs/functional-requirements.md docs/09-architecture-decisions/ADR-*.md`
 
 When any milestone in (d) is met: mark it here, update `docs/roadmap.md`, and
 only then involve **ogp-external-positioning** for any outward claim.

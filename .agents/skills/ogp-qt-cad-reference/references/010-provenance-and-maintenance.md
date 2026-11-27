@@ -1,6 +1,6 @@
 ## Provenance and maintenance
 
-Facts verified 2026-07-04 against v1.23.0 source + `docs/08-crosscutting-concepts/README.md` (§8.1/8.9/8.10/8.12/8.16/8.19), `docs/09-architecture-decisions/README.md` (ADR-002/012/020/022/023/025/028), `docs/11-risks-and-technical-debt/README.md` §11.4. Re-verify volatile claims:
+Facts verified 2026-07-04 against v1.23.0 source + `docs/08-crosscutting-concepts/README.md` (§8.1/8.9/8.10/8.12/8.16/8.19), `docs/09-architecture-decisions/README.md` (ADR-002/012/020/022/023/025/028; since ADR-083 each ADR is its own `ADR-nnn-<slug>.md` file there), `docs/11-risks-and-technical-debt/README.md` §11.4. Re-verify volatile claims:
 
 - Y-flip transform: `grep -n "scale(self._zoom_factor" src/open_garden_planner/ui/canvas/canvas_view.py`
 - Handle allow-list + re-grab: `grep -n "_active_drag_handle" src/open_garden_planner/ui/canvas/canvas_view.py`

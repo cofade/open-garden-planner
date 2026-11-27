@@ -47,50 +47,50 @@ One entry per lesson, each under its permanent `PF-<AREA>-<NN>` ID. Each entry g
 - **Rule:** A CLI's capability is verified by probing the resolved binary's own help for each required flag, not its documented interface, as `PATH` may resolve another version a `shutil.which` stub never shows.
 - **Pinned by:** none — the body mentions a test with the real help text as a fixture but names no test file or function.
 - **Source:** #366
-- **Status:** pointer → [ADR: ADR-035: AI Client Onboarding — Safe Cross-App Config Registration (US-D1.6)](../../09-architecture-decisions/README.md#adr-035-ai-client-onboarding--safe-cross-app-config-registration-us-d16)
+- **Status:** pointer → [ADR: ADR-035: AI Client Onboarding — Safe Cross-App Config Registration (US-D1.6)](../../09-architecture-decisions/ADR-035-ai-client-onboarding-safe-cross-app-config-registration-us.md#adr-035-ai-client-onboarding--safe-cross-app-config-registration-us-d16)
 - **Legacy:** b1faaa9 README L189
 
-Held in [ADR: ADR-035: AI Client Onboarding — Safe Cross-App Config Registration (US-D1.6)](../../09-architecture-decisions/README.md#adr-035-ai-client-onboarding--safe-cross-app-config-registration-us-d16). The entry keeps the rule and its pin; the account is in the link.
+Held in [ADR: ADR-035: AI Client Onboarding — Safe Cross-App Config Registration (US-D1.6)](../../09-architecture-decisions/ADR-035-ai-client-onboarding-safe-cross-app-config-registration-us.md#adr-035-ai-client-onboarding--safe-cross-app-config-registration-us-d16). The entry keeps the rule and its pin; the account is in the link.
 
 ### PF-API-06
 
 - **Rule:** A refusal leaves the filesystem exactly as found, so the backup is taken only once a write is certain, tests assert the whole directory listing, and a backup that is made is reported to the user.
 - **Pinned by:** none — the body mentions a test asserting the directory listing but names no test file or function.
 - **Source:** #366
-- **Status:** pointer → [ADR: ADR-035: AI Client Onboarding — Safe Cross-App Config Registration (US-D1.6)](../../09-architecture-decisions/README.md#adr-035-ai-client-onboarding--safe-cross-app-config-registration-us-d16)
+- **Status:** pointer → [ADR: ADR-035: AI Client Onboarding — Safe Cross-App Config Registration (US-D1.6)](../../09-architecture-decisions/ADR-035-ai-client-onboarding-safe-cross-app-config-registration-us.md#adr-035-ai-client-onboarding--safe-cross-app-config-registration-us-d16)
 - **Legacy:** b1faaa9 README L191
 
-Held in [ADR: ADR-035: AI Client Onboarding — Safe Cross-App Config Registration (US-D1.6)](../../09-architecture-decisions/README.md#adr-035-ai-client-onboarding--safe-cross-app-config-registration-us-d16). The entry keeps the rule and its pin; the account is in the link.
+Held in [ADR: ADR-035: AI Client Onboarding — Safe Cross-App Config Registration (US-D1.6)](../../09-architecture-decisions/ADR-035-ai-client-onboarding-safe-cross-app-config-registration-us.md#adr-035-ai-client-onboarding--safe-cross-app-config-registration-us-d16). The entry keeps the rule and its pin; the account is in the link.
 
 ### PF-API-07
 
 - **Rule:** A parse error and a shape error get different policies: a readable file whose container key has the wrong type fails closed whatever its ownership, because replacing it discards the user's data.
 - **Pinned by:** none — the body names no test for this rule.
 - **Source:** #366
-- **Status:** pointer → [ADR: ADR-035: AI Client Onboarding — Safe Cross-App Config Registration (US-D1.6)](../../09-architecture-decisions/README.md#adr-035-ai-client-onboarding--safe-cross-app-config-registration-us-d16)
+- **Status:** pointer → [ADR: ADR-035: AI Client Onboarding — Safe Cross-App Config Registration (US-D1.6)](../../09-architecture-decisions/ADR-035-ai-client-onboarding-safe-cross-app-config-registration-us.md#adr-035-ai-client-onboarding--safe-cross-app-config-registration-us-d16)
 - **Legacy:** b1faaa9 README L192
 
-Held in [ADR: ADR-035: AI Client Onboarding — Safe Cross-App Config Registration (US-D1.6)](../../09-architecture-decisions/README.md#adr-035-ai-client-onboarding--safe-cross-app-config-registration-us-d16). The entry keeps the rule and its pin; the account is in the link.
+Held in [ADR: ADR-035: AI Client Onboarding — Safe Cross-App Config Registration (US-D1.6)](../../09-architecture-decisions/ADR-035-ai-client-onboarding-safe-cross-app-config-registration-us.md#adr-035-ai-client-onboarding--safe-cross-app-config-registration-us-d16). The entry keeps the rule and its pin; the account is in the link.
 
 ### PF-API-08
 
 - **Rule:** A best-effort reader of untrusted input catches `Exception` once at the ingestion chokepoint and never enumerates exception families, because any family left out, such as `RecursionError`, escapes.
 - **Pinned by:** none — the body names no test for this rule.
 - **Source:** #366
-- **Status:** pointer → [ADR: ADR-035: AI Client Onboarding — Safe Cross-App Config Registration (US-D1.6)](../../09-architecture-decisions/README.md#adr-035-ai-client-onboarding--safe-cross-app-config-registration-us-d16)
+- **Status:** pointer → [ADR: ADR-035: AI Client Onboarding — Safe Cross-App Config Registration (US-D1.6)](../../09-architecture-decisions/ADR-035-ai-client-onboarding-safe-cross-app-config-registration-us.md#adr-035-ai-client-onboarding--safe-cross-app-config-registration-us-d16)
 - **Legacy:** b1faaa9 README L193
 
-Held in [ADR: ADR-035: AI Client Onboarding — Safe Cross-App Config Registration (US-D1.6)](../../09-architecture-decisions/README.md#adr-035-ai-client-onboarding--safe-cross-app-config-registration-us-d16). The entry keeps the rule and its pin; the account is in the link.
+Held in [ADR: ADR-035: AI Client Onboarding — Safe Cross-App Config Registration (US-D1.6)](../../09-architecture-decisions/ADR-035-ai-client-onboarding-safe-cross-app-config-registration-us.md#adr-035-ai-client-onboarding--safe-cross-app-config-registration-us-d16). The entry keeps the rule and its pin; the account is in the link.
 
 ### PF-API-09
 
 - **Rule:** A flag that gates a destructive operation is enforced at the seam, inside the merge itself, because a check placed only at the call sites its author thought of is bypassed by every other path.
 - **Pinned by:** none — the body names no test for this rule.
 - **Source:** #366
-- **Status:** pointer → [ADR: ADR-035: AI Client Onboarding — Safe Cross-App Config Registration (US-D1.6)](../../09-architecture-decisions/README.md#adr-035-ai-client-onboarding--safe-cross-app-config-registration-us-d16)
+- **Status:** pointer → [ADR: ADR-035: AI Client Onboarding — Safe Cross-App Config Registration (US-D1.6)](../../09-architecture-decisions/ADR-035-ai-client-onboarding-safe-cross-app-config-registration-us.md#adr-035-ai-client-onboarding--safe-cross-app-config-registration-us-d16)
 - **Legacy:** b1faaa9 README L194
 
-Held in [ADR: ADR-035: AI Client Onboarding — Safe Cross-App Config Registration (US-D1.6)](../../09-architecture-decisions/README.md#adr-035-ai-client-onboarding--safe-cross-app-config-registration-us-d16). The entry keeps the rule and its pin; the account is in the link.
+Held in [ADR: ADR-035: AI Client Onboarding — Safe Cross-App Config Registration (US-D1.6)](../../09-architecture-decisions/ADR-035-ai-client-onboarding-safe-cross-app-config-registration-us.md#adr-035-ai-client-onboarding--safe-cross-app-config-registration-us-d16). The entry keeps the rule and its pin; the account is in the link.
 
 ### PF-API-10
 
@@ -117,20 +117,20 @@ Held in [ADR: ADR-035: AI Client Onboarding — Safe Cross-App Config Registrati
 - **Rule:** A fail-closed merge is safe only while its reader understands the real format, so JSONC gets a tolerant character-scanning reader scoped to that format, and the strict JSON reader still raises.
 - **Pinned by:** none — the body mentions a negative test for the strict reader but names no test file or function.
 - **Source:** #366
-- **Status:** pointer → [ADR: ADR-035: AI Client Onboarding — Safe Cross-App Config Registration (US-D1.6)](../../09-architecture-decisions/README.md#adr-035-ai-client-onboarding--safe-cross-app-config-registration-us-d16)
+- **Status:** pointer → [ADR: ADR-035: AI Client Onboarding — Safe Cross-App Config Registration (US-D1.6)](../../09-architecture-decisions/ADR-035-ai-client-onboarding-safe-cross-app-config-registration-us.md#adr-035-ai-client-onboarding--safe-cross-app-config-registration-us-d16)
 - **Legacy:** b1faaa9 README L198
 
-Held in [ADR: ADR-035: AI Client Onboarding — Safe Cross-App Config Registration (US-D1.6)](../../09-architecture-decisions/README.md#adr-035-ai-client-onboarding--safe-cross-app-config-registration-us-d16). The entry keeps the rule and its pin; the account is in the link.
+Held in [ADR: ADR-035: AI Client Onboarding — Safe Cross-App Config Registration (US-D1.6)](../../09-architecture-decisions/ADR-035-ai-client-onboarding-safe-cross-app-config-registration-us.md#adr-035-ai-client-onboarding--safe-cross-app-config-registration-us-d16). The entry keeps the rule and its pin; the account is in the link.
 
 ### PF-API-13
 
 - **Rule:** A file the app does not own is never re-serialised: a foreign config is parsed read-only and only the affected table's line span is rewritten, so the user's comments and formatting survive.
 - **Pinned by:** none — the body names no test for this rule.
 - **Source:** #366
-- **Status:** pointer → [ADR: ADR-035: AI Client Onboarding — Safe Cross-App Config Registration (US-D1.6)](../../09-architecture-decisions/README.md#adr-035-ai-client-onboarding--safe-cross-app-config-registration-us-d16)
+- **Status:** pointer → [ADR: ADR-035: AI Client Onboarding — Safe Cross-App Config Registration (US-D1.6)](../../09-architecture-decisions/ADR-035-ai-client-onboarding-safe-cross-app-config-registration-us.md#adr-035-ai-client-onboarding--safe-cross-app-config-registration-us-d16)
 - **Legacy:** b1faaa9 README L199
 
-Held in [ADR: ADR-035: AI Client Onboarding — Safe Cross-App Config Registration (US-D1.6)](../../09-architecture-decisions/README.md#adr-035-ai-client-onboarding--safe-cross-app-config-registration-us-d16). The entry keeps the rule and its pin; the account is in the link.
+Held in [ADR: ADR-035: AI Client Onboarding — Safe Cross-App Config Registration (US-D1.6)](../../09-architecture-decisions/ADR-035-ai-client-onboarding-safe-cross-app-config-registration-us.md#adr-035-ai-client-onboarding--safe-cross-app-config-registration-us-d16). The entry keeps the rule and its pin; the account is in the link.
 
 ### PF-API-14
 

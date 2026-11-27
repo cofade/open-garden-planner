@@ -7,7 +7,7 @@
    §8.10 "Coordinate system reminder" — read BOTH; the Y-up/Y-down split is
    the campaign's central trap. The reconciliation (which one the data path
    follows) is owned by `ogp-qt-cad-reference` §1 — read it too.
-3. `docs/09-architecture-decisions/README.md`: ADR-002 (Y-up), ADR-019
+3. `docs/09-architecture-decisions/` (one file per ADR; `README.md` is the index): ADR-002 (Y-up), ADR-019
    (satellite geo), ADR-031 (predicate split — height interacts with
    plant-parents), ADR-034 (agent API — your validation instrument).
 4. `docs/11-risks-and-technical-debt/README.md` §11.1 (the Qt3D open

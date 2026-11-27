@@ -36,7 +36,6 @@ DOC_FILES = ("README.md", "CLAUDE.md", "AGENTS.md", "CONTRIBUTING.md", "SECURITY
              "ACCESSIBILITY.md")
 #: The ONLY places that may name Qt 3D: the history of the decision and of what was learned.
 HISTORY = frozenset({
-    "docs/09-architecture-decisions/README.md",        # ADR-038, ADR-048 and their addenda
     "docs/roadmap.md",                                 # what shipped when (Phase 14, L0, L1)
     "docs/11-risks-and-technical-debt/README.md",      # §11.1 / §11.4: what was learned
     "docs/11-risks-and-technical-debt/audits/2026-10/audit-2026-10.md",  # a dated snapshot (one status edit, #426; ADR-047)
@@ -59,6 +58,9 @@ HISTORY_DIRS = (  # measured runs, kept; the verbatim archive of retired work (A
     ".agents/skills/ogp-failure-archaeology/references/",
     ".claude/skills/ogp-3d-sunshade-campaign/references/",
     ".agents/skills/ogp-3d-sunshade-campaign/references/",
+    # The decision record, one file per ADR since #1035 (ADR-038, ADR-048 and their
+    # addenda among them). The generated index README.md is not history and is not exempt.
+    "docs/09-architecture-decisions/ADR-",
     "docs/09-architecture-decisions/adr-048-evidence/",
     "docs/11-risks-and-technical-debt/archive/",
     "docs/11-risks-and-technical-debt/pitfalls/index/",

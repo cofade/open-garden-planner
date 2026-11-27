@@ -324,7 +324,7 @@ CI does not prove the local full suite is clean (`QSettings.setDefaultFormat` le
 Volatile facts date-stamped 2026-07-05 (repo at v1.23.0, Phases 1–13 Packages A–D1.3
 complete). Re-verify the cited episodes before relying on them:
 `grep -rn "Closed (#218)\|losing game\|#169" docs/11-risks-and-technical-debt/` ·
-`grep -n "US-B7\|Paper Space" docs/functional-requirements.md docs/09-architecture-decisions/README.md` ·
+`grep -n "US-B7\|Paper Space" docs/functional-requirements.md docs/09-architecture-decisions/ADR-*.md` ·
 `grep -rin "refuted by reading\|senior-review rounds\|P0 caught" docs/11-risks-and-technical-debt/` ·
 `grep -rn "issue #229" .claude/skills/finalize-us/SKILL.md` ·
 `sed -n '441,455p' docs/08-crosscutting-concepts/README.md` (§8.12.8 residuals) ·

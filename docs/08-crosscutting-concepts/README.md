@@ -1826,7 +1826,7 @@ a guard that has never been observed failing is an assertion, not a test.
 (`scripts/check_skill_citations.py`, issue #336) resolves every `§N.M`/`section N.M`,
 `ADR-0NN`, `FR-*`, and `#NNN` citation in the `SKILL.md` files (both `.claude/skills/`
 and `.agents/skills/`) plus `CLAUDE.md`/`AGENTS.md` against the real headings, ADR
-index, FR index, and a committed GitHub snapshot (`tests/data/issue_registry.json`,
+files, FR index, and a committed GitHub snapshot (`tests/data/issue_registry.json`,
 refreshed via `scripts/refresh_issue_registry.py`) — plus every `` `file.py:line` ``
 citation that is actually spelled in the gated form: `` `path.py:N` `` immediately
 followed on the same line by a backtick-quoted symbol, e.g. `` `core/object_types.py:671`
@@ -1847,6 +1847,14 @@ large file (e.g. `execute` in a 2800-line command module) still resolves against
 large fraction of that file's possible line numbers — real but weak protection,
 tracked as a named residual rather than a false "resolved" claim (§11.4). §11.4 also
 records the rot rate that motivated the gate.
+
+**The decision record is gated as data (#1035, ADR-083).** Each ADR is its own file,
+`docs/09-architecture-decisions/ADR-nnn-<slug>.md`, with front matter. The citation gate
+accepts `ADR-0NN` only when that file exists and holds the heading `# ADR-0NN:`; the
+ADR gate below makes that heading the file's first and only H1.
+`tests/unit/test_doc_indexes.py` runs `scripts/generate_doc_indexes.py --check`. Its
+rules are listed once, in ADR-083. A hand edit of the generated `README.md` index fails
+it, and so does a status that was edited in the body without a run of the generator.
 
 ### 8.10.2 Developer quality-gate integration tests
 

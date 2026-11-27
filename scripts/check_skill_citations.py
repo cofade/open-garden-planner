@@ -82,7 +82,9 @@ CORPUS_GLOBS: tuple[str, ...] = (
 # 09 (architecture decisions) uses ADR-0NN headings instead of N.M sections.
 _DOC_CHAPTER_NUMBERS = tuple(n for n in range(1, 13) if n != 9)
 
-ADR_INDEX_PATH = "docs/09-architecture-decisions/README.md"
+# One file per ADR (#1035): docs/09-architecture-decisions/ADR-nnn-<slug>.md, whose
+# only H1 is "# ADR-nnn: <title>". The README there is a generated index.
+ADR_DIR_PATH = "docs/09-architecture-decisions"
 FR_INDEX_PATH = "docs/functional-requirements.md"
 ISSUE_REGISTRY_PATH = "tests/data/issue_registry.json"
 
@@ -109,7 +111,7 @@ _SECTION_REF_RE = re.compile(
     r"(?:§|[Ss]ection )(\d+(?:\.\d+){0,2}(?:/\d+(?:\.\d+){0,2})*)"
 )
 _ADR_REF_RE = re.compile(r"ADR-(\d{3}(?:/\d{3})*)\b")
-_ADR_HEADING_RE = re.compile(r"^##\s+ADR-(\d{3})\b", re.MULTILINE)
+_ADR_FILE_RE = re.compile(r"^ADR-(\d{3})-[a-z0-9-]+\.md$")
 _FR_REF_RE = re.compile(r"\bFR-(?:([A-Z]+)-)?(\d+(?:/\d+)*)\b")
 _FR_HEADING_RE = re.compile(r"^#{2,6}\s+FR-([A-Z0-9-]+?)[:\s]", re.MULTILINE)
 _FR_BULLET_RE = re.compile(r"^-\s+\*\*FR-([A-Z0-9-]+?)\*\*", re.MULTILINE)
@@ -269,8 +271,17 @@ def check_section_refs(
 
 
 def build_adr_pool(root: Path) -> set[str]:
-    text = (root / ADR_INDEX_PATH).read_text(encoding="utf-8")
-    return {m.group(1) for m in _ADR_HEADING_RE.finditer(text)}
+    """ADR numbers that have their own file and open it with the matching H1."""
+    pool: set[str] = set()
+    for path in (root / ADR_DIR_PATH).glob("ADR-*.md"):
+        match = _ADR_FILE_RE.match(path.name)
+        if not match:
+            continue
+        number = match.group(1)
+        heading = re.compile(rf"^# ADR-{number}:", re.MULTILINE)
+        if heading.search(path.read_text(encoding="utf-8")):
+            pool.add(number)
+    return pool
 
 
 def check_adr_refs(
@@ -288,7 +299,7 @@ def check_adr_refs(
                 if number not in pool:
                     errors.append(
                         f"{rel_file}:{line}: '{raw}' cites ADR-{number}, "
-                        f"which has no heading in {ADR_INDEX_PATH}"
+                        f"which has no ADR-{number}-*.md file in {ADR_DIR_PATH}/"
                     )
     return errors
 

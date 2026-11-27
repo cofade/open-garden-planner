@@ -19,7 +19,7 @@ You are NOT starting from zero. These assets exist and were read from source:
 | Decorative shadows toggle | `config/settings.py:199` `KEY_SHOW_SHADOWS` → `application.py` `_on_toggle_shadows` (~line 2628) → `canvas_scene.set_shadows_enabled` (line 154) → per-item painted drop shadow (`garden_item.py` lines 211/718) | **Cosmetic only.** Phase 14 must NOT reuse this key or its menu item; rename risk is a UX decision — see Phase 3 step 5. |
 | Roadmap + open question | Phase 14 in `docs/roadmap.md` (complete) and ADR-037/038 (solar, shadow and 3D-engine architecture); `docs/11-risks-and-technical-debt/README.md` line 10 records the engine question. | The scope contract and the mandated Phase 5 spike. |
 | License | `pyproject.toml` line 10: **GPL-3.0-or-later** | Any new dep must be GPL-compatible (Phase 5 table). |
-| ADR home | `docs/09-architecture-decisions/README.md` — single file, ADR-001…ADR-036 (as of v1.24.3). **Next free number: ADR-037** | Where the solar-architecture (ADR-037) and 3D-engine (ADR-038) ADRs go. |
+| ADR home | `docs/09-architecture-decisions/` — as of v1.24.3 a single file, ADR-001…ADR-036; since ADR-083 one `ADR-nnn-<slug>.md` per ADR (ADR-083). **Next free number: ADR-037** | Where the solar-architecture (ADR-037) and 3D-engine (ADR-038) ADRs go. |
 
 Quick re-verification (run before trusting this table if months have passed —
 also see "Provenance and maintenance" at the end):

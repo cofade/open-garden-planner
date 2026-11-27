@@ -138,9 +138,11 @@ class TestAgentApiAuthClaim:
 class TestAdrRangeClaim:
     @staticmethod
     def _real_adr_count() -> int:
-        adr_file = REPO_ROOT / "docs" / "09-architecture-decisions" / "README.md"
-        return len(
-            re.findall(r"^## ADR-\d{3}", adr_file.read_text(encoding="utf-8"), re.M)
+        # One file per ADR since #1035 (ADR-083); each opens with "# ADR-nnn:".
+        adr_dir = REPO_ROOT / "docs" / "09-architecture-decisions"
+        return sum(
+            1 for path in adr_dir.glob("ADR-*.md")
+            if re.search(r"^# ADR-\d{3}:", path.read_text(encoding="utf-8"), re.M)
         )
 
     def test_architecture_contract_does_not_pin_a_closed_adr_range(self) -> None:

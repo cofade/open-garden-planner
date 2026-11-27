@@ -56,7 +56,8 @@ OPEN_FRAMES = ("pergola", "trellis", "swing", "hammock", "garden light")
 NOMINAL_SECTION = ("wall", "stone-wall fence", "hedge fence")
 HEDGES = ("hedge (polygon)", "hedge (section)")
 GABLE_SQUARE = ("house, sun square to the ridge", "shed, sun square to the ridge")
-ADR = ROOT / "docs" / "09-architecture-decisions" / "README.md"
+#: ADR-059's own file (one file per ADR since #1035, ADR-083).
+(ADR,) = (ROOT / "docs" / "09-architecture-decisions").glob("ADR-059-*.md")
 CONCEPTS = ROOT / "docs" / "08-crosscutting-concepts" / "README.md"
 SKILLS = tuple(ROOT / tree / "skills" / "ogp-lush-cinematic" / "SKILL.md"
                for tree in (".claude", ".agents"))

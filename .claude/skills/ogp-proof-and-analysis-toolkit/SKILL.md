@@ -21,7 +21,7 @@ code, review responses, or docs by a reproducible experiment or a primary-source
 never by memory, plausibility, or authority.**
 
 All doc references: `docs/08-crosscutting-concepts/README.md` (§8.x),
-`docs/09-architecture-decisions/README.md` (ADR-xxx),
+`docs/09-architecture-decisions/ADR-nnn-<slug>.md` (ADR-xxx; the folder's `README.md` is a generated index),
 `docs/11-risks-and-technical-debt/README.md` (§11.4). Version facts date-stamped
 2026-07-05 (repo at v1.23.0; mcp library facts pinned against **mcp 1.28.1**).
 
@@ -423,9 +423,9 @@ proving), `ogp-change-control` (where proof artifacts land in the workflow),
 Every worked example above was verified against the repo on 2026-07-05 (v1.23.0).
 Re-verify with:
 
-- Method 1: `grep -n "structured_output=False\|__globals__\|dict-first" docs/08-crosscutting-concepts/README.md docs/09-architecture-decisions/README.md`
+- Method 1: `grep -n "structured_output=False\|__globals__\|dict-first" docs/08-crosscutting-concepts/README.md docs/09-architecture-decisions/ADR-*.md`
 - Method 2: `ls tests/unit/test_agent_api_render_coordinate_frame.py && grep -n "px_per_cm" tests/unit/test_agent_api_render_coordinate_frame.py`
-- Method 3: `grep -n "scene_anchor − O − R" docs/09-architecture-decisions/README.md docs/08-crosscutting-concepts/README.md` and `grep -n "def resize_rect_item_keeping_anchor" src/open_garden_planner/ui/canvas/items/resize_handle.py`
+- Method 3: `grep -n "scene_anchor − O − R" docs/09-architecture-decisions/ADR-*.md docs/08-crosscutting-concepts/README.md` and `grep -n "def resize_rect_item_keeping_anchor" src/open_garden_planner/ui/canvas/items/resize_handle.py`
 - Method 4: `grep -n "radius stuck at 50" docs/11-risks-and-technical-debt/README.md`
 - Method 5: `grep -n "9\*\*9\*\*9\|RecursionError" docs/11-risks-and-technical-debt/README.md` and `grep -n "_MAX_NODES" src/open_garden_planner/core/parametric_eval.py`
 - Method 6: `grep -n "sub-pixel\|1e-4" docs/11-risks-and-technical-debt/README.md` and `grep -n "1e-3\|1.0 cm" docs/08-crosscutting-concepts/README.md`

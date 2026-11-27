@@ -114,11 +114,18 @@ def test_section_reference_passes_when_heading_exists_anywhere(tmp_path: Path) -
     assert errors == []
 
 
-def test_detects_nonexistent_adr(tmp_path: Path) -> None:
-    (tmp_path / "docs" / "09-architecture-decisions").mkdir(parents=True)
-    (tmp_path / "docs" / "09-architecture-decisions" / "README.md").write_text(
-        "## ADR-001: Real decision\n", encoding="utf-8"
+def _write_adr(root: Path, number: int, h1: str | None = None) -> None:
+    """One per-ADR file, as docs/09-architecture-decisions holds them (#1035)."""
+    folder = root / "docs" / "09-architecture-decisions"
+    folder.mkdir(parents=True, exist_ok=True)
+    heading = h1 if h1 is not None else f"# ADR-{number:03d}: Real decision"
+    (folder / f"ADR-{number:03d}-real-decision.md").write_text(
+        f"---\nid: ADR-{number:03d}\n---\n\n{heading}\n", encoding="utf-8"
     )
+
+
+def test_detects_nonexistent_adr(tmp_path: Path) -> None:
+    _write_adr(tmp_path, 1)
     _write_corpus_file(tmp_path, "Per ADR-099 this is required.\n")
 
     errors = check_adr_refs(
@@ -132,10 +139,8 @@ def test_detects_nonexistent_adr_in_the_middle_of_a_slash_list(tmp_path: Path) -
     """Regression: a repeated regex group only keeps its LAST match, so
     'ADR-001/999/002' silently dropped the middle number from .groups().
     """
-    (tmp_path / "docs" / "09-architecture-decisions").mkdir(parents=True)
-    (tmp_path / "docs" / "09-architecture-decisions" / "README.md").write_text(
-        "## ADR-001: Real decision\n## ADR-002: Another\n", encoding="utf-8"
-    )
+    _write_adr(tmp_path, 1)
+    _write_adr(tmp_path, 2)
     _write_corpus_file(tmp_path, "Rejected repeatedly (ADR-001/999/002).\n")
 
     errors = check_adr_refs(
@@ -146,10 +151,7 @@ def test_detects_nonexistent_adr_in_the_middle_of_a_slash_list(tmp_path: Path) -
 
 
 def test_real_adr_passes(tmp_path: Path) -> None:
-    (tmp_path / "docs" / "09-architecture-decisions").mkdir(parents=True)
-    (tmp_path / "docs" / "09-architecture-decisions" / "README.md").write_text(
-        "## ADR-001: Real decision\n", encoding="utf-8"
-    )
+    _write_adr(tmp_path, 1)
     _write_corpus_file(tmp_path, "Per ADR-001 this is required.\n")
 
     errors = check_adr_refs(
@@ -157,6 +159,32 @@ def test_real_adr_passes(tmp_path: Path) -> None:
     )
 
     assert errors == []
+
+
+def test_an_adr_file_without_its_h1_does_not_count(tmp_path: Path) -> None:
+    """A file name alone is not a decision: the file must open with '# ADR-nnn:'."""
+    _write_adr(tmp_path, 1, h1="## ADR-001: demoted heading")
+    _write_corpus_file(tmp_path, "Per ADR-001 this is required.\n")
+
+    errors = check_adr_refs(
+        tmp_path, find_corpus_files(tmp_path), build_adr_pool(tmp_path)
+    )
+
+    assert any("ADR-001" in e for e in errors)
+
+
+def test_the_generated_index_is_not_an_adr_source(tmp_path: Path) -> None:
+    """The old single-file form in README.md no longer defines an ADR (#1035)."""
+    folder = tmp_path / "docs" / "09-architecture-decisions"
+    folder.mkdir(parents=True)
+    (folder / "README.md").write_text("## ADR-001: Real decision\n", encoding="utf-8")
+    _write_corpus_file(tmp_path, "Per ADR-001 this is required.\n")
+
+    errors = check_adr_refs(
+        tmp_path, find_corpus_files(tmp_path), build_adr_pool(tmp_path)
+    )
+
+    assert any("ADR-001" in e for e in errors)
 
 
 def test_detects_nonexistent_fr(tmp_path: Path) -> None:
