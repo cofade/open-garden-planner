@@ -333,28 +333,42 @@ def test_status_from_body(lines: list[str], status: str) -> None:
 
 
 def test_no_real_status_loses_a_line_of_its_paragraph() -> None:
-    """Independent of the parser's stop rules: every line up to the first blank line is in
-    the status, until the first line that opens a known field (``**Context**:`` …)."""
+    """An oracle with its own simple stop rule, compared for exact equality.
+
+    The paragraph runs from the Status line to the first blank line or the first line that
+    opens a listed field (the closed label list); an early one-line record's
+    ``| **Context**`` tail is not status. A lost line and a run-on both fail.
+
+    A bold clause that is NOT a listed field stays status. Such clauses are listed by ADR
+    below: a new one (perhaps a new field label the list lacks) fails here until decided.
+    """
     import re
 
-    label = re.compile(r"^\*\*(Context|Date|Decision|Rationale|Consequences|Alternatives"
-                       r"|Problem|Scope)\b")
+    any_bold_label = re.compile(r"^\*\*[A-Z][^*]*(?::\*\*|\*\*:|\.\*\*)")
+    #: ADR -> why a bold, unlisted clause inside its status paragraph is status text.
+    bold_status_clauses = {"ADR-069": "'**Superseded on 2026-11-24 …:**' amends the status"}
     adrs, errors = gdi.load_adrs(REPO)
     assert errors == []
-    checked = 0
+    checked, with_bold = 0, set()
     for adr in adrs:
         lines = adr.body.split("\n")
         start = next((i for i, line in enumerate(lines) if gdi.STATUS_RE.match(line)), None)
         if start is None:
             continue
         checked += 1
+        match = gdi.STATUS_RE.match(lines[start])
+        assert match is not None
+        parts = [match.group(1).strip()]
         for line in lines[start + 1:]:
-            if not line.strip():
+            if not line.strip() or gdi._FIELD_LINE_RE.match(line):
                 break
-            if line.strip() not in adr.status:
-                assert label.match(line), f"{adr.id}: status lost {line.strip()[:70]!r}"
-                break
+            if any_bold_label.match(line):
+                with_bold.add(adr.id)
+            parts.append(line.strip())
+        expected = " ".join(p for p in parts if p).split(" | **", 1)[0].strip()
+        assert adr.status == expected, adr.id
     assert checked >= 80
+    assert with_bold == set(bold_status_clauses)
 
 
 # --- fences and file names ------------------------------------------------------------------
