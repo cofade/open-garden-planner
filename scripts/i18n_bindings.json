@@ -232,7 +232,7 @@
         "trait_properties",
         "lifetime_properties"
       ],
-      "note": "Custom smart-symbol param names remain user data; literal command fragments and bounded trait/text labels are extracted from their actual callers."
+      "note": "Literal command fragments and bounded trait/text labels are extracted from their actual callers."
     },
     {
       "file": "core/object_types.py",

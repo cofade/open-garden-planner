@@ -799,6 +799,8 @@ class CircleItem(RotationHandleMixin, ResizeHandlesMixin, GardenItemMixin, QGrap
         # (the fill tile at the painter's resolution, #785)
         paint_shape(self, painter, option, widget, super().paint)
 
+        self.paint_ground_overlays(painter)
+
         # Crop-rotation status is a soil-bed diagnostic (#842).
         if is_bed_type(self.object_type) and self._rotation_status is not None:
             rotation_path = QPainterPath()

@@ -20,7 +20,7 @@ push commands from interaction handlers.
   destructive-conversion commands that store the original item for undo
   (`FilletCornerCommand`, ADR-022), one-step multi-item commands
   (`MirrorItemsCommand`, ADR-026), param-edit-as-`ChangePropertyCommand` with an
-  apply_func (smart symbols, ADR-032).
+  apply_func (a `ChangePropertyCommand` setter).
 - **D2 agent writes inherit all of this** (invariant 13): one MCP write call →
   one `run_on_main` hop → one command via `execute()`/`register_applied()`.
   Move/set-position reparenting uses one compound command since #635 (v1.34.4).

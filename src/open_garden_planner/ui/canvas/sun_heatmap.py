@@ -394,6 +394,15 @@ class SunContourLayerItem(QGraphicsPathItem):
         if painter is not None and self._lines:
             _paint_contour_lines(self, painter, self._lines, widget)
 
+    def paint_on_ground(self, painter: QPainter, _item: QGraphicsItem) -> None:
+        """Paint the hour lines on a ground surface above the layer (#1031).
+
+        Same body as the item's own paint: the painter is already in this
+        layer's frame (its paths are scene cm) and clipped to the surface.
+        """
+        if self._lines:
+            _paint_contour_lines(self, painter, self._lines, None)
+
 
 class StandingMask:
     """Where something stands on the plan: a raster of every drawn object that
@@ -466,6 +475,28 @@ class SunHeatmapOverlayItem(QGraphicsPixmapItem):
         # (rebuilding the image when the map changes is separate); contour and
         # label repaint overhead stays tracked on #852.
         self.setTransformationMode(Qt.TransformationMode.SmoothTransformation)
+
+    def paint_on_ground(self, painter: QPainter, _item: QGraphicsItem) -> None:
+        """Paint the map on a ground surface drawn above the overlay (#1031).
+
+        The caller (``CanvasScene.paint_ground_overlays``) has set the painter to
+        this item's frame and clipped it to the surface's cover. A bed grouped
+        with a solid is lifted above the map; it paints the overlapping part of
+        the map itself, exactly as if it had stayed on the ground.
+        """
+        pixmap = self.pixmap()
+        if pixmap.isNull():
+            return
+        painter.save()
+        try:
+            if self.transformationMode() == Qt.TransformationMode.SmoothTransformation:
+                painter.setRenderHint(QPainter.RenderHint.SmoothPixmapTransform, True)
+            opacity = self.opacity()
+            if opacity < 1.0:
+                painter.setOpacity(painter.opacity() * opacity)
+            painter.drawPixmap(self.offset(), pixmap)
+        finally:
+            painter.restore()
 
 
 class HeatmapWorker(QThread):
@@ -716,6 +747,7 @@ class SunHeatmapController(QObject):
         if overlay is not None:
             overlay.setVisible(False)
         self._clear_contours()
+        self._refresh_ground_overlays()
         self.exposure_changed.emit()
         if self._shown is not None:
             self._shown = None
@@ -790,6 +822,7 @@ class SunHeatmapController(QObject):
         overlay.setPos(grid.x0_cm, grid.y0_cm)
         overlay.setVisible(True)
         self._rebuild_contours(minutes, grid)
+        self._refresh_ground_overlays()
         self._success_seen = True
         self.displayed_snapshot = self.snapshot
         self.exposure_reason = "ready"
@@ -837,7 +870,16 @@ class SunHeatmapController(QObject):
             overlay = SunHeatmapOverlayItem()
             self._scene.addItem(overlay)
             self._overlay = overlay
+            register = getattr(self._scene, "register_ground_overlay", None)
+            if register is not None:
+                register(overlay)
         return overlay
+
+    def _refresh_ground_overlays(self) -> None:
+        """The map changed: repaint the surfaces drawn above it (#1031)."""
+        refresh = getattr(self._scene, "refresh_ground_overlays", None)
+        if refresh is not None:
+            refresh()
 
     # ── the key in a picture of the plan ────────────────────
 
@@ -898,6 +940,9 @@ class SunHeatmapController(QObject):
             except RuntimeError:  # C++ object already deleted by scene.clear()
                 continue
             if scene is not None:
+                unregister = getattr(scene, "unregister_ground_overlay", None)
+                if unregister is not None:
+                    unregister(item)
                 scene.removeItem(item)
         self._contour_items = []
 
@@ -957,6 +1002,9 @@ class SunHeatmapController(QObject):
         self._scene.addItem(layer)
         self._contour_items.append(layer)
         self._contour_layer = layer
+        register = getattr(self._scene, "register_ground_overlay", None)
+        if register is not None:
+            register(layer)
         # Seeded AFTER the items are added: a label or layer that enters the scene
         # moves the paint revision, and the first echo must not invalidate the cache.
         self._contour_paint_rev = getattr(self._scene, "paint_revision", None)
@@ -986,6 +1034,7 @@ class SunHeatmapController(QObject):
         try:
             if layer.scene() is not None:
                 layer.update()
+                self._refresh_ground_overlays()
         except RuntimeError:   # the C++ item is already gone
             self._contour_layer = None
 

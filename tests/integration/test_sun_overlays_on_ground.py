@@ -6,7 +6,9 @@ no height of its own — a lawn, a terrace, a driveway, a pond, a path, an in-gr
 bed (``core.object_height.lies_on_ground``), and a group made only of those — is now
 drawn in a band below the overlays (``canvas_scene.GROUND_Z_RANGE``), and everything
 else stays above them: solids, plants, objects without a height (a cold frame),
-generic shapes, annotations. Arrange works inside each band (``arrange.py``).
+generic shapes, annotations. Arrange works inside each band (``arrange.py``). A
+mixed group cannot be split across the band, so its surfaces paint the shadow and
+the map on themselves (#1031), clipped to their own cover.
 
 The pixels are the export pipeline's (``render_scene_region``): a shadow and the
 heatmap must change the lawn's pixels and leave the shed that casts them alone. The
@@ -21,11 +23,12 @@ from pathlib import Path
 
 import numpy as np
 import pytest
-from PyQt6.QtCore import QPointF, QRectF, Qt
-from PyQt6.QtGui import QImage, QPainter
+from PyQt6.QtCore import QPointF, QRect, QRectF, Qt
+from PyQt6.QtGui import QBrush, QColor, QImage, QPainter
 
 from open_garden_planner.core import ProjectManager
 from open_garden_planner.core.commands import ChangePropertyCommand, CreateItemCommand
+from open_garden_planner.core.fill_patterns import FillPattern
 from open_garden_planner.core.object_height import METADATA_KEY
 from open_garden_planner.core.object_types import ObjectType
 from open_garden_planner.models.layer import Layer
@@ -106,6 +109,96 @@ def _in_ground_band(item) -> bool:
     return low < item.zValue() < high
 
 
+def _view_patch(view: CanvasView, at: tuple[float, float], half: int = 5) -> np.ndarray:
+    """The mean colour of a small square of the LIVE viewport (not an export)."""
+    point = view.mapFromScene(QPointF(*at))
+    image = view.viewport().grab(
+        QRect(point.x() - half, point.y() - half, 2 * half, 2 * half)
+    ).toImage()
+    image = image.convertToFormat(QImage.Format.Format_RGB888)
+    data = np.frombuffer(image.constBits().asstring(image.sizeInBytes()), dtype=np.uint8)
+    pixels = data.reshape(image.height(), image.bytesPerLine())[:, : image.width() * 3]
+    return pixels.reshape(-1, 3).astype(float).mean(axis=0)
+
+
+def test_the_family_garden_bed_keeps_its_live_shadow_when_grouped(qtbot, monkeypatch) -> None:
+    from open_garden_planner.app.application import GardenPlannerApp
+    from open_garden_planner.ui.canvas.sun_shadow_controller import SunShadowOverlayItem
+
+    monkeypatch.setattr(GardenPlannerApp, "_startup_sequence", lambda _: None)
+    monkeypatch.setattr(GardenPlannerApp, "_start_update_check", lambda _: None)
+    window = GardenPlannerApp()
+    monkeypatch.setattr(window, "_confirm_discard_changes", lambda: True)
+    qtbot.addWidget(window)
+    window.resize(1100, 720)
+    window.show()
+    plan = (Path(__file__).parents[2]
+            / "src/open_garden_planner/resources/examples/de/family-garden.ogp")
+    window._load_project_file(str(plan))
+    view = window.canvas_view
+    scene = view.scene()
+    overlay = next(item for item in scene.items() if isinstance(item, SunShadowOverlayItem))
+    qtbot.waitUntil(lambda: overlay._picture_key is not None, timeout=3000)
+    view.set_zoom(0.8)
+    view.centerOn(QPointF(855, 681))
+    qtbot.waitUntil(lambda: overlay._picture_key is not None
+                    and overlay._picture_key[1][:1] == (0.8,), timeout=3000)
+
+    viewport = view.viewport()
+
+    def click(x: float, y: float, modifiers=Qt.KeyboardModifier.NoModifier) -> None:
+        qtbot.mouseClick(viewport, Qt.MouseButton.LeftButton, modifiers,
+                         view.mapFromScene(QPointF(x, y)))
+
+    # Exposed soil on both sides of the example's shadow boundary, away from
+    # the group frame, spacing rings and dimensions.
+    points = ((826, 705), (838, 659), (913, 701), (913, 663))
+    before = np.array([_view_patch(view, point, half=2) for point in points])
+    click(916, 681)
+    click(876, 681, Qt.KeyboardModifier.ControlModifier)  # Borage
+    click(958, 681, Qt.KeyboardModifier.ControlModifier)  # Pansy
+    assert len(scene.selectedItems()) == 3
+    view.group_selected()
+    (group,) = scene.selectedItems()
+    assert len([item for item in group.childItems() if hasattr(item, "item_id")]) == 3
+
+    first = np.array([_view_patch(view, point, half=2) for point in points])
+    scene.clearSelection()
+    click(876, 681)
+    assert scene.selectedItems() == [group]
+    again = np.array([_view_patch(view, point, half=2) for point in points])
+    assert np.abs(first - before).max() < 3, (before, first)
+    assert np.abs(again - before).max() < 3, (before, again)
+
+
+def test_a_moved_group_resamples_its_beds_cached_shadow(view, qtbot) -> None:
+    from open_garden_planner.core.commands import GroupCommand
+
+    scene = view.scene()
+    view.resize(600, 500)
+    view.show()
+    view.centerOn(scene.canvas_rect.center())
+    _shed(view)
+    _lawn(view)
+    layer = scene.active_layer.id
+    bed = RectangleItem(200, 180, 80, 80, object_type=ObjectType.GARDEN_BED, layer_id=layer)
+    note = TextItem(430, 360, "A note", layer_id=layer)
+    for item in (bed, note):
+        _add(view, item)
+    controller = SunShadowController(scene, lambda: BERLIN)
+    controller.set_sim_datetime(JUNE_NOON_UTC)
+    controller.set_enabled(True)
+    view.command_manager.execute(GroupCommand(scene, [bed, note]))
+    scene.clearSelection()
+    group = bed.parentItem()
+    assert group is not None
+    shaded = _view_patch(view, (235, 215), half=3)
+
+    group.moveBy(100, 0)
+    sunny = _view_patch(view, (335, 215), half=3)
+    assert sunny[0] - shaded[0] > 20, (shaded, sunny)
+
+
 class TestTheShadowLiesOnTheLawn:
     def test_a_shadow_darkens_the_lawn_and_leaves_the_shed_alone(self, view) -> None:
         scene = view.scene()
@@ -161,6 +254,49 @@ class TestTheShadowLiesOnTheLawn:
             assert np.abs(_patch(shown, IN_ITS_SHADOW) - _patch(hidden, IN_ITS_SHADOW)).sum() > 10.0
             roof = np.abs(_patch(shown, ON_THE_SHED, 3) - _patch(hidden, ON_THE_SHED, 3))
             assert roof.max() < 1.0, "the shed stands above the map"
+        finally:
+            heatmap.shutdown()
+
+    def test_the_hours_of_sun_lie_on_a_bed_grouped_with_a_solid(self, view, qtbot) -> None:
+        """The map is painted by the bed itself when a group lifts it above the
+        overlays (#1031) — a grouped bed must not lose the hours of sun."""
+        from open_garden_planner.core.commands import GroupCommand
+
+        scene = view.scene()
+        _shed(view)
+        _lawn(view)
+        bed = RectangleItem(200, 180, 80, 40, object_type=ObjectType.GARDEN_BED,
+                            layer_id=scene.active_layer.id)
+        table = RectangleItem(300, 300, 40, 40, object_type=ObjectType.TABLE_RECTANGULAR,
+                              layer_id=scene.active_layer.id)
+        for item in (bed, table):
+            _add(view, item)
+        view.command_manager.execute(GroupCommand(scene, [bed, table]))
+        heatmap = SunHeatmapController(scene, lambda: BERLIN)
+        try:
+            assert heatmap.run_for_day(date(2026, 6, 21))
+            qtbot.waitUntil(lambda: heatmap.result() is not None and not heatmap.result_pending,
+                            timeout=60000)
+            from open_garden_planner.ui.canvas.sun_heatmap import (
+                SunContourLayerItem,
+                SunHeatmapOverlayItem,
+            )
+
+            assert any(isinstance(item, SunHeatmapOverlayItem)
+                       for item in scene._ground_overlays)
+            assert any(isinstance(item, SunContourLayerItem)
+                       for item in scene._ground_overlays)
+            shown = _render(scene)
+            heatmap._overlay.setVisible(False)
+            for line in heatmap._contour_items:
+                line.setVisible(False)
+            scene.refresh_ground_overlays()
+            hidden = _render(scene)
+            bed_tint = np.abs(_patch(shown, (250.0, 200.0)) - _patch(hidden, (250.0, 200.0)))
+            assert bed_tint.sum() > 10.0, f"the grouped bed lost the map ({bed_tint})"
+            table_tint = np.abs(_patch(shown, (320.0, 320.0), 3)
+                                - _patch(hidden, (320.0, 320.0), 3))
+            assert table_tint.max() < 1.0, "the table stands above the map"
         finally:
             heatmap.shutdown()
 
@@ -242,6 +378,316 @@ class TestTheGroundBand:
                             object_type=ObjectType.PATH, layer_id=scene.active_layer.id)
         _add(view, later)
         assert later.zValue() < -500.0 < mixed.zValue()
+
+    def test_a_bed_grouped_with_its_planted_plant_paints_the_overlays_itself(
+            self, view) -> None:
+        """A bed grouped with the plants rooted in it is ONE z slot (#1031).
+
+        A mixed group stays in its layer's band, above the sun-study overlays;
+        the bed therefore paints the overlays on itself (clipped to its cover),
+        so its soil keeps the shade and the grouped plants, drawn after it,
+        stay bright. The pixel test below pins both halves.
+        """
+        from open_garden_planner.core.commands import GroupCommand
+
+        scene = view.scene()
+        bed = RectangleItem(200, 180, 80, 40, object_type=ObjectType.GARDEN_BED,
+                            layer_id=scene.active_layer.id)
+        plant = CircleItem(220, 200, 15, object_type=ObjectType.PERENNIAL,
+                           layer_id=scene.active_layer.id)
+        plant.parent_bed_id = bed.item_id
+        for item in (bed, plant):
+            _add(view, item)
+        view.command_manager.execute(GroupCommand(scene, [bed, plant]))
+        group = bed.parentItem()
+        assert group is not None and group.zValue() >= 0.0
+        assert group.zValue() > -500.0, "the group is above the shadow overlay"
+        assert bed.object_type is ObjectType.GARDEN_BED  # and still a ground surface
+
+    def test_a_bed_grouped_with_its_plant_still_receives_the_shadow(self, view) -> None:
+        """The pixels, not only the band: grouping must not lift the soil out."""
+        from open_garden_planner.core.commands import GroupCommand
+
+        scene = view.scene()
+        _shed(view)   # (200, 100) 200 cm tall; its noon shadow reaches (235, 200)
+        _lawn(view)
+        bed = RectangleItem(200, 180, 80, 40, object_type=ObjectType.GARDEN_BED,
+                            layer_id=scene.active_layer.id)
+        plant = CircleItem(215, 185, 10, object_type=ObjectType.PERENNIAL,
+                           layer_id=scene.active_layer.id)
+        plant.parent_bed_id = bed.item_id
+        for item in (bed, plant):
+            _add(view, item)
+        view.command_manager.execute(GroupCommand(scene, [bed, plant]))
+        controller = SunShadowController(scene, lambda: BERLIN)
+        before = _render(scene)
+        controller.set_enabled(True)
+        controller.set_sim_datetime(JUNE_NOON_UTC)
+        after = _render(scene)
+        shaded = _patch(before, (250.0, 200.0)) - _patch(after, (250.0, 200.0))
+        assert shaded.sum() > 30.0, f"the grouped bed did not receive the shadow ({shaded})"
+        crown = np.abs(_patch(before, (215.0, 185.0), 3) - _patch(after, (215.0, 185.0), 3))
+        assert crown.max() < 1.0, f"the grouped plant was tinted by the ground shadow ({crown})"
+
+    def test_a_bed_grouped_with_a_plant_of_another_parent_keeps_the_shadow(
+            self, view) -> None:
+        """The owner's second grouping (#1031): the bed and a plant of a planter
+        outside it. The bed must keep its shade, and the planter's plant — drawn
+        after the bed in the same group — must stay bright."""
+        from open_garden_planner.core.commands import GroupCommand
+
+        scene = view.scene()
+        _shed(view)
+        _lawn(view)
+        bed = RectangleItem(200, 180, 80, 40, object_type=ObjectType.GARDEN_BED,
+                            layer_id=scene.active_layer.id)
+        planter = CircleItem(240, 240, 15, object_type=ObjectType.CONTAINER_ROUND,
+                             layer_id=scene.active_layer.id)
+        plant = CircleItem(240, 240, 10, object_type=ObjectType.PERENNIAL,
+                           layer_id=scene.active_layer.id)
+        for item in (bed, planter, plant):
+            _add(view, item)
+        plant.parent_bed_id = planter.item_id
+        view.command_manager.execute(GroupCommand(scene, [bed, plant]))
+        controller = SunShadowController(scene, lambda: BERLIN)
+        before = _render(scene)
+        controller.set_enabled(True)
+        controller.set_sim_datetime(JUNE_NOON_UTC)
+        after = _render(scene)
+        shaded = _patch(before, (250.0, 200.0)) - _patch(after, (250.0, 200.0))
+        assert shaded.sum() > 30.0, f"the grouped bed lost its shadow ({shaded})"
+        crown = np.abs(_patch(before, (240.0, 240.0), 3) - _patch(after, (240.0, 240.0), 3))
+        assert crown.max() < 1.0, f"the planter's plant was tinted by the shade ({crown})"
+
+    def test_grouping_and_ungrouping_return_the_same_pixels(self, view) -> None:
+        """No clipped-shade halo survives the group (#1031).
+
+        The first cut cut the grouped plants out of the shade; the hole was still
+        there after ungrouping — a bright ring around every plant. The surface
+        now paints the shade on itself, so an ungrouped plan is byte-identical
+        to what it was before the group was made.
+        """
+        from open_garden_planner.core.commands import GroupCommand, UngroupCommand
+
+        scene = view.scene()
+        _shed(view)
+        _lawn(view)
+        bed = RectangleItem(200, 180, 80, 40, object_type=ObjectType.GARDEN_BED,
+                            layer_id=scene.active_layer.id)
+        plant = CircleItem(220, 200, 12, object_type=ObjectType.PERENNIAL,
+                           layer_id=scene.active_layer.id)
+        plant.parent_bed_id = bed.item_id
+        for item in (bed, plant):
+            _add(view, item)
+        controller = SunShadowController(scene, lambda: BERLIN)
+        controller.set_enabled(True)
+        controller.set_sim_datetime(JUNE_NOON_UTC)
+        before = _render(scene)
+
+        view.command_manager.execute(GroupCommand(scene, [bed, plant]))
+        grouped = _render(scene)
+        soil = np.abs(_patch(grouped, (250.0, 200.0)) - _patch(before, (250.0, 200.0)))
+        assert soil.max() < 1.0, f"the grouped soil changed shade ({soil})"
+
+        view.command_manager.execute(UngroupCommand(scene, bed.parentItem()))
+        after = _render(scene)
+        changed = np.abs(after.astype(int) - before.astype(int)).sum(axis=2)
+        assert int((changed > 8).sum()) <= 8, (
+            f"ungrouping left {int((changed > 8).sum())} changed pixels, "
+            "a shade hole around the plants"
+        )
+
+    def test_the_live_canvas_repaints_a_grouped_bed_when_the_shadow_switches(
+            self, view, qtbot) -> None:
+        """A grouped bed's own paint reads the shadow (#1031): switching the
+        overlay must invalidate that bed's cache, not only the overlay's."""
+        from open_garden_planner.core.commands import GroupCommand
+
+        scene = view.scene()
+        view.resize(600, 500)
+        view.show()
+        view.scale(3, 3)
+        _shed(view)
+        _lawn(view)
+        # Straddles the shed's noon shadow boundary (~y=275): the south strip is
+        # shaded, the north one sunny — a flipped shade picture would swap them.
+        bed = RectangleItem(200, 245, 80, 40, object_type=ObjectType.GARDEN_BED,
+                            layer_id=scene.active_layer.id)
+        plant = CircleItem(220, 255, 12, object_type=ObjectType.PERENNIAL,
+                           layer_id=scene.active_layer.id)
+        plant.parent_bed_id = bed.item_id
+        for item in (bed, plant):
+            _add(view, item)
+        view.centerOn(QPointF(250.0, 270.0))
+        controller = SunShadowController(scene, lambda: BERLIN)
+        controller.set_enabled(True)
+        controller.set_sim_datetime(JUNE_NOON_UTC)
+        qtbot.wait(300)
+        from open_garden_planner.ui.canvas.sun_shadow_controller import (
+            SunShadowOverlayItem,
+        )
+
+        overlay = next(
+            item for item in scene.items() if isinstance(item, SunShadowOverlayItem)
+        )
+        assert overlay._picture is not None, (
+            "the overlay kept no picture: this test would only exercise the exact path"
+        )
+        shaded_points = ((250.0, 250.0), (250.0, 280.0))
+        ungrouped = [_view_patch(view, point) for point in shaded_points]
+
+        view.command_manager.execute(GroupCommand(scene, [bed, plant]))
+        qtbot.wait(300)
+        grouped = [_view_patch(view, point) for point in shaded_points]
+        for point, before, after in zip(shaded_points, ungrouped, grouped, strict=True):
+            assert np.abs(after - before).max() < 3.0, (
+                f"the grouped bed changed shade at {point} ({before} -> {after})"
+            )
+
+        controller.set_enabled(False)
+        qtbot.wait(300)
+        sunny = _view_patch(view, shaded_points[0])
+        assert sunny.sum() - ungrouped[0].sum() > 30.0, (
+            f"the grouped bed kept the shade after it was switched off "
+            f"({ungrouped[0]} -> {sunny})"
+        )
+
+        controller.set_enabled(True)
+        qtbot.wait(300)
+        again = _view_patch(view, shaded_points[0])
+        assert np.abs(again - ungrouped[0]).max() < 3.0, (
+            f"the grouped bed did not repaint when the shade came back ({again})"
+        )
+
+    def test_a_bed_grouped_with_an_unrelated_solid_stays_above_the_overlays(self, view) -> None:
+        from open_garden_planner.core.commands import GroupCommand
+
+        scene = view.scene()
+        bed = RectangleItem(200, 180, 80, 40, object_type=ObjectType.GARDEN_BED,
+                            layer_id=scene.active_layer.id)
+        plant = CircleItem(220, 200, 15, object_type=ObjectType.PERENNIAL,
+                           layer_id=scene.active_layer.id)
+        plant.parent_bed_id = bed.item_id
+        table = RectangleItem(300, 300, 40, 40, object_type=ObjectType.TABLE_RECTANGULAR,
+                              layer_id=scene.active_layer.id)
+        for item in (bed, plant, table):
+            _add(view, item)
+        view.command_manager.execute(GroupCommand(scene, [bed, plant, table]))
+        group = bed.parentItem()
+        assert group is not None and group.zValue() >= 0.0
+
+    @pytest.mark.parametrize("alpha", (0, 128))
+    def test_a_translucent_bed_grouped_with_its_plant_keeps_one_shadow(self, view, alpha) -> None:
+        from open_garden_planner.core.commands import GroupCommand
+
+        scene = view.scene()
+        _shed(view)
+        _lawn(view)
+        layer = scene.active_layer.id
+        bed = RectangleItem(200, 245, 80, 40, object_type=ObjectType.GARDEN_BED,
+                            layer_id=layer)
+        tint = QColor(170, 100, 50, alpha)
+        bed.fill_pattern = FillPattern.SOLID
+        bed.fill_color = tint
+        bed.setBrush(QBrush(tint))
+        plant = CircleItem(220, 255, 12, object_type=ObjectType.PERENNIAL, layer_id=layer)
+        plant.parent_bed_id = bed.item_id
+        bed.add_child_id(plant.item_id)
+        for item in (bed, plant):
+            _add(view, item)
+        controller = SunShadowController(scene, lambda: BERLIN)
+        controller.set_sim_datetime(JUNE_NOON_UTC)
+        controller.set_enabled(True)
+        point = (250.0, 250.0)
+        before = _patch(_render(scene), point)
+
+        view.command_manager.execute(GroupCommand(scene, [bed, plant]))
+        controller.recompute_now()
+        assert _in_ground_band(bed.parentItem())
+        after = _patch(_render(scene), point)
+        assert np.abs(after - before).max() < 3, (before, after)
+
+    def test_layer_opacity_preview_restacks_a_planted_group(self, view) -> None:
+        from open_garden_planner.core.commands import GroupCommand
+
+        scene = view.scene()
+        layer = scene.active_layer
+        bed = RectangleItem(100, 100, 100, 100, object_type=ObjectType.GARDEN_BED,
+                            layer_id=layer.id)
+        plant = CircleItem(120, 120, 10, object_type=ObjectType.PERENNIAL, layer_id=layer.id)
+        plant.parent_bed_id = bed.item_id
+        bed.add_child_id(plant.item_id)
+        for item in (bed, plant):
+            _add(view, item)
+        view.command_manager.execute(GroupCommand(scene, [bed, plant]))
+        group = bed.parentItem()
+        assert group is not None and not _in_ground_band(group)
+
+        scene.preview_layer_opacity(layer.id, 0.25)
+        assert _in_ground_band(group)
+        scene.preview_layer_opacity(layer.id, 1.0)
+        assert not _in_ground_band(group)
+
+    def test_a_dense_planted_bed_keeps_its_shadow_in_export(self, view) -> None:
+        from open_garden_planner.core.commands import GroupCommand
+        from open_garden_planner.ui.canvas.geometry_apply import build_add_vertex_command
+        from open_garden_planner.ui.canvas.items.polygon_item import MAX_FULL_DETAIL_VERTICES
+
+        scene = view.scene()
+        layer = scene.active_layer.id
+        ring = np.linspace(0, 2 * np.pi, MAX_FULL_DETAIL_VERTICES, endpoint=False)
+        bed = PolygonItem(
+            [QPointF(200 + 70 * np.cos(angle), 200 + 70 * np.sin(angle)) for angle in ring],
+            object_type=ObjectType.GARDEN_BED,
+            layer_id=layer,
+        )
+        plant = CircleItem(180, 180, 10, object_type=ObjectType.PERENNIAL, layer_id=layer)
+        plant.parent_bed_id = bed.item_id
+        bed.add_child_id(plant.item_id)
+        for item in (bed, plant):
+            _add(view, item)
+        controller = SunShadowController(scene, lambda: BERLIN)
+        controller.set_sim_datetime(JUNE_NOON_UTC.replace(hour=0))
+        controller.set_enabled(True)
+        point = (220.0, 220.0)
+        before = _patch(_render(scene), point)
+
+        view.command_manager.execute(GroupCommand(scene, [bed, plant]))
+        group = bed.parentItem()
+        assert group is not None and not _in_ground_band(group)
+        vertices = bed.polygon()
+        midpoint = (vertices[0] + vertices[1]) / 2
+        view.command_manager.execute(build_add_vertex_command(bed, 1, midpoint))
+        controller.recompute_now()
+        assert _in_ground_band(group)
+        after = _patch(_render(scene), point)
+        assert np.abs(after - before).max() < 3, (before, after)
+
+        view.command_manager.undo()
+        assert not _in_ground_band(group)
+
+    def test_an_ungrouped_plant_stays_above_its_bed_in_a_nested_group(self, view) -> None:
+        from open_garden_planner.core.commands import GroupCommand
+
+        scene = view.scene()
+        layer = scene.active_layer.id
+        bed = RectangleItem(100, 100, 120, 100, object_type=ObjectType.GARDEN_BED, layer_id=layer)
+        other_bed = RectangleItem(280, 100, 120, 100, object_type=ObjectType.GARDEN_BED,
+                                  layer_id=layer)
+        inside = CircleItem(130, 140, 14, object_type=ObjectType.PERENNIAL, layer_id=layer)
+        outside = CircleItem(185, 140, 14, object_type=ObjectType.PERENNIAL, layer_id=layer)
+        for plant in (inside, outside):
+            plant.parent_bed_id = bed.item_id
+            bed.add_child_id(plant.item_id)
+        for item in (bed, other_bed, inside, outside):
+            _add(view, item)
+        view.command_manager.execute(GroupCommand(scene, [bed, inside]))
+        inner = bed.parentItem()
+        assert inner is not None
+        view.command_manager.execute(GroupCommand(scene, [inner, other_bed]))
+        outer = inner.parentItem()
+        assert outer is not None
+        assert outside.parentItem() is None and outside.zValue() > outer.zValue() >= 0.0
 
     def test_the_layer_order_holds_among_ground_surfaces_across_layers(self, view) -> None:
         scene = view.scene()

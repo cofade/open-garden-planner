@@ -569,68 +569,68 @@
             <translation type="vanished">Здание и его конёк нельзя разделить</translation>
         </message>
         <message>
-            <location filename="../../ui/canvas/canvas_view.py" line="5549" />
+            <location filename="../../ui/canvas/canvas_view.py" line="5607" />
             <source>A constrained member or group cannot be moved while drilled down</source>
             <translation>Элемент или группа с ограничениями не могут перемещаться в режиме детализации</translation>
         </message>
         <message>
-            <location filename="../../ui/canvas/canvas_view.py" line="5939" />
-            <location filename="../../ui/canvas/canvas_view.py" line="5954" />
+            <location filename="../../ui/canvas/canvas_view.py" line="6028" />
+            <location filename="../../ui/canvas/canvas_view.py" line="6043" />
             <source>A constrained shape cannot be split</source>
             <translation>Форму с ограничениями нельзя разделить</translation>
         </message>
         <message>
-            <location filename="../../ui/canvas/canvas_view.py" line="6094" />
+            <location filename="../../ui/canvas/canvas_view.py" line="6183" />
             <source>All shapes must be on the same layer</source>
             <translation>Все фигуры должны быть на одном слое</translation>
         </message>
         <message>
-            <location filename="../../ui/canvas/canvas_view.py" line="6372" />
+            <location filename="../../ui/canvas/canvas_view.py" line="6461" />
             <source>Already at back</source>
             <translation>Уже на заднем плане</translation>
         </message>
         <message>
-            <location filename="../../ui/canvas/canvas_view.py" line="6371" />
+            <location filename="../../ui/canvas/canvas_view.py" line="6460" />
             <source>Already at front</source>
             <translation>Уже на переднем плане</translation>
         </message>
         <message>
-            <location filename="../../ui/canvas/canvas_view.py" line="2301" />
+            <location filename="../../ui/canvas/canvas_view.py" line="2305" />
             <source>Angle</source>
             <translation>Угол</translation>
         </message>
         <message>
-            <location filename="../../ui/canvas/canvas_view.py" line="6230" />
+            <location filename="../../ui/canvas/canvas_view.py" line="6319" />
             <source>Applied boolean {op}</source>
             <translation>Применена булева операция {op}</translation>
         </message>
         <message>
-            <location filename="../../ui/canvas/canvas_view.py" line="6188" />
+            <location filename="../../ui/canvas/canvas_view.py" line="6277" />
             <source>Apply boolean {op}?</source>
             <translation>Применить булеву операцию {op}?</translation>
         </message>
         <message>
-            <location filename="../../ui/canvas/canvas_view.py" line="728" />
+            <location filename="../../ui/canvas/canvas_view.py" line="732" />
             <source>BBQ/Grill</source>
             <translation>Мангал/Гриль</translation>
         </message>
         <message>
-            <location filename="../../ui/canvas/canvas_view.py" line="710" />
+            <location filename="../../ui/canvas/canvas_view.py" line="714" />
             <source>Bench</source>
             <translation>Скамейка</translation>
         </message>
         <message>
-            <location filename="../../ui/canvas/canvas_view.py" line="758" />
+            <location filename="../../ui/canvas/canvas_view.py" line="762" />
             <source>Bird Bath</source>
             <translation>Купалка для птиц</translation>
         </message>
         <message>
-            <location filename="../../ui/canvas/canvas_view.py" line="6075" />
+            <location filename="../../ui/canvas/canvas_view.py" line="6164" />
             <source>Boolean operations refuse plants, linked objects, constraints, and locked layers</source>
             <translation>Булевы операции не поддерживают растения, связанные объекты, ограничения и заблокированные слои</translation>
         </message>
         <message>
-            <location filename="../../ui/canvas/canvas_view.py" line="6117" />
+            <location filename="../../ui/canvas/canvas_view.py" line="6206" />
             <source>Boolean operations require closed shapes (polygon, rectangle, circle, or ellipse)</source>
             <translation>Булевы операции требуют замкнутых фигур (полигон, прямоугольник, круг или эллипс)</translation>
         </message>
@@ -639,17 +639,17 @@
             <translation type="vanished">Для булевых операций требуются замкнутые фигуры (многоугольник, прямоугольник или окружность)</translation>
         </message>
         <message>
-            <location filename="../../ui/canvas/canvas_view.py" line="6187" />
+            <location filename="../../ui/canvas/canvas_view.py" line="6276" />
             <source>Boolean {op}</source>
             <translation>Булева операция {op}</translation>
         </message>
         <message>
-            <location filename="../../ui/canvas/canvas_view.py" line="6159" />
+            <location filename="../../ui/canvas/canvas_view.py" line="6248" />
             <source>Boolean {op} produced an empty result</source>
             <translation>Булева операция {op} дала пустой результат</translation>
         </message>
         <message>
-            <location filename="../../ui/canvas/canvas_view.py" line="709" />
+            <location filename="../../ui/canvas/canvas_view.py" line="713" />
             <source>Chair</source>
             <translation>Стул</translation>
         </message>
@@ -658,32 +658,32 @@
             <translation type="vanished">Щёлкните замкнутую форму для разделения</translation>
         </message>
         <message>
-            <location filename="../../ui/canvas/canvas_view.py" line="5994" />
+            <location filename="../../ui/canvas/canvas_view.py" line="6083" />
             <source>Click the first point of the cutting line. Esc cancels.</source>
             <translation>Щёлкните первую точку линии разреза. Esc отменяет.</translation>
         </message>
         <message>
-            <location filename="../../ui/canvas/canvas_view.py" line="2306" />
+            <location filename="../../ui/canvas/canvas_view.py" line="2310" />
             <source>Coincident</source>
             <translation>Совпадение</translation>
         </message>
         <message>
-            <location filename="../../ui/canvas/canvas_view.py" line="744" />
+            <location filename="../../ui/canvas/canvas_view.py" line="748" />
             <source>Cold Frame</source>
             <translation>Холодный парник</translation>
         </message>
         <message>
-            <location filename="../../ui/canvas/canvas_view.py" line="743" />
+            <location filename="../../ui/canvas/canvas_view.py" line="747" />
             <source>Compost Bin</source>
             <translation>Компостный ящик</translation>
         </message>
         <message>
-            <location filename="../../ui/canvas/canvas_view.py" line="771" />
+            <location filename="../../ui/canvas/canvas_view.py" line="775" />
             <source>Container</source>
             <translation>Контейнер</translation>
         </message>
         <message>
-            <location filename="../../ui/canvas/clipboard_operations.py" line="216" />
+            <location filename="../../ui/canvas/clipboard_operations.py" line="283" />
             <source>Copied {count} item(s)</source>
             <translation>Скопировано {count} объект(ов)</translation>
         </message>
@@ -697,22 +697,22 @@
             <translation>Параллельная линия создана на расстоянии {dist}</translation>
         </message>
         <message>
-            <location filename="../../ui/canvas/clipboard_operations.py" line="967" />
+            <location filename="../../ui/canvas/clipboard_operations.py" line="1002" />
             <source>Created array of {count} items along path</source>
             <translation>Создан массив из {count} объектов вдоль пути</translation>
         </message>
         <message>
-            <location filename="../../ui/canvas/clipboard_operations.py" line="831" />
+            <location filename="../../ui/canvas/clipboard_operations.py" line="866" />
             <source>Created circular array of {count} items</source>
             <translation>Создан круговой массив из {count} объектов</translation>
         </message>
         <message>
-            <location filename="../../ui/canvas/clipboard_operations.py" line="709" />
+            <location filename="../../ui/canvas/clipboard_operations.py" line="744" />
             <source>Created grid array of {count} items ({rows}×{cols})</source>
             <translation>Создан сетчатый массив из {count} объектов ({rows}×{cols})</translation>
         </message>
         <message>
-            <location filename="../../ui/canvas/clipboard_operations.py" line="553" />
+            <location filename="../../ui/canvas/clipboard_operations.py" line="588" />
             <source>Created linear array of {count} items</source>
             <translation>Создан линейный массив из {count} объектов</translation>
         </message>
@@ -726,112 +726,112 @@
             <translation>Создано смещение {dir} на {dist}</translation>
         </message>
         <message>
-            <location filename="../../ui/canvas/clipboard_operations.py" line="234" />
+            <location filename="../../ui/canvas/clipboard_operations.py" line="301" />
             <source>Cut {count} item(s)</source>
             <translation>Вырезано {count} объект(ов)</translation>
         </message>
         <message>
-            <location filename="../../ui/canvas/canvas_view.py" line="3996" />
+            <location filename="../../ui/canvas/canvas_view.py" line="4013" />
             <source>Delete Bed</source>
             <translation>Удалить грядку</translation>
         </message>
         <message>
-            <location filename="../../ui/canvas/canvas_view.py" line="4003" />
+            <location filename="../../ui/canvas/canvas_view.py" line="4020" />
             <source>Delete bed and plants</source>
             <translation>Удалить грядку и растения</translation>
         </message>
         <message>
-            <location filename="../../ui/canvas/canvas_view.py" line="2295" />
+            <location filename="../../ui/canvas/canvas_view.py" line="2299" />
             <source>Distance</source>
             <translation>Расстояние</translation>
         </message>
         <message>
-            <location filename="../../ui/canvas/canvas_view.py" line="5046" />
+            <location filename="../../ui/canvas/canvas_view.py" line="5100" />
             <source>Distance in cm</source>
             <translation>Расстояние в см</translation>
         </message>
         <message>
-            <location filename="../../ui/canvas/canvas_view.py" line="6286" />
+            <location filename="../../ui/canvas/canvas_view.py" line="6375" />
             <source>Distance must be positive</source>
             <translation>Расстояние должно быть положительным</translation>
         </message>
         <message>
-            <location filename="../../ui/canvas/canvas_view.py" line="5047" />
+            <location filename="../../ui/canvas/canvas_view.py" line="5101" />
             <source>Distance, e.g. 12' 6"</source>
             <translation>Расстояние, например 12' 6"</translation>
         </message>
         <message>
-            <location filename="../../ui/canvas/canvas_view.py" line="624" />
+            <location filename="../../ui/canvas/canvas_view.py" line="628" />
             <source>Driveway</source>
             <translation>Подъездная дорога</translation>
         </message>
         <message>
-            <location filename="../../ui/canvas/clipboard_operations.py" line="427" />
+            <location filename="../../ui/canvas/clipboard_operations.py" line="462" />
             <source>Duplicated {count} item(s)</source>
             <translation>Дублировано {count} объект(ов)</translation>
         </message>
         <message>
-            <location filename="../../ui/canvas/canvas_view.py" line="2296" />
+            <location filename="../../ui/canvas/canvas_view.py" line="2300" />
             <source>Edge length</source>
             <translation>Длина ребра</translation>
         </message>
         <message>
-            <location filename="../../ui/canvas/canvas_view.py" line="2304" />
+            <location filename="../../ui/canvas/canvas_view.py" line="2308" />
             <source>Equal</source>
             <translation>Равно</translation>
         </message>
         <message>
-            <location filename="../../ui/canvas/canvas_view.py" line="655" />
+            <location filename="../../ui/canvas/canvas_view.py" line="659" />
             <source>Fence</source>
             <translation>Забор</translation>
         </message>
         <message>
-            <location filename="../../ui/canvas/canvas_view.py" line="729" />
+            <location filename="../../ui/canvas/canvas_view.py" line="733" />
             <source>Fire Pit</source>
             <translation>Костровая чаша</translation>
         </message>
         <message>
-            <location filename="../../ui/canvas/canvas_view.py" line="2305" />
+            <location filename="../../ui/canvas/canvas_view.py" line="2309" />
             <source>Fixed</source>
             <translation>Фиксировано</translation>
         </message>
         <message>
-            <location filename="../../ui/canvas/canvas_view.py" line="613" />
+            <location filename="../../ui/canvas/canvas_view.py" line="617" />
             <source>Garage/Shed</source>
             <translation>Гараж/Сарай</translation>
         </message>
         <message>
-            <location filename="../../ui/canvas/canvas_view.py" line="640" />
+            <location filename="../../ui/canvas/canvas_view.py" line="644" />
             <source>Garden Bed</source>
             <translation>Грядка</translation>
         </message>
         <message>
-            <location filename="../../ui/canvas/canvas_view.py" line="732" />
+            <location filename="../../ui/canvas/canvas_view.py" line="736" />
             <source>Garden Light</source>
             <translation>Садовый фонарь</translation>
         </message>
         <message>
-            <location filename="../../ui/canvas/canvas_view.py" line="635" />
+            <location filename="../../ui/canvas/canvas_view.py" line="639" />
             <source>Greenhouse</source>
             <translation>Теплица</translation>
         </message>
         <message>
-            <location filename="../../ui/canvas/canvas_view.py" line="5828" />
+            <location filename="../../ui/canvas/canvas_view.py" line="5895" />
             <source>Grouped {n} items</source>
             <translation>Сгруппировано {n} объектов</translation>
         </message>
         <message>
-            <location filename="../../ui/canvas/canvas_view.py" line="5195" />
+            <location filename="../../ui/canvas/canvas_view.py" line="5249" />
             <source>Guide position</source>
             <translation>Позиция направляющей</translation>
         </message>
         <message>
-            <location filename="../../ui/canvas/canvas_view.py" line="716" />
+            <location filename="../../ui/canvas/canvas_view.py" line="720" />
             <source>Hammock</source>
             <translation>Гамак</translation>
         </message>
         <message>
-            <location filename="../../ui/canvas/canvas_view.py" line="699" />
+            <location filename="../../ui/canvas/canvas_view.py" line="703" />
             <source>Hedge</source>
             <translation>Живая изгородь</translation>
         </message>
@@ -840,89 +840,89 @@
             <translation type="vanished">Секция живой изгороди</translation>
         </message>
         <message>
-            <location filename="../../ui/canvas/canvas_view.py" line="2297" />
+            <location filename="../../ui/canvas/canvas_view.py" line="2301" />
             <source>Horizontal</source>
             <translation>Горизонтально</translation>
         </message>
         <message>
-            <location filename="../../ui/canvas/canvas_view.py" line="2299" />
+            <location filename="../../ui/canvas/canvas_view.py" line="2303" />
             <source>Horizontal distance</source>
             <translation>Горизонтальное расстояние</translation>
         </message>
         <message>
-            <location filename="../../ui/canvas/canvas_view.py" line="2307" />
+            <location filename="../../ui/canvas/canvas_view.py" line="2311" />
             <source>Horizontal symmetry</source>
             <translation>Горизонтальная симметрия</translation>
         </message>
         <message>
-            <location filename="../../ui/canvas/canvas_view.py" line="713" />
+            <location filename="../../ui/canvas/canvas_view.py" line="717" />
             <source>Hot Tub</source>
             <translation>Горячая купель</translation>
         </message>
         <message>
-            <location filename="../../ui/canvas/canvas_view.py" line="607" />
+            <location filename="../../ui/canvas/canvas_view.py" line="611" />
             <source>House</source>
             <translation>Дом</translation>
         </message>
         <message>
-            <location filename="../../ui/canvas/canvas_view.py" line="2928" />
+            <location filename="../../ui/canvas/canvas_view.py" line="2932" />
             <source>Import Background Image...</source>
             <translation>Импортировать фоновое изображение…</translation>
         </message>
         <message>
-            <location filename="../../ui/canvas/canvas_view.py" line="6290" />
+            <location filename="../../ui/canvas/canvas_view.py" line="6379" />
             <source>Invalid distance. Enter a length such as 12' 6" or 150 in.</source>
             <translation>Недопустимое расстояние. Введите длину, например 12' 6" или 150 in.</translation>
         </message>
         <message>
-            <location filename="../../ui/canvas/canvas_view.py" line="6289" />
+            <location filename="../../ui/canvas/canvas_view.py" line="6378" />
             <source>Invalid distance. Enter a number in centimeters.</source>
             <translation>Некорректное расстояние. Введите число в сантиметрах.</translation>
         </message>
         <message>
-            <location filename="../../ui/canvas/canvas_view.py" line="4007" />
+            <location filename="../../ui/canvas/canvas_view.py" line="4024" />
             <source>Keep plants</source>
             <translation>Оставить растения</translation>
         </message>
         <message>
-            <location filename="../../ui/canvas/canvas_view.py" line="649" />
+            <location filename="../../ui/canvas/canvas_view.py" line="653" />
             <source>Lawn</source>
             <translation>Газон</translation>
         </message>
         <message>
-            <location filename="../../ui/canvas/canvas_view.py" line="711" />
+            <location filename="../../ui/canvas/canvas_view.py" line="715" />
             <source>Lounger</source>
             <translation>Шезлонг</translation>
         </message>
         <message>
-            <location filename="../../ui/canvas/canvas_view.py" line="5398" />
+            <location filename="../../ui/canvas/canvas_view.py" line="5452" />
             <source>N</source>
             <translation>С</translation>
         </message>
         <message>
-            <location filename="../../ui/canvas/canvas_view.py" line="5844" />
+            <location filename="../../ui/canvas/canvas_view.py" line="5933" />
             <source>No group selected</source>
             <translation>Группа не выбрана</translation>
         </message>
         <message>
-            <location filename="../../ui/canvas/canvas_view.py" line="6374" />
+            <location filename="../../ui/canvas/canvas_view.py" line="6463" />
             <source>No overlapping object behind</source>
             <translation>Нет перекрывающегося объекта сзади</translation>
         </message>
         <message>
-            <location filename="../../ui/canvas/canvas_view.py" line="6373" />
+            <location filename="../../ui/canvas/canvas_view.py" line="6462" />
             <source>No overlapping object in front</source>
             <translation>Нет перекрывающегося объекта спереди</translation>
         </message>
         <message>
-            <location filename="../../ui/canvas/clipboard_operations.py" line="331" />
-            <location filename="../../ui/canvas/clipboard_operations.py" line="414" />
+            <location filename="../../ui/canvas/clipboard_operations.py" line="382" />
+            <location filename="../../ui/canvas/clipboard_operations.py" line="449" />
             <source>Nothing to duplicate</source>
             <translation>Нечего дублировать</translation>
         </message>
         <message>
-            <location filename="../../ui/canvas/clipboard_operations.py" line="245" />
-            <location filename="../../ui/canvas/clipboard_operations.py" line="306" />
+            <location filename="../../ui/canvas/clipboard_operations.py" line="311" />
+            <location filename="../../ui/canvas/clipboard_operations.py" line="357" />
             <source>Nothing to paste</source>
             <translation>Нечего вставлять</translation>
         </message>
@@ -932,103 +932,107 @@
             <translation>Результат смещения пуст — попробуйте уменьшить расстояние</translation>
         </message>
         <message>
-            <location filename="../../ui/canvas/canvas_view.py" line="5918" />
+            <location filename="../../ui/canvas/canvas_view.py" line="6007" />
             <source>Only closed shapes (polygon, rectangle, circle, or ellipse) can be split</source>
             <translation>Разделять можно только замкнутые формы (многоугольник, прямоугольник, круг или эллипс)</translation>
         </message>
         <message>
-            <location filename="../../ui/canvas/canvas_view.py" line="2302" />
+            <location filename="../../ui/canvas/canvas_view.py" line="2306" />
             <source>Parallel</source>
             <translation>Параллельно</translation>
         </message>
         <message>
-            <location filename="../../ui/canvas/canvas_view.py" line="727" />
+            <location filename="../../ui/canvas/canvas_view.py" line="731" />
             <source>Parasol</source>
             <translation>Зонт от солнца</translation>
         </message>
         <message>
-            <location filename="../../ui/canvas/clipboard_operations.py" line="319" />
+            <location filename="../../ui/canvas/clipboard_operations.py" line="370" />
             <source>Pasted {count} item(s)</source>
             <translation>Вставлено {count} объект(ов)</translation>
         </message>
         <message>
-            <location filename="../../ui/canvas/canvas_view.py" line="667" />
+            <location filename="../../ui/canvas/canvas_view.py" line="671" />
             <source>Path</source>
             <translation>Дорожка</translation>
         </message>
         <message>
-            <location filename="../../ui/canvas/canvas_view.py" line="692" />
+            <location filename="../../ui/canvas/canvas_view.py" line="696" />
             <source>Perennial</source>
             <translation>Многолетник</translation>
         </message>
         <message>
-            <location filename="../../ui/canvas/canvas_view.py" line="747" />
+            <location filename="../../ui/canvas/canvas_view.py" line="751" />
             <source>Pergola</source>
             <translation>Пергола</translation>
         </message>
         <message>
-            <location filename="../../ui/canvas/canvas_view.py" line="2303" />
+            <location filename="../../ui/canvas/canvas_view.py" line="2307" />
             <source>Perpendicular</source>
             <translation>Перпендикулярно</translation>
         </message>
         <message>
-            <location filename="../../ui/canvas/canvas_view.py" line="715" />
+            <location filename="../../ui/canvas/canvas_view.py" line="719" />
             <source>Picnic Table</source>
             <translation>Стол для пикника</translation>
         </message>
         <message>
-            <location filename="../../ui/canvas/canvas_view.py" line="730" />
+            <location filename="../../ui/canvas/canvas_view.py" line="734" />
             <source>Planter/Pot</source>
             <translation>Кашпо/Горшок/Pot</translation>
         </message>
         <message>
-            <location filename="../../ui/canvas/canvas_view.py" line="5941" />
+            <location filename="../../ui/canvas/canvas_view.py" line="6030" />
             <source>Plants and linked objects cannot be split</source>
             <translation>Растения и связанные объекты нельзя разделить</translation>
         </message>
         <message>
-            <location filename="../../ui/canvas/canvas_view.py" line="2310" />
+            <location filename="../../ui/canvas/canvas_view.py" line="2314" />
             <source>Point on circle</source>
             <translation>Точка на окружности</translation>
         </message>
         <message>
-            <location filename="../../ui/canvas/canvas_view.py" line="2309" />
+            <location filename="../../ui/canvas/canvas_view.py" line="2313" />
             <source>Point on edge</source>
             <translation>Точка на ребре</translation>
         </message>
         <message>
-            <location filename="../../ui/canvas/canvas_view.py" line="630" />
+            <location filename="../../ui/canvas/canvas_view.py" line="634" />
             <source>Pond/Pool</source>
             <translation>Пруд/Бассейн</translation>
         </message>
         <message>
-            <location filename="../../ui/canvas/canvas_view.py" line="3969" />
-            <location filename="../../ui/canvas/canvas_view.py" line="5868" />
+            <location filename="../../ui/canvas/canvas_view.py" line="3986" />
+            <location filename="../../ui/canvas/canvas_view.py" line="5957" />
             <source>Press Esc to leave the group before cutting or deleting one of its members</source>
             <translation>Нажмите Esc, чтобы выйти из группы, прежде чем вырезать или удалять её элемент</translation>
         </message>
         <message>
-            <location filename="../../ui/canvas/canvas_view.py" line="756" />
+            <location filename="../../ui/canvas/canvas_view.py" line="760" />
             <source>Rain Barrel</source>
             <translation>Бочка для дождевой воды</translation>
         </message>
         <message>
-            <location filename="../../ui/canvas/canvas_view.py" line="742" />
+            <location filename="../../ui/canvas/canvas_view.py" line="746" />
             <source>Raised Bed</source>
             <translation>Приподнятая грядка</translation>
         </message>
         <message>
-            <location filename="../../ui/canvas/canvas_view.py" line="783" />
+            <source>Rotate the group back to 0° before ungrouping</source>
+            <translation type="vanished">Поверните группу обратно на 0°, прежде чем разгруппировать</translation>
+        </message>
+        <message>
+            <location filename="../../ui/canvas/canvas_view.py" line="787" />
             <source>Round Container</source>
             <translation>Круглый контейнер</translation>
         </message>
         <message>
-            <location filename="../../ui/canvas/canvas_view.py" line="712" />
+            <location filename="../../ui/canvas/canvas_view.py" line="716" />
             <source>Sandbox</source>
             <translation>Песочница</translation>
         </message>
         <message>
-            <location filename="../../ui/canvas/canvas_view.py" line="5823" />
+            <location filename="../../ui/canvas/canvas_view.py" line="5890" />
             <source>Select 2 or more items to group</source>
             <translation>Выберите 2 или более объектов для группировки</translation>
         </message>
@@ -1038,38 +1042,38 @@
             <translation>Выберите фигуру для смещения</translation>
         </message>
         <message>
-            <location filename="../../ui/canvas/canvas_view.py" line="6370" />
-            <location filename="../../ui/canvas/canvas_view.py" line="6377" />
+            <location filename="../../ui/canvas/canvas_view.py" line="6459" />
+            <location filename="../../ui/canvas/canvas_view.py" line="6466" />
             <source>Select an object to arrange</source>
             <translation>Выберите объект для упорядочивания</translation>
         </message>
         <message>
-            <location filename="../../ui/canvas/canvas_view.py" line="6332" />
+            <location filename="../../ui/canvas/canvas_view.py" line="6421" />
             <source>Select at least 2 objects to align</source>
             <translation>Выберите не менее 2 объектов для выравнивания</translation>
         </message>
         <message>
-            <location filename="../../ui/canvas/canvas_view.py" line="6392" />
+            <location filename="../../ui/canvas/canvas_view.py" line="6481" />
             <source>Select at least 3 objects to distribute</source>
             <translation>Выберите не менее 3 объектов для распределения</translation>
         </message>
         <message>
-            <location filename="../../ui/canvas/canvas_view.py" line="6037" />
+            <location filename="../../ui/canvas/canvas_view.py" line="6126" />
             <source>Select at least two shapes (intersection and subtraction need exactly two)</source>
             <translation>Выберите как минимум две фигуры (для пересечения и вычитания требуется ровно две)</translation>
         </message>
         <message>
-            <location filename="../../ui/canvas/clipboard_operations.py" line="723" />
+            <location filename="../../ui/canvas/clipboard_operations.py" line="758" />
             <source>Select exactly one item to create a circular array</source>
             <translation>Выберите ровно один объект для создания кругового массива</translation>
         </message>
         <message>
-            <location filename="../../ui/canvas/clipboard_operations.py" line="563" />
+            <location filename="../../ui/canvas/clipboard_operations.py" line="598" />
             <source>Select exactly one item to create a grid array</source>
             <translation>Выберите ровно один объект для создания сетчатого массива</translation>
         </message>
         <message>
-            <location filename="../../ui/canvas/clipboard_operations.py" line="441" />
+            <location filename="../../ui/canvas/clipboard_operations.py" line="476" />
             <source>Select exactly one item to create a linear array</source>
             <translation>Выберите ровно один объект для создания линейного массива</translation>
         </message>
@@ -1082,8 +1086,8 @@
             <translation type="vanished">Выберите одну замкнутую форму для разделения</translation>
         </message>
         <message>
-            <location filename="../../ui/canvas/clipboard_operations.py" line="850" />
-            <location filename="../../ui/canvas/clipboard_operations.py" line="865" />
+            <location filename="../../ui/canvas/clipboard_operations.py" line="885" />
+            <location filename="../../ui/canvas/clipboard_operations.py" line="900" />
             <source>Select one item and one polyline path for array along path</source>
             <translation>Выберите один объект и одну ломаную траекторию для массива вдоль пути</translation>
         </message>
@@ -1092,192 +1096,197 @@
             <translation type="vanished">Фигуры должны пересекаться для выполнения булевых операций</translation>
         </message>
         <message>
-            <location filename="../../ui/canvas/canvas_view.py" line="6149" />
+            <location filename="../../ui/canvas/canvas_view.py" line="6238" />
             <source>Shapes must overlap for this operation</source>
             <translation>Для этой операции фигуры должны перекрываться</translation>
         </message>
         <message>
-            <location filename="../../ui/canvas/canvas_view.py" line="6128" />
+            <location filename="../../ui/canvas/canvas_view.py" line="6217" />
             <source>Shapes must touch or overlap</source>
             <translation>Фигуры должны соприкасаться или перекрываться</translation>
         </message>
         <message>
-            <location filename="../../ui/canvas/canvas_view.py" line="686" />
+            <location filename="../../ui/canvas/canvas_view.py" line="690" />
             <source>Shrub</source>
             <translation>Кустарник</translation>
         </message>
         <message>
-            <location filename="../../ui/canvas/canvas_view.py" line="674" />
+            <location filename="../../ui/canvas/canvas_view.py" line="678" />
             <source>String Lights</source>
             <translation>Гирлянда</translation>
         </message>
         <message>
-            <location filename="../../ui/canvas/canvas_view.py" line="714" />
+            <location filename="../../ui/canvas/canvas_view.py" line="718" />
             <source>Swing</source>
             <translation>Качели</translation>
         </message>
         <message>
-            <location filename="../../ui/canvas/canvas_view.py" line="707" />
+            <location filename="../../ui/canvas/canvas_view.py" line="711" />
             <source>Table (Rectangular)</source>
             <translation>Стол (прямоугольный)</translation>
         </message>
         <message>
-            <location filename="../../ui/canvas/canvas_view.py" line="726" />
+            <location filename="../../ui/canvas/canvas_view.py" line="730" />
             <source>Table (Round)</source>
             <translation>Стол (круглый)</translation>
         </message>
         <message>
-            <location filename="../../ui/canvas/canvas_view.py" line="2311" />
+            <location filename="../../ui/canvas/canvas_view.py" line="2315" />
             <source>Tangent</source>
             <translation>Касательная</translation>
         </message>
         <message>
-            <location filename="../../ui/canvas/canvas_view.py" line="618" />
+            <location filename="../../ui/canvas/canvas_view.py" line="622" />
             <source>Terrace/Patio</source>
             <translation>Терраса/Патио</translation>
         </message>
         <message>
-            <location filename="../../ui/canvas/canvas_view.py" line="6138" />
+            <location filename="../../ui/canvas/canvas_view.py" line="6227" />
             <source>The merged outline would contain a hole; keep the shapes separate</source>
             <translation>Объединённый контур содержал бы отверстие; оставьте фигуры раздельными</translation>
         </message>
         <message>
-            <location filename="../../ui/canvas/canvas_view.py" line="6169" />
+            <location filename="../../ui/canvas/canvas_view.py" line="6258" />
             <source>The result would have {count} vertices; the plan supports at most {limit}. Keep the shapes separate.</source>
             <translation>Результат содержал бы {count} вершин; план поддерживает не более {limit}. Оставьте фигуры раздельными.</translation>
         </message>
         <message>
-            <location filename="../../ui/canvas/canvas_view.py" line="5948" />
+            <location filename="../../ui/canvas/canvas_view.py" line="6037" />
             <source>The roof ridge is on a locked layer</source>
             <translation>Конёк крыши находится на заблокированном слое</translation>
         </message>
         <message>
-            <location filename="../../ui/canvas/canvas_view.py" line="3998" />
+            <location filename="../../ui/canvas/canvas_view.py" line="4015" />
             <source>The selected bed(s) contain plants. What would you like to do?</source>
             <translation>Выбранные грядки содержат растения. Что хотите сделать?</translation>
         </message>
         <message>
-            <location filename="../../ui/canvas/canvas_view.py" line="5965" />
+            <location filename="../../ui/canvas/canvas_view.py" line="6054" />
             <source>The shape carries links that a split cannot preserve</source>
             <translation>Форма содержит связи, которые нельзя сохранить при разделении</translation>
         </message>
         <message>
-            <location filename="../../ui/canvas/canvas_view.py" line="5975" />
+            <location filename="../../ui/canvas/canvas_view.py" line="6064" />
             <source>The shape has tracking records that a split cannot preserve</source>
             <translation>У формы есть записи отслеживания, которые нельзя сохранить при разделении</translation>
         </message>
         <message>
-            <location filename="../../ui/canvas/canvas_view.py" line="5922" />
+            <location filename="../../ui/canvas/canvas_view.py" line="6011" />
             <source>The shape is no longer in this plan</source>
             <translation>Формы больше нет в этом плане</translation>
         </message>
         <message>
-            <location filename="../../ui/canvas/canvas_view.py" line="5934" />
+            <location filename="../../ui/canvas/canvas_view.py" line="6023" />
             <source>The shape is on a locked layer</source>
             <translation>Форма находится на заблокированном слое</translation>
         </message>
         <message>
-            <location filename="../../ui/canvas/canvas_view.py" line="6107" />
+            <location filename="../../ui/canvas/canvas_view.py" line="6196" />
             <source>The shapes contain different data; keep them separate or make their data consistent</source>
             <translation>Фигуры содержат разные данные; оставьте их раздельными или согласуйте их данные</translation>
         </message>
         <message>
-            <location filename="../../ui/canvas/canvas_view.py" line="3858" />
+            <location filename="../../ui/canvas/canvas_view.py" line="3875" />
             <source>This edge length belongs to a rigid shape. Remove the constraint and resize the shape instead.</source>
             <translation>Эта длина ребра принадлежит жёсткой фигуре. Удалите ограничение и измените размер фигуры.</translation>
         </message>
         <message>
-            <location filename="../../ui/canvas/canvas_view.py" line="5926" />
+            <location filename="../../ui/canvas/canvas_view.py" line="5924" />
+            <source>This group has an unsupported transform and cannot be edited</source>
+            <translation>Эта группа имеет неподдерживаемое преобразование и не может быть изменена</translation>
+        </message>
+        <message>
+            <location filename="../../ui/canvas/canvas_view.py" line="6015" />
             <source>This shape has no closed outline to split</source>
             <translation>У этой формы нет замкнутого контура для разделения</translation>
         </message>
         <message>
-            <location filename="../../ui/canvas/canvas_view.py" line="5967" />
+            <location filename="../../ui/canvas/canvas_view.py" line="6056" />
             <source>This shape type has no polygonal form to split into</source>
             <translation>У этого типа формы нет многоугольной формы для разделения</translation>
         </message>
         <message>
-            <location filename="../../ui/canvas/canvas_view.py" line="745" />
+            <location filename="../../ui/canvas/canvas_view.py" line="749" />
             <source>Tool Shed</source>
             <translation>Сарай для инструментов</translation>
         </message>
         <message>
-            <location filename="../../ui/canvas/canvas_view.py" line="731" />
+            <location filename="../../ui/canvas/canvas_view.py" line="735" />
             <source>Trampoline</source>
             <translation>Батут</translation>
         </message>
         <message>
-            <location filename="../../ui/canvas/canvas_view.py" line="680" />
+            <location filename="../../ui/canvas/canvas_view.py" line="684" />
             <source>Tree</source>
             <translation>Дерево</translation>
         </message>
         <message>
-            <location filename="../../ui/canvas/canvas_view.py" line="773" />
+            <location filename="../../ui/canvas/canvas_view.py" line="777" />
             <source>Trellis</source>
             <translation>Шпалера</translation>
         </message>
         <message>
-            <location filename="../../ui/canvas/canvas_view.py" line="5924" />
+            <location filename="../../ui/canvas/canvas_view.py" line="6013" />
             <source>Ungroup the shape before splitting it</source>
             <translation>Разгруппируйте форму перед разделением</translation>
         </message>
         <message>
-            <location filename="../../ui/canvas/canvas_view.py" line="5852" />
+            <location filename="../../ui/canvas/canvas_view.py" line="5941" />
             <source>Ungroup {n} groups</source>
             <translation>Разгруппировать {n} групп</translation>
         </message>
         <message>
-            <location filename="../../ui/canvas/canvas_view.py" line="5857" />
+            <location filename="../../ui/canvas/canvas_view.py" line="5946" />
             <source>Ungrouped</source>
             <translation>Разгруппировано</translation>
         </message>
         <message>
-            <location filename="../../ui/canvas/canvas_view.py" line="5859" />
+            <location filename="../../ui/canvas/canvas_view.py" line="5948" />
             <source>Ungrouped {n} groups</source>
             <translation>Разгруппировано {n} групп</translation>
         </message>
         <message>
-            <location filename="../../ui/canvas/canvas_view.py" line="2298" />
+            <location filename="../../ui/canvas/canvas_view.py" line="2302" />
             <source>Vertical</source>
             <translation>Вертикально</translation>
         </message>
         <message>
-            <location filename="../../ui/canvas/canvas_view.py" line="2300" />
+            <location filename="../../ui/canvas/canvas_view.py" line="2304" />
             <source>Vertical distance</source>
             <translation>Вертикальное расстояние</translation>
         </message>
         <message>
-            <location filename="../../ui/canvas/canvas_view.py" line="2308" />
+            <location filename="../../ui/canvas/canvas_view.py" line="2312" />
             <source>Vertical symmetry</source>
             <translation>Вертикальная симметрия</translation>
         </message>
         <message>
-            <location filename="../../ui/canvas/canvas_view.py" line="661" />
+            <location filename="../../ui/canvas/canvas_view.py" line="665" />
             <source>Wall</source>
             <translation>Стена</translation>
         </message>
         <message>
-            <location filename="../../ui/canvas/canvas_view.py" line="772" />
+            <location filename="../../ui/canvas/canvas_view.py" line="776" />
             <source>Wall Planter</source>
             <translation>Настенное кашпо</translation>
         </message>
         <message>
-            <location filename="../../ui/canvas/canvas_view.py" line="757" />
+            <location filename="../../ui/canvas/canvas_view.py" line="761" />
             <source>Water Tap</source>
             <translation>Водопроводный кран</translation>
         </message>
         <message>
-            <location filename="../../ui/canvas/canvas_view.py" line="746" />
+            <location filename="../../ui/canvas/canvas_view.py" line="750" />
             <source>Wheelbarrow</source>
             <translation>Тачка</translation>
         </message>
         <message>
-            <location filename="../../ui/canvas/canvas_view.py" line="5190" />
+            <location filename="../../ui/canvas/canvas_view.py" line="5244" />
             <source>X</source>
             <translation>X</translation>
         </message>
         <message>
-            <location filename="../../ui/canvas/canvas_view.py" line="5190" />
+            <location filename="../../ui/canvas/canvas_view.py" line="5244" />
             <source>Y</source>
             <translation>Y</translation>
         </message>
@@ -1292,12 +1301,12 @@
             <translation>наружу</translation>
         </message>
         <message>
-            <location filename="../../ui/canvas/canvas_view.py" line="5191" />
+            <location filename="../../ui/canvas/canvas_view.py" line="5245" />
             <source>{axis} position</source>
             <translation>Позиция {axis}</translation>
         </message>
         <message>
-            <location filename="../../ui/canvas/canvas_view.py" line="5191" />
+            <location filename="../../ui/canvas/canvas_view.py" line="5245" />
             <source>{axis} position (cm)</source>
             <translation>Позиция по оси {axis} (см)</translation>
         </message>
@@ -1571,7 +1580,7 @@
         <name>ColorButton</name>
         <message>
             <location filename="../../ui/dialogs/properties_dialog.py" line="82" />
-            <location filename="../../ui/panels/properties_panel.py" line="245" />
+            <location filename="../../ui/panels/properties_panel.py" line="244" />
             <source>Choose Color</source>
             <translation>Выбрать цвет</translation>
         </message>
@@ -1579,99 +1588,99 @@
     <context>
         <name>Commands</name>
         <message>
-            <location filename="../../core/commands.py" line="2678" />
+            <location filename="../../core/commands.py" line="2716" />
             <source>Add constraint</source>
             <translation>Добавить ограничение</translation>
         </message>
         <message>
-            <location filename="../../core/commands.py" line="4842" />
+            <location filename="../../core/commands.py" line="4893" />
             <source>Add garden journal note</source>
             <translation>Добавить запись в садовый журнал</translation>
         </message>
         <message>
-            <location filename="../../core/commands.py" line="4611" />
+            <location filename="../../core/commands.py" line="4662" />
             <source>Add harvest entry</source>
             <translation>Добавить запись об урожае</translation>
         </message>
         <message>
-            <location filename="../../core/commands.py" line="3721" />
+            <location filename="../../core/commands.py" line="3772" />
             <source>Add layer '{name}'</source>
             <translation>Добавить слой '{name}'</translation>
         </message>
         <message>
-            <location filename="../../core/commands.py" line="4464" />
+            <location filename="../../core/commands.py" line="4515" />
             <source>Add pest/disease log</source>
             <translation>Добавить запись о вредителях/болезнях</translation>
         </message>
         <message>
-            <location filename="../../core/commands.py" line="4336" />
+            <location filename="../../core/commands.py" line="4387" />
             <source>Add soil test</source>
             <translation>Добавить результат анализа почвы</translation>
         </message>
         <message>
-            <location filename="../../core/commands.py" line="4949" />
+            <location filename="../../core/commands.py" line="5000" />
             <source>Add task</source>
             <translation>Добавить задачу</translation>
         </message>
         <message>
-            <location filename="../../core/commands.py" line="2366" />
+            <location filename="../../core/commands.py" line="2404" />
             <source>Add vertex</source>
             <translation>Добавить узел</translation>
         </message>
         <message>
-            <location filename="../../ui/canvas/canvas_view.py" line="6346" />
+            <location filename="../../ui/canvas/canvas_view.py" line="6435" />
             <source>Align bottom</source>
             <translation>Выровнять по нижнему краю</translation>
         </message>
         <message>
-            <location filename="../../ui/canvas/canvas_view.py" line="6347" />
+            <location filename="../../ui/canvas/canvas_view.py" line="6436" />
             <source>Align center horizontally</source>
             <translation>Выровнять по центру горизонтально</translation>
         </message>
         <message>
-            <location filename="../../ui/canvas/canvas_view.py" line="6348" />
+            <location filename="../../ui/canvas/canvas_view.py" line="6437" />
             <source>Align center vertically</source>
             <translation>Выровнять по центру вертикально</translation>
         </message>
         <message>
-            <location filename="../../core/commands.py" line="2435" />
-            <location filename="../../ui/canvas/canvas_view.py" line="6351" />
+            <location filename="../../core/commands.py" line="2473" />
+            <location filename="../../ui/canvas/canvas_view.py" line="6440" />
             <source>Align items</source>
             <translation>Выровнять объекты</translation>
         </message>
         <message>
-            <location filename="../../ui/canvas/canvas_view.py" line="6343" />
+            <location filename="../../ui/canvas/canvas_view.py" line="6432" />
             <source>Align left</source>
             <translation>Выровнять по левому краю</translation>
         </message>
         <message>
-            <location filename="../../ui/canvas/canvas_view.py" line="6344" />
+            <location filename="../../ui/canvas/canvas_view.py" line="6433" />
             <source>Align right</source>
             <translation>Выровнять по правому краю</translation>
         </message>
         <message>
-            <location filename="../../ui/canvas/canvas_view.py" line="6345" />
+            <location filename="../../ui/canvas/canvas_view.py" line="6434" />
             <source>Align top</source>
             <translation>Выровнять по верхнему краю</translation>
         </message>
         <message>
-            <location filename="../../app/agent_host.py" line="2882" />
-            <location filename="../../core/commands.py" line="1924" />
+            <location filename="../../app/agent_host.py" line="2911" />
+            <location filename="../../core/commands.py" line="1884" />
             <source>Apply species data</source>
             <translation>Применить данные о виде растения</translation>
         </message>
         <message>
-            <location filename="../../core/commands.py" line="3516" />
+            <location filename="../../core/commands.py" line="3567" />
             <source>Array along path ({count} copies)</source>
             <translation>Массив вдоль пути ({count} копий)</translation>
         </message>
         <message>
-            <location filename="../../core/commands.py" line="3224" />
+            <location filename="../../core/commands.py" line="3262" />
             <source>Attach plant to bed</source>
             <translation>Привязать растение к грядке</translation>
         </message>
         <message>
-            <location filename="../../core/commands.py" line="3410" />
+            <location filename="../../core/commands.py" line="3461" />
             <source>Boolean {operation}</source>
             <translation>Булева операция: {operation}</translation>
         </message>
@@ -1686,7 +1695,7 @@
             <translation>Переместить {count} объект(а/ов) на передний план</translation>
         </message>
         <message>
-            <location filename="../../core/commands.py" line="4298" />
+            <location filename="../../core/commands.py" line="4349" />
             <source>Chamfer corner</source>
             <translation>Сделать фаску на углу</translation>
         </message>
@@ -1701,18 +1710,17 @@
             <translation>Изменить принадлежность к гильдии растений</translation>
         </message>
         <message>
-            <location filename="../../core/commands.py" line="1702" />
+            <location filename="../../core/commands.py" line="1710" />
             <source>Change type</source>
             <translation>Изменить тип</translation>
         </message>
         <message>
-            <location filename="../../core/commands.py" line="1604" />
-            <location filename="../../core/commands.py" line="1843" />
+            <location filename="../../core/commands.py" line="1612" />
             <source>Change {property}</source>
             <translation>Изменить {property}</translation>
         </message>
         <message>
-            <location filename="../../core/commands.py" line="2955" />
+            <location filename="../../core/commands.py" line="2993" />
             <source>Create circular array ({count} items)</source>
             <translation>Создать круговой массив ({count} элементов)</translation>
         </message>
@@ -1722,12 +1730,12 @@
             <translation>Создать набор ярусов посадок</translation>
         </message>
         <message>
-            <location filename="../../core/commands.py" line="2882" />
+            <location filename="../../core/commands.py" line="2920" />
             <source>Create grid array ({count} items)</source>
             <translation>Создать массив по сетке ({count} элементов)</translation>
         </message>
         <message>
-            <location filename="../../core/commands.py" line="2800" />
+            <location filename="../../core/commands.py" line="2838" />
             <source>Create linear array ({count} items)</source>
             <translation>Создать линейный массив ({count} элементов)</translation>
         </message>
@@ -1743,17 +1751,17 @@
             <translation>Создать {item_type}</translation>
         </message>
         <message>
-            <location filename="../../core/commands.py" line="5080" />
+            <location filename="../../core/commands.py" line="5131" />
             <source>Delete camera tour</source>
             <translation>Удалить облёт камеры</translation>
         </message>
         <message>
-            <location filename="../../core/commands.py" line="4918" />
+            <location filename="../../core/commands.py" line="4969" />
             <source>Delete garden journal note</source>
             <translation>Удалить запись из садового журнала</translation>
         </message>
         <message>
-            <location filename="../../core/commands.py" line="4731" />
+            <location filename="../../core/commands.py" line="4782" />
             <source>Delete harvest entry</source>
             <translation>Удалить запись об урожае</translation>
         </message>
@@ -1763,27 +1771,27 @@
             <translation>Удалить объект</translation>
         </message>
         <message>
-            <location filename="../../core/commands.py" line="3793" />
+            <location filename="../../core/commands.py" line="3844" />
             <source>Delete layer '{name}'</source>
             <translation>Удалить слой '{name}'</translation>
         </message>
         <message>
-            <location filename="../../core/commands.py" line="4544" />
+            <location filename="../../core/commands.py" line="4595" />
             <source>Delete pest/disease log</source>
             <translation>Удалить запись о вредителях/болезнях</translation>
         </message>
         <message>
-            <location filename="../../core/commands.py" line="4424" />
+            <location filename="../../core/commands.py" line="4475" />
             <source>Delete soil test</source>
             <translation>Удалить результат анализа почвы</translation>
         </message>
         <message>
-            <location filename="../../core/commands.py" line="4993" />
+            <location filename="../../core/commands.py" line="5044" />
             <source>Delete task</source>
             <translation>Удалить задачу</translation>
         </message>
         <message>
-            <location filename="../../core/commands.py" line="2472" />
+            <location filename="../../core/commands.py" line="2510" />
             <source>Delete vertex</source>
             <translation>Удалить узел</translation>
         </message>
@@ -1793,78 +1801,78 @@
             <translation>Удалить {count} объектов</translation>
         </message>
         <message>
-            <location filename="../../core/commands.py" line="3223" />
+            <location filename="../../core/commands.py" line="3261" />
             <source>Detach plant from bed</source>
             <translation>Отвязать растение от грядки</translation>
         </message>
         <message>
-            <location filename="../../ui/canvas/canvas_view.py" line="6402" />
+            <location filename="../../ui/canvas/canvas_view.py" line="6491" />
             <source>Distribute horizontally</source>
             <translation>Распределить по горизонтали</translation>
         </message>
         <message>
-            <location filename="../../ui/canvas/canvas_view.py" line="6406" />
+            <location filename="../../ui/canvas/canvas_view.py" line="6495" />
             <source>Distribute items</source>
             <translation>Распределить объекты</translation>
         </message>
         <message>
-            <location filename="../../ui/canvas/canvas_view.py" line="6403" />
+            <location filename="../../ui/canvas/canvas_view.py" line="6492" />
             <source>Distribute vertically</source>
             <translation>Распределить по вертикали</translation>
         </message>
         <message>
-            <location filename="../../core/commands.py" line="3167" />
+            <location filename="../../core/commands.py" line="3205" />
             <source>Edit constraint distance</source>
             <translation>Редактировать расстояние ограничения</translation>
         </message>
         <message>
-            <location filename="../../core/commands.py" line="4877" />
+            <location filename="../../core/commands.py" line="4928" />
             <source>Edit garden journal note</source>
             <translation>Редактировать запись в садовом журнале</translation>
         </message>
         <message>
-            <location filename="../../core/commands.py" line="4665" />
+            <location filename="../../core/commands.py" line="4716" />
             <source>Edit harvest entry</source>
             <translation>Редактировать запись об урожае</translation>
         </message>
         <message>
-            <location filename="../../core/commands.py" line="4504" />
+            <location filename="../../core/commands.py" line="4555" />
             <source>Edit pest/disease log</source>
             <translation>Редактировать запись о вредителях/болезнях</translation>
         </message>
         <message>
-            <location filename="../../core/commands.py" line="2160" />
-            <location filename="../../core/commands.py" line="2225" />
+            <location filename="../../core/commands.py" line="2198" />
+            <location filename="../../core/commands.py" line="2263" />
             <source>Edit plant details</source>
             <translation>Редактировать данные растения</translation>
         </message>
         <message>
-            <location filename="../../core/commands.py" line="4380" />
+            <location filename="../../core/commands.py" line="4431" />
             <source>Edit soil test</source>
             <translation>Редактировать результат анализа почвы</translation>
         </message>
         <message>
-            <location filename="../../core/commands.py" line="4971" />
+            <location filename="../../core/commands.py" line="5022" />
             <source>Edit task</source>
             <translation>Редактировать задачу</translation>
         </message>
         <message>
-            <location filename="../../core/commands.py" line="4175" />
+            <location filename="../../core/commands.py" line="4226" />
             <source>Extend polyline</source>
             <translation>Удлинить полилинию</translation>
         </message>
         <message>
-            <location filename="../../core/commands.py" line="4287" />
+            <location filename="../../core/commands.py" line="4338" />
             <source>Fillet corner</source>
             <translation>Скруглить угол</translation>
         </message>
         <message>
-            <location filename="../../core/commands.py" line="3251" />
+            <location filename="../../core/commands.py" line="3289" />
             <source>Group {count} items</source>
             <translation>Сгруппировать {count} объектов</translation>
         </message>
         <message>
-            <location filename="../../core/commands.py" line="4025" />
+            <location filename="../../core/commands.py" line="4076" />
             <source>Hide layer '{name}'</source>
             <translation>Скрыть слой '{name}'</translation>
         </message>
@@ -1874,51 +1882,51 @@
             <translation>Вставить гильдию растений</translation>
         </message>
         <message>
-            <location filename="../../core/commands.py" line="4030" />
+            <location filename="../../core/commands.py" line="4081" />
             <source>Lock layer '{name}'</source>
             <translation>Заблокировать слой '{name}'</translation>
         </message>
         <message>
-            <location filename="../../core/commands.py" line="3036" />
+            <location filename="../../core/commands.py" line="3074" />
             <source>Mirror {count} item(s) (copy)</source>
             <translation>Отразить {count} объект(а/ов) (создать копию)</translation>
         </message>
         <message>
-            <location filename="../../core/commands.py" line="3039" />
+            <location filename="../../core/commands.py" line="3077" />
             <source>Mirror {count} item(s) (move)</source>
             <translation>Отразить {count} объект(а/ов) (переместить)</translation>
         </message>
         <message>
             <location filename="../../app/agent_host.py" line="828" />
-            <location filename="../../core/commands.py" line="1502" />
-            <location filename="../../ui/canvas/canvas_view.py" line="4377" />
+            <location filename="../../core/commands.py" line="1510" />
+            <location filename="../../ui/canvas/canvas_view.py" line="4394" />
             <source>Move item</source>
             <translation>Переместить объект</translation>
         </message>
         <message>
-            <location filename="../../ui/panels/properties_panel.py" line="2894" />
+            <location filename="../../ui/panels/properties_panel.py" line="2753" />
             <source>Move item (constrained)</source>
             <translation>Переместить объект (с ограничениями)</translation>
         </message>
         <message>
-            <location filename="../../ui/canvas/canvas_view.py" line="4237" />
-            <location filename="../../ui/canvas/canvas_view.py" line="4375" />
+            <location filename="../../ui/canvas/canvas_view.py" line="4254" />
+            <location filename="../../ui/canvas/canvas_view.py" line="4392" />
             <source>Move items (constrained)</source>
             <translation>Переместить объекты (с ограничениями)</translation>
         </message>
         <message>
-            <location filename="../../core/commands.py" line="2286" />
-            <location filename="../../core/commands.py" line="2541" />
+            <location filename="../../core/commands.py" line="2324" />
+            <location filename="../../core/commands.py" line="2579" />
             <source>Move vertex</source>
             <translation>Переместить узел</translation>
         </message>
         <message>
-            <location filename="../../core/commands.py" line="3627" />
+            <location filename="../../core/commands.py" line="3678" />
             <source>Move {count} item(s) to layer '{name}'</source>
             <translation>Переместить {count} объект(а/ов) на слой '{name}'</translation>
         </message>
         <message>
-            <location filename="../../core/commands.py" line="1503" />
+            <location filename="../../core/commands.py" line="1511" />
             <source>Move {count} items</source>
             <translation>Переместить {count} объектов</translation>
         </message>
@@ -1933,42 +1941,42 @@
             <translation>Реперная точка</translation>
         </message>
         <message>
-            <location filename="../../core/commands.py" line="2744" />
+            <location filename="../../core/commands.py" line="2782" />
             <source>Remove constraint</source>
             <translation>Удалить ограничение</translation>
         </message>
         <message>
-            <location filename="../../core/commands.py" line="5063" />
+            <location filename="../../core/commands.py" line="5114" />
             <source>Rename camera tour</source>
             <translation>Переименовать облёт камеры</translation>
         </message>
         <message>
-            <location filename="../../core/commands.py" line="3856" />
+            <location filename="../../core/commands.py" line="3907" />
             <source>Rename layer to '{name}'</source>
             <translation>Переименовать слой в '{name}'</translation>
         </message>
         <message>
-            <location filename="../../core/commands.py" line="3893" />
+            <location filename="../../core/commands.py" line="3944" />
             <source>Reorder layers</source>
             <translation>Изменить порядок слоёв</translation>
         </message>
         <message>
-            <location filename="../../core/commands.py" line="2320" />
+            <location filename="../../core/commands.py" line="2358" />
             <source>Reshape curve</source>
             <translation>Изменить форму кривой</translation>
         </message>
         <message>
-            <location filename="../../core/commands.py" line="2012" />
+            <location filename="../../core/commands.py" line="1972" />
             <source>Resize item</source>
             <translation>Изменить размер объекта</translation>
         </message>
         <message>
-            <location filename="../../core/commands.py" line="2098" />
+            <location filename="../../core/commands.py" line="2105" />
             <source>Rotate item</source>
             <translation>Повернуть объект</translation>
         </message>
         <message>
-            <location filename="../../core/commands.py" line="5046" />
+            <location filename="../../core/commands.py" line="5097" />
             <source>Save camera tour</source>
             <translation>Сохранить облёт камеры</translation>
         </message>
@@ -1983,77 +1991,77 @@
             <translation>Отправить {count} объект(а/ов) на задний план</translation>
         </message>
         <message>
-            <location filename="../../core/commands.py" line="4810" />
+            <location filename="../../core/commands.py" line="4861" />
             <source>Set north orientation</source>
             <translation>Задать направление на север</translation>
         </message>
         <message>
-            <location filename="../../core/commands.py" line="4036" />
+            <location filename="../../core/commands.py" line="4087" />
             <source>Set opacity of layer '{name}' to {pct}%</source>
             <translation>Задать непрозрачность слоя «{name}»: {pct} %</translation>
         </message>
         <message>
-            <location filename="../../core/commands.py" line="4778" />
+            <location filename="../../core/commands.py" line="4829" />
             <source>Set succession plan</source>
             <translation>Задать план смены культур</translation>
         </message>
         <message>
-            <location filename="../../core/commands.py" line="4022" />
+            <location filename="../../core/commands.py" line="4073" />
             <source>Show layer '{name}'</source>
             <translation>Показать слой '{name}'</translation>
         </message>
         <message>
-            <location filename="../../core/commands.py" line="3463" />
+            <location filename="../../core/commands.py" line="3514" />
             <source>Split shape</source>
             <translation>Разделить форму</translation>
         </message>
         <message>
-            <location filename="../../core/commands.py" line="4121" />
+            <location filename="../../core/commands.py" line="4172" />
             <source>Trim polygon edge</source>
             <translation>Обрезать край полигона</translation>
         </message>
         <message>
-            <location filename="../../core/commands.py" line="4075" />
+            <location filename="../../core/commands.py" line="4126" />
             <source>Trim polyline</source>
             <translation>Обрезать полилинию</translation>
         </message>
         <message>
-            <location filename="../../core/commands.py" line="4149" />
+            <location filename="../../core/commands.py" line="4200" />
             <source>Trim rectangle edge</source>
             <translation>Обрезать край прямоугольника</translation>
         </message>
         <message>
-            <location filename="../../core/commands.py" line="3342" />
+            <location filename="../../core/commands.py" line="3393" />
             <source>Ungroup</source>
             <translation>Разгруппировать</translation>
         </message>
         <message>
-            <location filename="../../core/commands.py" line="4033" />
+            <location filename="../../core/commands.py" line="4084" />
             <source>Unlock layer '{name}'</source>
             <translation>Разблокировать слой «{name}»</translation>
         </message>
         <message>
-            <location filename="../../ui/panels/properties_panel.py" line="85" />
+            <location filename="../../ui/panels/properties_panel.py" line="84" />
             <source>bold</source>
             <translation>Полужирный</translation>
         </message>
         <message>
-            <location filename="../../ui/panels/properties_panel.py" line="1715" />
+            <location filename="../../ui/panels/properties_panel.py" line="1707" />
             <source>container drainage</source>
             <translation>дренаж контейнера</translation>
         </message>
         <message>
-            <location filename="../../ui/panels/properties_panel.py" line="1729" />
+            <location filename="../../ui/panels/properties_panel.py" line="1721" />
             <source>container height</source>
             <translation>высота контейнера</translation>
         </message>
         <message>
-            <location filename="../../ui/panels/properties_panel.py" line="1701" />
+            <location filename="../../ui/panels/properties_panel.py" line="1693" />
             <source>container material</source>
             <translation>материал контейнера</translation>
         </message>
         <message>
-            <location filename="../../ui/panels/properties_panel.py" line="1743" />
+            <location filename="../../ui/panels/properties_panel.py" line="1735" />
             <source>container soil volume</source>
             <translation>объём грунта в контейнере</translation>
         </message>
@@ -2073,17 +2081,17 @@
             <translation>преобразование узора заливки</translation>
         </message>
         <message>
-            <location filename="../../ui/panels/properties_panel.py" line="83" />
+            <location filename="../../ui/panels/properties_panel.py" line="82" />
             <source>font</source>
             <translation>Шрифт</translation>
         </message>
         <message>
-            <location filename="../../ui/panels/properties_panel.py" line="84" />
+            <location filename="../../ui/panels/properties_panel.py" line="83" />
             <source>font size</source>
             <translation>Размер шрифта</translation>
         </message>
         <message>
-            <location filename="../../ui/panels/properties_panel.py" line="2223" />
+            <location filename="../../ui/panels/properties_panel.py" line="2082" />
             <source>frost protection</source>
             <translation>Защита от заморозков</translation>
         </message>
@@ -2093,17 +2101,17 @@
             <translation>Функции</translation>
         </message>
         <message>
-            <location filename="../../ui/panels/properties_panel.py" line="1486" />
+            <location filename="../../ui/panels/properties_panel.py" line="1478" />
             <source>grid</source>
             <translation>сетка</translation>
         </message>
         <message>
-            <location filename="../../ui/panels/properties_panel.py" line="1500" />
+            <location filename="../../ui/panels/properties_panel.py" line="1492" />
             <source>grid spacing</source>
             <translation>шаг сетки</translation>
         </message>
         <message>
-            <location filename="../../ui/panels/properties_panel.py" line="86" />
+            <location filename="../../ui/panels/properties_panel.py" line="85" />
             <source>italic</source>
             <translation>Курсив</translation>
         </message>
@@ -2113,12 +2121,12 @@
             <translation>Видимость подписей</translation>
         </message>
         <message>
-            <location filename="../../ui/panels/properties_panel.py" line="3165" />
+            <location filename="../../ui/panels/properties_panel.py" line="3024" />
             <source>name</source>
             <translation>Название</translation>
         </message>
         <message>
-            <location filename="../../ui/panels/properties_panel.py" line="1868" />
+            <location filename="../../ui/panels/properties_panel.py" line="1860" />
             <source>object height</source>
             <translation>Высота объекта</translation>
         </message>
@@ -2148,27 +2156,27 @@
             <translation>дата удаления</translation>
         </message>
         <message>
-            <location filename="../../ui/panels/properties_panel.py" line="2010" />
+            <location filename="../../ui/panels/properties_panel.py" line="2002" />
             <source>roof overhang</source>
             <translation>свес крыши</translation>
         </message>
         <message>
-            <location filename="../../ui/panels/properties_panel.py" line="2000" />
+            <location filename="../../ui/panels/properties_panel.py" line="1992" />
             <source>roof pitch</source>
             <translation>уклон крыши</translation>
         </message>
         <message>
-            <location filename="../../ui/panels/properties_panel.py" line="1990" />
+            <location filename="../../ui/panels/properties_panel.py" line="1982" />
             <source>roof style</source>
             <translation>форма крыши</translation>
         </message>
         <message>
-            <location filename="../../ui/panels/properties_panel.py" line="1569" />
+            <location filename="../../ui/panels/properties_panel.py" line="1561" />
             <source>soil depth</source>
             <translation>глубина почвы</translation>
         </message>
         <message>
-            <location filename="../../ui/panels/properties_panel.py" line="2241" />
+            <location filename="../../ui/panels/properties_panel.py" line="2100" />
             <source>spacing radius</source>
             <translation>Радиус размещения</translation>
         </message>
@@ -2188,17 +2196,12 @@
             <translation>Толщина контура</translation>
         </message>
         <message>
-            <location filename="../../core/commands.py" line="1842" />
-            <source>symbol parameter</source>
-            <translation>параметр символа</translation>
-        </message>
-        <message>
-            <location filename="../../ui/panels/properties_panel.py" line="2422" />
+            <location filename="../../ui/panels/properties_panel.py" line="2281" />
             <source>text color</source>
             <translation>Цвет текста</translation>
         </message>
         <message>
-            <location filename="../../ui/panels/properties_panel.py" line="2391" />
+            <location filename="../../ui/panels/properties_panel.py" line="2250" />
             <source>text content</source>
             <translation>Текст подписи</translation>
         </message>
@@ -5308,7 +5311,7 @@ Use 0.1 for DXF in mm, 100 for DXF in metres.</source>
     <context>
         <name>GardenItem</name>
         <message>
-            <location filename="../../ui/canvas/items/group_menu.py" line="102" />
+            <location filename="../../ui/canvas/items/group_menu.py" line="99" />
             <source>Group</source>
             <translation>Сгруппировать</translation>
         </message>
@@ -5318,7 +5321,7 @@ Use 0.1 for DXF in mm, 100 for DXF in metres.</source>
             <translation>Заблокировать положение</translation>
         </message>
         <message>
-            <location filename="../../ui/canvas/items/group_menu.py" line="106" />
+            <location filename="../../ui/canvas/items/group_menu.py" line="103" />
             <source>Ungroup</source>
             <translation>Разгруппировать</translation>
         </message>
@@ -5537,13 +5540,13 @@ Use 0.1 for DXF in mm, 100 for DXF in metres.</source>
             <translation>&amp;Вид</translation>
         </message>
         <message>
-            <location filename="../../app/application.py" line="6153" />
-            <location filename="../../app/application.py" line="6155" />
+            <location filename="../../app/application.py" line="6154" />
+            <location filename="../../app/application.py" line="6156" />
             <source>1 object selected</source>
             <translation>Выбран 1 объект</translation>
         </message>
         <message>
-            <location filename="../../app/application.py" line="6148" />
+            <location filename="../../app/application.py" line="6149" />
             <source>1 object | Area: {area} | Perimeter: {perimeter}</source>
             <translation>1 объект | Площадь: {area} | Периметр: {perimeter}</translation>
         </message>
@@ -5552,87 +5555,87 @@ Use 0.1 for DXF in mm, 100 for DXF in metres.</source>
             <translation type="vanished">3D-вид недоступен</translation>
         </message>
         <message>
-            <location filename="../../app/application.py" line="6044" />
+            <location filename="../../app/application.py" line="6045" />
             <source>&lt;h3&gt;Data Sources &amp; Licenses&lt;/h3&gt;</source>
             <translation>&lt;h3&gt;Источники данных и лицензии&lt;/h3&gt;</translation>
         </message>
         <message>
-            <location filename="../../app/application.py" line="6066" />
+            <location filename="../../app/application.py" line="6067" />
             <source>&lt;h4&gt;Bundled data&lt;/h4&gt;</source>
             <translation>&lt;h4&gt;Встроенные данные&lt;/h4&gt;</translation>
         </message>
         <message>
-            <location filename="../../app/application.py" line="6086" />
+            <location filename="../../app/application.py" line="6087" />
             <source>&lt;h4&gt;Icons&lt;/h4&gt;</source>
             <translation>&lt;h4&gt;Иконки&lt;/h4&gt;</translation>
         </message>
         <message>
-            <location filename="../../app/application.py" line="6046" />
+            <location filename="../../app/application.py" line="6047" />
             <source>&lt;h4&gt;Online plant databases&lt;/h4&gt;</source>
             <translation>&lt;h4&gt;Онлайн-базы данных о растениях&lt;/h4&gt;</translation>
         </message>
         <message>
-            <location filename="../../app/application.py" line="6073" />
+            <location filename="../../app/application.py" line="6074" />
             <source>&lt;li&gt;&lt;b&gt;Companion planting&lt;/b&gt; — RHS Companion Planting guide, Louise Riotte 'Carrots Love Tomatoes', Rodale's 'Companion Planting for Vegetables'&lt;/li&gt;</source>
             <translation>&lt;li&gt;&lt;b&gt;Совместные посадки&lt;/b&gt; — руководство RHS по совместным посадкам, Луиза Риотт «Морковь любит помидоры», Rodale «Совместные посадки для овощей»&lt;/li&gt;</translation>
         </message>
         <message>
-            <location filename="../../app/application.py" line="6060" />
+            <location filename="../../app/application.py" line="6061" />
             <source>&lt;li&gt;&lt;b&gt;Perenual&lt;/b&gt; — &lt;a href='https://perenual.com'&gt;perenual.com&lt;/a&gt;&lt;br&gt;Free for personal and commercial use.&lt;/li&gt;</source>
             <translation>&lt;li&gt;&lt;b&gt;Perenual&lt;/b&gt; — &lt;a href='https://perenual.com'&gt;perenual.com&lt;/a&gt;&lt;br&gt;Бесплатно для личного и коммерческого использования.&lt;/li&gt;</translation>
         </message>
         <message>
-            <location filename="../../app/application.py" line="6048" />
+            <location filename="../../app/application.py" line="6049" />
             <source>&lt;li&gt;&lt;b&gt;Permapeople&lt;/b&gt; — &lt;a href='https://permapeople.org'&gt;permapeople.org&lt;/a&gt;&lt;br&gt;License: CC BY-SA 4.0 (Creative Commons Attribution-ShareAlike 4.0)&lt;br&gt;Data is curated from public horticultural sources and available under a share-alike license.&lt;/li&gt;</source>
             <translation>&lt;li&gt;&lt;b&gt;Permapeople&lt;/b&gt; — &lt;a href='https://permapeople.org'&gt;permapeople.org&lt;/a&gt;&lt;br&gt;Лицензия: CC BY-SA 4.0 (Creative Commons Attribution-ShareAlike 4.0)&lt;br&gt;Данные подобраны из открытых садоводческих источников и доступны по лицензии с сохранением условий (share-alike).&lt;/li&gt;</translation>
         </message>
         <message>
-            <location filename="../../app/application.py" line="6078" />
+            <location filename="../../app/application.py" line="6079" />
             <source>&lt;li&gt;&lt;b&gt;Seed viability&lt;/b&gt; — Oregon State University Extension, Johnny's Selected Seeds, Mother Earth News, RHS&lt;/li&gt;</source>
             <translation>&lt;li&gt;&lt;b&gt;Всхожесть семян&lt;/b&gt; — Extension Орегонского государственного университета, Johnny’s Selected Seeds, Mother Earth News, RHS&lt;/li&gt;</translation>
         </message>
         <message>
-            <location filename="../../app/application.py" line="6082" />
+            <location filename="../../app/application.py" line="6083" />
             <source>&lt;li&gt;&lt;b&gt;Soil amendments&lt;/b&gt; — Rodale, RHS, USDA Extension&lt;/li&gt;</source>
             <translation>&lt;li&gt;&lt;b&gt;Улучшители почвы&lt;/b&gt; — Rodale, RHS, Extension Министерства сельского хозяйства США (USDA)&lt;/li&gt;</translation>
         </message>
         <message>
-            <location filename="../../app/application.py" line="6068" />
+            <location filename="../../app/application.py" line="6069" />
             <source>&lt;li&gt;&lt;b&gt;Species database&lt;/b&gt; — RHS, Cornell University, Royal Botanic Gardens Kew, USDA/GRIN-Global, University of Minnesota, Oregon State University&lt;/li&gt;</source>
             <translation>&lt;li&gt;&lt;b&gt;База данных видов растений&lt;/b&gt; — RHS, Корнеллский университет, Королевские ботанические сады Кью, USDA/GRIN-Global, Университет Миннесоты, Орегонский государственный университет&lt;/li&gt;</translation>
         </message>
         <message>
-            <location filename="../../app/application.py" line="6088" />
+            <location filename="../../app/application.py" line="6089" />
             <source>&lt;li&gt;&lt;b&gt;Tabler Icons&lt;/b&gt; — MIT License&lt;/li&gt;</source>
             <translation>&lt;li&gt;&lt;b&gt;Иконки Tabler&lt;/b&gt; — лицензия MIT&lt;/li&gt;</translation>
         </message>
         <message>
-            <location filename="../../app/application.py" line="6055" />
+            <location filename="../../app/application.py" line="6056" />
             <source>&lt;li&gt;&lt;b&gt;Trefle&lt;/b&gt; — &lt;a href='https://trefle.io'&gt;trefle.io&lt;/a&gt;&lt;br&gt;Attribution required per their API terms of service.&lt;/li&gt;</source>
             <translation>&lt;li&gt;&lt;b&gt;Trefle&lt;/b&gt; — &lt;a href='https://trefle.io'&gt;trefle.io&lt;/a&gt;&lt;br&gt;Требуется указание авторства согласно условиям использования их API.&lt;/li&gt;</translation>
         </message>
         <message>
-            <location filename="../../app/application.py" line="6089" />
+            <location filename="../../app/application.py" line="6090" />
             <source>&lt;li&gt;&lt;b&gt;UI icons&lt;/b&gt; — GPLv3 (original work)&lt;/li&gt;</source>
             <translation>&lt;li&gt;&lt;b&gt;Иконки интерфейса&lt;/b&gt; — GPLv3 (оригинальная работа)&lt;/li&gt;</translation>
         </message>
         <message>
-            <location filename="../../app/application.py" line="6091" />
+            <location filename="../../app/application.py" line="6092" />
             <source>&lt;p&gt;All bundled data files are licensed under CC BY-SA 4.0. See &lt;code&gt;resources/data/PROVENANCE.md&lt;/code&gt; for details.&lt;/p&gt;</source>
             <translation>&lt;p&gt;Все встроенные файлы данных распространяются по лицензии CC BY-SA 4.0. Подробности см. в файле &lt;code&gt;resources/data/PROVENANCE.md&lt;/code&gt;.&lt;/p&gt;</translation>
         </message>
         <message>
-            <location filename="../../app/application.py" line="6045" />
+            <location filename="../../app/application.py" line="6046" />
             <source>&lt;p&gt;Open Garden Planner uses data from the following sources:&lt;/p&gt;</source>
             <translation>&lt;p&gt;Open Garden Planner использует данные из следующих источников:&lt;/p&gt;</translation>
         </message>
         <message>
-            <location filename="../../app/application.py" line="5999" />
+            <location filename="../../app/application.py" line="6000" />
             <source>&lt;p&gt;Precision garden planning for passionate gardeners.&lt;/p&gt;&lt;p&gt;Free and open source under GPLv3.&lt;/p&gt;</source>
             <translation>&lt;p&gt;Точное планирование сада для увлечённых садоводов.&lt;/p&gt;&lt;p&gt;Бесплатное ПО с открытым исходным кодом под лицензией GPLv3.&lt;/p&gt;</translation>
         </message>
         <message>
-            <location filename="../../app/application.py" line="5995" />
+            <location filename="../../app/application.py" line="5996" />
             <source>&lt;p&gt;Version {v}&lt;/p&gt;</source>
             <translation>&lt;p&gt;Версия {v}&lt;/p&gt;</translation>
         </message>
@@ -5659,7 +5662,7 @@ Would you like to recover this file?</source>
 Восстановить этот файл?</translation>
         </message>
         <message>
-            <location filename="../../app/application.py" line="6234" />
+            <location filename="../../app/application.py" line="6235" />
             <source>API key missing</source>
             <translation>Отсутствует ключ API</translation>
         </message>
@@ -5669,7 +5672,7 @@ Would you like to recover this file?</source>
             <translation>О &amp;Qt</translation>
         </message>
         <message>
-            <location filename="../../app/application.py" line="5965" />
+            <location filename="../../app/application.py" line="5966" />
             <source>About Open Garden Planner</source>
             <translation>О программе Open Garden Planner</translation>
         </message>
@@ -5689,17 +5692,17 @@ Would you like to recover this file?</source>
             <translation>Активный инструмент</translation>
         </message>
         <message>
-            <location filename="../../app/agent_host.py" line="3681" />
+            <location filename="../../app/agent_host.py" line="3710" />
             <source>Agent API failed to start (see log)</source>
             <translation>Не удалось запустить Agent API (см. журнал)</translation>
         </message>
         <message>
-            <location filename="../../app/agent_host.py" line="3686" />
+            <location filename="../../app/agent_host.py" line="3715" />
             <source>Agent API running at {url}</source>
             <translation>Agent API запущен по адресу {url}</translation>
         </message>
         <message>
-            <location filename="../../app/agent_host.py" line="3673" />
+            <location filename="../../app/agent_host.py" line="3702" />
             <source>Agent API: port {port} is already in use</source>
             <translation>Agent API: порт {port} уже используется</translation>
         </message>
@@ -5784,12 +5787,12 @@ Would you like to recover this file?</source>
             <translation>Авто&amp;-сохранение</translation>
         </message>
         <message>
-            <location filename="../../app/application.py" line="4308" />
+            <location filename="../../app/application.py" line="4309" />
             <source>Auto-save disabled</source>
             <translation>Автосохранение отключено</translation>
         </message>
         <message>
-            <location filename="../../app/application.py" line="4305" />
+            <location filename="../../app/application.py" line="4306" />
             <source>Auto-save enabled</source>
             <translation>Автосохранение включено</translation>
         </message>
@@ -5799,7 +5802,7 @@ Would you like to recover this file?</source>
             <translation>Не удалось автосохранить: {error}</translation>
         </message>
         <message>
-            <location filename="../../app/application.py" line="4329" />
+            <location filename="../../app/application.py" line="4330" />
             <source>Auto-save interval set to {n} minute(s)</source>
             <translation>Интервал автосохранения установлен в {n} минут(ы)</translation>
         </message>
@@ -5829,17 +5832,17 @@ Would you like to recover this file?</source>
             <translation>На пер&amp;едний план</translation>
         </message>
         <message>
-            <location filename="../../app/application.py" line="3848" />
+            <location filename="../../app/application.py" line="3849" />
             <source>CSV Spreadsheet (*.csv);;All Files (*)</source>
             <translation>Таблица CSV (*.csv);;Все файлы (*)</translation>
         </message>
         <message>
-            <location filename="../../app/application.py" line="4054" />
+            <location filename="../../app/application.py" line="4055" />
             <source>Cancel</source>
             <translation>Отмена</translation>
         </message>
         <message>
-            <location filename="../../app/application.py" line="5587" />
+            <location filename="../../app/application.py" line="5588" />
             <source>Cannot delete the layer because its replacement layer is locked.</source>
             <translation>Невозможно удалить слой, так как заменяющий его слой заблокирован.</translation>
         </message>
@@ -5872,7 +5875,7 @@ Would you like to recover this file?</source>
             <translation>Проверить &amp;совместимость посадок...</translation>
         </message>
         <message>
-            <location filename="../../app/application.py" line="3618" />
+            <location filename="../../app/application.py" line="3619" />
             <source>Clear Recent Projects</source>
             <translation>Очистить список недавних проектов</translation>
         </message>
@@ -5923,7 +5926,7 @@ Would you like to recover this file?</source>
         </message>
         <message>
             <location filename="../../app/application.py" line="1997" />
-            <location filename="../../app/application.py" line="7009" />
+            <location filename="../../app/application.py" line="7010" />
             <source>Current season year — use File &gt; Manage Seasons to configure</source>
             <translation>Текущий год сезона — настройте через Файл &gt; Управление сезонами</translation>
         </message>
@@ -5947,14 +5950,14 @@ Would you like to recover this file?</source>
             <translation type="vanished">Созд&amp;ать копию</translation>
         </message>
         <message>
-            <location filename="../../app/application.py" line="3927" />
-            <location filename="../../app/application.py" line="3977" />
+            <location filename="../../app/application.py" line="3928" />
+            <location filename="../../app/application.py" line="3978" />
             <source>DXF Files (*.dxf);;All Files (*)</source>
             <translation>Файлы DXF (*.dxf);;Все файлы (*)</translation>
         </message>
         <message>
-            <location filename="../../app/application.py" line="6018" />
-            <location filename="../../app/application.py" line="6029" />
+            <location filename="../../app/application.py" line="6019" />
+            <location filename="../../app/application.py" line="6030" />
             <source>Data Sources &amp;&amp; Licenses</source>
             <translation>Источники данных и лицензии</translation>
         </message>
@@ -5964,7 +5967,7 @@ Would you like to recover this file?</source>
             <translation>Удалить все ограничения</translation>
         </message>
         <message>
-            <location filename="../../app/application.py" line="6784" />
+            <location filename="../../app/application.py" line="6785" />
             <source>Delete journal note</source>
             <translation>Удалить заметку из журнала</translation>
         </message>
@@ -5974,7 +5977,7 @@ Would you like to recover this file?</source>
             <translation>Удалить выбранные объекты</translation>
         </message>
         <message>
-            <location filename="../../app/application.py" line="6785" />
+            <location filename="../../app/application.py" line="6786" />
             <source>Delete this journal note?</source>
             <translation>Удалить эту заметку из журнала?</translation>
         </message>
@@ -6002,7 +6005,7 @@ Would you like to recover this file?</source>
             <translation>Распределить выбранные объекты с равным вертикальным интервалом</translation>
         </message>
         <message>
-            <location filename="../../app/application.py" line="4099" />
+            <location filename="../../app/application.py" line="4100" />
             <source>Do you want to save changes before proceeding?</source>
             <translation>Вы хотите сохранить изменения перед продолжением?</translation>
         </message>
@@ -6033,16 +6036,16 @@ Would you like to recover this file?</source>
         </message>
         <message>
             <location filename="../../app/application.py" line="3436" />
-            <location filename="../../app/application.py" line="3653" />
-            <location filename="../../app/application.py" line="3707" />
-            <location filename="../../app/application.py" line="3738" />
-            <location filename="../../app/application.py" line="6218" />
-            <location filename="../../app/application.py" line="7047" />
+            <location filename="../../app/application.py" line="3654" />
+            <location filename="../../app/application.py" line="3708" />
+            <location filename="../../app/application.py" line="3739" />
+            <location filename="../../app/application.py" line="6219" />
+            <location filename="../../app/application.py" line="7048" />
             <source>Error</source>
             <translation>Ошибка</translation>
         </message>
         <message>
-            <location filename="../../app/application.py" line="3663" />
+            <location filename="../../app/application.py" line="3664" />
             <source>Examples &amp; templates</source>
             <translation>Примеры и шаблоны</translation>
         </message>
@@ -6052,11 +6055,11 @@ Would you like to recover this file?</source>
             <translation>Выход из приложения</translation>
         </message>
         <message>
-            <location filename="../../app/application.py" line="3805" />
-            <location filename="../../app/application.py" line="3838" />
-            <location filename="../../app/application.py" line="3876" />
-            <location filename="../../app/application.py" line="3991" />
-            <location filename="../../app/application.py" line="4076" />
+            <location filename="../../app/application.py" line="3806" />
+            <location filename="../../app/application.py" line="3839" />
+            <location filename="../../app/application.py" line="3877" />
+            <location filename="../../app/application.py" line="3992" />
+            <location filename="../../app/application.py" line="4077" />
             <source>Export Error</source>
             <translation>Ошибка экспорта</translation>
         </message>
@@ -6066,7 +6069,7 @@ Would you like to recover this file?</source>
             <translation>&amp;Экспорт PDF-отчёта…</translation>
         </message>
         <message>
-            <location filename="../../app/application.py" line="4014" />
+            <location filename="../../app/application.py" line="4015" />
             <source>Export PDF Report</source>
             <translation>Экспорт PDF-отчёта</translation>
         </message>
@@ -6076,7 +6079,7 @@ Would you like to recover this file?</source>
             <translation>Экспортировать список растений как &amp;CSV...</translation>
         </message>
         <message>
-            <location filename="../../app/application.py" line="3846" />
+            <location filename="../../app/application.py" line="3847" />
             <source>Export Plant List as CSV</source>
             <translation>Экспорт списка растений в CSV</translation>
         </message>
@@ -6101,17 +6104,17 @@ Would you like to recover this file?</source>
             <translation>Экспорт в &amp;DXF…</translation>
         </message>
         <message>
-            <location filename="../../app/application.py" line="3975" />
+            <location filename="../../app/application.py" line="3976" />
             <source>Export as DXF</source>
             <translation>Экспорт в DXF</translation>
         </message>
         <message>
-            <location filename="../../app/application.py" line="3781" />
+            <location filename="../../app/application.py" line="3782" />
             <source>Export as PNG</source>
             <translation>Экспорт в PNG</translation>
         </message>
         <message>
-            <location filename="../../app/application.py" line="3813" />
+            <location filename="../../app/application.py" line="3814" />
             <source>Export as SVG</source>
             <translation>Экспорт в SVG</translation>
         </message>
@@ -6131,69 +6134,69 @@ Would you like to recover this file?</source>
             <translation>Экспортировать план как векторный файл SVG</translation>
         </message>
         <message>
-            <location filename="../../app/application.py" line="3872" />
+            <location filename="../../app/application.py" line="3873" />
             <source>Exported {count} plant(s) to: {path}</source>
             <translation>Экспортировано {count} растение(й) в: {path}</translation>
         </message>
         <message>
-            <location filename="../../app/application.py" line="3801" />
-            <location filename="../../app/application.py" line="3834" />
-            <location filename="../../app/application.py" line="3988" />
-            <location filename="../../app/application.py" line="4070" />
+            <location filename="../../app/application.py" line="3802" />
+            <location filename="../../app/application.py" line="3835" />
+            <location filename="../../app/application.py" line="3989" />
+            <location filename="../../app/application.py" line="4071" />
             <source>Exported: {path}</source>
             <translation>Экспортировано: {path}</translation>
         </message>
         <message>
-            <location filename="../../app/application.py" line="7048" />
+            <location filename="../../app/application.py" line="7049" />
             <source>Failed to create season file:
 {error}</source>
             <translation>Не удалось создать файл сезона:
 {error}</translation>
         </message>
         <message>
-            <location filename="../../app/application.py" line="3991" />
+            <location filename="../../app/application.py" line="3992" />
             <source>Failed to export DXF:
 {error}</source>
             <translation>Не удалось экспортировать DXF:
 {error}</translation>
         </message>
         <message>
-            <location filename="../../app/application.py" line="4077" />
+            <location filename="../../app/application.py" line="4078" />
             <source>Failed to export PDF report:
 {error}</source>
             <translation>Не удалось экспортировать PDF‑отчёт:
 {error}</translation>
         </message>
         <message>
-            <location filename="../../app/application.py" line="3805" />
+            <location filename="../../app/application.py" line="3806" />
             <source>Failed to export PNG:
 {error}</source>
             <translation>Не удалось экспортировать PNG:
 {error}</translation>
         </message>
         <message>
-            <location filename="../../app/application.py" line="3838" />
+            <location filename="../../app/application.py" line="3839" />
             <source>Failed to export SVG:
 {error}</source>
             <translation>Не удалось экспортировать SVG:
 {error}</translation>
         </message>
         <message>
-            <location filename="../../app/application.py" line="3876" />
+            <location filename="../../app/application.py" line="3877" />
             <source>Failed to export plant list:
 {error}</source>
             <translation>Не удалось экспортировать список растений:
 {error}</translation>
         </message>
         <message>
-            <location filename="../../app/application.py" line="3945" />
+            <location filename="../../app/application.py" line="3946" />
             <source>Failed to import DXF:
 {error}</source>
             <translation>Не удалось импортировать DXF:
 {error}</translation>
         </message>
         <message>
-            <location filename="../../app/application.py" line="6218" />
+            <location filename="../../app/application.py" line="6219" />
             <source>Failed to import image:
 {error}</source>
             <translation>Не удалось импортировать изображение:
@@ -6201,14 +6204,14 @@ Would you like to recover this file?</source>
         </message>
         <message>
             <location filename="../../app/application.py" line="3436" />
-            <location filename="../../app/application.py" line="3654" />
+            <location filename="../../app/application.py" line="3655" />
             <source>Failed to open file:
 {error}</source>
             <translation>Не удалось открыть файл:
 {error}</translation>
         </message>
         <message>
-            <location filename="../../app/application.py" line="3915" />
+            <location filename="../../app/application.py" line="3916" />
             <source>Failed to print:
 {error}</source>
             <translation>Не удалось напечатать:
@@ -6222,15 +6225,15 @@ Would you like to recover this file?</source>
 {error}</translation>
         </message>
         <message>
-            <location filename="../../app/application.py" line="3708" />
-            <location filename="../../app/application.py" line="3738" />
+            <location filename="../../app/application.py" line="3709" />
+            <location filename="../../app/application.py" line="3739" />
             <source>Failed to save file:
 {error}</source>
             <translation>Не удалось сохранить файл:
 {error}</translation>
         </message>
         <message>
-            <location filename="../../app/application.py" line="3611" />
+            <location filename="../../app/application.py" line="3612" />
             <source>File not found: {path}</source>
             <translation>Файл не найден: {path}</translation>
         </message>
@@ -6245,7 +6248,7 @@ Would you like to recover this file?</source>
             <translation>Найти и заменить объекты по имени, типу, слою или виду</translation>
         </message>
         <message>
-            <location filename="../../app/application.py" line="6972" />
+            <location filename="../../app/application.py" line="6973" />
             <source>First fall frost</source>
             <translation>Первый осенний заморозок</translation>
         </message>
@@ -6271,7 +6274,7 @@ Would you like to recover this file?</source>
         </message>
         <message>
             <location filename="../../app/application.py" line="1989" />
-            <location filename="../../app/application.py" line="6951" />
+            <location filename="../../app/application.py" line="6952" />
             <source>Garden GPS location — use File &gt; Set Garden Location to configure</source>
             <translation>GPS-координаты участка — настройте через Файл &gt; Задать местоположение участка</translation>
         </message>
@@ -6291,7 +6294,7 @@ Would you like to recover this file?</source>
             <translation>Местоположение участка</translation>
         </message>
         <message>
-            <location filename="../../app/application.py" line="6339" />
+            <location filename="../../app/application.py" line="6340" />
             <source>Garden location updated</source>
             <translation>Местоположение участка обновлено</translation>
         </message>
@@ -6306,7 +6309,7 @@ Would you like to recover this file?</source>
             <translation>Сформировать список покупок: растения, семена и материалы</translation>
         </message>
         <message>
-            <location filename="../../app/application.py" line="4054" />
+            <location filename="../../app/application.py" line="4055" />
             <source>Generating PDF…</source>
             <translation>Формируется PDF…</translation>
         </message>
@@ -6316,7 +6319,7 @@ Would you like to recover this file?</source>
             <translation>Сбор урожая</translation>
         </message>
         <message>
-            <location filename="../../app/application.py" line="6595" />
+            <location filename="../../app/application.py" line="6596" />
             <source>Harvest recorded</source>
             <translation>Сбор урожая зафиксирован</translation>
         </message>
@@ -6326,7 +6329,7 @@ Would you like to recover this file?</source>
             <translation>Выделить совместимые и несовместимые растения рядом с выбранным</translation>
         </message>
         <message>
-            <location filename="../../app/application.py" line="6198" />
+            <location filename="../../app/application.py" line="6199" />
             <source>Images (*.png *.jpg *.jpeg *.tiff *.bmp);;All Files (*)</source>
             <translation>Изображения (*.png *.jpg *.jpeg *.tiff *.bmp);;Все файлы (*)</translation>
         </message>
@@ -6336,17 +6339,17 @@ Would you like to recover this file?</source>
             <translation>Импортировать &amp;DXF…</translation>
         </message>
         <message>
-            <location filename="../../app/application.py" line="6196" />
+            <location filename="../../app/application.py" line="6197" />
             <source>Import Background Image</source>
             <translation>Импорт фонового изображения</translation>
         </message>
         <message>
-            <location filename="../../app/application.py" line="3925" />
+            <location filename="../../app/application.py" line="3926" />
             <source>Import DXF</source>
             <translation>Импортировать DXF</translation>
         </message>
         <message>
-            <location filename="../../app/application.py" line="3945" />
+            <location filename="../../app/application.py" line="3946" />
             <source>Import Error</source>
             <translation>Ошибка импорта</translation>
         </message>
@@ -6361,12 +6364,12 @@ Would you like to recover this file?</source>
             <translation>Импортировать фоновое изображение (спутниковый снимок и т. п.)</translation>
         </message>
         <message>
-            <location filename="../../app/application.py" line="3960" />
+            <location filename="../../app/application.py" line="3961" />
             <source>Imported {n} item(s) from DXF.</source>
             <translation>Импортировано {n} элемент(ов) из DXF.</translation>
         </message>
         <message>
-            <location filename="../../app/application.py" line="6216" />
+            <location filename="../../app/application.py" line="6217" />
             <source>Imported: {path}</source>
             <translation>Импортировано: {path}</translation>
         </message>
@@ -6376,17 +6379,17 @@ Would you like to recover this file?</source>
             <translation>Вставить гильдию…</translation>
         </message>
         <message>
-            <location filename="../../app/application.py" line="6747" />
+            <location filename="../../app/application.py" line="6748" />
             <source>Journal note added</source>
             <translation>Заметка в журнале добавлена</translation>
         </message>
         <message>
-            <location filename="../../app/application.py" line="5429" />
+            <location filename="../../app/application.py" line="5430" />
             <source>Language Changed</source>
             <translation>Язык изменён</translation>
         </message>
         <message>
-            <location filename="../../app/application.py" line="5430" />
+            <location filename="../../app/application.py" line="5431" />
             <source>Language has been set to {language}.
 
 Please restart the application for the change to take effect.</source>
@@ -6395,12 +6398,12 @@ Please restart the application for the change to take effect.</source>
 Перезапустите приложение, чтобы изменения вступили в силу.</translation>
         </message>
         <message>
-            <location filename="../../app/application.py" line="6970" />
+            <location filename="../../app/application.py" line="6971" />
             <source>Last spring frost</source>
             <translation>Последний весенний заморозок</translation>
         </message>
         <message>
-            <location filename="../../app/application.py" line="6963" />
+            <location filename="../../app/application.py" line="6964" />
             <source>Latitude: {lat}, Longitude: {lon}</source>
             <translation>Широта: {lat}, Долгота: {lon}</translation>
         </message>
@@ -6419,7 +6422,7 @@ Please restart the application for the change to take effect.</source>
             <translation type="vanished">Спутниковый фон загружен (захваченный вид карты, масштаб {zoom}) — холст изменён до {w_m:.0f} м × {h_m:.0f} м</translation>
         </message>
         <message>
-            <location filename="../../app/application.py" line="6307" />
+            <location filename="../../app/application.py" line="6308" />
             <source>Loaded satellite background (captured map view, zoom {zoom}) — canvas resized to {w_m} x {h_m}</source>
             <translation>Спутниковый фон загружен (снимок карты, масштаб {zoom}) — размер холста изменён на {w_m} x {h_m}</translation>
         </message>
@@ -6428,7 +6431,7 @@ Please restart the application for the change to take effect.</source>
             <translation type="vanished">Спутниковый фон загружен ({cols}×{rows} плиток, масштаб {zoom}) — холст изменён до {w_m:.0f} м × {h_m:.0f} м</translation>
         </message>
         <message>
-            <location filename="../../app/application.py" line="6318" />
+            <location filename="../../app/application.py" line="6319" />
             <source>Loaded satellite background ({cols}x{rows} tiles, zoom {zoom}) — canvas resized to {w_m} x {h_m}</source>
             <translation>Спутниковый фон загружен ({cols}x{rows} фрагментов, масштаб {zoom}) — размер холста изменён на {w_m} x {h_m}</translation>
         </message>
@@ -6437,7 +6440,7 @@ Please restart the application for the change to take effect.</source>
             <translation type="vanished">Управление &amp;сезонами...</translation>
         </message>
         <message>
-            <location filename="../../app/application.py" line="7056" />
+            <location filename="../../app/application.py" line="7057" />
             <source>New Season Created</source>
             <translation>Новый сезон создан</translation>
         </message>
@@ -6448,7 +6451,7 @@ Please restart the application for the change to take effect.</source>
         </message>
         <message>
             <location filename="../../app/application.py" line="1126" />
-            <location filename="../../app/application.py" line="3678" />
+            <location filename="../../app/application.py" line="3679" />
             <source>New from template...</source>
             <translation>Создать из шаблона...</translation>
         </message>
@@ -6462,69 +6465,69 @@ Please restart the application for the change to take effect.</source>
             <translation type="vanished">Создан новый проект: {width}м × {height}м</translation>
         </message>
         <message>
-            <location filename="../../app/application.py" line="4430" />
+            <location filename="../../app/application.py" line="4431" />
             <source>Night — the sun is below the horizon</source>
             <translation>Ночь — солнце ниже горизонта</translation>
         </message>
         <message>
-            <location filename="../../app/application.py" line="4591" />
+            <location filename="../../app/application.py" line="4592" />
             <source>Nitrogen (N)</source>
             <translation>Азот (N)</translation>
         </message>
         <message>
-            <location filename="../../app/application.py" line="3868" />
+            <location filename="../../app/application.py" line="3869" />
             <source>No Plants Found</source>
             <translation>Растения не найдены</translation>
         </message>
         <message>
-            <location filename="../../app/application.py" line="6452" />
+            <location filename="../../app/application.py" line="6453" />
             <source>No changes</source>
             <translation>Изменений нет</translation>
         </message>
         <message>
             <location filename="../../app/application.py" line="1988" />
-            <location filename="../../app/application.py" line="6949" />
+            <location filename="../../app/application.py" line="6950" />
             <source>No location set</source>
             <translation>Местоположение не задано</translation>
         </message>
         <message>
-            <location filename="../../app/application.py" line="3869" />
+            <location filename="../../app/application.py" line="3870" />
             <source>No plants found in the project. The CSV file will be empty.</source>
             <translation>В проекте не найдено растений. Файл CSV будет пустым.</translation>
         </message>
         <message>
-            <location filename="../../app/application.py" line="3593" />
+            <location filename="../../app/application.py" line="3594" />
             <source>No recent projects</source>
             <translation>Нет недавних проектов</translation>
         </message>
         <message>
             <location filename="../../app/application.py" line="1974" />
-            <location filename="../../app/application.py" line="6137" />
+            <location filename="../../app/application.py" line="6138" />
             <source>No selection</source>
             <translation>Ничего не выбрано</translation>
         </message>
         <message>
-            <location filename="../../app/application.py" line="3953" />
+            <location filename="../../app/application.py" line="3954" />
             <source>No supported entities found in the selected layers.</source>
             <translation>В выбранных слоях нет поддерживаемых объектов</translation>
         </message>
         <message>
-            <location filename="../../app/application.py" line="6364" />
+            <location filename="../../app/application.py" line="6365" />
             <source>North orientation set to {angle}°</source>
             <translation>Направление на север: {angle}°</translation>
         </message>
         <message>
-            <location filename="../../app/application.py" line="3952" />
+            <location filename="../../app/application.py" line="3953" />
             <source>Nothing Imported</source>
             <translation>Ничего не импортировано</translation>
         </message>
         <message>
-            <location filename="../../app/application.py" line="4243" />
+            <location filename="../../app/application.py" line="4244" />
             <source>Nothing to redo</source>
             <translation>Повторять нечего</translation>
         </message>
         <message>
-            <location filename="../../app/application.py" line="4233" />
+            <location filename="../../app/application.py" line="4234" />
             <source>Nothing to undo</source>
             <translation>Отменять нечего</translation>
         </message>
@@ -6540,9 +6543,9 @@ Please restart the application for the change to take effect.</source>
         </message>
         <message>
             <location filename="../../app/application.py" line="3411" />
-            <location filename="../../app/application.py" line="3679" />
-            <location filename="../../app/application.py" line="3701" />
-            <location filename="../../app/application.py" line="3717" />
+            <location filename="../../app/application.py" line="3680" />
+            <location filename="../../app/application.py" line="3702" />
+            <location filename="../../app/application.py" line="3718" />
             <source>Open Garden Planner (*.ogp);;All Files (*)</source>
             <translation>Open Garden Planner (*.ogp);;Все файлы (*)</translation>
         </message>
@@ -6561,17 +6564,17 @@ Please restart the application for the change to take effect.</source>
             <translation>Открыть существующий проект</translation>
         </message>
         <message>
-            <location filename="../../app/application.py" line="3513" />
+            <location filename="../../app/application.py" line="3514" />
             <source>Opened as an untitled copy: {name}</source>
             <translation>Открыто как безымянная копия: {name}</translation>
         </message>
         <message>
-            <location filename="../../app/application.py" line="3515" />
+            <location filename="../../app/application.py" line="3516" />
             <source>Opened: {name}</source>
             <translation>Открыто: {name}</translation>
         </message>
         <message>
-            <location filename="../../app/application.py" line="4589" />
+            <location filename="../../app/application.py" line="4590" />
             <source>Overall</source>
             <translation>Общий</translation>
         </message>
@@ -6581,17 +6584,17 @@ Please restart the application for the change to take effect.</source>
             <translation>Наложить полупрозрачные позиции растений из предыдущего сезона</translation>
         </message>
         <message>
-            <location filename="../../app/application.py" line="7106" />
+            <location filename="../../app/application.py" line="7107" />
             <source>Overlay {year} season plants (ghosted)</source>
             <translation>Наложить растения сезона {year} (полупрозрачно)</translation>
         </message>
         <message>
-            <location filename="../../app/application.py" line="4016" />
+            <location filename="../../app/application.py" line="4017" />
             <source>PDF Files (*.pdf);;All Files (*)</source>
             <translation>Файлы PDF (*.pdf);;Все файлы (*)</translation>
         </message>
         <message>
-            <location filename="../../app/application.py" line="3783" />
+            <location filename="../../app/application.py" line="3784" />
             <source>PNG Image (*.png);;All Files (*)</source>
             <translation>Изображение PNG (*.png);;Все файлы (*)</translation>
         </message>
@@ -6601,17 +6604,17 @@ Please restart the application for the change to take effect.</source>
             <translation>Вставить объекты из буфера обмена</translation>
         </message>
         <message>
-            <location filename="../../app/application.py" line="6503" />
+            <location filename="../../app/application.py" line="6504" />
             <source>Pest/disease log recorded</source>
             <translation>Журнал вредителей и болезней зафиксирован</translation>
         </message>
         <message>
-            <location filename="../../app/application.py" line="4592" />
+            <location filename="../../app/application.py" line="4593" />
             <source>Phosphorus (P)</source>
             <translation>Фосфор (P)</translation>
         </message>
         <message>
-            <location filename="../../app/application.py" line="5785" />
+            <location filename="../../app/application.py" line="5786" />
             <source>Pick an area on Google Maps and load it as a true-to-scale satellite background</source>
             <translation>Выберите область на Google Картах и загрузите её как спутниковый фон в реальном масштабе</translation>
         </message>
@@ -6641,7 +6644,7 @@ Please restart the application for the change to take effect.</source>
             <translation>Укажите истинный север на плане, не поворачивая чертёж</translation>
         </message>
         <message>
-            <location filename="../../app/application.py" line="4593" />
+            <location filename="../../app/application.py" line="4594" />
             <source>Potassium (K)</source>
             <translation>Калий (K)</translation>
         </message>
@@ -6651,7 +6654,7 @@ Please restart the application for the change to take effect.</source>
             <translation>Настро&amp;йки…</translation>
         </message>
         <message>
-            <location filename="../../app/application.py" line="3914" />
+            <location filename="../../app/application.py" line="3915" />
             <source>Print Error</source>
             <translation>Ошибка печати</translation>
         </message>
@@ -6671,7 +6674,7 @@ Please restart the application for the change to take effect.</source>
             <translation>Готово</translation>
         </message>
         <message>
-            <location filename="../../app/application.py" line="3637" />
+            <location filename="../../app/application.py" line="3638" />
             <source>Recent projects list cleared</source>
             <translation>Список недавних проектов очищен</translation>
         </message>
@@ -6701,7 +6704,7 @@ Please restart the application for the change to take effect.</source>
             <translation>Повторить последнее отменённое действие</translation>
         </message>
         <message>
-            <location filename="../../app/application.py" line="4241" />
+            <location filename="../../app/application.py" line="4242" />
             <source>Redo: {desc}</source>
             <translation>Повторить: {desc}</translation>
         </message>
@@ -6734,7 +6737,7 @@ Please restart the application for the change to take effect.</source>
             <translation type="vanished">&amp;Моделирование солнца и тени</translation>
         </message>
         <message>
-            <location filename="../../app/application.py" line="3815" />
+            <location filename="../../app/application.py" line="3816" />
             <source>SVG Vector (*.svg);;All Files (*)</source>
             <translation>Вектор SVG (*.svg);;Все файлы (*)</translation>
         </message>
@@ -6744,14 +6747,14 @@ Please restart the application for the change to take effect.</source>
             <translation>Сохранить &amp;как...</translation>
         </message>
         <message>
-            <location filename="../../app/application.py" line="3715" />
+            <location filename="../../app/application.py" line="3716" />
             <source>Save Project As</source>
             <translation>Сохранить проект как</translation>
         </message>
         <message>
             <location filename="../../app/application.py" line="1162" />
-            <location filename="../../app/application.py" line="3694" />
-            <location filename="../../app/application.py" line="3699" />
+            <location filename="../../app/application.py" line="3695" />
+            <location filename="../../app/application.py" line="3700" />
             <source>Save as template...</source>
             <translation>Сохранить как шаблон...</translation>
         </message>
@@ -6766,12 +6769,12 @@ Please restart the application for the change to take effect.</source>
             <translation>Сохранить проект с новым именем</translation>
         </message>
         <message>
-            <location filename="../../app/application.py" line="3743" />
+            <location filename="../../app/application.py" line="3744" />
             <source>Saved: {path}</source>
             <translation>Сохранено: {path}</translation>
         </message>
         <message>
-            <location filename="../../app/application.py" line="3758" />
+            <location filename="../../app/application.py" line="3759" />
             <source>Saved: {path}. The plan now follows your own date and time, no longer the example's.</source>
             <translation>Сохранено: {path}. Теперь план следует вашим дате и времени, а не дате и времени примера.</translation>
         </message>
@@ -6786,7 +6789,7 @@ Please restart the application for the change to take effect.</source>
             <translation>Сезон</translation>
         </message>
         <message>
-            <location filename="../../app/application.py" line="7057" />
+            <location filename="../../app/application.py" line="7058" />
             <source>Season {year} has been created.
 
 Open the new season now?</source>
@@ -6795,18 +6798,18 @@ Open the new season now?</source>
 Открыть новый сезон сейчас?</translation>
         </message>
         <message>
-            <location filename="../../app/application.py" line="7014" />
+            <location filename="../../app/application.py" line="7015" />
             <source>Season {year} — use File &gt; Manage Seasons to manage seasons</source>
             <translation>Сезон {year} — настройте через Файл &gt; Управление сезонами</translation>
         </message>
         <message>
-            <location filename="../../app/application.py" line="7012" />
+            <location filename="../../app/application.py" line="7013" />
             <source>Season: {year}</source>
             <translation>Сезон: {year}</translation>
         </message>
         <message>
             <location filename="../../app/application.py" line="1996" />
-            <location filename="../../app/application.py" line="7007" />
+            <location filename="../../app/application.py" line="7008" />
             <source>Season: —</source>
             <translation>Сезон: —</translation>
         </message>
@@ -6827,7 +6830,7 @@ Open the new season now?</source>
             <translation>Выделить вс&amp;ё</translation>
         </message>
         <message>
-            <location filename="../../app/application.py" line="5905" />
+            <location filename="../../app/application.py" line="5906" />
             <source>Select a plant object (tree, shrub, or perennial) to assign species data</source>
             <translation>Выберите объект растения (дерево, кустарник или многолетник), чтобы назначить данные о виде</translation>
         </message>
@@ -6837,7 +6840,7 @@ Open the new season now?</source>
             <translation>Выделить все объекты</translation>
         </message>
         <message>
-            <location filename="../../app/application.py" line="4274" />
+            <location filename="../../app/application.py" line="4275" />
             <source>Selected {count} object(s)</source>
             <translation>Выбрано {count} объект(ов)</translation>
         </message>
@@ -6882,12 +6885,12 @@ Open the new season now?</source>
             <translation>Задать направление на север...</translation>
         </message>
         <message>
-            <location filename="../../app/application.py" line="5790" />
+            <location filename="../../app/application.py" line="5791" />
             <source>Set a Google Maps API key in Preferences or OGP_GOOGLE_MAPS_KEY in your .env file to enable satellite background loading</source>
             <translation>Укажите ключ Google Maps API в Настройках или переменную OGP_GOOGLE_MAPS_KEY в файле .env, чтобы включить загрузку спутникового фона</translation>
         </message>
         <message>
-            <location filename="../../app/application.py" line="6235" />
+            <location filename="../../app/application.py" line="6236" />
             <source>Set a Google Maps API key in Preferences or OGP_GOOGLE_MAPS_KEY in your .env file to enable satellite background loading.</source>
             <translation>Укажите ключ Google Maps API в Настройках или переменную OGP_GOOGLE_MAPS_KEY в файле .env, чтобы включить загрузку спутникового фона.</translation>
         </message>
@@ -6897,7 +6900,7 @@ Open the new season now?</source>
             <translation>Задайте общий для проекта анализ почвы — он будет использоваться, если у отдельных грядок нет своего</translation>
         </message>
         <message>
-            <location filename="../../app/application.py" line="4426" />
+            <location filename="../../app/application.py" line="4427" />
             <source>Set garden location first: File → Set Garden Location…</source>
             <translation>Сначала задайте местоположение участка: Файл → Задать местоположение участка…</translation>
         </message>
@@ -6984,13 +6987,9 @@ Open the new season now?</source>
             <translation type="vanished">Смоделировать солнечные тени для выбранной даты и времени суток</translation>
         </message>
         <message>
-            <location filename="../../app/application.py" line="3963" />
+            <location filename="../../app/application.py" line="3964" />
             <source>Skipped {k} unsupported entity/entities ({types}).</source>
             <translation>Пропущено {k} неподдерживаемых объектов ({types}).</translation>
-        </message>
-        <message>
-            <source>Smart Symbols</source>
-            <translation type="vanished">Умные символы</translation>
         </message>
         <message>
             <location filename="../../app/application.py" line="1615" />
@@ -7028,27 +7027,27 @@ Open the new season now?</source>
             <translation>&amp;Наложение «Здоровье почвы»</translation>
         </message>
         <message>
-            <location filename="../../app/application.py" line="4584" />
+            <location filename="../../app/application.py" line="4585" />
             <source>Soil Health Overlay</source>
             <translation>Наложение «Здоровье почвы»</translation>
         </message>
         <message>
-            <location filename="../../app/application.py" line="4581" />
+            <location filename="../../app/application.py" line="4582" />
             <source>Soil Overlay</source>
             <translation>Наложение «Почва»</translation>
         </message>
         <message>
-            <location filename="../../app/application.py" line="4585" />
+            <location filename="../../app/application.py" line="4586" />
             <source>Soil parameter:</source>
             <translation>Параметр почвы:</translation>
         </message>
         <message>
-            <location filename="../../app/application.py" line="6456" />
+            <location filename="../../app/application.py" line="6457" />
             <source>Soil test recorded</source>
             <translation>Анализ почвы зафиксирован</translation>
         </message>
         <message>
-            <location filename="../../app/application.py" line="6637" />
+            <location filename="../../app/application.py" line="6638" />
             <source>Succession plan saved</source>
             <translation>План севооборота сохранён</translation>
         </message>
@@ -7063,7 +7062,7 @@ Open the new season now?</source>
             <translation>Задачи</translation>
         </message>
         <message>
-            <location filename="../../app/application.py" line="3687" />
+            <location filename="../../app/application.py" line="3688" />
             <source>Templates remove location, journal notes and pins, harvest and pest logs, soil tests, season links and year, crop history, seed inventory, propagation overrides, manual tasks and task states, shopping data and amendment preferences, background images, photos and absolute paths. Geometry, species, layers, guilds, constraints and succession plans stay. Review names and free-form text before sharing.</source>
             <translation>Шаблоны удаляют местоположение, заметки и метки журнала, журналы сбора урожая и вредителей, анализы почвы, привязки к сезонам и год, историю культур, инвентарь семян, переопределения выращивания, ручные задачи и их состояния, списки покупок и предпочтения удобрений, фоновые изображения, фотографии и абсолютные пути. Геометрия, виды растений, слои, гильдии, ограничения и планы севооборота сохраняются. Проверьте названия и произвольный текст перед отправкой.</translation>
         </message>
@@ -7086,12 +7085,17 @@ Details: {error}</source>
             <translation>В плане указано недопустимое или бесконечное число в поле {field}.</translation>
         </message>
         <message>
+            <location filename="../../app/application.py" line="3446" />
+            <source>The plan uses an unsupported group transform at {field}.</source>
+            <translation>В плане используется неподдерживаемое преобразование группы в {field}.</translation>
+        </message>
+        <message>
             <location filename="../../app/application.py" line="3445" />
             <source>The plan value at {field} must be positive.</source>
             <translation>Значение в поле {field} плана должно быть положительным.</translation>
         </message>
         <message>
-            <location filename="../../app/application.py" line="5393" />
+            <location filename="../../app/application.py" line="5394" />
             <source>Theme changed to {theme}</source>
             <translation>Тема изменена на {theme}</translation>
         </message>
@@ -7190,17 +7194,17 @@ Details: {error}</source>
             <translation>Отменить последнее действие</translation>
         </message>
         <message>
-            <location filename="../../app/application.py" line="4231" />
+            <location filename="../../app/application.py" line="4232" />
             <source>Undo: {desc}</source>
             <translation>Отменить: {desc}</translation>
         </message>
         <message>
-            <location filename="../../app/application.py" line="4098" />
+            <location filename="../../app/application.py" line="4099" />
             <source>Unsaved Changes</source>
             <translation>Несохранённые изменения</translation>
         </message>
         <message>
-            <location filename="../../app/application.py" line="5897" />
+            <location filename="../../app/application.py" line="5898" />
             <source>Updated plant with species: {name}</source>
             <translation>Обновлено растение с видом: {name}</translation>
         </message>
@@ -7225,12 +7229,12 @@ Details: {error}</source>
             <translation>Просмотр, редактирование и удаление ваших пользовательских видов растений</translation>
         </message>
         <message>
-            <location filename="../../app/application.py" line="3505" />
+            <location filename="../../app/application.py" line="3506" />
             <source>Warning: {count} camera tour(s) could not be read and were skipped.</source>
             <translation>Предупреждение: {count} облётов камеры не удалось прочитать — они были пропущены.</translation>
         </message>
         <message>
-            <location filename="../../app/application.py" line="3501" />
+            <location filename="../../app/application.py" line="3502" />
             <source>Warning: {count} unrecognized item(s) could not be loaded and were skipped.</source>
             <translation>Предупреждение: {count} нераспознанных элементов не удалось загрузить — они были пропущены.</translation>
         </message>
@@ -7239,7 +7243,7 @@ Details: {error}</source>
             <translation type="vanished">X: 0.00 см  Y: 0.00 см</translation>
         </message>
         <message>
-            <location filename="../../app/application.py" line="6117" />
+            <location filename="../../app/application.py" line="6118" />
             <source>X: {x}  Y: {y}</source>
             <translation>X: {x}  Y: {y}</translation>
         </message>
@@ -7257,7 +7261,7 @@ Please save your project to a permanent location.</source>
 Сохраните проект в постоянное расположение.</translation>
         </message>
         <message>
-            <location filename="../../app/application.py" line="6966" />
+            <location filename="../../app/application.py" line="6967" />
             <source>Zone</source>
             <translation>Зона</translation>
         </message>
@@ -7287,33 +7291,33 @@ Please save your project to a permanent location.</source>
             <translation>Отдалить холст</translation>
         </message>
         <message>
-            <location filename="../../app/application.py" line="7175" />
+            <location filename="../../app/application.py" line="7176" />
             <source>frost alert</source>
             <translation>Оповещение о заморозках</translation>
         </message>
         <message>
-            <location filename="../../app/application.py" line="7175" />
+            <location filename="../../app/application.py" line="7176" />
             <source>frost alerts</source>
             <translation>Оповещения о заморозках</translation>
         </message>
         <message>
-            <location filename="../../app/application.py" line="4590" />
+            <location filename="../../app/application.py" line="4591" />
             <source>pH</source>
             <translation>pH</translation>
         </message>
         <message>
-            <location filename="../../app/application.py" line="6180" />
-            <location filename="../../app/application.py" line="6182" />
+            <location filename="../../app/application.py" line="6181" />
+            <location filename="../../app/application.py" line="6183" />
             <source>{count} objects selected</source>
             <translation>{count} объектов выбрано</translation>
         </message>
         <message>
-            <location filename="../../app/application.py" line="6175" />
+            <location filename="../../app/application.py" line="6176" />
             <source>{count} objects | Total Area: {area} | Total Perimeter: {perimeter}</source>
             <translation>{count} объектов | Общая площадь: {area} | Общий периметр: {perimeter}</translation>
         </message>
         <message>
-            <location filename="../../app/application.py" line="3610" />
+            <location filename="../../app/application.py" line="3611" />
             <source>{name} (not found)</source>
             <translation>{name} (не найдено)</translation>
         </message>
@@ -7400,6 +7404,26 @@ Please save your project to a permanent location.</source>
     </context>
     <context>
         <name>GroupItem</name>
+        <message>
+            <location filename="../../ui/canvas/items/group_item.py" line="384" />
+            <source>A constrained member cannot be rotated with the group</source>
+            <translation>Элемент с ограничением нельзя повернуть вместе с группой</translation>
+        </message>
+        <message>
+            <location filename="../../ui/canvas/items/group_item.py" line="371" />
+            <source>A linked plant belongs to another group; remove it from that group before turning this one</source>
+            <translation>Связанное растение принадлежит другой группе; удалите его из этой группы, прежде чем поворачивать эту</translation>
+        </message>
+        <message>
+            <location filename="../../ui/canvas/items/group_item.py" line="396" />
+            <source>A member on a locked layer cannot be rotated with the group</source>
+            <translation>Элемент на заблокированном слое нельзя повернуть вместе с группой</translation>
+        </message>
+        <message>
+            <location filename="../../ui/canvas/items/group_item.py" line="355" />
+            <source>This group has an unsupported transform and cannot be edited</source>
+            <translation>Эта группа имеет неподдерживаемое преобразование и не может быть изменена</translation>
+        </message>
         <message>
             <source>Ungroup</source>
             <translation type="vanished">Разгруппировать</translation>
@@ -7821,12 +7845,12 @@ Please save your project to a permanent location.</source>
     <context>
         <name>HarvestJournal</name>
         <message>
-            <location filename="../../core/commands.py" line="4564" />
+            <location filename="../../core/commands.py" line="4615" />
             <source>Harvested {qty} {unit}</source>
             <translation>Собрано: {qty} {unit}</translation>
         </message>
         <message>
-            <location filename="../../core/commands.py" line="4561" />
+            <location filename="../../core/commands.py" line="4612" />
             <source>Harvested {qty} {unit} of {name}</source>
             <translation>Собрано {qty} {unit} {name}</translation>
         </message>
@@ -12325,12 +12349,12 @@ to assign species data.</source>
     <context>
         <name>ProjectManager</name>
         <message>
-            <location filename="../../core/project.py" line="1320" />
+            <location filename="../../core/project.py" line="1321" />
             <source>Choose a template filename outside the current project and bundled examples.</source>
             <translation>Выберите имя файла шаблона за пределами текущего проекта и встроенных примеров.</translation>
         </message>
         <message>
-            <location filename="../../core/project.py" line="377" />
+            <location filename="../../core/project.py" line="378" />
             <source>Untitled</source>
             <translation>Без названия</translation>
         </message>
@@ -12401,152 +12425,152 @@ to assign species data.</source>
     <context>
         <name>PropertiesPanel</name>
         <message>
-            <location filename="../../ui/panels/properties_panel.py" line="1642" />
+            <location filename="../../ui/panels/properties_panel.py" line="1634" />
             <source>0 = auto-compute from footprint × height; set a value to override</source>
             <translation>0 = вычисляется автоматически на основе площади основания × высоты; задайте значение вручную, чтобы переопределить расчёт.</translation>
         </message>
         <message>
-            <location filename="../../ui/panels/properties_panel.py" line="755" />
-            <location filename="../../ui/panels/properties_panel.py" line="797" />
-            <location filename="../../ui/panels/properties_panel.py" line="905" />
+            <location filename="../../ui/panels/properties_panel.py" line="754" />
+            <location filename="../../ui/panels/properties_panel.py" line="796" />
+            <location filename="../../ui/panels/properties_panel.py" line="897" />
             <source>A group member stays on its group's layer</source>
             <translation>Элемент группы остаётся на слое своей группы</translation>
         </message>
         <message>
-            <location filename="../../ui/panels/properties_panel.py" line="1216" />
+            <location filename="../../ui/panels/properties_panel.py" line="1208" />
             <source>Arrange</source>
             <translation>Упорядочить</translation>
         </message>
         <message>
-            <location filename="../../ui/panels/properties_panel.py" line="1638" />
-            <location filename="../../ui/panels/properties_panel.py" line="1818" />
-            <location filename="../../ui/panels/properties_panel.py" line="1921" />
-            <location filename="../../ui/panels/properties_panel.py" line="1939" />
+            <location filename="../../ui/panels/properties_panel.py" line="1630" />
+            <location filename="../../ui/panels/properties_panel.py" line="1810" />
+            <location filename="../../ui/panels/properties_panel.py" line="1913" />
+            <location filename="../../ui/panels/properties_panel.py" line="1931" />
             <source>Auto</source>
             <translation>Авто</translation>
         </message>
         <message>
-            <location filename="../../ui/panels/properties_panel.py" line="1896" />
+            <location filename="../../ui/panels/properties_panel.py" line="1888" />
             <source>Automatic</source>
             <translation>Автоматически</translation>
         </message>
         <message>
-            <location filename="../../ui/panels/properties_panel.py" line="2520" />
+            <location filename="../../ui/panels/properties_panel.py" line="2379" />
             <source>Bark</source>
             <translation>Кора</translation>
         </message>
         <message>
-            <location filename="../../ui/panels/properties_panel.py" line="2332" />
+            <location filename="../../ui/panels/properties_panel.py" line="2191" />
             <source>Bold</source>
             <translation>Жирный</translation>
         </message>
         <message>
-            <location filename="../../ui/panels/properties_panel.py" line="2519" />
+            <location filename="../../ui/panels/properties_panel.py" line="2378" />
             <source>Brick</source>
             <translation>Кирпич</translation>
         </message>
         <message>
-            <location filename="../../ui/panels/properties_panel.py" line="1233" />
+            <location filename="../../ui/panels/properties_panel.py" line="1225" />
             <source>Bring Forward</source>
             <translation>Переместить вперёд</translation>
         </message>
         <message>
-            <location filename="../../ui/panels/properties_panel.py" line="1227" />
+            <location filename="../../ui/panels/properties_panel.py" line="1219" />
             <source>Bring to Front</source>
             <translation>На передний план</translation>
         </message>
         <message>
-            <location filename="../../ui/panels/properties_panel.py" line="2983" />
+            <location filename="../../ui/panels/properties_panel.py" line="2842" />
             <source>Cannot resize this shape: its edge length is constrained. Remove the constraint first.</source>
             <translation>Невозможно изменить размер этой фигуры: длина её ребра ограничена. Сначала удалите ограничение.</translation>
         </message>
         <message>
-            <location filename="../../ui/panels/properties_panel.py" line="1514" />
+            <location filename="../../ui/panels/properties_panel.py" line="1506" />
             <source>Cells:</source>
             <translation>Ячейки:</translation>
         </message>
         <message>
-            <location filename="../../ui/panels/properties_panel.py" line="2528" />
+            <location filename="../../ui/panels/properties_panel.py" line="2387" />
             <source>Clay</source>
             <translation>Глина</translation>
         </message>
         <message>
-            <location filename="../../ui/panels/properties_panel.py" line="2354" />
+            <location filename="../../ui/panels/properties_panel.py" line="2213" />
             <source>Color:</source>
             <translation>Цвет:</translation>
         </message>
         <message>
-            <location filename="../../ui/panels/properties_panel.py" line="2526" />
+            <location filename="../../ui/panels/properties_panel.py" line="2385" />
             <source>Compost</source>
             <translation>Компост</translation>
         </message>
         <message>
-            <location filename="../../ui/panels/properties_panel.py" line="2509" />
+            <location filename="../../ui/panels/properties_panel.py" line="2368" />
             <source>Concrete</source>
             <translation>Бетон</translation>
         </message>
         <message>
-            <location filename="../../ui/panels/properties_panel.py" line="1085" />
+            <location filename="../../ui/panels/properties_panel.py" line="1077" />
             <source>Contained Plants</source>
             <translation>Растения в грядке</translation>
         </message>
         <message>
-            <location filename="../../ui/panels/properties_panel.py" line="1599" />
+            <location filename="../../ui/panels/properties_panel.py" line="1591" />
             <source>Container</source>
             <translation>Контейнер</translation>
         </message>
         <message>
-            <location filename="../../ui/panels/properties_panel.py" line="2277" />
+            <location filename="../../ui/panels/properties_panel.py" line="2136" />
             <source>Content:</source>
             <translation>Содержимое:</translation>
         </message>
         <message>
-            <location filename="../../ui/panels/properties_panel.py" line="2530" />
+            <location filename="../../ui/panels/properties_panel.py" line="2389" />
             <source>Corten steel</source>
             <translation>Сталь Corten</translation>
         </message>
         <message>
-            <location filename="../../ui/panels/properties_panel.py" line="835" />
+            <location filename="../../ui/panels/properties_panel.py" line="827" />
             <source>Ctrl+Shift+G to ungroup</source>
             <translation>Ctrl+Shift+G — разгруппировать</translation>
         </message>
         <message>
-            <location filename="../../ui/panels/properties_panel.py" line="1822" />
+            <location filename="../../ui/panels/properties_panel.py" line="1814" />
             <source>Custom height (0 = back to automatic)</source>
             <translation>Индивидуальная высота (0 = вернуться к автоматическому расчёту)</translation>
         </message>
         <message>
-            <location filename="../../ui/panels/properties_panel.py" line="2601" />
+            <location filename="../../ui/panels/properties_panel.py" line="2460" />
             <source>Dash Dot</source>
             <translation>Штрих-точка</translation>
         </message>
         <message>
-            <location filename="../../ui/panels/properties_panel.py" line="2599" />
+            <location filename="../../ui/panels/properties_panel.py" line="2458" />
             <source>Dashed</source>
             <translation>Пунктир</translation>
         </message>
         <message>
-            <location filename="../../ui/panels/properties_panel.py" line="2529" />
+            <location filename="../../ui/panels/properties_panel.py" line="2388" />
             <source>Decking</source>
             <translation>Настил</translation>
         </message>
         <message>
-            <location filename="../../ui/panels/properties_panel.py" line="1826" />
+            <location filename="../../ui/panels/properties_panel.py" line="1818" />
             <source>Default for this object type</source>
             <translation>Значение по умолчанию для этого типа объекта</translation>
         </message>
         <message>
-            <location filename="../../ui/panels/properties_panel.py" line="1354" />
+            <location filename="../../ui/panels/properties_panel.py" line="1346" />
             <source>Diameter:</source>
             <translation>Диаметр:</translation>
         </message>
         <message>
-            <location filename="../../ui/panels/properties_panel.py" line="2600" />
+            <location filename="../../ui/panels/properties_panel.py" line="2459" />
             <source>Dotted</source>
             <translation>Точки</translation>
         </message>
         <message>
-            <location filename="../../ui/panels/properties_panel.py" line="1621" />
+            <location filename="../../ui/panels/properties_panel.py" line="1613" />
             <source>Drainage:</source>
             <translation>Дренаж:</translation>
         </message>
@@ -12555,191 +12579,186 @@ to assign species data.</source>
             <translation type="vanished" />
         </message>
         <message>
-            <location filename="../../ui/panels/properties_panel.py" line="1649" />
+            <location filename="../../ui/panels/properties_panel.py" line="1641" />
             <source>Effective:</source>
             <translation>Эффективный:</translation>
         </message>
         <message>
-            <location filename="../../ui/panels/properties_panel.py" line="2499" />
+            <location filename="../../ui/panels/properties_panel.py" line="2358" />
             <source>Fill Color:</source>
             <translation>Цвет заливки:</translation>
         </message>
         <message>
-            <location filename="../../ui/panels/properties_panel.py" line="2545" />
+            <location filename="../../ui/panels/properties_panel.py" line="2404" />
             <source>Fill Pattern:</source>
             <translation>Узор заливки:</translation>
         </message>
         <message>
-            <location filename="../../ui/panels/properties_panel.py" line="1554" />
+            <location filename="../../ui/panels/properties_panel.py" line="1546" />
             <source>Fill depth used to calculate soil volume in the Shopping List</source>
             <translation>Глубина засыпки, используемая для расчёта объёма грунта в списке покупок</translation>
         </message>
         <message>
-            <location filename="../../ui/panels/properties_panel.py" line="2527" />
+            <location filename="../../ui/panels/properties_panel.py" line="2386" />
             <source>Flagstone</source>
             <translation>Плитняк</translation>
         </message>
         <message>
-            <location filename="../../ui/panels/properties_panel.py" line="1898" />
+            <location filename="../../ui/panels/properties_panel.py" line="1890" />
             <source>Flat</source>
             <translation>Плоская</translation>
         </message>
         <message>
-            <location filename="../../ui/panels/properties_panel.py" line="2313" />
+            <location filename="../../ui/panels/properties_panel.py" line="2172" />
             <source>Font height on the plan. Capital letters are about 70 % as tall. The text takes the nearest available size.</source>
             <translation>Высота шрифта на плане. Заглавные буквы составляют около 70 % этой высоты. Текст принимает ближайший доступный размер.</translation>
         </message>
         <message>
-            <location filename="../../ui/panels/properties_panel.py" line="2295" />
+            <location filename="../../ui/panels/properties_panel.py" line="2154" />
             <source>Font:</source>
             <translation>Шрифт:</translation>
         </message>
         <message>
-            <location filename="../../ui/panels/properties_panel.py" line="1825" />
+            <location filename="../../ui/panels/properties_panel.py" line="1817" />
             <source>From assigned species (max height)</source>
             <translation>На основе назначенного вида (максимальная высота)</translation>
         </message>
         <message>
-            <location filename="../../ui/panels/properties_panel.py" line="1823" />
+            <location filename="../../ui/panels/properties_panel.py" line="1815" />
             <source>From container fill height</source>
             <translation>На основе высоты заполнения контейнера</translation>
         </message>
         <message>
-            <location filename="../../ui/panels/properties_panel.py" line="1824" />
+            <location filename="../../ui/panels/properties_panel.py" line="1816" />
             <source>From measured current height</source>
             <translation>На основе измеренной текущей высоты</translation>
         </message>
         <message>
-            <location filename="../../ui/panels/properties_panel.py" line="2200" />
+            <location filename="../../ui/panels/properties_panel.py" line="2059" />
             <source>Frost protection:</source>
             <translation>Защита от мороза:</translation>
         </message>
         <message>
-            <location filename="../../ui/panels/properties_panel.py" line="1896" />
+            <location filename="../../ui/panels/properties_panel.py" line="1888" />
             <source>Gable</source>
             <translation>Двускатная</translation>
         </message>
         <message>
-            <location filename="../../ui/panels/properties_panel.py" line="2517" />
+            <location filename="../../ui/panels/properties_panel.py" line="2376" />
             <source>Glass</source>
             <translation>Стекло</translation>
         </message>
         <message>
-            <location filename="../../ui/panels/properties_panel.py" line="2507" />
+            <location filename="../../ui/panels/properties_panel.py" line="2366" />
             <source>Grass</source>
             <translation>Трава</translation>
         </message>
         <message>
-            <location filename="../../ui/panels/properties_panel.py" line="2508" />
+            <location filename="../../ui/panels/properties_panel.py" line="2367" />
             <source>Gravel</source>
             <translation>Гравий</translation>
         </message>
         <message>
-            <location filename="../../ui/panels/properties_panel.py" line="1458" />
+            <location filename="../../ui/panels/properties_panel.py" line="1450" />
             <source>Grid Overlay</source>
             <translation>Наложение сетки</translation>
         </message>
         <message>
-            <location filename="../../ui/panels/properties_panel.py" line="1511" />
+            <location filename="../../ui/panels/properties_panel.py" line="1503" />
             <source>Grid:</source>
             <translation>Сетка:</translation>
         </message>
         <message>
-            <location filename="../../ui/panels/properties_panel.py" line="832" />
+            <location filename="../../ui/panels/properties_panel.py" line="824" />
             <source>Group ({n} items)</source>
             <translation>Группа ({n} элементов)</translation>
         </message>
         <message>
-            <location filename="../../ui/panels/properties_panel.py" line="1381" />
+            <location filename="../../ui/panels/properties_panel.py" line="1373" />
             <source>H: </source>
             <translation>В: </translation>
         </message>
         <message>
-            <location filename="../../ui/panels/properties_panel.py" line="1619" />
+            <location filename="../../ui/panels/properties_panel.py" line="1611" />
             <source>Has drainage holes</source>
             <translation>Есть дренажные отверстия</translation>
         </message>
         <message>
-            <location filename="../../ui/panels/properties_panel.py" line="2518" />
+            <location filename="../../ui/panels/properties_panel.py" line="2377" />
             <source>Hedge</source>
             <translation>Живая изгородь</translation>
         </message>
         <message>
-            <location filename="../../ui/panels/properties_panel.py" line="1630" />
+            <location filename="../../ui/panels/properties_panel.py" line="1622" />
             <source>Height:</source>
             <translation>Высота:</translation>
         </message>
         <message>
-            <location filename="../../ui/panels/properties_panel.py" line="1897" />
+            <location filename="../../ui/panels/properties_panel.py" line="1889" />
             <source>Hip</source>
             <translation>Вальмовая</translation>
         </message>
         <message>
-            <location filename="../../ui/panels/properties_panel.py" line="2128" />
-            <source>Invalid symbol parameter value — geometry unchanged.</source>
-            <translation>Недопустимое значение параметра символа — геометрия не изменена.</translation>
-        </message>
-        <message>
-            <location filename="../../ui/panels/properties_panel.py" line="2337" />
+            <location filename="../../ui/panels/properties_panel.py" line="2196" />
             <source>Italic</source>
             <translation>Курсив</translation>
         </message>
         <message>
-            <location filename="../../ui/panels/properties_panel.py" line="892" />
+            <location filename="../../ui/panels/properties_panel.py" line="884" />
             <source>Label:</source>
             <translation>Метка:</translation>
         </message>
         <message>
-            <location filename="../../ui/panels/properties_panel.py" line="2525" />
+            <location filename="../../ui/panels/properties_panel.py" line="2384" />
             <source>Lattice</source>
             <translation>Решётка</translation>
         </message>
         <message>
-            <location filename="../../ui/panels/properties_panel.py" line="760" />
-            <location filename="../../ui/panels/properties_panel.py" line="807" />
-            <location filename="../../ui/panels/properties_panel.py" line="910" />
+            <location filename="../../ui/panels/properties_panel.py" line="759" />
+            <location filename="../../ui/panels/properties_panel.py" line="806" />
+            <location filename="../../ui/panels/properties_panel.py" line="902" />
             <source>Layer:</source>
             <translation>Слой:</translation>
         </message>
         <message>
-            <location filename="../../ui/panels/properties_panel.py" line="2759" />
+            <location filename="../../ui/panels/properties_panel.py" line="2618" />
             <source>Locked in place: unlock to move (Fix in place constraint).</source>
             <translation>Зафиксировано: разблокируйте для перемещения (ограничение фиксации на месте).</translation>
         </message>
         <message>
-            <location filename="../../ui/panels/properties_panel.py" line="1616" />
+            <location filename="../../ui/panels/properties_panel.py" line="1608" />
             <source>Material:</source>
             <translation>Материал:</translation>
         </message>
         <message>
-            <location filename="../../ui/panels/properties_panel.py" line="1609" />
+            <location filename="../../ui/panels/properties_panel.py" line="1601" />
             <source>Metal</source>
             <translation>Металл</translation>
         </message>
         <message>
-            <location filename="../../ui/panels/properties_panel.py" line="2531" />
+            <location filename="../../ui/panels/properties_panel.py" line="2390" />
             <source>Moss</source>
             <translation>Мох</translation>
         </message>
         <message>
-            <location filename="../../ui/panels/properties_panel.py" line="2513" />
+            <location filename="../../ui/panels/properties_panel.py" line="2372" />
             <source>Mulch</source>
             <translation>Мульча</translation>
         </message>
         <message>
-            <location filename="../../ui/panels/properties_panel.py" line="462" />
+            <location filename="../../ui/panels/properties_panel.py" line="461" />
             <source>Multi-selection editing
 not yet implemented</source>
             <translation>Редактирование множественного
 выделения пока не реализовано</translation>
         </message>
         <message>
-            <location filename="../../ui/panels/properties_panel.py" line="874" />
+            <location filename="../../ui/panels/properties_panel.py" line="866" />
             <source>Name:</source>
             <translation>Имя:</translation>
         </message>
         <message>
-            <location filename="../../ui/panels/properties_panel.py" line="2177" />
+            <location filename="../../ui/panels/properties_panel.py" line="2036" />
             <source>Needs frost protection</source>
             <translation>Требуется защита от мороза</translation>
         </message>
@@ -12748,279 +12767,269 @@ not yet implemented</source>
             <translation type="vanished">Нет высоты — объект не отбрасывает тень</translation>
         </message>
         <message>
-            <location filename="../../ui/panels/properties_panel.py" line="1828" />
+            <location filename="../../ui/panels/properties_panel.py" line="1820" />
             <source>No height — no shadow on the 2D plan</source>
             <translation>Без высоты — нет тени на 2D-плане</translation>
         </message>
         <message>
-            <location filename="../../ui/panels/properties_panel.py" line="444" />
+            <location filename="../../ui/panels/properties_panel.py" line="443" />
             <source>No objects selected</source>
             <translation>Объекты не выбраны</translation>
         </message>
         <message>
-            <location filename="../../ui/panels/properties_panel.py" line="1091" />
+            <location filename="../../ui/panels/properties_panel.py" line="1083" />
             <source>No plants in this bed</source>
             <translation>В этой грядке нет растений</translation>
         </message>
         <message>
-            <location filename="../../ui/panels/properties_panel.py" line="1847" />
+            <location filename="../../ui/panels/properties_panel.py" line="1839" />
             <source>Object height:</source>
             <translation>Высота объекта:</translation>
         </message>
         <message>
-            <location filename="../../ui/panels/properties_panel.py" line="2191" />
+            <location filename="../../ui/panels/properties_panel.py" line="2050" />
             <source>Override frost sensitivity:
 checked = always protect, unchecked = never protect, indeterminate = use the plant database default</source>
             <translation>Переопределить чувствительность к морозу:
 отмечено = всегда защищать, не отмечено = не защищать, неопределённое состояние = использовать значение по умолчанию из базы данных растений</translation>
         </message>
         <message>
-            <location filename="../../ui/panels/properties_panel.py" line="1161" />
+            <location filename="../../ui/panels/properties_panel.py" line="1153" />
             <source>Parent Bed</source>
             <translation>Родительская грядка</translation>
         </message>
         <message>
-            <location filename="../../ui/panels/properties_panel.py" line="2642" />
+            <location filename="../../ui/panels/properties_panel.py" line="2501" />
             <source>Pattern Angle:</source>
             <translation>Угол узора:</translation>
         </message>
         <message>
-            <location filename="../../ui/panels/properties_panel.py" line="2672" />
+            <location filename="../../ui/panels/properties_panel.py" line="2531" />
             <source>Pattern Offset:</source>
             <translation>Смещение узора:</translation>
         </message>
         <message>
-            <location filename="../../ui/panels/properties_panel.py" line="2649" />
+            <location filename="../../ui/panels/properties_panel.py" line="2508" />
             <source>Pattern Scale:</source>
             <translation>Масштаб узора:</translation>
         </message>
         <message>
-            <location filename="../../ui/panels/properties_panel.py" line="2523" />
+            <location filename="../../ui/panels/properties_panel.py" line="2382" />
             <source>Pebbles</source>
             <translation>Галька</translation>
         </message>
         <message>
-            <location filename="../../ui/panels/properties_panel.py" line="1607" />
+            <location filename="../../ui/panels/properties_panel.py" line="1599" />
             <source>Plastic</source>
             <translation>Пластик</translation>
         </message>
         <message>
-            <location filename="../../ui/panels/properties_panel.py" line="1330" />
+            <location filename="../../ui/panels/properties_panel.py" line="1322" />
             <source>Position:</source>
             <translation>Позиция:</translation>
         </message>
         <message>
-            <location filename="../../ui/panels/properties_panel.py" line="2164" />
+            <location filename="../../ui/panels/properties_panel.py" line="2023" />
             <source>Recommended spacing radius (half of plant spread)</source>
             <translation>Рекомендуемый радиус шага (половина ширины разрастания растения)</translation>
         </message>
         <message>
-            <location filename="../../ui/panels/properties_panel.py" line="2690" />
+            <location filename="../../ui/panels/properties_panel.py" line="2549" />
             <source>Reset Pattern</source>
             <translation>Сбросить узор</translation>
         </message>
         <message>
-            <location filename="../../ui/panels/properties_panel.py" line="2692" />
+            <location filename="../../ui/panels/properties_panel.py" line="2551" />
             <source>Restore the pattern's original angle, scale and offset</source>
             <translation>Восстанавливает исходный угол, масштаб и смещение узора</translation>
         </message>
         <message>
-            <location filename="../../ui/panels/properties_panel.py" line="2514" />
+            <location filename="../../ui/panels/properties_panel.py" line="2373" />
             <source>Roof Tiles</source>
             <translation>Черепица</translation>
         </message>
         <message>
-            <location filename="../../ui/panels/properties_panel.py" line="1949" />
+            <location filename="../../ui/panels/properties_panel.py" line="1941" />
             <source>Roof overhang:</source>
             <translation>Свес крыши:</translation>
         </message>
         <message>
-            <location filename="../../ui/panels/properties_panel.py" line="1930" />
+            <location filename="../../ui/panels/properties_panel.py" line="1922" />
             <source>Roof pitch:</source>
             <translation>Уклон крыши:</translation>
         </message>
         <message>
-            <location filename="../../ui/panels/properties_panel.py" line="1909" />
+            <location filename="../../ui/panels/properties_panel.py" line="1901" />
             <source>Roof style:</source>
             <translation>Форма крыши:</translation>
         </message>
         <message>
-            <location filename="../../ui/panels/properties_panel.py" line="2515" />
+            <location filename="../../ui/panels/properties_panel.py" line="2374" />
             <source>Sand</source>
             <translation>Песок</translation>
         </message>
         <message>
-            <location filename="../../ui/panels/properties_panel.py" line="1445" />
+            <location filename="../../ui/panels/properties_panel.py" line="1437" />
             <source>Semi-axes:</source>
             <translation>Полуоси:</translation>
         </message>
         <message>
-            <location filename="../../ui/panels/properties_panel.py" line="1239" />
+            <location filename="../../ui/panels/properties_panel.py" line="1231" />
             <source>Send Backward</source>
             <translation>Переместить назад</translation>
         </message>
         <message>
-            <location filename="../../ui/panels/properties_panel.py" line="1245" />
+            <location filename="../../ui/panels/properties_panel.py" line="1237" />
             <source>Send to Back</source>
             <translation>На задний план</translation>
         </message>
         <message>
-            <location filename="../../ui/panels/properties_panel.py" line="1464" />
+            <location filename="../../ui/panels/properties_panel.py" line="1456" />
             <source>Show grid</source>
             <translation>Показать сетку</translation>
         </message>
         <message>
-            <location filename="../../ui/panels/properties_panel.py" line="887" />
+            <location filename="../../ui/panels/properties_panel.py" line="879" />
             <source>Show label on canvas</source>
             <translation>Показать метку на холсте</translation>
         </message>
         <message>
-            <location filename="../../ui/panels/properties_panel.py" line="1897" />
+            <location filename="../../ui/panels/properties_panel.py" line="1889" />
             <source>Single slope</source>
             <translation>Односкатная</translation>
         </message>
         <message>
-            <location filename="../../ui/panels/properties_panel.py" line="1397" />
-            <location filename="../../ui/panels/properties_panel.py" line="2325" />
+            <location filename="../../ui/panels/properties_panel.py" line="1389" />
+            <location filename="../../ui/panels/properties_panel.py" line="2184" />
             <source>Size:</source>
             <translation>Размер:</translation>
         </message>
         <message>
-            <location filename="../../ui/panels/properties_panel.py" line="2524" />
+            <location filename="../../ui/panels/properties_panel.py" line="2383" />
             <source>Slate</source>
             <translation>Сланец</translation>
         </message>
         <message>
-            <location filename="../../ui/panels/properties_panel.py" line="2512" />
+            <location filename="../../ui/panels/properties_panel.py" line="2371" />
             <source>Soil</source>
             <translation>Почва</translation>
         </message>
         <message>
-            <location filename="../../ui/panels/properties_panel.py" line="1543" />
+            <location filename="../../ui/panels/properties_panel.py" line="1535" />
             <source>Soil Fill</source>
             <translation>Засыпка грунтом</translation>
         </message>
         <message>
-            <location filename="../../ui/panels/properties_panel.py" line="1575" />
+            <location filename="../../ui/panels/properties_panel.py" line="1567" />
             <source>Soil depth:</source>
             <translation>Глубина засыпки грунта:</translation>
         </message>
         <message>
-            <location filename="../../ui/panels/properties_panel.py" line="1644" />
+            <location filename="../../ui/panels/properties_panel.py" line="1636" />
             <source>Soil volume:</source>
             <translation>Объём грунта:</translation>
         </message>
         <message>
-            <location filename="../../ui/panels/properties_panel.py" line="2506" />
-            <location filename="../../ui/panels/properties_panel.py" line="2598" />
+            <location filename="../../ui/panels/properties_panel.py" line="2365" />
+            <location filename="../../ui/panels/properties_panel.py" line="2457" />
             <source>Solid</source>
             <translation>Сплошной</translation>
         </message>
         <message>
-            <location filename="../../ui/panels/properties_panel.py" line="2168" />
+            <location filename="../../ui/panels/properties_panel.py" line="2027" />
             <source>Spacing radius:</source>
             <translation>Радиус шага:</translation>
         </message>
         <message>
-            <location filename="../../ui/panels/properties_panel.py" line="1512" />
+            <location filename="../../ui/panels/properties_panel.py" line="1504" />
             <source>Spacing:</source>
             <translation>Шаг:</translation>
         </message>
         <message>
-            <location filename="../../ui/panels/properties_panel.py" line="2516" />
+            <location filename="../../ui/panels/properties_panel.py" line="2375" />
             <source>Stone</source>
             <translation>Камень</translation>
         </message>
         <message>
-            <location filename="../../ui/panels/properties_panel.py" line="2567" />
+            <location filename="../../ui/panels/properties_panel.py" line="2426" />
             <source>Stroke Color:</source>
             <translation>Цвет обводки:</translation>
         </message>
         <message>
-            <location filename="../../ui/panels/properties_panel.py" line="2615" />
+            <location filename="../../ui/panels/properties_panel.py" line="2474" />
             <source>Stroke Style:</source>
             <translation>Стиль обводки:</translation>
         </message>
         <message>
-            <location filename="../../ui/panels/properties_panel.py" line="2586" />
+            <location filename="../../ui/panels/properties_panel.py" line="2445" />
             <source>Stroke Width:</source>
             <translation>Толщина обводки:</translation>
         </message>
         <message>
-            <location filename="../../ui/panels/properties_panel.py" line="2345" />
-            <location filename="../../ui/panels/properties_panel.py" line="2472" />
+            <location filename="../../ui/panels/properties_panel.py" line="2204" />
+            <location filename="../../ui/panels/properties_panel.py" line="2331" />
             <source>Style:</source>
             <translation>Стиль:</translation>
         </message>
         <message>
-            <location filename="../../ui/panels/properties_panel.py" line="2032" />
-            <source>Symbol definition not found — showing cached geometry.</source>
-            <translation>Определение символа не найдено — отображается закэшированная геометрия.</translation>
-        </message>
-        <message>
-            <location filename="../../ui/panels/properties_panel.py" line="2044" />
-            <source>Symbol definition version mismatch — saved geometry is read-only.</source>
-            <translation>Несовпадение версии определения символа — сохранённая геометрия доступна только для чтения.</translation>
-        </message>
-        <message>
-            <location filename="../../ui/panels/properties_panel.py" line="1606" />
-            <location filename="../../ui/panels/properties_panel.py" line="2522" />
+            <location filename="../../ui/panels/properties_panel.py" line="1598" />
+            <location filename="../../ui/panels/properties_panel.py" line="2381" />
             <source>Terracotta</source>
             <translation>Терракота</translation>
         </message>
         <message>
-            <location filename="../../ui/panels/properties_panel.py" line="2254" />
+            <location filename="../../ui/panels/properties_panel.py" line="2113" />
             <source>Text</source>
             <translation>Текст</translation>
         </message>
         <message>
-            <location filename="../../ui/panels/properties_panel.py" line="1890" />
+            <location filename="../../ui/panels/properties_panel.py" line="1882" />
             <source>The 2D plan draws the roof style. The sun study and 3D view also use pitch and overhang.</source>
             <translation>На 2D-плане показана форма крыши. При анализе инсоляции и в 3D-виде также учитываются уклон и свес крыши.</translation>
         </message>
         <message>
-            <location filename="../../ui/panels/properties_panel.py" line="1107" />
+            <location filename="../../ui/panels/properties_panel.py" line="1099" />
             <source>Total: {count} plant(s)</source>
             <translation>Всего: {count} растение(й)</translation>
         </message>
         <message>
-            <location filename="../../ui/panels/properties_panel.py" line="2636" />
+            <location filename="../../ui/panels/properties_panel.py" line="2495" />
             <source>Turns the 2D texture only; the object's geometry and measurements stay unchanged</source>
             <translation>Поворачивает только 2D-текстуру; геометрия и размеры объекта не меняются</translation>
         </message>
         <message>
-            <location filename="../../ui/panels/properties_panel.py" line="851" />
+            <location filename="../../ui/panels/properties_panel.py" line="843" />
             <source>Type:</source>
             <translation>Тип:</translation>
         </message>
         <message>
-            <location filename="../../ui/panels/properties_panel.py" line="1146" />
+            <location filename="../../ui/panels/properties_panel.py" line="1138" />
             <source>Unlink</source>
             <translation>Отвязать</translation>
         </message>
         <message>
-            <location filename="../../ui/panels/properties_panel.py" line="1370" />
+            <location filename="../../ui/panels/properties_panel.py" line="1362" />
             <source>W: </source>
             <translation>Ш: </translation>
         </message>
         <message>
-            <location filename="../../ui/panels/properties_panel.py" line="2511" />
+            <location filename="../../ui/panels/properties_panel.py" line="2370" />
             <source>Water</source>
             <translation>Вода</translation>
         </message>
         <message>
-            <location filename="../../ui/panels/properties_panel.py" line="2521" />
+            <location filename="../../ui/panels/properties_panel.py" line="2380" />
             <source>Wildflower Meadow</source>
             <translation>Луг с полевыми цветами</translation>
         </message>
         <message>
-            <location filename="../../ui/panels/properties_panel.py" line="1608" />
-            <location filename="../../ui/panels/properties_panel.py" line="2510" />
+            <location filename="../../ui/panels/properties_panel.py" line="1600" />
+            <location filename="../../ui/panels/properties_panel.py" line="2369" />
             <source>Wood</source>
             <translation>Дерево</translation>
         </message>
         <message>
-            <location filename="../../ui/panels/properties_panel.py" line="457" />
+            <location filename="../../ui/panels/properties_panel.py" line="456" />
             <source>{count} objects selected</source>
             <translation>Выбрано {count} объект(ов)</translation>
         </message>
@@ -13029,19 +13038,24 @@ checked = always protect, unchecked = never protect, indeterminate = use the pla
             <translation type="vanished">{litres:.1f} л</translation>
         </message>
         <message>
-            <location filename="../../ui/panels/properties_panel.py" line="2160" />
+            <location filename="../../ui/panels/properties_panel.py" line="2019" />
             <source>—</source>
             <translation>—</translation>
         </message>
         <message>
-            <location filename="../../ui/panels/properties_panel.py" line="2453" />
+            <location filename="../../ui/panels/properties_panel.py" line="2312" />
             <source>── Fences ──</source>
             <translation>── Заборы ──</translation>
         </message>
         <message>
-            <location filename="../../ui/panels/properties_panel.py" line="2442" />
+            <location filename="../../ui/panels/properties_panel.py" line="2301" />
             <source>── Paths ──</source>
             <translation>── Дорожки ──</translation>
+        </message>
+        <message>
+            <location filename="../../ui/panels/properties_panel.py" line="2222" />
+            <source>Replace full value</source>
+            <translation>Заменить содержимое целиком</translation>
         </message>
     </context>
     <context>
@@ -13189,7 +13203,7 @@ checked = always protect, unchecked = never protect, indeterminate = use the pla
             <translation>Постоянный на экране</translation>
         </message>
         <message>
-            <location filename="../../ui/panels/properties_panel.py" line="786" />
+            <location filename="../../ui/panels/properties_panel.py" line="785" />
             <location filename="../../ui/reference_points.py" line="472" />
             <source>Edit reference point…</source>
             <translation>Изменить реперную точку…</translation>
@@ -14490,17 +14504,6 @@ The inventory is yours, not a plan's: every plan you open shows the same packets
             <location filename="../../ui/dialogs/shortcuts_dialog.py" line="89" />
             <source>Zoom Out</source>
             <translation>Отдалить</translation>
-        </message>
-    </context>
-    <context>
-        <name>SmartSymbolsPanel</name>
-        <message>
-            <source>Insert</source>
-            <translation type="vanished">Вставить</translation>
-        </message>
-        <message>
-            <source>Search symbols…</source>
-            <translation type="vanished">Поиск символов…</translation>
         </message>
     </context>
     <context>

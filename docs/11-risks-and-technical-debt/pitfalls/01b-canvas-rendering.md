@@ -326,3 +326,79 @@ QPainter classifies a pixel whose centre lies exactly on a polygon edge by the p
 - **Legacy:** none (new entry)
 
 On a 60 m plan the nominal place-box of an hour label is ~3.9 m wide, while the old rule only asked that label centres be 160 cm apart: neighbouring contour levels stacked at a solid's edge. The label pass could hide some at one zoom, but the placement itself was wrong, and a zoomed-out view painted the pile.
+
+### PF-CAN-73
+
+- **Rule:** A background prefetch must only queue work that is not already cached, and it must never force a repaint from its own drain. An entry that is cached when the queue is merged back would make the timer repaint forever (paint → queue → drain → repaint); a repaint at the end of a batch puts a full scene paint into a hover or a drag, which is the cost the prefetch exists to remove.
+- **Pinned by:** `tests/unit/test_sprite_raster.py::TestNextLevelPrefetch`; `tests/integration/test_canvas_repaint_package.py::test_rectangle_tool_hover_and_drag_do_not_walk_whole_plan`
+- **Source:** #845, found by the hover/drag repaint gate
+- **Status:** standing
+- **Legacy:** none (new entry)
+
+The first version queued the next zoom level from every sprite the frame drew and called `viewport.update()` once its queue was empty. At the current level's next level the entries were already cached, so every paint queued them again and the drain repainted: a test that counts `CircleItem.boundingRect` during a hover saw 237 calls a move instead of ~40. The fix is two predicates: `next_key not in cache` before queueing, and no update at all — the next natural paint shows the prefetched pictures.
+
+### PF-CAN-74
+
+- **Rule:** A rewritten SVG `<use>` carries the placement DELTA from the element it references, not the target's absolute x/y. The referenced `<image>` keeps its own x/y and `<use>` translates on top of them; copying the absolute position moves every repeated picture by the first occurrence's offset.
+- **Pinned by:** `tests/unit/test_svg_export_pictures.py::test_a_repeated_picture_is_embedded_once_and_placed_twice`; `tests/integration/test_svg_export_fidelity.py`
+- **Source:** #850
+- **Status:** standing
+- **Legacy:** none (new entry)
+
+The first dedupe wrote `<use x="new_x" y="new_y">`; because the defined image already sits at (37, 37), the balcony's sprites landed 37 px down and right and the PNG-vs-SVG mean difference rose to 6.29 (limit 5.0) — the fidelity test, not the payload count, caught it. The fix stores the first x/y and writes `new - first`. A unit test that only counts one base64 payload and one `<use>` would have passed; the fidelity test rasterises both files.
+
+### PF-CAN-75
+
+- **Rule:** Persist a group's fixed pivot with its angle. When ungrouping, convert the composed scene transform into each member's stored position, angle or control points. Undo restores the original local pose.
+- **Pinned by:** `tests/integration/test_group_rotation.py::test_a_member_edit_after_a_turn_survives_save_and_reload`; `tests/integration/test_group_rotation.py::test_a_rotated_group_ungroups_without_moving_members_on_reload`; `tests/integration/test_smart_symbol_removal.py::test_a_legacy_rotated_symbol_keeps_the_old_origin_pivot`
+- **Source:** #1022 review P0s
+- **Status:** standing
+- **Legacy:** none (new entry)
+
+A centre pivot and an origin pivot produce the same picture only while the pivot does not move. Rotate a group, drill into a member and move it, then save: reloading with the new frame centre moved every member. The same class of error appears on ungroup — the screen looked right until reopen, because Qt had hidden the turn in a matrix the serializer never wrote. A legacy smart-symbol group rotated about its local (0, 0) (its class had no mixin), so the loader must use that pivot for an old record, not the new frame centre.
+
+### PF-CAN-76
+
+- **Rule:** Any bulk reparent or removal in a live `QGraphicsScene` (replacing a document, grouping or ungrouping) must not run under a BSP tree that can still name items that leave. Switch to `NoIndex` for the reparent/removal itself, delete the top-level editing decorations whose owners left (`DimensionDisplay`, `AngleDisplay`, a parentless handle), then restore the previous method **before** any z-order or arrange query that needs the scene's stacking order. The linear index is rebuilt from Qt's live item inventory, so a stale BSP **search** entry is discarded; it cannot recover a dangling pointer already in that inventory. Restoring before the z renumber keeps equal-rank stacking order intact.
+- **Pinned by:** `tests/integration/test_group_rotation.py::test_reloading_clears_the_previous_documents_editing_decorations`; `tests/integration/test_group_rotation.py::test_a_document_replacement_removes_items_under_the_linear_index`; `tests/integration/test_group_rotation.py::test_group_and_ungroup_restore_the_scene_index`; `tests/integration/test_group_rotation.py::test_a_drill_down_group_turn_does_not_release_a_foreign_mouse_grab`; `tests/integration/test_group_rotation.py::test_removing_handles_detaches_them_from_the_item`; `tests/integration/test_load_atomicity.py::test_loading_keeps_equal_ranked_items_in_stacking_order`; `tests/unit/test_project.py`; `tests/integration/test_split_shapes.py::test_a_save_and_reopen_preserves_the_pieces`
+- **Source:** #1031 (manual tests of #1022; WER dumps in the issue)
+- **Status:** standing
+- **Legacy:** none (new entry)
+
+The first WER dump named `QGraphicsSceneIndexPrivate::recursive_items_helper` reading `item->d_ptr->visible`; `item` was a freed hit-test candidate and its `d_ptr` had been overwritten. The saved plan itself was sound, and the dump does **not** identify the freed item's class. In the same flow the old chairs' `DimensionDisplay` objects were still top-level in the reloaded scene, because `RectangleItem` removes only its rotation handle on `ItemSceneChange`; that is a separate cleanup defect, now swept. Clearing the old document under the linear index means the BSP search tree is not consulted after its items are gone; adding the new document under `BspTreeIndex` keeps equal-rank stacking order, which the linear index does not report.
+
+Two later dumps from the same manual test show the same use-after-free **without** a document replacement. The 14:55 crash was `QGraphicsItem::topLevelItem` inside `QGraphicsSceneBspTree::items`, reached from `estimateItems` and `drawItems` during the first paint after Ctrl+G; the 14:59 crash was a purecall in `QGraphicsItemPrivate::effectiveBoundingRect` inside `drawSubtreeRecursive`, i.e. a virtual call on an already-deleted item during that same paint. Both are the scene index naming an item that grouping had reparented or removed. Group and ungroup now reparent under the linear index and restore it before the z refresh, and editing handles/displays detach from their owner instead of remaining Qt children. A drill-down group turn starts through `begin_drag` without a mouse grab, so `end_drag` releases the grab only when this handle actually owns it; the old unconditional release printed `QGraphicsItem::ungrabMouse: not a mouse grabber`. A Qt-only minimal sequence (add, group, remove, delete) did **not** leave a stale search entry in isolation, so there is no upstream repro to file yet.
+
+### PF-CAN-77
+
+- **Rule:** Changing a `GroupItem`'s selection must repaint every member, not only the group. Qt selects a group's members as a unit and does not send them the selection-change notification a standalone item receives, so a member keeps its `DeviceCoordinateCache` picture across the transition. Any selection decoration painted into that picture (a plant's spacing ring, a bed's highlight frame) otherwise survives deselection and makes the object look changed even though its fill is untouched. Invalidate (and thereby repaint) each document member on the group's selection and membership changes; leave the member's cache mode as it is, so selecting a large group does not turn every member into a live paint.
+- **Pinned by:** `tests/integration/test_canvas_item_cache.py`
+- **Source:** #1031 manual test of #1022 (owner report: selection decorations left on a grouped bed and its plants)
+- **Status:** standing
+- **Legacy:** none (new entry)
+
+The owner grouped a bed and two plants, deselected the group and saw the bed's selection frame and both plants' selected-only spacing rings remain. The bed's `.ogp` record was identical to the same bed before grouping, fixed samples of its soil were identical in every state, and the pixel difference was confined to that decoration layer. A forced cache rebuild or a fresh reopen was pixel-identical to the pre-group render; the fill itself never changed. Repainting each member on the group's `ItemSelectedHasChanged` clears those decorations. This was **not** the brightness the owner reported in the same message; that one was PF-CAN-78, and the earlier before/after soil average could not see either decoration.
+
+### PF-CAN-78
+
+- **Rule:** A group paints in ONE z slot, so a bed grouped with a plant — its own or one from a planter outside it — sits above the sun-study overlays (`-500` shadow, `-450` map). Do not try to move the group into `GROUND_Z_RANGE`: its plants would then be below the shade and the map, and cutting them out leaves bright halos after ungrouping. Let the opaque ground surface paint the overlays on itself: the shape items end their `paint` with `paint_ground_overlays`, a registered overlay is painted in its own frame clipped to the surface's `grid_cover_path`, and the surface is invalidated when the overlay changes. The surface's z-slot is its **top-level ancestor's** z, never the sum of a child's local z and its group's — a child left at its old `-750` does not make the group read as below the overlay. Pin both directions: a bed grouped with its own plants and with a plant of another parent keeps the shade, the grouped plants stay bright, and ungrouping returns the same pixels.
+- **Pinned by:** `tests/integration/test_sun_overlays_on_ground.py`
+- **Source:** #1031 manual test of #1022 (owner: "the unselected group is still bright, only at ungrouping does it return"; retest: "plants turn darker", "bright circle" after ungroup, and "bed turns bright again" with an outside planter's plant)
+- **Status:** standing
+- **Legacy:** none (new entry)
+
+The first diagnosis compared soil averages without the sun-shadow overlay, so both grouped and ungrouped renders were shadow-free and looked identical. With the app's shadow controller enabled, a grouped bed rendered `122.7 / 88.8 / 40.9` while the same bed ungrouped was `91.5 / 75.1 / 47.7`; the group's z slot was ~`0.0006` against the overlay's `-500`, while the ungrouped ground was `-750`. The first fix moved a bed grouped with its own plants into the ground band and cut the plants out of the shade. That made the plants dark (the rasterised zoom picture bypassed the cover clip) and left a bright circular hole around each plant after ungrouping; grouping the bed with a plant from another planter stayed above the overlay and the bed lost its shade again. The surface-paints-the-overlay rule removes the cut entirely: grouped versus ungrouped differ by at most a few edge pixels, the grouped plants are pixel-identical to their ungrouped crowns, and the ungrouped plan is identical to its pre-group render.
+
+The retained shadow pixmap already contains the canvas Y-flip. Blit it in
+device coordinates through the same path as the shadow overlay's zoom
+stand-in. The family-garden integration test samples both sides of the
+shadow boundary at 80% zoom through grouping and reselection.
+
+
+### PF-CAN-79
+
+- **Rule:** Bound plan names before assigning them to word-wrapped sidebar labels. Editors that display an excerpt retain the full stored value as their edit baseline.
+- **Pinned by:** `tests/integration/test_plan_label_text_bound.py::test_main_window_sidebars_bound_long_names_and_notes`
+- **Source:** #873, manual test of PR #1030
+- **Status:** standing
+- **Legacy:** none (new entry)

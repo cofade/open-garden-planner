@@ -104,8 +104,12 @@ from open_garden_planner.core.snap.providers import (
 from open_garden_planner.core.snapping import ObjectSnapper, SnapGuide
 from open_garden_planner.core.sprite_raster import (
     KeptLayer,
+    begin_sprite_prefetch,
+    end_sprite_prefetch,
     ensure_sprite_cache_room,
     paint_layer,
+    pending_sprite_count,
+    prefetch_sprites,
 )
 from open_garden_planner.core.stacking import ArrangeMode, ArrangeOutcome
 from open_garden_planner.core.tools import (
@@ -2991,24 +2995,37 @@ class CanvasView(QGraphicsView):
 
         # A focused group member's handle must be handled here: Qt delivers
         # the press to the selected group instead of the ItemIgnoresTransforms
-        # handle, so the view owns the whole gesture (#771). Only Select owns
+        # handle, so the view owns the whole gesture (#771). The same is true
+        # of a selected group's OWN rotation handle (#1022). Only Select owns
         # that gesture: another active tool (Split, Measure, a drawing tool)
         # must receive the click it was asked for.
         if (
             event.button() == Qt.MouseButton.LeftButton
-            and self._drill_down_item is not None
+            and self._tool_manager.active_tool is not None
             and getattr(self._tool_manager.active_tool, "tool_type", None)
             is ToolType.SELECT
         ):
             scene_pos = self.mapToScene(event.position().toPoint())
             candidate = self._canvas_scene.itemAt(scene_pos, self.transform())
-            if (
-                isinstance(candidate, DRAG_HANDLE_TYPES)
-                and candidate.parentItem() is self._drill_down_item
-                and self.begin_drill_handle_drag(candidate, scene_pos)
-            ):
-                event.accept()
-                return
+            if isinstance(candidate, DRAG_HANDLE_TYPES):
+                parent = candidate.parentItem()
+                from .items.group_item import GroupItem
+
+                own_group_handle = (
+                    isinstance(candidate, RotationHandle)
+                    and isinstance(parent, GroupItem)
+                    and parent.isSelected()
+                    and self.effective_selection() == [parent]
+                )
+                focused_member_handle = (
+                    self._drill_down_item is not None
+                    and parent is self._drill_down_item
+                )
+                if (own_group_handle or focused_member_handle) and self.begin_drill_handle_drag(
+                    candidate, scene_pos
+                ):
+                    event.accept()
+                    return
 
         # A journal pin uses our selection/undo path at its device-sized head
         # (PF-CAN-40), including lost-release recovery.
@@ -4886,6 +4903,34 @@ class CanvasView(QGraphicsView):
                     QPointF(guide.position, rect.bottom()),
                 )
 
+    def _schedule_sprite_prefetch(self) -> None:
+        """Start the idle drain of deferred sprite rasterisations (#845)."""
+        if pending_sprite_count() <= 0:
+            return
+        timer = getattr(self, "_sprite_prefetch_timer", None)
+        if timer is None:
+            from PyQt6.QtCore import QTimer
+
+            timer = QTimer(self)
+            timer.setSingleShot(True)
+            timer.timeout.connect(self._drain_sprite_prefetch)
+            self._sprite_prefetch_timer = timer
+        if not timer.isActive():
+            timer.start(0)
+
+    def _drain_sprite_prefetch(self) -> None:
+        """Rasterise one small batch of deferred sprites; never force a repaint.
+
+        The prefetched pictures are for the next zoom step. Repainting after
+        each batch would put a full scene paint into a hover or a drag, which is
+        the very cost the prefetch exists to remove; the next natural paint
+        shows them.
+        """
+        remaining, _made = prefetch_sprites(12)
+        timer = getattr(self, "_sprite_prefetch_timer", None)
+        if remaining > 0 and timer is not None:
+            timer.start(1)
+
     def paintEvent(self, event: QPaintEvent) -> None:
         """Paint the view, then draw overlays in viewport coordinates."""
         # The sprites of one frame must fit their cache, and a frame is as
@@ -4896,7 +4941,16 @@ class CanvasView(QGraphicsView):
         if viewport is not None:
             ratio = viewport.devicePixelRatioF()
             ensure_sprite_cache_room(viewport.width() * viewport.height() * ratio * ratio)
-        super().paintEvent(event)
+        # A zoom level crossed for the first time may defer its new sprite
+        # bitmaps to the idle timer instead of rasterising them in this frame
+        # (#845). Exports and image renders do not bracket their paints, so
+        # they still get every picture synchronously.
+        begin_sprite_prefetch()
+        try:
+            super().paintEvent(event)
+        finally:
+            end_sprite_prefetch()
+        self._schedule_sprite_prefetch()
 
         painter = QPainter(self.viewport())
         painter.setClipping(False)
@@ -5498,6 +5552,10 @@ class CanvasView(QGraphicsView):
         self._drill_down_item = child
         group = child.parentItem()
         self._drill_down_group = group
+        if group is not None and hasattr(group, "hide_rotation_handle"):
+            # The member's handle is the only one shown while it is the edit
+            # target (#1022); the group stays Qt-selected underneath.
+            group.hide_rotation_handle()
         ancestors: list[tuple[QGraphicsItem, bool]] = []
         node = group
         while node is not None:
@@ -5578,6 +5636,13 @@ class CanvasView(QGraphicsView):
         parent = handle.parentItem()
         if parent is None:
             return False
+        if isinstance(handle, RotationHandle):
+            refusal = getattr(parent, "rotation_refusal_reason", None)
+            if callable(refusal):
+                reason = refusal()
+                if reason:
+                    self.set_status_message(reason)
+                    return False
         reason = self.drill_down_movement_reason(parent)
         if reason is not None:
             self.set_status_message(reason)
@@ -5800,6 +5865,8 @@ class CanvasView(QGraphicsView):
             with contextlib.suppress(RuntimeError):
                 if group.scene() is self._canvas_scene and not group.isSelected():
                     group.setSelected(True)
+                if group.isSelected() and hasattr(group, "show_rotation_handle"):
+                    group.show_rotation_handle()
         if had_focus:
             self.drill_down_changed.emit()
 
@@ -5841,7 +5908,23 @@ class CanvasView(QGraphicsView):
 
         groups = ungroupable_groups(list(self.scene().selectedItems()))
         if not groups:
-            self.set_status_message(self.tr("No group selected"))
+            from open_garden_planner.ui.canvas.group_poses import can_ungroup
+            from open_garden_planner.ui.canvas.items.group_item import GroupItem
+
+            unsupported = any(
+                item.parentItem() is None
+                and isinstance(item, GroupItem)
+                and not can_ungroup(item)
+                for item in self.scene().selectedItems()
+            )
+            if unsupported:
+                self.set_status_message(
+                    self.tr(
+                        "This group has an unsupported transform and cannot be edited"
+                    )
+                )
+            else:
+                self.set_status_message(self.tr("No group selected"))
             return
         commands = [UngroupCommand(self.scene(), group) for group in groups]
         command = (

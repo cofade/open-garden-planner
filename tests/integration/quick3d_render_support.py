@@ -187,7 +187,7 @@ def isolated_env(scratch: Path, **extra: str) -> dict[str, str]:
 
     ``APPDATA`` / ``XDG_DATA_HOME`` / ``XDG_CONFIG_HOME`` are set EXPLICITLY to
     directories under ``scratch`` (``private_dirs``), whatever the parent has: the
-    app keeps custom plants, plant lists and smart symbols under the first two,
+    app keeps custom plants and plant lists under the first two,
     and a child that loads a plan creates them. The user profile is this test
     process's own (``profile_dirs``): logs and caches. PYTHONPATH: a
     ``python tests/…/driver.py`` child would otherwise import whatever the venv's

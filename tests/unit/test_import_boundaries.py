@@ -18,7 +18,7 @@ SRC = Path(__file__).resolve().parents[2] / "src" / "open_garden_planner"
     [
         "open_garden_planner.core.object_types",
         "open_garden_planner.core.tools.base_tool",
-        "open_garden_planner.models.smart_symbol",
+        "open_garden_planner.models.parametric_eval",
     ],
 )
 def test_leaf_import_does_not_load_ui(module):

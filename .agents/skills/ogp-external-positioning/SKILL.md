@@ -128,8 +128,7 @@ README, but only with shipped, tested items.
   **dropped** (precedent: US-B7 Paper Space, dropped in PR #191 review), remove or never
   add its README mention.
 - Every README feature bullet must map to a shipped FR-* entry or roadmap ✅ line. No
-  bullet for anything behind a hidden panel (e.g. Smart Symbols UI is deliberately hidden
-  per US-C4 — describe the engine only if you also state the UI status, as FR-25 does).
+  bullet for a retired feature or a surface that only appears with a selection.
 - Mechanics of *how* to write/update docs live in `ogp-docs-and-writing`; this skill only
   fixes *what may be said*.
 

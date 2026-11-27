@@ -24,10 +24,8 @@
   separate barrier — the Host/Origin (DNS-rebinding) guard, now configured
   explicitly by OGP rather than inherited from the SDK (#396, ADR-033 addendum).
   Do not read "token auth shipped" as "the Agent API is authenticated".
-- **Smart Symbols UI deferred** (FR-31 / §8.18): the sidebar panel ships hidden
-  (`set_panel_visible("smart_symbols", False)` in `application.py`); engine,
-  persistence, DXF export, and properties editing are live and tested. The hidden panel
-  is intentional, not dead code.
+- **Smart Symbols removed** (#770, #1009): the sidebar panel, engine, persistence, DXF
+  block export and loader are gone; old plans open as plain groups. See ADR-032.
 - **§11.1/§11.2 tables** list open questions/risks (Trefle rate limits, texture
   licensing, Qt3D-vs-PyVista for Phase 14 3D, installer signing/SmartScreen, PyInstaller
   bundle size). The 2026-10 audit gave the stale §11.1/§11.2 rows and every §11.3 row a status

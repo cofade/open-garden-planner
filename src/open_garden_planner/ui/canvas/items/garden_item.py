@@ -454,16 +454,16 @@ _CHANGE = QGraphicsItem.GraphicsItemChange
 #: it is. (Position and transform notices need ``ItemSendsGeometryChanges``, which
 #: every garden item sets.) A selection, a hover, a flag, an opacity are not here: they
 #: repaint the canvas and leave the plan as it was.
-PLAN_CHANGES: frozenset[QGraphicsItem.GraphicsItemChange] = frozenset({
+_OVERLAY_TRANSFORM_CHANGES = frozenset({
     _CHANGE.ItemPositionHasChanged,
     _CHANGE.ItemTransformHasChanged,
     _CHANGE.ItemRotationHasChanged,
     _CHANGE.ItemScaleHasChanged,
     _CHANGE.ItemTransformOriginPointHasChanged,
-    _CHANGE.ItemVisibleHasChanged,
     _CHANGE.ItemZValueHasChanged,
     _CHANGE.ItemParentHasChanged,
 })
+PLAN_CHANGES = _OVERLAY_TRANSFORM_CHANGES | {_CHANGE.ItemVisibleHasChanged}
 #: Where an item keeps, between Qt's two visibility notices, whether it WAS visible.
 _VISIBLE_BEFORE = "_plan_visible_before_change"
 
@@ -520,6 +520,10 @@ def handle_item_change(
     """
     handle_selection_change_for_cache(item, change, value)
     announce_plan_change(item, change, value)
+    if change in _OVERLAY_TRANSFORM_CHANGES:
+        refresh = getattr(item.scene(), "refresh_ground_overlays", None)
+        if refresh is not None:
+            refresh(item)
 
 
 class PositionLockMixin:
@@ -1014,6 +1018,21 @@ class GardenItemMixin(PositionLockMixin):
         (``PolygonItem.grid_cover_path``, ``PolylineItem.grid_cover_path``).
         """
         return self.shape()  # type: ignore[attr-defined,no-any-return]
+
+    def paint_ground_overlays(self, painter: QPainter) -> None:
+        """Paint the sun-study overlays on this surface when it is drawn above
+        them (#1031).
+
+        A ground surface normally sits below the shadow and sun-map overlays
+        (``canvas_scene.GROUND_Z_RANGE``). A group paints in one z slot, so a
+        surface grouped with a solid sits above them; it then paints them on
+        itself, clipped to its cover, in its own paint — exactly on the soil,
+        under whatever stands on it. A surface still below them does nothing.
+        """
+        scene = self.scene()  # type: ignore[attr-defined]
+        paint = getattr(scene, "paint_ground_overlays", None)
+        if paint is not None:
+            paint(self, painter)
 
     def has_diagnostic_decoration(self) -> bool:
         """Whether a diagnostic flag that this item paints is set right now."""
@@ -1530,14 +1549,14 @@ class GardenItemMixin(PositionLockMixin):
             self._position_label()
 
     def _remove_label(self) -> None:
-        """Remove the label item from the scene."""
+        """Remove the label item from the scene and detach it."""
         if self._label_item is not None:
-            self._label_item.setParentItem(None)
-            if hasattr(self, 'scene') and callable(self.scene):
-                scene = self.scene()
-                if scene is not None:
-                    scene.removeItem(self._label_item)
+            label = self._label_item
             self._label_item = None
+            scene = label.scene()
+            if scene is not None:
+                scene.removeItem(label)
+            label.setParentItem(None)
 
     def _update_label(self) -> None:
         """Update or create label based on current state."""
@@ -1761,12 +1780,12 @@ class GardenItemMixin(PositionLockMixin):
         """Create, update, or remove the area label child item."""
         if not self._area_label_visible or not hasattr(self, "boundingRect"):
             if self._area_label_item is not None:
-                self._area_label_item.setParentItem(None)
-                if hasattr(self, "scene") and callable(self.scene):
-                    s = self.scene()
-                    if s is not None:
-                        s.removeItem(self._area_label_item)
+                label = self._area_label_item
                 self._area_label_item = None
+                s = label.scene()
+                if s is not None:
+                    s.removeItem(label)
+                label.setParentItem(None)
             return
         area = self._compute_area_cm2()
         if area is None:

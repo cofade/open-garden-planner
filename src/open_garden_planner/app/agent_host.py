@@ -4,6 +4,7 @@ from __future__ import annotations
 import contextlib
 import datetime
 import logging
+import math
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Literal, NoReturn, cast
 from uuid import UUID
@@ -635,7 +636,6 @@ class AgentHost:
     ) -> dict[str, Any]:
         """Main-thread body of ``set_object_position`` (US-D2.6)."""
         host = self._host
-        import math
 
         from PyQt6.QtCore import QPointF
 
@@ -2516,11 +2516,17 @@ class AgentHost:
         """
         host = self._host
         from open_garden_planner.agent_api import edits
+        from open_garden_planner.core.angles import is_zero_angle, normalize_angle_deg
         from open_garden_planner.core.commands import RotateItemCommand
         from open_garden_planner.ui.canvas.geometry_apply import apply_rotation
 
         item = host._resolve_agent_item(item_id)
         host._agent_require_unconstrained(item, item_id, "rotate_object")
+        refusal = getattr(item, "rotation_refusal_reason", None)
+        if callable(refusal):
+            reason = refusal()
+            if reason:
+                raise ValueError(reason)
 
         current_angle = float(getattr(item, "rotation_angle", 0.0))
         if not hasattr(item, "_apply_rotation"):
@@ -2532,9 +2538,52 @@ class AgentHost:
         new_angle = edits.validate_rotation(
             angle, relative=relative, current_angle=current_angle
         )
+        if is_zero_angle(new_angle):
+            # The same tolerance that decides persistence and Ungroup also
+            # canonicalizes the target, so an accepted turn can never leave a
+            # sub-tolerance live angle that save would omit (#1022 review).
+            new_angle = 0.0
+        if is_zero_angle(new_angle - current_angle):
+            # A zero turn must not fix a pivot, reconcile links or add an undo
+            # step (#1022 review); the object is already where it was asked.
+            # The API reports [0, 360) even when the stored angle is negative.
+            normalized = normalize_angle_deg(current_angle)
+            cx, cy = host._agent_item_center(item)
+            return {
+                "item_id": item_id,
+                "action": "rotate",
+                "undo_description": "No change",
+                "x": cx,
+                "y": cy,
+                "rotation_deg": normalized,
+            }
+        if getattr(item, "_rotation_plan_active", False):
+            raise ValueError("A group rotation is already in progress.")
 
-        cmd = RotateItemCommand(item, current_angle, new_angle, apply_rotation)
-        host.canvas_view.command_manager.execute(cmd)
+        plan = getattr(item, "begin_rotation_plan", None)
+        finish = getattr(item, "finish_rotation_plan", None)
+        planned = False
+        try:
+            if callable(plan):
+                plan()
+                planned = True
+            ensure = getattr(item, "ensure_rotation_pivot", None)
+            if callable(ensure):
+                # Fix the pivot before the command records both states; the
+                # command's redo must not recompute it (#1022 review).
+                ensure()
+            followers = getattr(item, "rotation_follower_snapshots", None)
+            cmd = RotateItemCommand(
+                item,
+                current_angle,
+                new_angle,
+                apply_rotation,
+                followers=followers(new_angle) if callable(followers) else None,
+            )
+            host.canvas_view.command_manager.execute(cmd)
+        finally:
+            if planned and callable(finish):
+                finish()
 
         cx, cy = host._agent_item_center(item)
         return {
@@ -3399,7 +3448,6 @@ class AgentHost:
                 host.canvas_scene, layer, "locked", layer.locked, new_locked
             )
         else:
-            import math
 
             new_opacity = float(opacity)  # type: ignore[arg-type]
             if not math.isfinite(new_opacity) or not (0.0 <= new_opacity <= 1.0):

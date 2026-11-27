@@ -47,13 +47,45 @@ def test_invalid_save_keeps_existing_file(qtbot, tmp_path):
     {"objects": [{"type": "rectangle", "x": 1e308, "width": 1e308}]},
     {"objects": [{"type": "circle", "center_x": 0, "radius": "Infinity"}]},
     {"objects": [{"type": "group", "children": [{"rotation": "NaN"}]}]},
+    {"objects": [{"type": "group", "transform_origin": {"x": "NaN", "y": 0}}]},
+    {"objects": [{"type": "group", "transform": {"m11": 2.0, "m12": 0.0,
+                                                  "m21": 0.0, "m22": 1.0}}]},
+    {"objects": [{"type": "group", "x": 1e308,
+                  "transform": {"m11": 1.0, "m12": 0.0, "m21": 0.0,
+                                "m22": 1.0, "dx": 1e308, "dy": 0.0}}]},
+    {"objects": [{"type": "group", "x": 0.0, "y": 0.0, "rotation": 180.0,
+                  "transform_origin": {"x": 1e308, "y": 0.0},
+                  "children": [{"type": "rectangle", "x": -1e308, "y": 0.0,
+                                "width": 100.0, "height": 100.0}]}]},
+    {"objects": [{"type": "group", "rotation": 180.0,
+                  "transform_origin": {"x": 1e308, "y": 0.0},
+                  "children": [
+                      {"type": "rectangle", "x": 1e308, "y": 0.0,
+                       "width": 100.0, "height": 100.0},
+                      {"type": "rectangle", "x": -1e308, "y": 0.0,
+                       "width": 100.0, "height": 100.0}]}]},
+    {"objects": [{"type": "group", "rotation": 180.0,
+                  "transform_origin": {"x": 1e308, "y": 0.0},
+                  "children": [
+                      {"type": "rectangle", "x": -1e308, "y": 0.0,
+                       "width": 100.0, "height": 100.0},
+                      {"type": "rectangle", "x": 1e308, "y": 0.0,
+                       "width": 100.0, "height": 100.0}]}]},
+    {"objects": [{"type": "group", "children": [
+        {"type": "rectangle", "x": -1e308, "y": 0.0,
+         "width": 100.0, "height": 100.0},
+        {"type": "rectangle", "x": 1e308, "y": 0.0,
+         "width": 100.0, "height": 100.0}]}]},
     {"objects": [{"type": "bezier", "handles_in": [{"x": "1e309", "y": 0}]}]},
     {"objects": [{"type": "background_image", "scale_factor": 1e-320}]},
     {"guides": [{"position": "NaN"}]},
     {"constraints": [{"value": "NaN"}]},
     {"layers": [{"opacity": "NaN"}]},
 ], ids=["small-canvas", "large-canvas", "extent-overflow", "radius-string",
-        "group", "bezier", "image-scale", "guide", "constraint", "layer"])
+        "group", "pivot", "group-transform", "group-base-overflow",
+        "pivot-overflow", "parts-good-first", "parts-bad-first",
+        "union-overflow", "bezier", "image-scale", "guide", "constraint",
+        "layer"])
 def test_numeric_errors_cover_nested_geometry(payload):
     with pytest.raises(ValueError):
         validate_plan_data(payload)
@@ -92,6 +124,38 @@ def test_arc_angle_composition_refused_before_construction():
     with pytest.raises(ValueError):
         validate_plan_data({"objects": [{"type": "arc", "center_x": 0, "center_y": 0,
                                         "radius": 100, "start_deg": 1e308, "span_deg": 1e308}]})
+
+
+def test_malformed_group_child_is_skipped_and_a_valid_sibling_loads(qtbot, tmp_path):
+    scene = CanvasScene()
+    path = tmp_path / "malformed-group.ogp"
+    path.write_text(json.dumps({"objects": [
+        {"type": "group", "item_id": "11111111-1111-1111-1111-111111111111",
+         "x": 0.0, "y": 0.0, "children": [None]},
+        {"type": "rectangle", "item_id": "22222222-2222-2222-2222-222222222222",
+         "x": 10.0, "y": 10.0, "width": 50.0, "height": 50.0},
+    ]}))
+    ProjectManager().load(scene, path)
+    assert any(isinstance(item, RectangleItem) for item in scene.items())
+
+
+def test_malformed_annotation_bounds_are_skipped_and_a_sibling_loads(qtbot, tmp_path):
+    scene = CanvasScene()
+    path = tmp_path / "malformed-annotations.ogp"
+    path.write_text(json.dumps({"objects": [
+        {"type": "callout", "item_id": "33333333-3333-3333-3333-333333333333",
+         "target_x": 0.0, "target_y": 0.0, "box_dx": 10.0, "box_dy": 10.0,
+         "bounds": {"x": 0.0, "y": 0.0, "width": 10.0, "height": 10.0},
+         "rotation_angle": "bad"},
+        {"type": "text", "item_id": "44444444-4444-4444-4444-444444444444",
+         "x": 10.0, "y": 10.0, "content": "note",
+         "bounds": {"x": 0.0, "y": 0.0, "width": 40.0, "height": 10.0},
+         "rotation_angle": "bad"},
+        {"type": "rectangle", "item_id": "55555555-5555-5555-5555-555555555555",
+         "x": 20.0, "y": 20.0, "width": 50.0, "height": 50.0},
+    ]}))
+    ProjectManager().load(scene, path)
+    assert any(isinstance(item, RectangleItem) for item in scene.items())
 
 
 def test_live_nan_rotation_is_refused_even_if_serializer_would_omit_it(qtbot, tmp_path):

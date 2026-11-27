@@ -14,8 +14,7 @@ grep -rln "test_apply_keeps_rotated_plant_centered\|test_rotation_pivots_about_r
 ls tests/integration/test_rotation_aware_resize.py tests/integration/test_undo_redo_dirty.py \
    tests/integration/test_properties_panel_incremental.py tests/integration/test_properties_text_edit_undo.py \
    tests/integration/test_panel_refresh_wiring.py tests/integration/test_calendar_task_convergence.py \
-   tests/integration/test_find_plants_selection.py tests/unit/test_smart_symbol_library.py \
-   tests/integration/test_save_location.py tests/unit/test_paths.py tests/integration/test_bed_context_menu.py
+   tests/integration/test_find_plants_selection.py   tests/integration/test_save_location.py tests/unit/test_paths.py tests/integration/test_bed_context_menu.py
 grep -rn "TestCrossSurfaceSync\|TestOverdueReminderBar\|TestHandleDragViaView\|TestFrostDashboardNavigation" tests/ -l
 
 # Pitfall keyword sweep (new entries land in `pitfalls/` first — re-mine after every merged fix):

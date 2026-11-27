@@ -441,7 +441,7 @@ temporary files.
 `isolate_profile()` before the first app import, then `isolate()` before building
 anything. Together they rebind the two settings names, and move the profile
 variables and the `QStandardPaths` locations behind the plant library, plant lists,
-seed inventory, smart symbols and caches. Rebinding the names alone would leave
+seed inventory and caches. Rebinding the names alone would leave
 those. The gate `tests/integration/test_script_isolation.py` reads only `scripts/`.
 A probe in a scratchpad or temp directory is outside it and must call the helper
 itself, with the repository's `scripts/` on `sys.path`.

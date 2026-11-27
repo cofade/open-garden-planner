@@ -76,7 +76,6 @@ TRANSLATIONS: dict[str, dict[str, str]] = {
         "frost protection": "Frostschutz",
         "spacing radius": "Pflanzabstand",
         "object height": "Objekthöhe",
-        "symbol parameter": "Symbolparameter",
         # The seven Properties-panel edits that became undoable commands (#530).
         "grid": "Raster",
         "grid spacing": "Rasterabstand",
@@ -881,9 +880,14 @@ TRANSLATIONS: dict[str, dict[str, str]] = {
     },
 
     # ── GardenPlannerApp ──
+    "GroupItem": {
+        "A constrained member cannot be rotated with the group": "Ein Mitglied mit Randbedingung kann nicht mit der Gruppe gedreht werden",
+        "A linked plant belongs to another group; remove it from that group before turning this one": "Eine verknüpfte Pflanze gehört zu einer anderen Gruppe; entfernen Sie sie vor dem Drehen aus dieser Gruppe",
+        "A member on a locked layer cannot be rotated with the group": "Ein Mitglied auf einer gesperrten Ebene kann nicht mit der Gruppe gedreht werden",
+        "This group has an unsupported transform and cannot be edited": "Diese Gruppe hat eine nicht unterstützte Transformation und kann nicht bearbeitet werden",
+    },
     "GardenPlannerApp": {
         "Tasks": "Aufgaben",
-        "Smart Symbols": "Smart-Symbole",
         "Plant Lists": "Pflanzenlisten",
         "&File": "&Datei",
         "&Edit": "&Bearbeiten",
@@ -1738,12 +1742,6 @@ TRANSLATIONS: dict[str, dict[str, str]] = {
         "❄ %1": "❄ %1",
     },
 
-    # ── SmartSymbolsPanel (US-C4) ──
-    "SmartSymbolsPanel": {
-        "Search symbols…": "Symbole suchen…",
-        "Insert": "Einfügen",
-    },
-
     # ── PropertiesPanel ──
     "PropertiesPanel": {
         # Short prefixes inside the width/height fields (#596).
@@ -1754,12 +1752,6 @@ TRANSLATIONS: dict[str, dict[str, str]] = {
         "Corten steel": "Cortenstahl",
         "No objects selected": "Keine Objekte ausgewählt",
         "{count} objects selected": "{count} Objekte ausgewählt",
-        "Symbol definition not found — showing cached geometry.":
-            "Symboldefinition nicht gefunden — zwischengespeicherte Geometrie wird angezeigt.",
-        "Symbol definition version mismatch — saved geometry is read-only.":
-            "Symboldefinitions-Version stimmt nicht überein — gespeicherte Geometrie ist schreibgeschützt.",
-        "Invalid symbol parameter value — geometry unchanged.":
-            "Ungültiger Symbolparameter-Wert — Geometrie unverändert.",
         "Multi-selection editing\nnot yet implemented":
             "Mehrfachauswahl-Bearbeitung\nnoch nicht implementiert",
         "Type:": "Typ:",
@@ -3659,6 +3651,8 @@ _DRAWING_TOOLS_TRANSLATIONS: dict[str, dict[str, str]] = {
         "Ungroup": "Gruppe aufheben",
     },
     "CanvasView": {
+        "Rotate the group back to 0° before ungrouping": "Drehen Sie die Gruppe vor dem Aufheben der Gruppierung auf 0° zurück",
+        "This group has an unsupported transform and cannot be edited": "Diese Gruppe hat eine nicht unterstützte Transformation und kann nicht bearbeitet werden",
         "Ungroup {n} groups": "{n} Gruppen aufheben",
         "Ungrouped {n} groups": "{n} Gruppen aufgehoben",
     },

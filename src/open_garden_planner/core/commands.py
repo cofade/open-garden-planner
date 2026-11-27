@@ -20,6 +20,7 @@ from open_garden_planner.core.camera_tours import SavedTour, checked_tours, find
 from open_garden_planner.core.harvest_units import harvest_unit_label
 from open_garden_planner.core.i18n import format_trimmed
 from open_garden_planner.core.plan_north import normalize_north_angle
+from open_garden_planner.core.scene_index import rebuilt_scene_index
 from open_garden_planner.core.stacking import STACK_STEP
 
 if TYPE_CHECKING:
@@ -721,10 +722,10 @@ def register_applied_with_membership(
 def iter_plant_parents(items: Sequence[QGraphicsItem]) -> list[Any]:
     """Return all plant-parent items in *items*, descending into item groups.
 
-    A ``SmartSymbolItem`` or ``GroupItem`` may contain typed plant-parent child
-    shapes (e.g. the ``RAISED_BED`` outer frame of ``raised_bed_rows``, #599).
-    Descending into ``QGraphicsItemGroup`` lets creation, movement, rotation,
-    deletion, and parameter regeneration reconcile and carry linked plants
+    A ``GroupItem`` may contain typed plant-parent child
+    shapes, and every group is walked here. Descending into
+    ``QGraphicsItemGroup`` lets creation, movement, rotation,
+    deletion and geometry changes reconcile and carry linked plants
     through the same command-owned path as a top-level bed.
     """
     from PyQt6.QtWidgets import QGraphicsItemGroup
@@ -1170,6 +1171,14 @@ def _membership_change_for_geometry(
     alone, so explicitly linked plants are never overruled by an unrelated edit.
     """
     if scene is None:
+        return None
+    from PyQt6.QtWidgets import QGraphicsItemGroup
+
+    if isinstance(item, QGraphicsItemGroup) and not partner_items:
+        # A group turn moves its members through the group transform; the bed
+        # inside it was not re-drawn, and re-deciding containment here would
+        # unlink top-level plants the bed still owns (#1022 review). The next
+        # group move carries them by the bed's net scene delta (PF-CAN-70).
         return None
     from open_garden_planner.core.plant_renderer import is_plant_type
     from open_garden_planner.ui.canvas.items import GardenItemMixin
@@ -1814,54 +1823,6 @@ class ChangeObjectTypeCommand(Command):
         self._restore_old_link()
 
 
-class ChangeSmartSymbolParamCommand(Command):
-    """Command for changing a smart-symbol parameter and regenerating its children (#599).
-
-    Preserves deterministic child UUIDs across regeneration and reconciles bed
-    membership for any plant-parent child (e.g. ``raised_bed_rows``) in the same
-    undo step so plant ``parent_bed_id`` links stay synchronized.
-    """
-
-    changes_containment = True
-
-    def __init__(
-        self,
-        item: Any,
-        param_name: str,
-        old_value: Any,
-        new_value: Any,
-    ) -> None:
-        self._item = item
-        self._param_name = param_name
-        self._old_value = old_value
-        self._new_value = new_value
-        self._membership = _membership_change_for_geometry(item.scene(), item)
-
-    @property
-    def description(self) -> str:
-        prop = QCoreApplication.translate("Commands", "symbol parameter")
-        return QCoreApplication.translate("Commands", "Change {property}").format(
-            property=prop
-        )
-
-    def execute(self) -> None:
-        scene = self._item.scene()
-        if self._membership is None and scene is not None:
-            self._membership = _membership_change_for_geometry(scene, self._item)
-        self._item.params[self._param_name] = self._new_value
-        self._item.regenerate_geometry()
-        if self._membership is None and scene is not None:
-            self._membership = _membership_change_for_geometry(scene, self._item)
-        if self._membership is not None:
-            self._membership.reconcile()
-
-    def undo(self) -> None:
-        self._item.params[self._param_name] = self._old_value
-        self._item.regenerate_geometry()
-        if self._membership is not None:
-            self._membership.restore()
-
-
 class ApplySpeciesCommand(Command):
     """Command for assigning a database species to an existing plant item.
 
@@ -2053,6 +2014,7 @@ class RotateItemCommand(Command):
         apply_func: Callable[[QGraphicsItem, float], None],
         partner_moves: list[tuple[QGraphicsItem, QPointF, QPointF]] | None = None,
         partner_vertex_moves: "list[tuple[QGraphicsItem, int, QPointF, QPointF]] | None" = None,
+        followers: "list[tuple[QGraphicsItem, QPointF, QPointF, float, float]] | None" = None,
     ) -> None:
         """Initialize the rotate command.
 
@@ -2067,6 +2029,9 @@ class RotateItemCommand(Command):
             partner_vertex_moves: Deformable partners' corrected vertices, as
                 ``(item, vertex_index, local_before, local_after)`` — the solver's
                 vertex-level corrections, recorded the same way.
+            followers: Items carried by a group turn (a bed's top-level linked
+                plants), as ``(item, position_before, position_after,
+                angle_before, angle_after)``. They are part of the same undo step.
         """
         self._item = item
         self._old_angle = old_angle
@@ -2082,6 +2047,20 @@ class RotateItemCommand(Command):
             (moved_item, index, QPointF(before), QPointF(after))
             for moved_item, index, before, after in (partner_vertex_moves or [])
         ]
+        self._followers: list[
+            tuple[QGraphicsItem, QPointF, QPointF, float, float]
+        ] = [
+            (follow_item, QPointF(before), QPointF(after), old, new)
+            for follow_item, before, after, old, new in (followers or [])
+        ]
+        #: A group's optional pivot, both sides of the gesture (#1022 review).
+        self._pivot_before: tuple[bool, QPointF] | None = None
+        self._pivot_after: tuple[bool, QPointF] | None = None
+        pivot_change = getattr(item, "rotation_pivot_change", None)
+        if callable(pivot_change):
+            change = pivot_change()
+            if change is not None:
+                self._pivot_before, self._pivot_after = change
         self._membership = _membership_change_for_geometry(
             item.scene(),
             item,
@@ -2091,6 +2070,35 @@ class RotateItemCommand(Command):
                 for moved_item, _index, _before, _after in self._partner_vertex_moves
             ],
         )
+        from open_garden_planner.ui.canvas.items.group_item import (
+            GroupItem,
+            selection_tree,
+        )
+
+        if isinstance(item, GroupItem) and not (
+            self._partner_moves or self._partner_vertex_moves
+        ):
+            # A group's own members are not the group item itself: a Plant Grid
+            # group moved out of a bed must re-decide its plants' links. A plant
+            # that turns WITH its own bed keeps the link instead: the two moved
+            # rigidly, so the smallest-bed rule must not transfer it to a
+            # stationary bed the turn happens to carry it over (#1022 review).
+            # A grouped bed's top-level linked plants are carried as followers
+            # and are deliberately not in this list.
+            scene = item.scene()
+            moving_ids = {
+                member_id
+                for member in selection_tree([item])
+                if (member_id := getattr(member, "item_id", None)) is not None
+            }
+            plants = [
+                plant
+                for plant in plants_in_items([item])
+                if getattr(plant, "parent_bed_id", None) not in moving_ids
+            ]
+            self._membership = (
+                BedMembershipChange(scene, plants) if plants and scene is not None else None
+            )
 
     @property
     def description(self) -> str:
@@ -2102,14 +2110,40 @@ class RotateItemCommand(Command):
         if self._membership is not None:
             self._membership.reconcile()
 
+    def _restore_pivot(self, state: tuple[bool, QPointF] | None) -> None:
+        if state is None:
+            return
+        restore = getattr(self._item, "restore_rotation_pivot", None)
+        if callable(restore):
+            restore(state)
+
+    def _capture_pivot_after(self) -> None:
+        """Record the pivot the first execution chose (the agent path)."""
+        change = getattr(self._item, "rotation_pivot_change", None)
+        if callable(change):
+            states = change()
+            if states is not None:
+                self._pivot_after = states[1]
+
     def execute(self) -> None:
         """Apply the new rotation, every partner correction and the new links."""
+        self._restore_pivot(self._pivot_after)
         self._apply_func(self._item, self._new_angle)
+        if self._pivot_after is None:
+            self._capture_pivot_after()
         for moved_item, _before, after in self._partner_moves:
             moved_item.setPos(after)
         for moved_item, index, _before, after in self._partner_vertex_moves:
             if hasattr(moved_item, "_move_vertex_to"):
                 moved_item._move_vertex_to(index, after)
+        if not getattr(self._item, "_rotation_plan_active", False):
+            # On the first agent execution the live plan already placed its
+            # followers; re-applying the recorded poses would be a second
+            # implementation of the same transform (#1022 review).
+            for follow_item, _before, after, _old, new in self._followers:
+                if hasattr(follow_item, "_apply_rotation"):
+                    follow_item._apply_rotation(new)
+                follow_item.setPos(after)
         if self._membership is not None:
             self._membership.reconcile()
 
@@ -2123,6 +2157,11 @@ class RotateItemCommand(Command):
         for moved_item, before, _after in reversed(self._partner_moves):
             moved_item.setPos(before)
         self._apply_func(self._item, self._old_angle)
+        for follow_item, before, _after, old, _new in reversed(self._followers):
+            if hasattr(follow_item, "_apply_rotation"):
+                follow_item._apply_rotation(old)
+            follow_item.setPos(before)
+        self._restore_pivot(self._pivot_before)
 
 
 class PlantSpeciesEditCommand(Command):
@@ -3281,10 +3320,15 @@ class GroupCommand(Command):
                     seen.add(id(it))
                     self._original_layers.append((it, it.layer_id))
 
-        for item in self._items:
-            item.setSelected(False)
-            self._group.addToGroup(item)  # type: ignore[attr-defined]
-        self._group.setSelected(True)
+        # Reparenting a batch can leave a stale BSP search entry behind, which
+        # the next paint dereferences (#1031, PF-CAN-76). Clear the old index
+        # only for the reparent itself; the z refresh below must read the
+        # scene's normal stacking order, which the linear index does not report.
+        with rebuilt_scene_index(self._scene):
+            for item in self._items:
+                item.setSelected(False)
+                self._group.addToGroup(item)  # type: ignore[attr-defined]
+            self._group.setSelected(True)
 
         # Normalise members and their linked ridges to the group's layer (issue #741)
         if group_layer is not None:
@@ -3305,18 +3349,19 @@ class GroupCommand(Command):
     def undo(self) -> None:
         if self._group is None:
             return
-        for item in self._items:
-            self._group.removeFromGroup(item)  # type: ignore[attr-defined]
-            # Restore standard interaction flags cleared by addToGroup
-            item.setFlag(QGraphicsItem.GraphicsItemFlag.ItemIsSelectable, True)
-            item.setFlag(QGraphicsItem.GraphicsItemFlag.ItemIsMovable, True)
-            item.setSelected(True)
+        with rebuilt_scene_index(self._scene):
+            for item in self._items:
+                self._group.removeFromGroup(item)  # type: ignore[attr-defined]
+                # Restore standard interaction flags cleared by addToGroup
+                item.setFlag(QGraphicsItem.GraphicsItemFlag.ItemIsSelectable, True)
+                item.setFlag(QGraphicsItem.GraphicsItemFlag.ItemIsMovable, True)
+                item.setSelected(True)
 
-        # Restore original individual layers on undo (issue #741)
-        for it, old_layer in self._original_layers:
-            it.layer_id = old_layer
+            # Restore original individual layers on undo (issue #741)
+            for it, old_layer in self._original_layers:
+                it.layer_id = old_layer
 
-        self._scene.removeItem(self._group)
+            self._scene.removeItem(self._group)
         refresh_all = getattr(self._scene, "_update_items_z_order", None)
         if callable(refresh_all):
             refresh_all()
@@ -3328,9 +3373,21 @@ class UngroupCommand(Command):
     """Ungroup a GroupItem back into independent items."""
 
     def __init__(self, scene: QGraphicsScene, group: QGraphicsItem) -> None:
+        from open_garden_planner.ui.canvas.group_poses import (
+            MemberPose,
+            can_ungroup,
+            document_members,
+        )
+
+        if not can_ungroup(group):
+            raise ValueError(
+                "A group with an unsupported transform cannot be ungrouped."
+            )
         self._scene = scene
         self._group = group
-        self._items: list[QGraphicsItem] = list(group.childItems())
+        self._items = document_members(group)
+        self._before = {item: MemberPose.capture(item) for item in self._items}
+        self._after = {item: pose.detached(item) for item, pose in self._before.items()}
         # The group may have been moved since its members were drawn; undo
         # gives each member back its own layer (see execute).
         self._member_layers = {
@@ -3343,40 +3400,46 @@ class UngroupCommand(Command):
 
     def execute(self) -> None:
         group_layer = getattr(self._group, "layer_id", None)
-        for item in self._items:
-            self._group.removeFromGroup(item)  # type: ignore[attr-defined]
-            item.setFlag(QGraphicsItem.GraphicsItemFlag.ItemIsSelectable, True)
-            item.setFlag(QGraphicsItem.GraphicsItemFlag.ItemIsMovable, True)
-            item.setSelected(True)
-            # Top-level again (issue #338); keeps its pre-group stack_order
-            # rank so execute() is the exact inverse of undo() -- see the
-            # matching note in GroupCommand.undo above. The group's layer is
-            # the one the user saw, so a member drawn on another layer joins
-            # it instead of snapping back (PF-PER-27).
-            if group_layer is not None and hasattr(item, "layer_id"):
-                item.layer_id = group_layer
-        if group_layer is not None:
-            from open_garden_planner.ui.canvas.roof_ridge_link import linked_ridges_under
-
+        # Same stale-index risk as GroupCommand.execute: the members leave the
+        # group and the group leaves the scene in one batch (#1031, PF-CAN-76).
+        with rebuilt_scene_index(self._scene):
             for item in self._items:
-                for ridge in linked_ridges_under(item):
-                    if hasattr(ridge, "layer_id"):
-                        ridge.layer_id = group_layer
-        self._scene.removeItem(self._group)
+                self._group.removeFromGroup(item)  # type: ignore[attr-defined]
+                self._after[item].apply(item)
+                item.setFlag(QGraphicsItem.GraphicsItemFlag.ItemIsSelectable, True)
+                item.setFlag(QGraphicsItem.GraphicsItemFlag.ItemIsMovable, True)
+                item.setSelected(True)
+                # Top-level again (issue #338); keeps its pre-group stack_order
+                # rank so execute() is the exact inverse of undo() -- see the
+                # matching note in GroupCommand.undo above. The group's layer is
+                # the one the user saw, so a member drawn on another layer joins
+                # it instead of snapping back (PF-PER-27).
+                if group_layer is not None and hasattr(item, "layer_id"):
+                    item.layer_id = group_layer
+            if group_layer is not None:
+                from open_garden_planner.ui.canvas.roof_ridge_link import linked_ridges_under
+
+                for item in self._items:
+                    for ridge in linked_ridges_under(item):
+                        if hasattr(ridge, "layer_id"):
+                            ridge.layer_id = group_layer
+            self._scene.removeItem(self._group)
         self._scene._update_items_visibility()  # type: ignore[attr-defined]
         refresh_all = getattr(self._scene, "_update_items_z_order", None)
         if callable(refresh_all):
             refresh_all()
 
     def undo(self) -> None:
-        if self._group.scene() is None:
-            self._scene.addItem(self._group)
-        for item in self._items:
-            item.setSelected(False)
-            self._group.addToGroup(item)  # type: ignore[attr-defined]
-            if hasattr(item, "layer_id"):
-                item.layer_id = self._member_layers[item]
-        self._group.setSelected(True)
+        with rebuilt_scene_index(self._scene):
+            if self._group.scene() is None:
+                self._scene.addItem(self._group)
+            for item in self._items:
+                item.setSelected(False)
+                self._group.addToGroup(item)  # type: ignore[attr-defined]
+                self._before[item].apply(item)
+                if hasattr(item, "layer_id"):
+                    item.layer_id = self._member_layers[item]
+            self._group.setSelected(True)
         self._scene._update_items_visibility()  # type: ignore[attr-defined]
         refresh_all = getattr(self._scene, "_update_items_z_order", None)
         if callable(refresh_all):
@@ -5081,10 +5144,9 @@ class DeleteCameraTourCommand(_CameraToursCommand):
 
 
 # Commands whose effect cannot change an item's ground band (#592). Every one of
-# them moves, resizes, rotates, edits vertices/curves, copies, links/reparents,
-# or changes constraints: ``canvas_scene.on_ground`` reads the item's object
-# type, height metadata and group membership, none of which these touch. The
-# base default stays True, so a future command is safe until it says otherwise.
+# them preserves the inputs to ``canvas_scene.on_ground``. Vertex insertions and
+# deletions keep the scan because a grouped polygon can cross the detail limit
+# for drawing its own sun overlays. The base default stays True.
 # Create is neutral because `addItem` derives a ground surface's band
 # synchronously and bulk adds end in `_update_items_z_order`; Delete/Group/
 # Ungroup/Boolean/ChangeProperty keep the scan.
@@ -5097,8 +5159,6 @@ _GROUND_BAND_NEUTRAL_COMMANDS: tuple[type[Command], ...] = (
     RotateItemCommand,
     MoveVertexCommand,
     SetCurveGeometryCommand,
-    AddVertexCommand,
-    DeleteVertexCommand,
     MultiVertexMoveCommand,
     LinearArrayCommand,
     GridArrayCommand,

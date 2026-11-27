@@ -641,9 +641,6 @@ TRANSLATIONS: dict[str, dict[str, str]] = {
         "Gable": "À deux pans",
         "H: ": "H : ",
         "Hip": "À quatre pans",
-        "Invalid symbol parameter value — geometry unchanged.": (
-            "Valeur de paramètre de symbole invalide — géométrie inchangée."
-        ),
         "Locked in place: unlock to move (Fix in place constraint).": (
             "Verrouillé en place : déverrouillez pour déplacer (contrainte Fixer en place)."
         ),
@@ -659,10 +656,6 @@ TRANSLATIONS: dict[str, dict[str, str]] = {
         "Roof pitch:": "Pente du toit :",
         "Roof style:": "Style de toit :",
         "Single slope": "Un seul pan",
-        "Symbol definition version mismatch — saved geometry is read-only.": (
-            "Version de définition du symbole incompatible — la géométrie enregistrée est "
-            "en lecture seule."
-        ),
         "The 2D plan draws the roof style. The sun study and 3D view also use pitch and overhang.": (
             "Le plan 2D dessine le style de toit. L’étude d’ensoleillement et la vue 3D "
             "utilisent aussi la pente et le débord."

@@ -5,6 +5,7 @@ TRANSLATIONS = {
         "The plan contains an invalid or non-finite number at {field}.": "Der Plan enthält bei {field} eine ungültige oder nicht endliche Zahl.",
         "The canvas dimension at {field} must be between 50 and 100000 cm.": "Die Zeichenflächengröße bei {field} muss zwischen 50 und 100000 cm liegen.",
         "The plan value at {field} must be positive.": "Der Planwert bei {field} muss positiv sein.",
+        "The plan uses an unsupported group transform at {field}.": "Der Plan verwendet bei {field} eine nicht unterstützte Gruppentransformation.",
     },
     "UpdateBar": {
         "This release has no verifiable installer. Use the release page.": "Diese Version hat kein überprüfbares Installationsprogramm. Verwenden Sie die Versionsseite.",

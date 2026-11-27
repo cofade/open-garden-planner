@@ -27,6 +27,7 @@ from PyQt6.QtWidgets import (
     QWidget,
 )
 
+from open_garden_planner.core.angles import is_zero_angle
 from open_garden_planner.core.object_types import ObjectType
 
 from .garden_item import GardenItemMixin
@@ -352,22 +353,37 @@ class CalloutItem(RotationHandleMixin, GardenItemMixin, QGraphicsItem):
     # ── Serialization ─────────────────────────────────────────────
 
     def to_dict(self) -> dict[str, Any]:
+        # Qt's addToGroup folds a compensation into the item transform; the
+        # serialized target is the pre-rotation origin in the parent frame,
+        # exactly as the loader reconstructs it (#1022).
+        base = self.transform()
+        target = self.pos() + QPointF(base.dx(), base.dy())
         data: dict[str, Any] = {
             "type": "callout",
             "item_id": str(self.item_id),
-            "target_x": self.pos().x(),
-            "target_y": self.pos().y(),
+            "target_x": target.x(),
+            "target_y": target.y(),
             "box_dx": self._box_offset.x(),
             "box_dy": self._box_offset.y(),
             "content": self._content,
         }
+        rect = self.boundingRect()
+        if not is_zero_angle(self.rotation_angle) or self.parentItem() is not None:
+            data["bounds"] = {
+                "x": rect.x(),
+                "y": rect.y(),
+                "width": rect.width(),
+                "height": rect.height(),
+            }
+            origin = self.transformOriginPoint()
+            data["transform_origin"] = {"x": origin.x(), "y": origin.y()}
         if self._name:
             data["name"] = self._name
         if self._layer_id is not None:
             data["layer_id"] = str(self._layer_id)
         if self._metadata:
             data["metadata"] = self._metadata
-        if hasattr(self, "rotation_angle") and abs(self.rotation_angle) > 0.01:
+        if hasattr(self, "rotation_angle") and not is_zero_angle(self.rotation_angle):
             data["rotation_angle"] = self.rotation_angle
         return data
 
@@ -393,4 +409,10 @@ class CalloutItem(RotationHandleMixin, GardenItemMixin, QGraphicsItem):
             item._name = d["name"]
         if "rotation_angle" in d:
             item._apply_rotation(d["rotation_angle"])
+        origin = d.get("transform_origin")
+        if isinstance(origin, dict):
+            with contextlib.suppress(ValueError, TypeError):
+                item.setTransformOriginPoint(
+                    QPointF(float(origin.get("x", 0.0)), float(origin.get("y", 0.0)))
+                )
         return item

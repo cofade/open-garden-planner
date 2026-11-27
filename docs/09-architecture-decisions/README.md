@@ -888,7 +888,9 @@ Because `is_bed_type` was *extended* (not renamed) to include containers, every 
 
 ## ADR-032: Smart Symbol Format & Versioning (US-C4)
 
-**Status**: Accepted (Phase 13 — Package C, US-C4). **UI retired (#770):** the engine, persistence, properties-panel editing, and DXF export ship and are tested; the **Smart Symbols sidebar panel and the bundled starter set were removed in #770** (the fixed symbols added little over the parametric structure tools, #768/#769). Existing symbols in a loaded `.ogp` regenerate and export normally, and user files in `<app-data>/smart_symbols/` still load. The five former templates are test fixtures (`tests/fixtures/smart_symbols/`).
+**Status**: **Superseded / removed (#1009).** The engine, persistence, properties-panel editing and DXF export were retired together; a plan that contains a symbol opens as a plain group with unchanged geometry (see the #1009 addendum). Historical decisions below; the UI was retired in #770.
+
+**Status (historical)**: Accepted (Phase 13 - Package C, US-C4). **UI retired (#770):** the engine, persistence, properties-panel editing, and DXF export ship and are tested; the **Smart Symbols sidebar panel and the bundled starter set were removed in #770** (the fixed symbols added little over the parametric structure tools, #768/#769). Existing symbols in a loaded `.ogp` regenerate and export normally, and user files in `<app-data>/smart_symbols/` still load. The five former templates are test fixtures (`tests/fixtures/smart_symbols/`).
 **Context**: Users want reusable **parametric blocks** ("raised bed L×W with N rows", pergola, fence panel) they can drop and edit by parameter rather than redrawing. The acceptance criteria require: a versioned, **user-extendable** definition format (drop a JSON → new symbol on next launch); the instance stores `symbol_id + version + params`, NOT the expanded geometry (it regenerates on load); a cached-geometry fallback for unknown/changed symbols; DXF export as BLOCK/INSERT; and a CI schema validator. A dropped JSON is untrusted input, so geometry expressions must be evaluated **without** `eval()`.
 **Decision**:
 - **Declarative geometry DSL.** A symbol JSON declares typed `parameters` (number/length/choice) and an `elements` list (`rect`/`line`/`polyline`/`polygon`/`circle`); each coordinate is a number or an arithmetic **expression string** over the parameters, and a `repeat{var,from,to}` block emits an element across an integer range. Bundled *and* user symbols are pure data — authoring a new shape needs no code. (`models/smart_symbol.py`, Qt-free, emits plain `PrimitiveSpec` dataclasses so generation is unit-testable.)
@@ -929,6 +931,18 @@ Smart symbol children previously instantiated exclusively as untyped/generic can
 5. **No `FILE_VERSION` bump.** Existing plans keep their stored smart-symbol children and ridge colours; only new ridges get the aluminium finish, and the `ridge_finish` key is additive (a ridge without it paints brown).
 
 **Consequences**: The fixed-symbol library is no longer a product surface; the parametric tools are. The version contract (FR-SYMBOL-08) still guards user files and existing plans. Tests: `tests/integration/test_parametric_structures.py` (layout, 2D/3D agreement, greenhouse ridge lifecycle), `tests/unit/test_sprite_orientation.py`, the extended `tests/integration/test_smart_symbols.py` (fixture library), and the ridge cases in `tests/integration/test_house_roof_ridge.py`.
+
+### Addendum (issue #1009, 2026-11-25 — Smart Symbols are removed completely)
+
+**Status**: Shipped (2D canvas follow-up package). **Context**: #770 removed only the panel and the bundled set. Since v1.37.9 no user could create a symbol, yet the engine, persistence, Properties-panel editing, DXF block export, the `<app-data>/smart_symbols/` folder contract and their tests were still on `master`.
+
+**Decision**:
+1. **The engine is gone, not hidden.** `models/smart_symbol.py`, `services/smart_symbol_library.py`, `ui/canvas/items/smart_symbol_item.py`, `ChangeSmartSymbolParamCommand`, the DXF BLOCK/INSERT export path, the Properties-panel parameter editor and the Smart-Symbol metadata consumers in the shadow and 3D snapshot paths are deleted. `models/parametric_eval.py` stays as a generic bounded arithmetic evaluator (its own unit test is the only remaining caller).
+2. **Old plans open as plain groups.** The loader ignores a `smart_symbol` key instead of reconstructing a symbol; the serialized children remain the geometry. Typed children (#599) keep their types. The next save writes a group without the key. No `FILE_VERSION` bump, exactly as this ADR designed.
+3. **User data is untouched.** `<app-data>/smart_symbols/` is no longer read and is deliberately not migrated or deleted (the same rule as #767).
+4. **The group rotation key is additive.** A group now stores its own `rotation` (issue #1022), which also preserves the angle a pre-removal symbol could carry. Older apps ignore it.
+
+**Consequences**: the removal is pinned by `tests/integration/test_smart_symbol_removal.py` (an old plan with the key opens as a two-member group with the same types and positions, and a re-save drops the key). The translation gate loses the `SmartSymbolsPanel` context and the "Smart Symbols" menu string in all five locales. The broader trust-boundary lesson from PR #236 stays in the pitfalls file, but its pinned test and model reference are gone.
 
 ## ADR-033: Agent API — Embedded MCP-over-HTTP Server + Main-Thread Marshaling Boundary (US-D1.1)
 
@@ -2238,7 +2252,7 @@ marker. PF-TST-29 and §8.8 record the rule. No stored key, `.ogp` field or prod
 **Context.** The owner drew a lawn and switched the 2D shadows and Hours of Sun on: both overlays were hidden under the lawn ("objects of height = 0 like grass"). Since US-E3/E4 the shadow overlay (`-500`) and the heatmap (`-450`) sat below every layer item, so anything drawn over the ground, however flat, covered the analysis that is ABOUT the ground. No single overlay z can fix it: the layer bands interleave a lawn in one layer with a tree in another.
 
 **Decision.**
-1. **A ground surface is a garden surface without a height.** `core.object_height.lies_on_ground(type, metadata)`: a `LAWN`, `PATH`, `TERRACE_PATIO`, `DRIVEWAY`, `POND_POOL` or `GARDEN_BED` (`GROUND_SURFACE_TYPE_NAMES`) whose `effective_height_cm` is `None` — only stored metadata can give these types a height, and it makes them solids. `canvas_scene.on_ground(item)` adds groups: a group whose every member is a ground surface is drawn in one slot, so it takes the band too; a group that mixes surfaces and solids stays in its layer's band. Pinned by `tests/unit/test_object_height.py::TestLiesOnGround` and `test_sun_overlays_on_ground.py`.
+1. **A ground surface is a garden surface without a height.** `core.object_height.lies_on_ground(type, metadata)`: a `LAWN`, `PATH`, `TERRACE_PATIO`, `DRIVEWAY`, `POND_POOL` or `GARDEN_BED` (`GROUND_SURFACE_TYPE_NAMES`) whose `effective_height_cm` is `None` — only stored metadata can give these types a height, and it makes them solids. `canvas_scene.on_ground(item)` adds groups: a group whose every member is a ground surface is drawn in one slot, so it takes the band too. A mixed group normally stays in its layer band above both overlays. A planted bed with linked plants keeps the ground band if its fill is translucent or if its dense polygon has no coverage path at the canvas detail limit. The original shadow is clipped around the plants in that band. An opaque surface with coverage in a mixed group paints the overlays on itself (`CanvasScene.paint_ground_overlays`): the shape items call it at the end of their own paint, the registered sun-study overlay items paint, clipped to the surface's `grid_cover_path`, and `CanvasScene.refresh_ground_overlays` invalidates those surfaces whenever an overlay's picture changes. The shadow, the hours-of-sun fill and its contour layer all use it (#1031). Pinned by `tests/unit/test_object_height.py::TestLiesOnGround` and `test_sun_overlays_on_ground.py`.
 2. **Ground surfaces get their own band below the overlays.** `_refresh_layer_z` stays the one z writer; for a ground surface it writes `ground_z(z)` — a strictly increasing map of the layer-band value into `GROUND_Z_RANGE = (-990, -510)` — so ground surfaces keep their order among themselves (layer, then rank) for any number of layers, above the background image and below both overlays. §8.25.2 and §8.25.6.
 3. **One band split for drawing and Arrange.** `CanvasScene._band_entries` splits a layer's items into the two bands, ground surfaces first; `_normalized_layer_order` (the drawing) normalizes each band alone, and `build_arrange_command` arranges each band of the selection on that same split (`core.stacking.arrange` unchanged) and renumbers the layer ground first. So a recorded step is always a visible one and ranks agree with the drawing; at the edge of its band an item reports "already at front/back". The derive-only clamp acts inside a band: a plant on an in-ground bed is above it by the band and sorts by its own rank among the other items; the clamp still orders a plant on an edged or raised bed. Two earlier cuts disagreed: over the whole layer a lawn stepped "forward" past a table with nothing visible; with arrange split by band but the drawing normalized over the whole layer, sending a lawn to the back moved a perennial on an in-ground bed under a tree. The agent's `stack_index` and `list_objects` order are "as displayed" and therefore list ground surfaces first; the tool descriptions say so.
 4. **The band follows reclassification.** `CanvasScene._restack_ground_changes` runs after every `stack_changed` (execute, undo, redo — every writer of a type, a group or a height commits through a command) and refreshes only the layers whose items' band disagrees with `on_ground`; about 1 ms on 500 items. A `plan_changed` hook was tried and dropped: `plan_changed(int)` connected to `QTimer.start` made the revision the timer's delay, and it would have scanned the plan on every drag frame for a writer that does not exist.
@@ -2251,7 +2265,7 @@ marker. PF-TST-29 and §8.8 record the rule. No stored key, `.ogp` field or prod
 | One overlay per layer | Two overlay items per layer to keep in sync with the controllers' single results, for the same ordering a z band gives |
 | Every object without a height that covers ground (the 3D view's ground rule) | Tried, and reverted after review: a cold frame, rain barrel, planter pot or parasol has no height in the plan but stands up — a cold frame on a raised bed sank under the bed, and none of them offers a Height field to lift it back. Generic shapes, often a zone or a highlight placed above a plant by layer, stay in their layer's band until the owner decides otherwise |
 
-**Consequences.** Saved files list ground surfaces first (the serializer writes display order; ranks are saved per item, so older versions reload the same ranks; the committed bench and edge-case fixtures were regenerated — a pure reorder). A ground surface's own label, badges and selection handles are children and lie under the overlays with it, and under any solid that overlaps them (the overlays take no clicks; a handle under a solid cannot be grabbed). Construction lines (`-10`) now draw over ground surfaces instead of hiding under them. A mixed group (a lawn grouped with a bench) keeps its lawn above the overlays, and is drawn over any top-level ground surface ranked above it — in 2D and in the 3D ground bake. The 3D ground bake follows the scene order, so a generic shape or a height-less standing object ranked under a surface now paints over it on the 3D ground as well (the two views agree). A plant on an in-ground bed sorts by its own rank among the layer's other items instead of next to its bed: a plan saved by an earlier build without being reloaded since can show such a plant under a tree it was drawn over (plans an earlier build loaded and re-saved carry clamp-ordered ranks and do not change), and giving that bed a height moves the plant back next to it. Pinned by `tests/integration/test_sun_overlays_on_ground.py` (export-pipeline pixels: a shadow and the heatmap change the lawn and leave the shed alone; the band follows a height, a type change, undo, layers and a reload).
+**Consequences.** Saved files list ground surfaces first (the serializer writes display order; ranks are saved per item, so older versions reload the same ranks; the committed bench and edge-case fixtures were regenerated — a pure reorder). A ground surface's own label, badges and selection handles are children and lie under the overlays with it, and under any solid that overlaps them (the overlays take no clicks; a handle under a solid cannot be grabbed). Construction lines (`-10`) now draw over ground surfaces instead of hiding under them. A mixed group (a lawn grouped with a bench) keeps its layer's band and its surfaces paint the overlays on themselves (#1031), but is drawn over any top-level ground surface ranked above it — in 2D and in the 3D ground bake. The 3D ground bake follows the scene order, so a generic shape or a height-less standing object ranked under a surface now paints over it on the 3D ground as well (the two views agree). A plant on an in-ground bed sorts by its own rank among the layer's other items instead of next to its bed: a plan saved by an earlier build without being reloaded since can show such a plant under a tree it was drawn over (plans an earlier build loaded and re-saved carry clamp-ordered ranks and do not change), and giving that bed a height moves the plant back next to it. Pinned by `tests/integration/test_sun_overlays_on_ground.py` (export-pipeline pixels: a shadow and the heatmap change the lawn and leave the shed alone; the band follows a height, a type change, undo, layers and a reload).
 
 ### ADR-043 addendum: one z derivation per layer, never one per add (#450, 2026-10-24)
 
@@ -13835,7 +13849,71 @@ example exercises the refusal because its soil test and succession plan refer
 to the original bed ID. A freshly drawn raised bed exercises the frame-preserving
 cut.
 
-## ADR-076: Exports paint one picture — a recorded SVG, raster plan pages in the PDF, live SVG text (#787, #788, #789)
+**Addendum 6 (issue #1022, 2026-11-25) - a selected group turns as one unit.**
+
+**Status:** Shipped in the 2D canvas follow-up package. A group now mixes in the
+same `RotationHandleMixin` as a single item, so it shows one standard handle
+above its own selection frame (#840's `selection_frame_rect`, never
+`boundingRect()`: a badge or a screen-sized handle would move the pivot). The
+gesture is a **group transform**, not a loop over members: children keep their
+local positions and Qt's group transform rotates their scene positions about
+the frame centre together. `GroupItem._apply_rotation` sets the transform
+origin to that centre on the first turn only, and `_on_rotation_end` registers the ordinary
+`RotateItemCommand` through `geometry_apply.register_rotation_command`, so the
+whole gesture is one undo step and the shared constraint-partner recording
+still runs. A drilled-down member keeps its own handle; the group hides its
+own for the duration (`CanvasView.begin_group_drill_down` /
+`_clear_group_drill_down`), which reuses the existing
+`_individual_handles_allowed` rule.
+
+Persistence is additive: a group may carry a `rotation` key (the same key a
+pre-#1009 smart-symbol group used) and a `transform_origin`; a later member edit
+does not re-pivot, and reloading the saved origin is what keeps every member in
+place. The command records both pivot states, so undo restores the previous one
+and a drag that changes nothing fixes none. A nested group saves its compensating
+base transform, so regrouping a turned group does not apply its translation twice.
+That matrix is translation-only; a plan with a rotation or scale there is refused at
+the numeric boundary, and edit surfaces refuse such a group. The boundary composes
+x/y with that translation, every parent offset and every transformed primitive's box
+(including far edges and the group union) through the same Qt-free
+`core/object_bounds` code the Agent API uses; a legacy symbol
+without an origin rotates about (0, 0) in both. One `core/angles` rule decides an
+Agent no-op, saving a group angle, and Ungroup's turned test, canonicalizes a
+sub-tolerance target to 0, and commits a gesture that returns inside the tolerance as
+exactly 0. A committed
+member angle is saved even below 0.01°, so a tiny group turn survives reload.
+Grouped child records carry their own `parent_bed_id` / `child_item_ids`, so a link
+whose endpoints are both members survives save and reload; copy/duplicate remaps
+both fields through one map for the whole tree and drops uncopied endpoints. That
+map is the only author of copied links; paste/duplicate never rebuild them from a
+top-level-only map, and the forest is normalized so each source item appears once.
+The Agent API's group box applies the same base translation; a grouped or turned
+callout saves its local bounds and pivot (text edits do not re-pivot it) and reports
+the scene-space leader tip; a text note saves its reflected footprint. A turned
+standalone callout's region box is its turned footprint.
+Ungrouping a turned group (#1032) captures every member's scene transform before
+reparenting. The command applies the pose the existing serializers write: normal
+member angles, scene-frame geometry for curves and construction lines, and the
+one intrinsic Y reflection of text. Nested groups keep their descendants local.
+Undo reapplies the captured local state, including the original base matrix and
+pivot. Validate the whole group before mutation. A legacy symbol
+without an origin rotated about its local (0, 0); the loader reproduces that
+exact geometry. A grouped bed's linked top-level plants are captured at gesture start and
+carried about the same pivot by `RotateItemCommand`'s follower snapshots. Its membership
+tracker re-decides only the group's own plants whose parent bed did not turn with them; a
+plant that turns with its own bed keeps the link because the two moved rigidly, and the
+carried top-level plants are followers, never re-solved. The move command's
+net-scene-delta rule (PF-CAN-70) handles later moves. A constrained member, a member on a
+locked layer, or a linked plant owned by another group is refused before any geometry
+changes. Roof ridges are re-derived by the existing `update_house_ridges_under` listener.
+
+Pinned by `tests/integration/test_group_rotation.py` (handle visibility,
+drill-down, a real viewport drag, rigid member geometry, one-step undo, Shift
+snapping, a nested group, a grouped bed, a grouped house ridge, DXF ellipse
+orientation, zero-angle pivot, constraint refusal, and save/load after a member
+edit and an ungroup refusal).
+
+## ADR-076: Exports paint one picture - a recorded SVG, raster plan pages in the PDF, live SVG text (#787, #788, #789)
 
 **Status**: Accepted (visual-polish package, 2026-11-09); shipped in v1.38.0 (PR #838)
 
@@ -13903,7 +13981,7 @@ SVG 1.1 mode, and `QSvgRenderer` ignores `clip-path`.
 **Consequences**: the SVG fidelity test compares the rasterised SVG with the PNG export
 of the same scene (four bundled examples, a parametric roof, a glasshouse, a painter
 nobody taught about SVG) at a stated tolerance; a new painter needs no SVG knowledge.
-An SVG's pictures are embedded once per use, as before, and grow with their resolution.
+An SVG's pictures are embedded once per distinct picture and geometry (since #850, a repeat is a `<use>`) and grow with their resolution.
 The report is three to eight times larger than at 72 dpi.
 
 Cross-refs: PF-CAN-08, PF-CAN-12, PF-CAN-13, PF-CAN-53, PF-CAN-54; §8.36; FR-EXP-01,
@@ -13993,6 +14071,17 @@ FR-EXP-08, FR-VIS-07, FR-VIS-09; debug-verbose case study 225.
     (#869). Every gallery plant is `ObjectType.PERENNIAL`, so carrots and lettuce
     read "Perennial". `core.plant_cycle_label` is the one translated cycle vocabulary;
     the plant list, Plant Details, custom-plant table and plant search use it.
+20. **A repeated picture is written once and placed with `<use>`** (#850). The
+    recording replay still writes one `<image>` per distinct payload and geometry;
+    `_dedupe_picture_uses` (`services/svg_export.py`) adds an id to the first and
+    writes the rest as `<use>` with only the placement delta. Measured at a 30 cm
+    page on the bundled examples: raised bed 3.67 -> 2.17 MB, balcony 3.28 -> 2.03 MB,
+    food forest 6.90 -> 6.12 MB, family garden 8.62 -> 8.27 MB. The delta is what
+    keeps a <use> on the right pixel: the referenced <image> keeps its own x/y,
+    so the use carries `new - first` (a plain copy of x/y moved the balcony's shade
+    sprites; the fidelity test caught it). `QSvgRenderer` resolves a `<use>` of an
+    `<image>` (measured); Edge does too. Clipped-stroke editability, halo metrics
+    and the badge typeface are deliberately still open (#1029).
 
 Cross-refs: §8.36; FR-EXP-03, FR-EXP-08; PF-CAN-55.
 

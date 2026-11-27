@@ -97,6 +97,53 @@ def test_a_picture_already_at_the_export_s_size_is_untouched(qtbot, tmp_path) ->
     assert _embedded_pixel_sizes(path) == [(64, 64)]
 
 
+def test_a_repeated_picture_is_embedded_once_and_placed_twice(qtbot, tmp_path) -> None:
+    """#850: a texture tile or a species sprite is written once, drawn by <use>.
+
+    The referenced <image> keeps its own x/y, so the <use> carries only the
+    difference; a wrong delta would move the second copy (the balcony's
+    regression in the fidelity suite).
+    """
+    import re
+
+    from PyQt6.QtCore import QRectF
+    from PyQt6.QtGui import QColor, QImage, QPainter
+    from PyQt6.QtSvg import QSvgRenderer
+
+    path = tmp_path / "repeated.svg"
+    picture = _picture(16)
+    first = _PixmapOp(_state(), QRectF(0.0, 0.0, 16.0, 16.0), picture)
+    second = _PixmapOp(_state(), QRectF(40.0, 0.0, 16.0, 16.0), picture)
+    write_svg([first, second], path, 100.0, 100.0)
+    text = path.read_text(encoding="utf-8")
+    assert len(re.findall(r"base64,", text)) == 1
+    uses = re.findall(r"<use\b[^>]*>", text)
+    assert len(uses) == 1
+    assert 'x="40"' in uses[0]
+
+    image = QImage(100, 100, QImage.Format.Format_ARGB32)
+    image.fill(QColor("white"))
+    painter = QPainter(image)
+    QSvgRenderer(str(path)).render(painter, QRectF(0, 0, 100, 100))
+    painter.end()
+    assert image.pixelColor(5, 5).name() == "#c03020"
+    assert image.pixelColor(45, 5).name() == "#c03020"
+
+
+def test_distinct_pictures_are_not_merged(qtbot, tmp_path) -> None:
+    import re
+
+    path = tmp_path / "distinct.svg"
+    red = _PixmapOp(_state(), QRectF(0.0, 0.0, 16.0, 16.0), _picture(16))
+    blue_pixmap = QPixmap(16, 16)
+    blue_pixmap.fill(QColor("#2040c0"))
+    blue = _PixmapOp(_state(), QRectF(40.0, 0.0, 16.0, 16.0), blue_pixmap)
+    write_svg([red, blue], path, 100.0, 100.0)
+    text = path.read_text(encoding="utf-8")
+    assert len(re.findall(r"base64,", text)) == 2
+    assert "<use" not in text
+
+
 def test_a_picture_keeps_its_aspect_ratio() -> None:
     op = _PixmapOp(_state(), QRectF(0.0, 0.0, 40.0, 20.0), _picture(200))
     fitted = _fit_picture(op)

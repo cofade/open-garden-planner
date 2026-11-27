@@ -166,6 +166,17 @@ class TestProjectManager:
         assert not manager.is_dirty
         assert manager.project_name == "Untitled"
 
+    def test_a_document_replacement_restores_the_scene_index(self, manager, scene) -> None:
+        """The linear index is only a replacement guard; failures restore it too."""
+        assert scene.itemIndexMethod() == QGraphicsScene.ItemIndexMethod.BspTreeIndex
+        with pytest.raises(RuntimeError), manager._linear_scene_index(scene):
+            assert (
+                scene.itemIndexMethod()
+                == QGraphicsScene.ItemIndexMethod.NoIndex
+            )
+            raise RuntimeError("load failed")
+        assert scene.itemIndexMethod() == QGraphicsScene.ItemIndexMethod.BspTreeIndex
+
     def test_mark_dirty(self, manager, qtbot) -> None:
         """Test marking project as dirty."""
         with qtbot.waitSignal(manager.dirty_changed):

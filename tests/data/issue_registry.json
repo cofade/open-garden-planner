@@ -26,13 +26,13 @@
   },
   "1007": {
     "is_pr": false,
-    "state": "OPEN",
+    "state": "CLOSED",
     "title": "2D hours-of-sun map: one sample darker at seams of the per-region rasterisation"
   },
-  "1008": {
+  "1009": {
     "is_pr": false,
     "state": "OPEN",
-    "title": "2D hours-of-sun map: contour labels crowd and overlap objects around solids"
+    "title": "Remove Smart Symbols completely (engine, persistence, translations, tests, docs)"
   },
   "1012": {
     "is_pr": false,
@@ -69,10 +69,25 @@
     "state": "OPEN",
     "title": "Group rotation: a selected group has no rotation handle, so a group cannot be rotated as one unit in the UI"
   },
-  "1026": {
+  "1029": {
     "is_pr": false,
     "state": "OPEN",
-    "title": "test_shadow_overlay::test_slider_change_emits_the_wall_reading is wall-clock dependent (fails in the 15:00 minute)"
+    "title": "SVG export: clipped-stroke editability, halo metrics and badge typeface after #850's size fix"
+  },
+  "1030": {
+    "is_pr": true,
+    "state": "OPEN",
+    "title": "feat: 2D canvas follow-ups - group rotation, Smart Symbol removal, sprite/SVG sharpness (#1009, #1022, #845, #850, #873)"
+  },
+  "1031": {
+    "is_pr": false,
+    "state": "OPEN",
+    "title": "Native crash on first click after reopening a grouped, scaled plan (stale QGraphicsScene index)"
+  },
+  "1032": {
+    "is_pr": false,
+    "state": "OPEN",
+    "title": "Allow ungrouping a turned group by baking the turn into its members"
   },
   "114": {
     "is_pr": true,
@@ -1431,7 +1446,7 @@
   },
   "830": {
     "is_pr": false,
-    "state": "OPEN",
+    "state": "CLOSED",
     "title": "2D sun study: parasol as a raised canopy, what glasshouse glass transmits, and the dark cell under every plant"
   },
   "831": {
@@ -1494,9 +1509,14 @@
     "state": "CLOSED",
     "title": "A line above the 256-vertex paint bound has no simplified picture: 334 ms per zoom step with a 16,000-vertex zigzag line"
   },
-  "852": {
+  "850": {
     "is_pr": false,
     "state": "OPEN",
+    "title": "SVG export: pictures embedded once per use (files 2.6-7x larger), clipped strokes lose editability, halo and badge text sized by Qt"
+  },
+  "852": {
+    "is_pr": false,
+    "state": "CLOSED",
     "title": "Hours-of-sun map: 10 cm cells show as blotches at 400 %, repaint is 3x with the map on, badge triangle is green on green foliage"
   },
   "853": {
@@ -1538,6 +1558,11 @@
     "is_pr": false,
     "state": "CLOSED",
     "title": "Text note size follows the screen's logical DPI"
+  },
+  "873": {
+    "is_pr": false,
+    "state": "OPEN",
+    "title": "A huge object name still reaches the inline name editor; a selected text note of a million characters costs 126 ms per repaint"
   },
   "874": {
     "is_pr": false,

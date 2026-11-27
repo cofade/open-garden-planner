@@ -200,6 +200,61 @@ def test_inline_label_editor_bounds_huge_name_and_preserves_untouched_name(qtbot
     view.viewport().repaint()
 
 
+def test_main_window_sidebars_bound_long_names_and_notes(qtbot, monkeypatch) -> None:
+    from PyQt6.QtWidgets import QLineEdit
+
+    from open_garden_planner.app.application import GardenPlannerApp
+    from open_garden_planner.ui.canvas.items.text_item import TextItem, bound_display_text
+    from open_garden_planner.ui.panels.properties_panel import FocusOutTextEdit
+
+    monkeypatch.setattr(GardenPlannerApp, "_startup_sequence", lambda _: None)
+    monkeypatch.setattr(GardenPlannerApp, "_start_update_check", lambda _: None)
+    window = GardenPlannerApp()
+    monkeypatch.setattr(window, "_confirm_discard_changes", lambda: True)
+    qtbot.addWidget(window)
+    window.show()
+    scene = window.canvas_scene
+    bed = _bed(scene, HUGE)
+    bed.setSelected(True)
+    status = window.crop_rotation_panel._status_label
+    assert len(status.text()) < 200
+    assert status.heightForWidth(300) < 200
+    name_field, = [
+        field for field in window.properties_panel.findChildren(QLineEdit)
+        if getattr(field, "_ogp_name_start", None) == HUGE
+    ]
+    assert name_field.text() == bound_display_text(HUGE)
+    assert name_field.isReadOnly()
+    qtbot.keyClicks(name_field, "ordinary edit")
+    name_field.editingFinished.emit()
+    assert bed.name == HUGE
+    name_field._ogp_replace_button.click()
+    assert not name_field.isReadOnly() and not name_field.text()
+    name_field.setText("Renamed")
+    name_field.editingFinished.emit()
+    assert bed.name == "Renamed"
+    window.canvas_view.command_manager.undo()
+    assert bed.name == HUGE
+
+    scene.clearSelection()
+    note = TextItem(200, 200, HUGE)
+    scene.addItem(note)
+    note.setSelected(True)
+    content, = window.properties_panel.findChildren(FocusOutTextEdit)
+    assert len(content.toPlainText()) < 3_000
+    assert content.isReadOnly()
+    qtbot.keyClicks(content, "ordinary edit")
+    content.editing_finished.emit()
+    assert note.content == HUGE
+    content._ogp_replace_button.click()
+    assert not content.isReadOnly() and not content.toPlainText()
+    content.setPlainText("A short note")
+    content.editing_finished.emit()
+    assert note.content == "A short note"
+    window.canvas_view.command_manager.undo()
+    assert note.content == HUGE
+
+
 def test_huge_text_item_bounds_display_and_selection_paint(qtbot, ui_font_family) -> None:
     """A 1M-char TextItem keeps full ``content`` for serialization while bounding
     its Qt document and using a cosmetic selection border (#873)."""

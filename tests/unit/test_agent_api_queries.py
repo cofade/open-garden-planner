@@ -425,9 +425,18 @@ class TestBboxNormaliserPerShape:
         }
         assert queries.object_bbox(poly) == (0.0, 0.0, 30.0, 40.0)
 
-    def test_callout_is_point(self) -> None:
-        callout = {"type": "callout", "target_x": 12.0, "target_y": 34.0, "box_dx": 5, "box_dy": 5}
-        assert queries.object_bbox(callout) == (12.0, 34.0, 0.0, 0.0)
+    def test_callout_spans_its_leader(self) -> None:
+        callout = {
+            "type": "callout", "target_x": 12.0, "target_y": 34.0,
+            "box_dx": 5, "box_dy": 6,
+            "bounds": {"x": -10.0, "y": -20.0, "width": 30.0, "height": 40.0},
+        }
+        assert queries.object_bbox(callout) == (2.0, 14.0, 30.0, 40.0)
+        assert queries.object_center(callout) == (12.0, 34.0)
+
+    def test_a_legacy_callout_without_bounds_spans_its_leader(self) -> None:
+        callout = {"type": "callout", "target_x": 12.0, "target_y": 34.0, "box_dx": 5, "box_dy": 6}
+        assert queries.object_bbox(callout) == (12.0, 34.0, 5.0, 6.0)
 
     def test_journal_pin_is_point(self) -> None:
         pin = {"type": "journal_pin", "item_id": "jp", "x": 7.0, "y": 8.0, "note_id": "n"}
@@ -438,7 +447,7 @@ class TestBboxNormaliserPerShape:
         assert queries.object_bbox(bg) == (100.0, 200.0, 0.0, 0.0)
 
     def test_group_unions_child_boxes_in_group_frame(self) -> None:
-        # Group/smart-symbol children serialise in the group's LOCAL frame; the
+        # Group children serialise in the group's LOCAL frame; the
         # group dict has only x/y, so the bbox must union the offset child boxes
         # (not collapse to a zero-size point at the origin).
         group = {
@@ -455,6 +464,212 @@ class TestBboxNormaliserPerShape:
         }
         # child1 abs (100,100,50,50); child2 abs (290,290,20,20) -> union:
         assert queries.object_bbox(group) == (100.0, 100.0, 210.0, 210.0)
+
+    def test_a_legacy_symbol_without_origin_rotates_about_zero(self) -> None:
+        """The numeric gate and the loader share the pre-#1009 zero pivot."""
+        group = {
+            "type": "group", "item_id": "g1", "x": 100.0, "y": 0.0,
+            "rotation": 90.0,
+            "smart_symbol": {"kind": "legacy"},
+            "children": [
+                {"type": "rectangle", "item_id": "c1", "x": 0.0, "y": 0.0,
+                 "width": 100.0, "height": 20.0},
+            ],
+        }
+        assert queries.object_bbox(group) == (80.0, 0.0, 20.0, 100.0)
+        assert queries.object_bbox(group) == queries.object_bbox(
+            {**group, "transform_origin": {"x": 0.0, "y": 0.0}}
+        )
+
+    def test_a_rotated_group_uses_its_pivot_not_an_upright_union(self) -> None:
+        group = {
+            "type": "group",
+            "item_id": "g1",
+            "x": 0.0,
+            "y": 0.0,
+            "rotation": 90.0,
+            "transform_origin": {"x": 150.0, "y": 40.0},
+            "children": [
+                {"type": "rectangle", "item_id": "c1", "x": 0.0, "y": 0.0,
+                 "width": 100.0, "height": 80.0},
+                {"type": "rectangle", "item_id": "c2", "x": 200.0, "y": 0.0,
+                 "width": 100.0, "height": 80.0},
+            ],
+        }
+        assert queries.object_bbox(group) == (110.0, -110.0, 80.0, 300.0)
+
+    def test_a_rotated_member_uses_its_own_angle(self) -> None:
+        member = {
+            "type": "rectangle", "item_id": "c1", "x": 0.0, "y": 0.0,
+            "width": 100.0, "height": 20.0, "rotation_angle": 90.0,
+        }
+        group = {
+            "type": "group", "item_id": "g1", "x": 0.0, "y": 0.0,
+            "children": [member],
+        }
+        assert queries.object_bbox(group) == (40.0, -40.0, 20.0, 100.0)
+
+
+    def test_a_nested_group_does_not_apply_its_turn_twice(self) -> None:
+        inner = {
+            "type": "group", "item_id": "inner", "x": 0.0, "y": 0.0,
+            "children": [
+                {"type": "rectangle", "item_id": "c1", "x": 0.0, "y": 0.0,
+                 "width": 100.0, "height": 20.0, "rotation_angle": 90.0},
+            ],
+        }
+        outer = {
+            "type": "group", "item_id": "outer", "x": 0.0, "y": 0.0,
+            "children": [inner],
+        }
+        assert queries.object_bbox(outer) == (40.0, -40.0, 20.0, 100.0)
+
+
+    def test_opposing_nested_turns_cancel_in_the_box(self) -> None:
+        """A nested group is transformed, not boxed to an axis-aligned square.
+
+        Two opposing 45° turns compose to the identity; boxing the inner
+        result first would grow a 100 x 20 cm member to ~120 x 120 (#1022).
+        """
+        inner = {
+            "type": "group", "item_id": "inner", "x": 0.0, "y": 0.0,
+            "rotation": 45.0,
+            "children": [
+                {"type": "rectangle", "item_id": "c1", "x": 0.0, "y": 0.0,
+                 "width": 100.0, "height": 20.0},
+            ],
+        }
+        outer = {
+            "type": "group", "item_id": "outer", "x": 0.0, "y": 0.0,
+            "rotation": -45.0,
+            "children": [inner],
+        }
+        box = queries.object_bbox(outer)
+        for got, expected in zip(box, (0.0, 0.0, 100.0, 20.0), strict=True):
+            assert math.isclose(got, expected, abs_tol=1e-9)
+
+
+    def test_a_circle_inside_a_turned_group_does_not_grow(self) -> None:
+        """A circle's extent is its radius, never its rotated bounding square."""
+        group = {
+            "type": "group", "item_id": "g1", "x": 100.0, "y": 100.0,
+            "rotation": 45.0,
+            "children": [
+                {"type": "circle", "item_id": "c1", "center_x": 0.0,
+                 "center_y": 0.0, "radius": 10.0},
+            ],
+        }
+        assert queries.object_bbox(group) == (90.0, 90.0, 20.0, 20.0)
+        snapshot = {
+            "objects": [group],
+            "layers": [],
+            "canvas": {"width": 1000.0, "height": 1000.0},
+        }
+        # The old inflated box (85.86..114.14) touched this strip; the circle
+        # itself starts at 90, so a region query must not return it.
+        assert queries.objects_in_region(snapshot, 80.0, 80.0, 8.0, 8.0, raw=True) == []
+
+
+    def test_a_turned_polygon_uses_its_vertices_not_its_box(self) -> None:
+        """A triangle's corners bound it; rotating its upright box overstates it."""
+        group = {
+            "type": "group", "item_id": "g1", "x": 0.0, "y": 0.0,
+            "rotation": 45.0,
+            "children": [
+                {
+                    "type": "polygon", "item_id": "p1",
+                    "points": [
+                        {"x": 0.0, "y": 0.0},
+                        {"x": 100.0, "y": 0.0},
+                        {"x": 50.0, "y": 50.0},
+                    ],
+                },
+            ],
+        }
+        box = queries.object_bbox(group)
+        for got, expected in zip(
+            box, (32.322, -28.033, 70.711, 70.711), strict=True
+        ):
+            assert math.isclose(got, expected, abs_tol=0.01)
+        snapshot = {
+            "objects": [group],
+            "layers": [],
+            "canvas": {"width": 1000.0, "height": 1000.0},
+        }
+        # The upright box reached ~78 cm; the turned triangle stops at ~42.7.
+        assert queries.objects_in_region(snapshot, 0.0, 70.0, 200.0, 10.0, raw=True) == []
+
+
+    def test_a_translated_base_transform_shifts_curved_bounds(self) -> None:
+        """The only supported base matrix is Qt's nesting translation."""
+        group = {
+            "type": "group", "item_id": "g1", "x": 0.0, "y": 0.0,
+            "transform": {
+                "m11": 1.0, "m12": 0.0, "m21": 0.0, "m22": 1.0,
+                "dx": 100.0, "dy": 50.0,
+            },
+            "children": [
+                {"type": "circle", "item_id": "c1", "center_x": 0.0,
+                 "center_y": 0.0, "radius": 10.0},
+            ],
+        }
+        assert queries.object_bbox(group) == (90.0, 40.0, 20.0, 20.0)
+
+
+    def test_a_grouped_callout_includes_its_rotated_leader(self) -> None:
+        group = {
+            "type": "group", "item_id": "g1", "x": 0.0, "y": 0.0,
+            "rotation": 90.0,
+            "children": [
+                {"type": "callout", "item_id": "c1", "target_x": 0.0,
+                 "target_y": 0.0, "box_dx": 100.0, "box_dy": 50.0},
+            ],
+        }
+        snapshot = {
+            "objects": [group],
+            "layers": [],
+            "canvas": {"width": 1000.0, "height": 1000.0},
+        }
+        found = queries.objects_in_region(snapshot, 25.0, 55.0, 10.0, 10.0, raw=True)
+        assert [obj["item_id"] for obj in found] == ["g1"]
+
+    def test_a_grouped_text_note_contributes_its_footprint(self) -> None:
+        group = {
+            "type": "group", "item_id": "g1", "x": 0.0, "y": 0.0,
+            "rotation": 90.0,
+            "children": [
+                {"type": "text", "item_id": "t1", "x": 100.0, "y": 100.0,
+                 "content": "note",
+                 "bounds": {"x": 0.0, "y": 0.0, "width": 80.0, "height": 20.0},
+                 "transform_origin": {"x": 40.0, "y": 10.0}},
+            ],
+        }
+        snapshot = {
+            "objects": [group],
+            "layers": [],
+            "canvas": {"width": 1000.0, "height": 1000.0},
+        }
+        found = queries.objects_in_region(snapshot, 135.0, 60.0, 10.0, 10.0, raw=True)
+        assert [obj["item_id"] for obj in found] == ["g1"]
+
+    def test_a_standalone_turned_callout_uses_its_turned_box(self) -> None:
+        callout = {
+            "type": "callout", "item_id": "c1", "target_x": 100.0,
+            "target_y": 100.0,
+            "box_dx": 100.0, "box_dy": 40.0,
+            "bounds": {"x": 0.0, "y": 0.0, "width": 100.0, "height": 40.0},
+            "transform_origin": {"x": 50.0, "y": 20.0},
+            "rotation_angle": 90.0,
+        }
+        assert queries.object_bbox(callout) == (130.0, 70.0, 40.0, 100.0)
+        assert queries.object_center(callout) == (170.0, 70.0)
+        snapshot = {
+            "objects": [callout],
+            "layers": [],
+            "canvas": {"width": 1000.0, "height": 1000.0},
+        }
+        found = queries.objects_in_region(snapshot, 135.0, 150.0, 10.0, 10.0, raw=True)
+        assert [obj["item_id"] for obj in found] == ["c1"]
 
     def test_bezier_bbox_includes_control_handles(self) -> None:
         # The control hull bounds the curve; ignoring handles under-approximates.

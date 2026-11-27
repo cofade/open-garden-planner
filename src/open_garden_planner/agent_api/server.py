@@ -1824,10 +1824,10 @@ def build_server(
             These are ABSOLUTE targets, not deltas -- width=120 means "make it
             120 cm wide", the same vocabulary create_object uses.
 
-            Resizing a bed does NOT move or re-link the plants inside it (the
-            app's own resize behaves the same way), so shrinking a bed can leave
-            a plant linked to a bed it no longer sits inside. Use
-            set_parent_bed if you need to correct that.
+            Resizing a bed does not move the plants linked to it, but the same
+            undo step re-decides those links from the resized shape: shrinking
+            a bed can unlink a plant it no longer contains. Use set_parent_bed
+            if you need to make a deliberate link afterwards.
 
             Fails if the object is drawn from vertices rather than a
             width/height box (polygons, polylines, fences, paths — use
@@ -1862,22 +1862,29 @@ def build_server(
 
             A POSITIVE angle rotates the object COUNTER-CLOCKWISE: an object
             whose long axis points east points north after +90. Pass a negative
-            angle to turn it clockwise. The object rotates about its own
-            centre, which does not move.
+            angle to turn it clockwise. A single object rotates about its own
+            centre, which does not move. A GROUP rotates about the pivot fixed at
+            its first turn (the selection frame's centre at that moment); a later
+            member edit does not move it, and a grouped bed's linked top-level
+            plants are carried about the same pivot in the same step.
 
             By default 'angle' is the object's new ABSOLUTE rotation, so
             calling rotate_object(id, 90) twice leaves it at 90 degrees. Pass
             relative=True to add to the current rotation instead, so the same
             two calls leave it at 180. The resulting angle is normalised into
-            [0, 360) and returned as rotation_deg.
+            [0, 360) and returned as rotation_deg. A requested angle equal to
+            the current one changes nothing and adds no undo step.
 
-            Like resize_object, rotating a bed does NOT move or re-link the
-            plants inside it, so a rotation can leave a plant linked to a bed it
-            no longer sits inside. Use set_parent_bed to correct that.
+            Like resize_object, rotating a bed does not move the plants linked to
+            it, but the same undo step re-decides those links from the turned
+            shape: a plant that no longer stands inside can be unlinked.
 
             Fails if the object participates in a geometric constraint, if it's
             a journal pin or a group member, if it's on a locked layer, or if
-            the angle is not finite.
+            the angle is not finite. A GROUP also fails when any member or
+            carried linked plant is constrained or on a locked layer, when a
+            linked plant belongs to another group, or when a grouped bed's
+            linked plant would be separated by the turn.
 
             Args:
                 item_id: The object's stable UUID (from list_objects/get_object).

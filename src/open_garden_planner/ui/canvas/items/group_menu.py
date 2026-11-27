@@ -17,8 +17,7 @@ groups + other   **Group** + **Ungroup**
 
 Dispatch goes through the canvas view's own Ctrl+G / Ctrl+Shift+G methods, so
 the menu cannot be stricter than the shortcut and there is exactly one
-implementation of each action. A ``SmartSymbolItem`` is a group by class but
-never an Ungroup target (its generated members are not user geometry).
+implementation of each action.
 """
 
 from __future__ import annotations
@@ -87,10 +86,8 @@ def build_group_context_menu(
 ) -> GroupMenuActions:
     """Append Group / Ungroup according to the scene's current selection.
 
-    A smart symbol is excluded from ``ungroupable_groups`` itself, so it is
-    never dissolved; it does not hide an Ungroup row for ANOTHER selected
-    group (the shortcut would dissolve that group, and the menu must not be
-    stricter than the shortcut).
+    The menu offers exactly what the shortcut would do, so it can never be
+    stricter than ``Ctrl+G`` / ``Ctrl+Shift+G``.
     """
     scene = item.scene()
     selected = groupable_selection(list(scene.selectedItems())) if scene else []

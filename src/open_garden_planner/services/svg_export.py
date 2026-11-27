@@ -573,6 +573,62 @@ def _fit_picture(op: _PixmapOp) -> _PixmapOp:
     return _PixmapOp(op.state, op.target, fitted)
 
 
+def _dedupe_picture_uses(text: str) -> str:
+    """Write a repeated bitmap once and draw it again with ``<use>`` (#850).
+
+    ``QSvgGenerator`` embeds a base64 picture at every draw, so a raised bed's
+    soil tile and a species' sprite were carried once per use (measured on the
+    bundled examples: the raised bed wrote 181 pictures of 12 distinct ones).
+    The first occurrence keeps its data and gains an id; later occurrences with
+    the same payload and geometry become ``<use>`` references. Every SVG
+    renderer in the export's target set resolves ``<use>`` (measured in Qt's own
+    ``QSvgRenderer``, the renderer the fidelity tests use).
+    """
+    tag_pattern = re.compile(r"<image\b([^>]*)/>")
+    attr_pattern = re.compile(r'([\w:-]+)="([^"]*)"')
+    defined: dict[tuple[tuple[str, str], ...], tuple[str, float, float]] = {}
+    count = 0
+
+    def number(text: str) -> float:
+        try:
+            return float(text)
+        except (TypeError, ValueError):
+            return 0.0
+
+    def show(value: float) -> str:
+        return f"{value:g}"
+
+    def replace(match: re.Match[str]) -> str:
+        nonlocal count
+        body = match.group(1)
+        attrs = attr_pattern.findall(body)
+        values = dict(attrs)
+        href = values.get("xlink:href", "")
+        if not href.startswith("data:") or "id" in values:
+            return match.group(0)
+        # Same picture, same size and rendering hints, different placement.
+        key = tuple(sorted(
+            (name, value) for name, value in attrs if name not in ("x", "y", "id")
+        ))
+        known = defined.get(key)
+        if known is None:
+            count += 1
+            name = f"ogp-img-{count}"
+            x, y = number(values.get("x", "0")), number(values.get("y", "0"))
+            defined[key] = (name, x, y)
+            return f'<image id="{name}"{body}/>'
+        name, first_x, first_y = known
+        # The referenced <image> keeps its own x/y; <use> adds its own
+        # translation on top, so carry only the difference.
+        return (
+            f'<use xlink:href="#{name}" '
+            f'x="{show(number(values.get("x", "0")) - first_x)}" '
+            f'y="{show(number(values.get("y", "0")) - first_y)}"/>'
+        )
+
+    return tag_pattern.sub(replace, text)
+
+
 def _finish_svg(file_path: Path, width_mm: float, height_mm: float) -> None:
     """State the physical size exactly and give every font a generic fallback."""
     text = file_path.read_text(encoding="utf-8")
@@ -593,6 +649,7 @@ def _finish_svg(file_path: Path, width_mm: float, height_mm: float) -> None:
         return f"font-family=\"'{name}', {fallbacks[name]}\""
 
     text = re.sub(r'font-family="([^",\']+)"', family, text)
+    text = _dedupe_picture_uses(text)
     file_path.write_text(text, encoding="utf-8")
 
 

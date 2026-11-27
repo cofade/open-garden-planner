@@ -16,8 +16,6 @@ from PyQt6.QtWidgets import QApplication, QComboBox, QDoubleSpinBox, QMenu, QMes
 
 from open_garden_planner.core.commands import GroupCommand
 from open_garden_planner.ui.canvas.items import GroupItem, RectangleItem
-from open_garden_planner.ui.canvas.items.group_item import is_drillable_group
-from open_garden_planner.ui.canvas.items.smart_symbol_item import SmartSymbolItem
 from open_garden_planner.ui.panels.properties_panel import PropertiesPanel
 
 
@@ -546,11 +544,6 @@ def test_nested_groups_drill_one_level_at_a_time(canvas) -> None:
     assert canvas.drill_target_at(QPointF(50, 50)) is inner
     canvas.begin_group_drill_down(inner)
     assert canvas.drill_target_at(QPointF(50, 50)) is first
-
-
-def test_a_smart_symbol_is_not_drillable(qtbot) -> None:
-    symbol = SmartSymbolItem("raised_bed_rows", 1, {"rows": 4})
-    assert is_drillable_group(symbol) is False
 
 
 def test_the_layer_context_menu_is_absent_for_a_member(canvas) -> None:

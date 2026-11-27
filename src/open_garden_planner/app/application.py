@@ -3443,6 +3443,7 @@ class GardenPlannerApp(QMainWindow):
             "finite": self.tr("The plan contains an invalid or non-finite number at {field}."),
             "canvas": self.tr("The canvas dimension at {field} must be between 50 and 100000 cm."),
             "positive": self.tr("The plan value at {field} must be positive."),
+            "transform": self.tr("The plan uses an unsupported group transform at {field}."),
         }
         return messages[error.category].format(field=error.field)
 

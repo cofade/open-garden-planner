@@ -2,11 +2,13 @@
 
 from __future__ import annotations
 
+import contextlib
+import math
 import uuid
 from typing import Any
 
 from PyQt6.QtCore import QPointF, QRectF, Qt
-from PyQt6.QtGui import QColor, QPainter, QPen
+from PyQt6.QtGui import QColor, QPainter, QPen, QTransform
 from PyQt6.QtWidgets import (
     QGraphicsItem,
     QGraphicsItemGroup,
@@ -18,6 +20,8 @@ from PyQt6.QtWidgets import (
 )
 
 from .garden_item import GardenItemMixin
+from .handle_geometry import selection_frame_rect
+from .resize_handle import RotationHandleMixin
 
 
 def groupable_selection(items: list[QGraphicsItem]) -> list[QGraphicsItem]:
@@ -80,40 +84,48 @@ def selection_tree(items: list[QGraphicsItem]) -> list[QGraphicsItem]:
     return result
 
 
+def repaint_group_member(item: QGraphicsItem) -> None:
+    """Drop one group member's cached picture after the group's selection moved (#1031).
+
+    Qt selects a group's members as a unit and does not send each member the
+    selection-change notification a standalone item receives. A member therefore
+    keeps its ``DeviceCoordinateCache`` while it is visually selected, which bakes
+    selection decorations — a plant's spacing ring, a shape's highlight — into its
+    cached pixmap. Deselecting the group then leaves those decorations on screen
+    because nothing invalidated that picture. ``update()`` both drops the cached
+    pixmap and schedules the member's repaint for its new selection state; its
+    cache mode stays as it is, so selecting a large group does not turn every
+    plant into a live paint.
+    """
+    if getattr(item, "item_id", None) is None:
+        return
+    # A member deleted by an undo between the group's selection change and this
+    # walk has already left the scene.
+    with contextlib.suppress(RuntimeError):
+        item.update()
+
+
 def ungroupable_groups(items: list[QGraphicsItem]) -> list[GroupItem]:
     """The selected groups ``Ctrl+Shift+G`` may dissolve.
-
-    A ``SmartSymbolItem`` is a ``GroupItem`` subclass whose members are
-    generated from its parameters: ungrouping it would scatter them and drop
-    the parametric identity, so a smart symbol is never offered (or accepted
-    as) an ungroup target. It still counts as an ordinary object for Group.
 
     Only TOP-LEVEL groups are dissolved: Qt can keep a just-grouped child group
     flagged selected inside its new parent, and ungrouping one gesture must not
     silently cascade into the nested levels the issue documents as a second
-    deliberate step.
+    deliberate step. Each member's scene pose must fit its saved geometry.
     """
-    from .smart_symbol_item import SmartSymbolItem
+    from ..group_poses import can_ungroup
 
     return [
         item
         for item in items
         if isinstance(item, GroupItem)
-        and item.parentItem() is None
-        and not isinstance(item, SmartSymbolItem)
+        and can_ungroup(item)
     ]
 
 
 def is_drillable_group(item: QGraphicsItem) -> bool:
-    """Whether a second click may reach *item*'s members (#771).
-
-    A ``SmartSymbolItem`` is a group by class, but its members are generated
-    from its parameters: drilling into them would let a user edit geometry the
-    symbol owns and would silently desynchronise its parametric identity.
-    """
-    from .smart_symbol_item import SmartSymbolItem
-
-    return isinstance(item, GroupItem) and not isinstance(item, SmartSymbolItem)
+    """Whether a second click may reach *item*'s members (#771)."""
+    return isinstance(item, GroupItem)
 
 
 def group_child_at(
@@ -155,7 +167,7 @@ def group_child_at(
     return None
 
 
-class GroupItem(GardenItemMixin, QGraphicsItemGroup):
+class GroupItem(RotationHandleMixin, GardenItemMixin, QGraphicsItemGroup):
     """A group of canvas items that move, copy, and rotate together.
 
     Items inside a group lose individual selectability/movability; the group
@@ -174,6 +186,17 @@ class GroupItem(GardenItemMixin, QGraphicsItemGroup):
             layer_id=layer_id,
         )
         QGraphicsItemGroup.__init__(self)
+        self.init_rotation_handle()
+        #: True once a pivot has been chosen (a turn or a loaded file). The
+        #: pivot is NOT recomputed from the angle: a member edit can move the
+        #: frame centre, and re-pivoting would shift every member (#1022).
+        self._pivot_initialized = False
+        self._gesture_pivot: QPointF | None = None
+        self._rotation_plan_active = False
+        self._rotation_followers: list[tuple[QGraphicsItem, QPointF, QPointF, float, float]] = []
+        #: The pivot state entering the current gesture; the command restores it
+        #: on undo so a reverted turn cannot leave a new saved pivot behind.
+        self._pivot_state_before: tuple[bool, QPointF] | None = None
         #: The member that currently has drill-down edit focus (#771). Drawn as
         #: a solid inner outline, so a second click inside a selected group has
         #: a visible target. Never serialized.
@@ -192,6 +215,15 @@ class GroupItem(GardenItemMixin, QGraphicsItemGroup):
         members — and Qt tells THEM nothing (their own position did not change):
         the group announces it (``garden_item.handle_item_change``)."""
         self.handle_item_change(change, value)
+        if change == QGraphicsItem.GraphicsItemChange.ItemSelectedChange:
+            if value:
+                self.show_rotation_handle()
+            else:
+                self.hide_rotation_handle()
+        elif change == QGraphicsItem.GraphicsItemChange.ItemSceneChange and value is None:
+            self.remove_rotation_handle()
+        elif change == QGraphicsItem.GraphicsItemChange.ItemSelectedHasChanged:
+            self.repaint_member_selections()
         if change in (
             QGraphicsItem.GraphicsItemChange.ItemPositionHasChanged,
             QGraphicsItem.GraphicsItemChange.ItemTransformHasChanged,
@@ -203,7 +235,301 @@ class GroupItem(GardenItemMixin, QGraphicsItemGroup):
             from ..roof_ridge_link import update_house_ridges_under
 
             update_house_ridges_under(self)
+            if self.isSelected():
+                self.update_rotation_handle()
         return super().itemChange(change, value)
+
+    # ------------------------------------------------------------------
+    # Rotation (#1022)
+    # ------------------------------------------------------------------
+
+    def ensure_rotation_pivot(self) -> None:
+        """Fix the pivot a turn uses, before a command records its state."""
+        if not self._pivot_initialized:
+            self.setTransformOriginPoint(selection_frame_rect(self).center())
+            self._pivot_initialized = True
+
+    @staticmethod
+    def _carried_pose(
+        start_centre: QPointF,
+        start_angle: float,
+        delta: float,
+        pivot: QPointF,
+    ) -> tuple[QPointF, float]:
+        """One formula for a carried item's scene centre and angle.
+
+        Shared by the live gesture and by the command's before/after snapshot
+        so the two can never drift (#1022 review).
+        """
+        rotation = QTransform()
+        rotation.rotate(delta)
+        return pivot + rotation.map(start_centre - pivot), start_angle + delta
+
+    def _apply_rotation(self, angle: float) -> None:
+        """Turn the whole group about its own outline centre.
+
+        The pivot is the union of the members' outlines in the group's local
+        frame, never ``boundingRect().center()``: a screen-sized handle or a
+        label widens the paint bounds asymmetrically and would drag the
+        composed arrangement sideways. Children keep their local positions;
+        Qt's group transform is what rotates their scene positions together.
+        """
+        if not self._pivot_initialized:
+            self.ensure_rotation_pivot()
+        pivot = self._gesture_pivot or self.rotation_pivot_scene()
+        delta = angle - float(getattr(self, "_rotation_initial_angle", 0.0))
+        for follower, start_center, _before, start_angle, _after in self._rotation_followers:
+            rect_fn = getattr(follower, "rect", None)
+            if not callable(rect_fn):
+                continue
+            centre, carried_angle = self._carried_pose(
+                start_center, start_angle, delta, pivot
+            )
+            if hasattr(follower, "_apply_rotation"):
+                follower._apply_rotation(carried_angle)
+            follower.setPos(centre - rect_fn().center())
+        self._rotation_angle = angle
+        self.setRotation(angle)
+        self.update_rotation_handle()
+        self._position_label()
+
+    def is_turned(self) -> bool:
+        """Whether the group's angle is not a whole 360° multiple (#1022)."""
+        from open_garden_planner.core.angles import is_zero_angle
+
+        angle = float(getattr(self, "rotation_angle", self.rotation()))
+        return not is_zero_angle(angle)
+
+    def has_unsupported_base_transform(self) -> bool:
+        """Whether Qt gave the group a base matrix the format cannot round-trip.
+
+        The saved/loaded base is Qt's nesting translation only; a rotation or
+        scale there would be lost by member serializers and by the rigid
+        follower turn, so edit surfaces refuse it (#1022 review).
+        """
+        base = self.transform()
+        return not (
+            math.isclose(base.m11(), 1.0, abs_tol=1e-9)
+            and math.isclose(base.m12(), 0.0, abs_tol=1e-9)
+            and math.isclose(base.m21(), 0.0, abs_tol=1e-9)
+            and math.isclose(base.m22(), 1.0, abs_tol=1e-9)
+        )
+
+    def rotation_pivot_scene(self) -> QPointF:
+        """The scene point a gesture turns about: the saved pivot once chosen."""
+        if self._pivot_initialized:
+            return self.mapToScene(self.transformOriginPoint())
+        return self.mapToScene(selection_frame_rect(self).center())
+
+    def rotation_pivot_change(
+        self,
+    ) -> tuple[tuple[bool, QPointF], tuple[bool, QPointF]] | None:
+        """The pivot state before and after the current gesture, if any.
+
+        ``RotateItemCommand`` records both sides so undo cannot leave a pivot
+        the reverted turn introduced (#1022 review).
+        """
+        if self._pivot_state_before is None:
+            return None
+        after = (self._pivot_initialized, QPointF(self.transformOriginPoint()))
+        return (self._pivot_state_before, after)
+
+    def restore_rotation_pivot(self, state: tuple[bool, QPointF]) -> None:
+        """Put the pivot back to a recorded state (undo/redo/no-op gesture)."""
+        initialized, origin = state
+        self._pivot_initialized = bool(initialized)
+        self.setTransformOriginPoint(QPointF(origin))
+
+    def rotation_targets(self) -> list[QGraphicsItem]:
+        """Everything a turn moves: the Qt subtree plus grouped beds' plants.
+
+        Linked plants are top-level items, so they are not in the subtree but
+        the gesture and its command carry them. This is the one set both the
+        constraint refusal and the follower capture use.
+        """
+        targets = selection_tree([self])
+        scene = self.scene()
+        find = getattr(scene, "find_item_by_id", None) if scene is not None else None
+        if not callable(find):
+            return targets
+        from open_garden_planner.core.commands import iter_plant_parents
+
+        seen = {id(item) for item in targets}
+        for parent in iter_plant_parents([self]):
+            for child_id in getattr(parent, "child_item_ids", ()):
+                item = find(child_id)
+                if (
+                    item is not None
+                    and id(item) not in seen
+                    and item.parentItem() is None
+                    and callable(getattr(item, "rect", None))
+                ):
+                    targets.append(item)
+                    seen.add(id(item))
+        return targets
+
+    def rotation_refusal_reason(self) -> str | None:
+        """Why a turn would violate an affected item's constraint or lock."""
+        from PyQt6.QtCore import QCoreApplication
+
+        scene = self.scene()
+        if scene is None:
+            return None
+        if self.has_unsupported_base_transform():
+            return QCoreApplication.translate(
+                "GroupItem",
+                "This group has an unsupported transform and cannot be edited",
+            )
+        graph = getattr(scene, "constraint_graph", None)
+        subtree = {id(entry) for entry in selection_tree([self])}
+        find = getattr(scene, "find_item_by_id", None)
+        if callable(find):
+            from open_garden_planner.core.commands import iter_plant_parents
+
+            for parent in iter_plant_parents([self]):
+                for child_id in getattr(parent, "child_item_ids", ()):
+                    item = find(child_id)
+                    if item is None or item.parentItem() is None:
+                        continue
+                    if id(item.parentItem()) not in subtree:
+                        return QCoreApplication.translate(
+                            "GroupItem",
+                            "A linked plant belongs to another group; "
+                            "remove it from that group before turning this one",
+                        )
+        targets = self.rotation_targets()
+        for item in targets:
+            item_id = getattr(item, "item_id", None)
+            if (
+                graph is not None
+                and item_id is not None
+                and graph.get_item_constraints(item_id)
+            ):
+                return QCoreApplication.translate(
+                    "GroupItem",
+                    "A constrained member cannot be rotated with the group",
+                )
+        get_layer = getattr(scene, "get_layer_by_id", None)
+        if callable(get_layer):
+            for item in targets:
+                layer_id = getattr(item, "layer_id", None)
+                if layer_id is None:
+                    continue
+                layer = get_layer(layer_id)
+                if layer is not None and bool(getattr(layer, "locked", False)):
+                    return QCoreApplication.translate(
+                        "GroupItem",
+                        "A member on a locked layer cannot be rotated with the group",
+                    )
+        return None
+
+    def begin_rotation_plan(self) -> None:
+        """Capture the pivot, start angle and carried plants for a turn.
+
+        Called by the handle gesture and by the Agent API before one command.
+        Idempotent within a live gesture: a second call does not recapture the
+        followers after they have already moved.
+        """
+        if self._rotation_plan_active:
+            return
+        self._rotation_initial_angle = float(self._rotation_angle)
+        self._gesture_pivot = self.rotation_pivot_scene()
+        self._pivot_state_before = (
+            self._pivot_initialized,
+            QPointF(self.transformOriginPoint()),
+        )
+        self._rotation_followers = []
+        for item in self.rotation_targets():
+            if item is self or item.parentItem() is not None:
+                continue
+            rect_fn = getattr(item, "rect", None)
+            if not callable(rect_fn):
+                continue
+            centre = item.mapToScene(rect_fn().center())
+            angle = float(getattr(item, "rotation_angle", item.rotation()))
+            self._rotation_followers.append(
+                (item, QPointF(centre), QPointF(item.pos()), angle, angle)
+            )
+        self._rotation_plan_active = True
+
+    def rotation_follower_snapshots(
+        self, angle: float | None = None
+    ) -> list[tuple[QGraphicsItem, QPointF, QPointF, float, float]]:
+        """The carried items as ``(item, before, after, old angle, new angle)``.
+
+        With *angle*, the after-pose is computed from the captured start pose
+        (the Agent API path, before the command has run); without it, the live
+        poses after a handle gesture are read.
+        """
+        followers: list[tuple[QGraphicsItem, QPointF, QPointF, float, float]] = []
+        delta = 0.0
+        pivot = self._gesture_pivot or self.rotation_pivot_scene()
+        if angle is not None:
+            delta = angle - float(getattr(self, "_rotation_initial_angle", 0.0))
+        for item, start_centre, before, start_angle, _after in self._rotation_followers:
+            if angle is None:
+                after = QPointF(item.pos())
+                new_angle = float(getattr(item, "rotation_angle", item.rotation()))
+            else:
+                rect_fn = getattr(item, "rect", None)
+                if not callable(rect_fn):
+                    continue
+                centre, new_angle = self._carried_pose(
+                    start_centre, start_angle, delta, pivot
+                )
+                after = QPointF(centre - rect_fn().center())
+            if after != before or new_angle != start_angle:
+                followers.append((item, before, after, start_angle, new_angle))
+        return followers
+
+    def finish_rotation_plan(self) -> None:
+        """Drop the live plan; the command owns the recorded poses afterwards."""
+        self._rotation_followers = []
+        self._gesture_pivot = None
+        self._rotation_plan_active = False
+        self._pivot_state_before = None
+
+    def _on_rotation_start(self) -> None:
+        """Capture the pivot and the linked plants a turn must carry (#1022)."""
+        super()._on_rotation_start()
+        self.begin_rotation_plan()
+
+    def _on_rotation_end(self, initial_angle: float) -> None:
+        """Register the finished group rotation and its carried plants (#1022)."""
+        from open_garden_planner.ui.canvas.geometry_apply import (
+            register_rotation_command,
+        )
+
+        current_angle = float(getattr(self, "_rotation_angle", 0.0))
+        from open_garden_planner.core.angles import is_zero_angle
+
+        if is_zero_angle(current_angle):
+            # Canonicalize a target that rounds to zero, so a committed turn
+            # always leaves an angle the serializer writes (#1022 review).
+            self._apply_rotation(0.0)
+            current_angle = 0.0
+        if is_zero_angle(current_angle - float(initial_angle)):
+            # The shared command threshold, applied BEFORE follower snapshots:
+            # a carried plant's sub-threshold movement must not commit a turn
+            # (#1022 review). Put the group, its followers and the pivot back.
+            self._apply_rotation(float(initial_angle))
+            for follower, _start_centre, before, old_angle, _after in self._rotation_followers:
+                if hasattr(follower, "_apply_rotation"):
+                    follower._apply_rotation(old_angle)
+                follower.setPos(before)
+            if self._pivot_state_before is not None:
+                self.restore_rotation_pivot(self._pivot_state_before)
+            self.finish_rotation_plan()
+            return
+
+        followers = self.rotation_follower_snapshots()
+        registered = register_rotation_command(self, initial_angle, followers or None)
+        if not registered and self._pivot_state_before is not None:
+            # A drag that produces no command must not leave a live angle or a
+            # new saved pivot behind.
+            self._apply_rotation(float(initial_angle))
+            self.restore_rotation_pivot(self._pivot_state_before)
+        self.finish_rotation_plan()
 
     # ------------------------------------------------------------------
     # Paint
@@ -254,6 +580,26 @@ class GroupItem(GardenItemMixin, QGraphicsItemGroup):
             return
         self._drill_down_child = child
         self.update()
+
+    def repaint_member_selections(self) -> None:
+        """Repaint each member for the group's own selection state (#1031)."""
+        for item in selection_tree([self]):
+            if item is not self:
+                repaint_group_member(item)
+
+    def addToGroup(self, item: QGraphicsItem) -> None:  # type: ignore[override]
+        """Add a member and keep a visible rotation handle on the new outline."""
+        super().addToGroup(item)
+        repaint_group_member(item)
+        if self.isSelected():
+            self.update_rotation_handle()
+
+    def removeFromGroup(self, item: QGraphicsItem) -> None:  # type: ignore[override]
+        """Remove a member and keep a visible rotation handle on the new outline."""
+        super().removeFromGroup(item)
+        repaint_group_member(item)
+        if self.isSelected():
+            self.update_rotation_handle()
 
     def childrenBoundingRect(self) -> QRectF:
         """Return union of non-screen-space descendant bounds (#919).

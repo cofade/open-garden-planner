@@ -27,7 +27,7 @@ from collections.abc import Callable
 import numpy as np
 import pytest
 from PyQt6.QtCore import QPointF, QRectF, Qt
-from PyQt6.QtGui import QImage, QPainter, QPixmapCache
+from PyQt6.QtGui import QColor, QImage, QPainter, QPixmapCache
 from PyQt6.QtSvg import QSvgRenderer
 from PyQt6.QtWidgets import QApplication, QGraphicsItem
 
@@ -161,6 +161,38 @@ def _interior(view: CanvasView, zoom: float, half_cm: float) -> QImage:
         int(2 * half * ratio),
         int(2 * half * ratio),
     )
+
+
+def test_plants_of_one_species_share_one_sprite_bitmap(qtbot) -> None:
+    """A plant's decorative turn is applied when the bitmap is laid down (#845).
+
+    It used to be part of the cache key, so every plant carried its own pixmap
+    and a zoom step rasterised the same species again and again. Six plants of
+    one species at six different stable angles must share one entry.
+    """
+    from open_garden_planner.ui.canvas.items.circle_item import CircleItem
+
+    sprite_raster.clear_sprite_cache()
+    scene = CanvasScene(2000, 1500)
+    for index in range(6):
+        scene.addItem(CircleItem(
+            350.0 + 40.0 * index, 400.0, 30.0,
+            object_type=ObjectType.TREE,
+        ))
+    view = CanvasView(scene)
+    qtbot.addWidget(view)
+    view.resize(900, 700)
+    view.show()
+    qtbot.waitExposed(view)
+    view.set_zoom(2.0)
+    view.centerOn(QPointF(450, 400))
+    QApplication.processEvents()
+    view.viewport().repaint()
+    sprite_raster.clear_sprite_prefetch()
+
+    keys = [key for key in sprite_raster.SPRITE_CACHE._entries if key[0][0] == "plant"]
+    assert len(keys) == 1, keys
+    sprite_raster.clear_sprite_cache()
 
 
 class TestZoomedInIsSharp:
@@ -374,9 +406,11 @@ class TestPanIsCheap:
             bar.setValue(bar.value() + 12)  # 3 cm at 400 %: every plant stays in view
             view.viewport().repaint()
         assert painted == [], f"{len(painted)} plant paints during a pan"
-        # ... and the pictures that were blitted are the sharp ones
+        # ... and the pictures that were blitted are the sharp ones. A
+        # next-level prefetch may already be cached beside them; it must not
+        # hide the level the frame asked for.
         sizes = [key[1] for key in sprite_raster.SPRITE_CACHE._entries if key[0][0] == "plant"]
-        assert max(sizes) == 138  # 30 cm x 1.15 fill scale x level 4
+        assert 138 in sizes  # 30 cm x 1.15 fill scale x level 4
 
 
 class TestALargeViewportKeepsItsSprites:
@@ -395,10 +429,16 @@ class TestALargeViewportKeepsItsSprites:
         kinds = (ObjectType.TREE, ObjectType.SHRUB, ObjectType.PERENNIAL)
         for row in range(20):
             for column in range(30):
-                scene.addItem(CircleItem(
+                plant = CircleItem(
                     50.0 + 100.0 * column, 50.0 + 100.0 * row, 50.0,
                     object_type=kinds[(row + column) % 3],
-                ))
+                )
+                # A distinct tint per plant defeats the species-level sharing
+                # on purpose: this fixture must still need more than 64 MB.
+                plant.fill_color = QColor.fromHsv(
+                    (row * 30 + column) * 37 % 360, 200, 230
+                )
+                scene.addItem(plant)
         view = CanvasView(scene)
         qtbot.addWidget(view)
         view.resize(3000, 2000)

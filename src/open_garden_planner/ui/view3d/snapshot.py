@@ -1063,7 +1063,7 @@ def _record_of(item: Any, object_type: Any, item_id: str, at_date: date | None,
         style = getattr(item, "path_fence_style", PathFenceStyle.NONE)
         if style is not PathFenceStyle.NONE:
             params[PARAM_PATH_STYLE] = style.name
-        elif isinstance(metadata, dict) and metadata.get("smart_symbol_plain_panel"):
+        elif isinstance(metadata, dict) and metadata.get("fence_panel_style") == "PLAIN":
             params[PARAM_PATH_STYLE] = "PLAIN"
     species = metadata.get("plant_species")
     species_name = ""
@@ -1288,7 +1288,7 @@ def snapshot_steps(
             if object_type is None or item_uuid is None:
                 continue
             metadata = getattr(item, "metadata", None)
-            if isinstance(metadata, dict) and metadata.get("smart_symbol_guide"):
+            if isinstance(metadata, dict) and metadata.get("layout_guide"):
                 continue
             kind = str(getattr(object_type, "name", object_type))
             if kind in _NO_RECORD_KINDS:

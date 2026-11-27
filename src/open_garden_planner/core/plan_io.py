@@ -13,6 +13,13 @@ import tempfile
 from pathlib import Path
 from typing import Any, cast
 
+from open_garden_planner.core.object_bounds import (
+    object_bbox as plan_object_bbox,
+)
+from open_garden_planner.core.object_bounds import (
+    object_bounds_parts as plan_object_bounds_parts,
+)
+
 MIN_CANVAS_CM = 50.0
 MAX_CANVAS_CM = 100_000.0
 
@@ -25,10 +32,12 @@ _GEOMETRY_KEYS = frozenset({
     "target_x", "target_y", "box_dx", "box_dy", "position", "scene_x", "scene_y",
     "meters_per_pixel", "object_height_cm", "spacing_radius_cm", "value", "angle",
     "label_offset_x", "label_offset_y", "font_size_cm",
+    "m11", "m12", "m21", "m22", "dx", "dy",
 })
 _GEOMETRY_CONTAINERS = frozenset({
     "objects", "children", "points", "anchors", "handles_in", "handles_out",
-    "position", "guides", "constraints", "layers", "garden_journal_notes", "geo_metadata",
+    "position", "bounds", "transform_origin", "transform", "guides",
+    "constraints", "layers", "garden_journal_notes", "geo_metadata",
 })
 
 
@@ -152,6 +161,39 @@ def _check_extents(record: dict[str, Any], path: str) -> None:
             _check_segment(a, b, f"{path}.segment")
 
 
+def _check_group_transforms(records: Any) -> None:
+    """A group's compensating base transform must be a pure translation.
+
+    That is the only base matrix the app writes (Qt's nesting compensation);
+    a rotation or scale there would be lost by member serializers and by the
+    rigid follower turn, so the document is refused at the boundary (#1022).
+    """
+    if not isinstance(records, list):
+        return
+    for record in records:
+        if not isinstance(record, dict):
+            continue
+        if record.get("type") == "group":
+            matrix = record.get("transform")
+            if isinstance(matrix, dict):
+                linear = [
+                    finite_number(matrix.get("m11", 1.0), "group.transform.m11"),
+                    finite_number(matrix.get("m12", 0.0), "group.transform.m12"),
+                    finite_number(matrix.get("m21", 0.0), "group.transform.m21"),
+                    finite_number(matrix.get("m22", 1.0), "group.transform.m22"),
+                ]
+                if (
+                    not math.isclose(linear[0], 1.0, abs_tol=1e-9)
+                    or not math.isclose(linear[1], 0.0, abs_tol=1e-9)
+                    or not math.isclose(linear[2], 0.0, abs_tol=1e-9)
+                    or not math.isclose(linear[3], 1.0, abs_tol=1e-9)
+                ):
+                    raise PlanValidationError("group.transform", "transform")
+                finite_number(matrix.get("dx", 0.0), "group.transform.dx")
+                finite_number(matrix.get("dy", 0.0), "group.transform.dy")
+        _check_group_transforms(record.get("children", []))
+
+
 def validate_plan_data(data: dict[str, Any]) -> None:
     """Validate a complete raw payload without changing it or the scene."""
     if not isinstance(data, dict):
@@ -163,6 +205,41 @@ def validate_plan_data(data: dict[str, Any]) -> None:
             raise PlanValidationError(f"canvas.{dimension}")
     validate_canvas_size(canvas.get("width", 5000.0), canvas.get("height", 3000.0))
     _check_group_offsets(data.get("objects", []))
+    _check_group_transforms(data.get("objects", []))
+    for obj in data.get("objects", []) or []:
+        if not isinstance(obj, dict):
+            continue
+        try:
+            parts = plan_object_bounds_parts(obj)
+        except OverflowError as exc:
+            raise PlanValidationError("object.bounds") from exc
+        except (KeyError, TypeError, ValueError, AttributeError):
+            # Structurally malformed objects keep the loader's existing
+            # skip/placeholder policy; only numeric finiteness is this gate.
+            continue
+        for part_index, bounds in enumerate(parts):
+            for index, value in enumerate(bounds):
+                finite_number(value, f"object.bounds[{part_index}][{index}]")
+            # The far corners are derived sums the parts check would miss.
+            finite_number(
+                bounds[0] + bounds[2],
+                f"object.bounds[{part_index}].right",
+            )
+            finite_number(
+                bounds[1] + bounds[3],
+                f"object.bounds[{part_index}].top",
+            )
+        try:
+            union = plan_object_bbox(obj)
+        except (KeyError, TypeError, ValueError, AttributeError):
+            # Same structural skip policy as the parts walker.
+            continue
+        except OverflowError as exc:
+            raise PlanValidationError("object.union") from exc
+        for index, value in enumerate(union):
+            finite_number(value, f"object.union[{index}]")
+        finite_number(union[0] + union[2], "object.union.right")
+        finite_number(union[1] + union[3], "object.union.top")
 
 
 def _check_group_offsets(records: Any, dx: float = 0.0, dy: float = 0.0) -> None:
@@ -183,7 +260,15 @@ def _check_group_offsets(records: Any, dx: float = 0.0, dy: float = 0.0) -> None
         if record.get("type") == "group":
             x = finite_number(record.get("x", 0.0), "group.x")
             y = finite_number(record.get("y", 0.0), "group.y")
-            _check_group_offsets(record.get("children", []), x + dx, y + dy)
+            base = record.get("transform")
+            if isinstance(base, dict):
+                # Qt's nesting compensation is part of the same translation:
+                # x + base dx + parent offset must stay finite (#1022 review).
+                x += finite_number(base.get("dx", 0.0), "group.transform.dx")
+                y += finite_number(base.get("dy", 0.0), "group.transform.dy")
+            x = finite_number(x + dx, "group.child.x")
+            y = finite_number(y + dy, "group.child.y")
+            _check_group_offsets(record.get("children", []), x, y)
         elif dx or dy:
             for key in ("points", "anchors", "handles_in", "handles_out"):
                 _check_group_offsets(record.get(key, []), dx, dy)

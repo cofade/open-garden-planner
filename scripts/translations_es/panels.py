@@ -1,6 +1,12 @@
 """Spanish translations for panels, sidebars, and widgets (563 keys)."""
 
 TRANSLATIONS = {
+    "GroupItem": {
+        "A constrained member cannot be rotated with the group": "Un miembro con restricción no se puede girar con el grupo",
+        "A linked plant belongs to another group; remove it from that group before turning this one": "Una planta vinculada pertenece a otro grupo; retírela de ese grupo antes de girar este",
+        "A member on a locked layer cannot be rotated with the group": "Un miembro en una capa bloqueada no se puede girar con el grupo",
+        "This group has an unsupported transform and cannot be edited": "Este grupo tiene una transformación no admitida y no se puede editar",
+    },
     "CanopyPanel": {
         "Estimated direct sun": "Sol directo estimado",
         "Mature canopy size unavailable": "Tamaño de copa madura no disponible",
@@ -390,8 +396,6 @@ TRANSLATIONS = {
         "W: ": "An: ",
         "A group member stays on its group's layer":
             "Un miembro del grupo permanece en la capa de su grupo",
-        "Symbol definition version mismatch — saved geometry is read-only.": "Discrepancia de versión de definición de símbolo — la geometría guardada es de solo lectura.",
-        "Invalid symbol parameter value — geometry unchanged.": "Valor de parámetro de símbolo no válido — geometría sin cambios.",
         "0 = auto-compute from footprint × height; set a value to override": "0 = calcular automáticamente a partir de huella × altura; introduzca un valor para anular",
         "Arrange": "Organizar",
         "Auto": "Automático",
@@ -478,7 +482,6 @@ TRANSLATIONS = {
         "Stroke Style:": "Estilo de trazo:",
         "Stroke Width:": "Grosor de trazo:",
         "Style:": "Estilo:",
-        "Symbol definition not found — showing cached geometry.": "Definición de símbolo no encontrada — mostrando geometría en caché.",
         "Terracotta": "Terracota",
         "Text": "Texto",
         "Total: {count} plant(s)": "Total: {count} planta(s)",
@@ -536,10 +539,6 @@ TRANSLATIONS = {
         "Year": "Año",
         "Year:": "Año:",
         "this packet": "este sobre",
-    },
-    "SmartSymbolsPanel": {
-        "Insert": "Insertar",
-        "Search symbols…": "Buscar símbolos…",
     },
     "SoilSparklineWidget": {
         "No history yet": "Sin historial aún",

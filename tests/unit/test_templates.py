@@ -55,7 +55,7 @@ def test_absolute_paths_are_removed_at_any_depth(path, qtbot):
 
 
 def test_portable_content_and_unknown_key_tolerance(qtbot):
-    content = {"objects": [{"type": "group", "smart_symbol": {"id": "example", "version": 1},
+    content = {"objects": [{"type": "group", "legacy_parametric": {"id": "example", "version": 1},
                             "metadata": {"guild": {"guild_id": "guild"}}, "children": []}],
                "constraints": [{"type": "distance"}], "succession_plans": {"bed": {"year": 2027}},
                "auto_assign_permaculture_layers": True}

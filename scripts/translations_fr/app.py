@@ -4,6 +4,9 @@ from __future__ import annotations
 
 TRANSLATIONS: dict[str, dict[str, str]] = {
     "GardenPlannerApp": {
+        "The plan uses an unsupported group transform at {field}.": (
+            "Le plan utilise une transformation de groupe non prise en charge dans {field}."
+        ),
         "&3D View": "Vue &3D",
         "Canvas resized to {width} x {height}": "Canevas redimensionné à {width} x {height}",
         "Examples & templates": "Exemples et modèles",
@@ -72,7 +75,6 @@ TRANSLATIONS: dict[str, dict[str, str]] = {
         "roof pitch": "pente du toit",
         "roof style": "style de toit",
         "soil depth": "profondeur de terre",
-        "symbol parameter": "paramètre de symbole",
     },
     "ObjectType": {
         "Garden Light": "Lanterne de jardin",

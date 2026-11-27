@@ -102,13 +102,7 @@ class DxfExportService:
         doc = ezdxf.new(dxfversion="R2010")
         msp = doc.modelspace()
 
-        from open_garden_planner.ui.canvas.items.smart_symbol_item import SmartSymbolItem
-
         for item in scene.items():
-            # Smart-symbol children are emitted inside the symbol's BLOCK — never
-            # as flat modelspace entities (US-C4).
-            if isinstance(item.parentItem(), SmartSymbolItem):
-                continue
             if not _is_garden_item(item):
                 continue
             if _is_construction(item):
@@ -129,10 +123,6 @@ class DxfExportService:
             # Ensure DXF layer exists
             if layer not in doc.layers:
                 doc.layers.add(layer, color=aci)
-
-            if isinstance(item, SmartSymbolItem):
-                DxfExportService._export_smart_symbol(doc, msp, item, layer, aci)
-                continue
 
             DxfExportService._export_item(msp, item, layer, aci)
 
@@ -198,87 +188,22 @@ class DxfExportService:
             center = item.mapToScene(cx_local)
             semi_a = rect.width() / 2.0
             semi_b = rect.height() / 2.0
-            rotation_deg = item.rotation()
-            # DXF ELLIPSE: major_axis is vector from center to end of semi-major axis
-            angle_rad = math.radians(rotation_deg)
+            # The major axis is a LOCAL vector; the group's own turn (and the
+            # item's) lives in its scene transform, not in rotation() (#1022).
+            scene = item.sceneTransform()
+            origin = scene.map(QPointF(0.0, 0.0))
             if semi_a >= semi_b:
-                major = (semi_a * math.cos(angle_rad), semi_a * math.sin(angle_rad), 0.0)
+                vector = scene.map(QPointF(semi_a, 0.0)) - origin
                 ratio = semi_b / semi_a if semi_a > 0 else 1.0
             else:
-                angle_rad += math.pi / 2
-                major = (semi_b * math.cos(angle_rad), semi_b * math.sin(angle_rad), 0.0)
+                vector = scene.map(QPointF(0.0, semi_b)) - origin
                 ratio = semi_a / semi_b if semi_b > 0 else 1.0
             msp.add_ellipse(
                 center=(center.x(), center.y(), 0.0),
-                major_axis=major,
+                major_axis=(vector.x(), vector.y(), 0.0),
                 ratio=ratio,
                 dxfattribs=attribs,
             )
-
-    @staticmethod
-    def _export_smart_symbol(
-        doc: Any, msp: Any, symbol: QGraphicsItem, layer: str, aci: int
-    ) -> None:
-        """Emit a smart symbol as a DXF BLOCK + INSERT (US-C4).
-
-        The block holds the symbol's child geometry in **symbol-local**
-        coordinates; the INSERT places it at the symbol's position + rotation.
-        Identical (symbol_id, params) reuse the same block definition.
-        """
-        import hashlib
-
-        sig = f"{symbol.symbol_id}|{symbol.symbol_version}|{sorted(symbol.params.items())}"
-        # Not a security hash — just a stable block-name suffix to dedup blocks.
-        digest = hashlib.sha1(sig.encode("utf-8"), usedforsecurity=False).hexdigest()[:8]
-        safe_id = "".join(c if c.isalnum() else "_" for c in symbol.symbol_id)
-        block_name = f"OGP_{safe_id}_{digest}"
-
-        if block_name not in doc.blocks:
-            block = doc.blocks.new(name=block_name)
-            attribs = {"color": aci}
-            for child in symbol.childItems():
-                DxfExportService._add_child_to_block(block, symbol, child, attribs)
-
-        msp.add_blockref(
-            block_name,
-            insert=(symbol.pos().x(), symbol.pos().y()),
-            dxfattribs={"layer": layer, "rotation": symbol.rotation()},
-        )
-
-    @staticmethod
-    def _add_child_to_block(
-        block: Any, symbol: QGraphicsItem, child: QGraphicsItem, attribs: dict
-    ) -> None:
-        """Add one child primitive to ``block`` in symbol-local coordinates."""
-        from PyQt6.QtWidgets import QGraphicsPolygonItem
-
-        from open_garden_planner.ui.canvas.items.circle_item import CircleItem
-        from open_garden_planner.ui.canvas.items.polygon_item import PolygonItem
-        from open_garden_planner.ui.canvas.items.polyline_item import PolylineItem
-        from open_garden_planner.ui.canvas.items.rectangle_item import RectangleItem
-
-        def to_local(local_pt: QPointF) -> tuple[float, float]:
-            p = symbol.mapFromScene(child.mapToScene(local_pt))
-            return (p.x(), p.y())
-
-        if isinstance(child, RectangleItem):
-            r = child.rect()
-            pts = [to_local(c) for c in (r.topLeft(), r.topRight(), r.bottomRight(), r.bottomLeft())]
-            block.add_lwpolyline(pts, close=True, dxfattribs=attribs)
-        elif isinstance(child, PolygonItem) and isinstance(child, QGraphicsPolygonItem):
-            poly = child.polygon()
-            pts = [to_local(poly.at(i)) for i in range(poly.count())]
-            if pts:
-                block.add_lwpolyline(pts, close=True, dxfattribs=attribs)
-        elif isinstance(child, PolylineItem):
-            pts = [to_local(p) for p in child.points]
-            if len(pts) >= 2:
-                block.add_lwpolyline(pts, close=False, dxfattribs=attribs)
-        elif isinstance(child, CircleItem):
-            r = child.rect()
-            center = to_local(r.center())
-            block.add_circle(center=center, radius=r.width() / 2.0, dxfattribs=attribs)
-
 
 # ---------------------------------------------------------------------------
 # DXF Import

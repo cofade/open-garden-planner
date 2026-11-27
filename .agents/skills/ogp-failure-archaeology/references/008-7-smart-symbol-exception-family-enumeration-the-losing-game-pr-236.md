@@ -16,11 +16,12 @@ Source: §11.4 (first entry), FR-31 / §8.18. Found over **three** senior-review
   *by construction*; the **bundled** load loop stays narrow so first-party packaging bugs
   crash loud. `BaseException` still propagates. Defense in depth: `generate()` wraps its
   body → `SmartSymbolError`; the evaluator caps AST node count (`_MAX_NODES`).
-- If you see the broad catch in `smart_symbol_library.py` and want to "tighten" it: this
+- The loader and its code were removed in #1009. The rule still applies to every new
+  untrusted-input seam; if you see a broad catch at one and want to "tighten" it, this
   entry is why you must not.
-- Status: closed. Pinned by `tests/unit/test_smart_symbol_library.py`
-  (arithmetic/recursion/structural/non-object poison skipped; malformed *bundled* file
-  still crashes loud).
+- Status: closed, code retired. The original pin
+  (`tests/unit/test_smart_symbol_library.py`) went with the loader in #1009; the rule's
+  current pin is `tests/unit/test_ai_client_onboarding.py::test_corrupted_existing_file_is_replaced_not_fatal`.
 
 ---
 

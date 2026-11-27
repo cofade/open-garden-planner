@@ -147,7 +147,7 @@ CI note: integration tests run headless via `QT_QPA_PLATFORM=offscreen` (set ses
 
 ## 4. Regression pinning discipline
 
-**Pin every fixed bug.** Convention: the fix's §11.4 entry (`docs/11-risks-and-technical-debt/README.md`) names the test — "Pinned by `<test>`" (e.g. `test_rotation_pivots_about_rect_center_with_badge`, `tests/integration/test_rotation_aware_resize.py`, `tests/unit/test_smart_symbol_library.py`). A fix without a named pinning test is incomplete. Cross-ref: `ogp-failure-archaeology` for the incident narratives; `ogp-docs-and-writing` for how to write the §11.4 entry.
+**Pin every fixed bug.** Convention: the fix's §11.4 entry (`docs/11-risks-and-technical-debt/README.md`) names the test — "Pinned by `<test>`" (e.g. `test_rotation_pivots_about_rect_center_with_badge`, `tests/integration/test_rotation_aware_resize.py`, `tests/unit/test_ai_client_onboarding.py`). A fix without a named pinning test is incomplete. Cross-ref: `ogp-failure-archaeology` for the incident narratives; `ogp-docs-and-writing` for how to write the §11.4 entry.
 
 ### The parametrised golden gates — MUST extend, not just pass
 

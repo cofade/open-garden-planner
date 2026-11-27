@@ -70,7 +70,6 @@ def _geometry_type(item: QGraphicsItem) -> str:
         PolygonItem,
         PolylineItem,
         RectangleItem,
-        SmartSymbolItem,
         TextItem,
     )
 
@@ -94,8 +93,6 @@ def _geometry_type(item: QGraphicsItem) -> str:
         return "ellipse"
     if isinstance(item, CircleItem):
         return "circle"
-    if isinstance(item, SmartSymbolItem):
-        return "group"
     if isinstance(item, GroupItem):
         return "group"
     if isinstance(item, JournalPinItem):
