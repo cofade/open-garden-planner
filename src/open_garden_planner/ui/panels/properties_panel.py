@@ -852,7 +852,8 @@ class PropertiesPanel(QWidget):
         # Name/Label
         if hasattr(item, 'name'):
             name_edit = QLineEdit()
-            name_row = self._replaceable_editor_row(name_edit)
+            self._form_layout.addRow(self.tr("Name:"), name_edit)
+            self._add_editor_replacement_action(name_edit)
             # Live-update the canvas label on every keystroke, but commit a
             # single undo command after a typing pause (debounce) or on
             # focus-out — whichever first (issue #210). The start value is
@@ -867,7 +868,6 @@ class PropertiesPanel(QWidget):
             name_edit.editingFinished.connect(
                 lambda it=item, edit=name_edit: self._on_name_commit(it, edit)
             )
-            self._form_layout.addRow(self.tr("Name:"), name_row)
             # Refresh keeps the start marker in sync so a later focus-edit diffs
             # against the displayed value, not a stale one (#206/#210).
             self._register_refresh(
@@ -2122,7 +2122,8 @@ class PropertiesPanel(QWidget):
         # QTextEdit lacks. Start value is captured here (field rebuilt per
         # selection). Enter inserts a newline as usual — it does not commit.
         content_edit = FocusOutTextEdit()
-        content_row = self._replaceable_editor_row(content_edit)
+        self._form_layout.addRow(self.tr("Content:"), content_edit)
+        self._add_editor_replacement_action(content_edit)
         self._load_content_editor(content_edit, item.content)
         content_edit.setFixedHeight(80)
         self._attach_commit_timer(
@@ -2134,7 +2135,6 @@ class PropertiesPanel(QWidget):
         content_edit.editing_finished.connect(
             lambda it=item, edit=content_edit: self._on_text_content_commit(it, edit)
         )
-        self._form_layout.addRow(self.tr("Content:"), content_row)
         # Keep the start marker in sync so a later focus-edit diffs against the
         # displayed value (#206/#210).
         self._register_refresh(
@@ -2213,14 +2213,10 @@ class PropertiesPanel(QWidget):
             color_btn, lambda b=color_btn, it=item: b.set_color(it.text_color)
         )
 
-    def _replaceable_editor_row(self, edit: QLineEdit | QTextEdit) -> QWidget:
+    def _add_editor_replacement_action(self, edit: QLineEdit | QTextEdit) -> None:
         """A long record stays intact until the user opts into replacing it."""
-        row = QWidget()
-        layout = QVBoxLayout(row)
-        layout.setContentsMargins(0, 0, 0, 0)
-        layout.addWidget(edit)
         replace = QPushButton(self.tr("Replace full value"))
-        layout.addWidget(replace)
+        self._form_layout.addRow(replace)
         edit._ogp_replace_button = replace  # type: ignore[attr-defined]
 
         def start_replacement() -> None:
@@ -2232,7 +2228,6 @@ class PropertiesPanel(QWidget):
             edit.setFocus()
 
         replace.clicked.connect(start_replacement)
-        return row
 
     @staticmethod
     def _editor_value(edit: QLineEdit | QTextEdit, value: str) -> str:
