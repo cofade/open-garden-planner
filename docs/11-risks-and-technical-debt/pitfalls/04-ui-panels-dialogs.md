@@ -117,10 +117,10 @@ deletion, valid clicks, absent-date rejection and newly created replacement item
 - **Rule:** Bed-only context-menu actions are built and dispatched centrally through `GardenItemMixin.build_bed_context_menu` and `dispatch_bed_action`, never hand-coded into each bed shape class.
 - **Pinned by:** `tests/integration/test_bed_context_menu.py::test_bed_context_menu_has_all_features`; `tests/integration/test_bed_context_menu.py::test_context_menu_uses_shared_builder`
 - **Source:** #173
-- **Status:** pointer → [ADR: ADR-017: Bed-Specific Features Built Centrally on `GardenItemMixin`](../../09-architecture-decisions/README.md#adr-017-bed-specific-features-built-centrally-on-gardenitemmixin)
+- **Status:** pointer → [ADR: ADR-017: Bed-Specific Features Built Centrally on `GardenItemMixin`](../../09-architecture-decisions/ADR-017-bed-specific-features-built-centrally-on-gardenitemmixin.md#adr-017-bed-specific-features-built-centrally-on-gardenitemmixin)
 - **Legacy:** b1faaa9 README L326
 
-Held in [ADR: ADR-017: Bed-Specific Features Built Centrally on `GardenItemMixin`](../../09-architecture-decisions/README.md#adr-017-bed-specific-features-built-centrally-on-gardenitemmixin). The entry keeps the rule and its pin; the account is in the link.
+Held in [ADR: ADR-017: Bed-Specific Features Built Centrally on `GardenItemMixin`](../../09-architecture-decisions/ADR-017-bed-specific-features-built-centrally-on-gardenitemmixin.md#adr-017-bed-specific-features-built-centrally-on-gardenitemmixin). The entry keeps the rule and its pin; the account is in the link.
 
 ### PF-UI-11
 

@@ -2,7 +2,7 @@
 
 There are three frames in any Graphics View app: **local** (item-internal),
 **scene** (shared world), and **view/device** (widget pixels). This app adds a
-CAD twist, decided in ADR-002 (`docs/09-architecture-decisions/README.md`):
+CAD twist, decided in ADR-002 (`docs/09-architecture-decisions/ADR-002-bottom-left-coordinate-origin-y-up.md`):
 the world is **Y-up, origin bottom-left, units = centimeters**.
 
 The entire Y-up convention is implemented in ONE place — the view transform

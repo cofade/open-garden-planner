@@ -973,7 +973,7 @@
         {
           "path": ".agents/skills/ogp-3d-sunshade-campaign/references/001-0-verified-foundation-inventory-exists-all-verified-2026-07-04.md",
           "sha256": "bccdfc1c8fa9cb4a64fceb81aac824e43b603ee48ec64919b4a13e0c201b5896",
-          "current_sha256": "4f7d8010f3f9848fbecd29f0b744d960ffcf3076faf3c77353f96f5ba00f89a8"
+          "current_sha256": "83a186aa1fb1ce8d9a4c1195caa8584d08e809254ed09e61a97bac4cc6a7b076"
         },
         {
           "path": ".agents/skills/ogp-3d-sunshade-campaign/references/002-1-campaign-map-scope-slices-and-the-solution-menu.md",
@@ -983,7 +983,7 @@
         {
           "path": ".agents/skills/ogp-3d-sunshade-campaign/references/003-2-phase-0-prerequisites-scope-contract.md",
           "sha256": "9a6474d94c6ec40a07dc3197a072317b6d8517c52d1371eff1a42811610746fc",
-          "current_sha256": "b588f7f654231daf340bb7e91aa8ca6ae1d5fa22ec450c0e83f978a21ed3c45e"
+          "current_sha256": "2a1528a0bf6be63823bef3ae4e3e70732034a2a1a139685ec5711a1a948316e1"
         },
         {
           "path": ".agents/skills/ogp-3d-sunshade-campaign/references/004-3-phase-1-solar-position-engine-core-solar-py-to-build.md",
@@ -1013,7 +1013,7 @@
         {
           "path": ".agents/skills/ogp-3d-sunshade-campaign/references/009-8-phase-6-validation-promotion-per-slice.md",
           "sha256": "c8e34501e3cd966de6c07f117e8ac45143ef0c01f21b4bc21c52a599c8a4028a",
-          "current_sha256": "c8e34501e3cd966de6c07f117e8ac45143ef0c01f21b4bc21c52a599c8a4028a"
+          "current_sha256": "3c5754f36a5aaa2839568a6f7a75d7235c79487fff48363459af78cdc43a940a"
         },
         {
           "path": ".agents/skills/ogp-3d-sunshade-campaign/references/010-appendix-pinned-reference-numbers-generated-2026-07-04.md",
@@ -1023,7 +1023,7 @@
         {
           "path": ".agents/skills/ogp-3d-sunshade-campaign/references/011-provenance-and-maintenance.md",
           "sha256": "04083922a474e53c489c359148e686be294a3a025d8f3b98515863b9a18326b1",
-          "current_sha256": "7b7f1195c00575fbdcd2d6a769a81c07630c30930aaf91a3b5d1d0efcba999f6"
+          "current_sha256": "6db746f43692495b3c2ca49909939adb5ea4a8ed51cc4a61537d06c5d9c8598d"
         },
         {
           "path": ".agents/skills/ogp-3d-sunshade-campaign/references/012-f3-maintenance-receiver-estimates-and-document-ownership-adr-056.md",
@@ -1048,7 +1048,7 @@
         {
           "path": ".agents/skills/ogp-architecture-contract/references/001-current-translation-gate-496.md",
           "sha256": "4e51c9b8f68f34e8ca3c3cddb707c17bf693c2bedb73e38388ac8e7d666ca980",
-          "current_sha256": "4e51c9b8f68f34e8ca3c3cddb707c17bf693c2bedb73e38388ac8e7d666ca980"
+          "current_sha256": "be9baf65d76879a28909db96f63df95207c71bdb235f6a7826c6919dd2dad18d"
         },
         {
           "path": ".agents/skills/ogp-architecture-contract/references/002-when-not-to-use-this-skill.md",
@@ -1078,7 +1078,7 @@
         {
           "path": ".agents/skills/ogp-architecture-contract/references/007-5-before-you-design-anything-checklist.md",
           "sha256": "a39fde3718cbd2736ad0ef473de74d3c62a3d2715e6d2c8d53f95a576fded068",
-          "current_sha256": "a39fde3718cbd2736ad0ef473de74d3c62a3d2715e6d2c8d53f95a576fded068"
+          "current_sha256": "3829c4b8ca67bd2c1fa9fade67e1def52a670f8e63eb5d0736dafb7d21791f21"
         },
         {
           "path": ".agents/skills/ogp-architecture-contract/references/008-provenance-and-maintenance.md",
@@ -1158,7 +1158,7 @@
         {
           "path": ".agents/skills/ogp-failure-archaeology/references/000-ogp-failure-archaeology.md",
           "sha256": "6d1065d3200d34a64cec8c2c3e779730f4d4b0b708495993158d5253d17715bd",
-          "current_sha256": "a08610ee8b060d8f76b1525becda4f5e8c5312e837e031d0018b7e1fc458c0e1"
+          "current_sha256": "f842d55761a28cad31ff65f61bcc028b95b1535674445aab92730210044d93d1"
         },
         {
           "path": ".agents/skills/ogp-failure-archaeology/references/001-index-scan-this-first.md",
@@ -1288,7 +1288,7 @@
         {
           "path": ".agents/skills/ogp-failure-archaeology/references/026-provenance-and-maintenance.md",
           "sha256": "3fa44fedef6d0ebc40f721cdb3c642ea13e844d825681eb04db72fa711701a19",
-          "current_sha256": "14433717a9c5fb1b30a1231bc347da2267ce3f222fef7b598e7816aa1202e1eb"
+          "current_sha256": "6e82781e5a515fb04bc2ecf7c4feb4771d75f7763d2007591381df5e3704eef7"
         }
       ]
     },
@@ -1363,7 +1363,7 @@
         {
           "path": ".agents/skills/ogp-qt-cad-reference/references/003-1-coordinate-systems-the-one-mental-model.md",
           "sha256": "b80db9561548dd296d2ae3379b7b6fc90f1be5bd33cce5d1fe0f16108ca4907c",
-          "current_sha256": "b80db9561548dd296d2ae3379b7b6fc90f1be5bd33cce5d1fe0f16108ca4907c"
+          "current_sha256": "7b0692b8c1ec7943e334c5e36ac90f5066cd30228f6b3cc9901afd245906c03b"
         },
         {
           "path": ".agents/skills/ogp-qt-cad-reference/references/004-2-the-qgraphicsitem-geometry-contract.md",
@@ -1398,7 +1398,7 @@
         {
           "path": ".agents/skills/ogp-qt-cad-reference/references/010-provenance-and-maintenance.md",
           "sha256": "dda1b8120128243d4cbd1832478be20cbd1def06d699161d65a9ef1ffb4f2d63",
-          "current_sha256": "dda1b8120128243d4cbd1832478be20cbd1def06d699161d65a9ef1ffb4f2d63"
+          "current_sha256": "7299f933dcad999a20d079f0eed767b4134f780f059bbc9aa1d146e7149e8ad4"
         }
       ]
     },
@@ -2373,7 +2373,7 @@
         {
           "path": ".claude/skills/ogp-3d-sunshade-campaign/references/001-0-verified-foundation-inventory-exists-all-verified-2026-07-04.md",
           "sha256": "bccdfc1c8fa9cb4a64fceb81aac824e43b603ee48ec64919b4a13e0c201b5896",
-          "current_sha256": "4f7d8010f3f9848fbecd29f0b744d960ffcf3076faf3c77353f96f5ba00f89a8"
+          "current_sha256": "83a186aa1fb1ce8d9a4c1195caa8584d08e809254ed09e61a97bac4cc6a7b076"
         },
         {
           "path": ".claude/skills/ogp-3d-sunshade-campaign/references/002-1-campaign-map-scope-slices-and-the-solution-menu.md",
@@ -2383,7 +2383,7 @@
         {
           "path": ".claude/skills/ogp-3d-sunshade-campaign/references/003-2-phase-0-prerequisites-scope-contract.md",
           "sha256": "02fe0af3503cd454609a31e861d503bad8616e1a1c04ed9c006bdf16b5d5c226",
-          "current_sha256": "9922f19bd3ef47e8f1a21c6ca6257c85f24b234e02928e807a686c8497734ad3"
+          "current_sha256": "f9fb976fdc24702b2303b1a5b8a44479116f0228a68eac02af485853b095da81"
         },
         {
           "path": ".claude/skills/ogp-3d-sunshade-campaign/references/004-3-phase-1-solar-position-engine-core-solar-py-to-build.md",
@@ -2413,7 +2413,7 @@
         {
           "path": ".claude/skills/ogp-3d-sunshade-campaign/references/009-8-phase-6-validation-promotion-per-slice.md",
           "sha256": "dee597459964139be74b309e1855a15ee3fbc733a7269bab86058b21c002c9cf",
-          "current_sha256": "dee597459964139be74b309e1855a15ee3fbc733a7269bab86058b21c002c9cf"
+          "current_sha256": "78fd916c71a03a50101bb15d66d2443b131704e205850d0ada01dc748af78b65"
         },
         {
           "path": ".claude/skills/ogp-3d-sunshade-campaign/references/010-appendix-pinned-reference-numbers-generated-2026-07-04.md",
@@ -2423,7 +2423,7 @@
         {
           "path": ".claude/skills/ogp-3d-sunshade-campaign/references/011-provenance-and-maintenance.md",
           "sha256": "a75ba20199b6bb58d898ce4048786e4db2863281db66dbe00e9db3255c0223bb",
-          "current_sha256": "467fc742a72dd2ffc8e9cfffdf4deb45313437943a9ee7bb73a21e1f7fbcff42"
+          "current_sha256": "37c5e9a05ec31956efb9bb3f37157a6059aa51e3ed0c800ee0b2ff79c72a8d79"
         },
         {
           "path": ".claude/skills/ogp-3d-sunshade-campaign/references/012-f3-maintenance-receiver-estimates-and-document-ownership-adr-056.md",
@@ -2448,7 +2448,7 @@
         {
           "path": ".claude/skills/ogp-architecture-contract/references/001-current-translation-gate-496.md",
           "sha256": "4e51c9b8f68f34e8ca3c3cddb707c17bf693c2bedb73e38388ac8e7d666ca980",
-          "current_sha256": "4e51c9b8f68f34e8ca3c3cddb707c17bf693c2bedb73e38388ac8e7d666ca980"
+          "current_sha256": "be9baf65d76879a28909db96f63df95207c71bdb235f6a7826c6919dd2dad18d"
         },
         {
           "path": ".claude/skills/ogp-architecture-contract/references/002-when-not-to-use-this-skill.md",
@@ -2478,7 +2478,7 @@
         {
           "path": ".claude/skills/ogp-architecture-contract/references/007-5-before-you-design-anything-checklist.md",
           "sha256": "a39fde3718cbd2736ad0ef473de74d3c62a3d2715e6d2c8d53f95a576fded068",
-          "current_sha256": "a39fde3718cbd2736ad0ef473de74d3c62a3d2715e6d2c8d53f95a576fded068"
+          "current_sha256": "3829c4b8ca67bd2c1fa9fade67e1def52a670f8e63eb5d0736dafb7d21791f21"
         },
         {
           "path": ".claude/skills/ogp-architecture-contract/references/008-provenance-and-maintenance.md",
@@ -2558,7 +2558,7 @@
         {
           "path": ".claude/skills/ogp-failure-archaeology/references/000-ogp-failure-archaeology.md",
           "sha256": "6d1065d3200d34a64cec8c2c3e779730f4d4b0b708495993158d5253d17715bd",
-          "current_sha256": "a08610ee8b060d8f76b1525becda4f5e8c5312e837e031d0018b7e1fc458c0e1"
+          "current_sha256": "f842d55761a28cad31ff65f61bcc028b95b1535674445aab92730210044d93d1"
         },
         {
           "path": ".claude/skills/ogp-failure-archaeology/references/001-index-scan-this-first.md",
@@ -2688,7 +2688,7 @@
         {
           "path": ".claude/skills/ogp-failure-archaeology/references/026-provenance-and-maintenance.md",
           "sha256": "3fa44fedef6d0ebc40f721cdb3c642ea13e844d825681eb04db72fa711701a19",
-          "current_sha256": "14433717a9c5fb1b30a1231bc347da2267ce3f222fef7b598e7816aa1202e1eb"
+          "current_sha256": "6e82781e5a515fb04bc2ecf7c4feb4771d75f7763d2007591381df5e3704eef7"
         }
       ]
     },
@@ -2763,7 +2763,7 @@
         {
           "path": ".claude/skills/ogp-qt-cad-reference/references/003-1-coordinate-systems-the-one-mental-model.md",
           "sha256": "b80db9561548dd296d2ae3379b7b6fc90f1be5bd33cce5d1fe0f16108ca4907c",
-          "current_sha256": "b80db9561548dd296d2ae3379b7b6fc90f1be5bd33cce5d1fe0f16108ca4907c"
+          "current_sha256": "7b0692b8c1ec7943e334c5e36ac90f5066cd30228f6b3cc9901afd245906c03b"
         },
         {
           "path": ".claude/skills/ogp-qt-cad-reference/references/004-2-the-qgraphicsitem-geometry-contract.md",
@@ -2798,7 +2798,7 @@
         {
           "path": ".claude/skills/ogp-qt-cad-reference/references/010-provenance-and-maintenance.md",
           "sha256": "dda1b8120128243d4cbd1832478be20cbd1def06d699161d65a9ef1ffb4f2d63",
-          "current_sha256": "dda1b8120128243d4cbd1832478be20cbd1def06d699161d65a9ef1ffb4f2d63"
+          "current_sha256": "7299f933dcad999a20d079f0eed767b4134f780f059bbc9aa1d146e7149e8ad4"
         }
       ]
     }

@@ -7,7 +7,7 @@ Its detailed architecture follows [arc42](https://arc42.org/).
 
 | Subsystem | Responsibility |
 |---|---|
-| Application | Main window, document lifecycle, settings, UI state and per-quantity Metric / Imperial / Canada (mixed) / Custom display units (lengths, areas, volumes, temperature, precipitation, harvest mass). Geometry, saved files and Agent API units stay metric ([ADR-078](https://github.com/cofade/open-garden-planner/blob/master/docs/09-architecture-decisions/README.md#adr-078-a-unit-preference-over-the-centimetre-model-issue-673), [ADR-081](https://github.com/cofade/open-garden-planner/blob/master/docs/09-architecture-decisions/README.md#adr-081-per-quantity-unit-systems-and-the-canada-mixed-preset-issue-907)). |
+| Application | Main window, document lifecycle, settings, UI state and per-quantity Metric / Imperial / Canada (mixed) / Custom display units (lengths, areas, volumes, temperature, precipitation, harvest mass). Geometry, saved files and Agent API units stay metric ([ADR-078](https://github.com/cofade/open-garden-planner/blob/master/docs/09-architecture-decisions/ADR-078-a-unit-preference-over-the-centimetre-model.md#adr-078-a-unit-preference-over-the-centimetre-model), [ADR-081](https://github.com/cofade/open-garden-planner/blob/master/docs/09-architecture-decisions/ADR-081-per-quantity-unit-systems-and-the-canada-mixed-preset.md#adr-081-per-quantity-unit-systems-and-the-canada-mixed-preset)). |
 | Canvas and tools | Drawing, selection, snapping, constraints, annotations, layers, and item rendering. |
 | Commands and project data | Undo/redo, snapshots, shared complete-plan serialization for Save and crash recovery, discovery of saved-plan backups, document-owned cleanup, clipboard data, and atomic plan loading. |
 | Garden models and services | Plant data, companion planting, crop rotation, succession, soil, weather, tasks, harvest, and journal records. |
@@ -30,7 +30,7 @@ Camera tours are stored with the plan; a drone orbit may be a part turn or a who
 (0.25–4, #966). Video delivery validates MP4 sample tables before
 replacing the destination; an invalid render stays under its part name and the failure
 message identifies it. The delivery decisions are recorded in
-[ADR-072](https://github.com/cofade/open-garden-planner/blob/master/docs/09-architecture-decisions/README.md#adr-072-addendum-tour-and-video-reliability-889-890-891-896).
+[ADR-072](https://github.com/cofade/open-garden-planner/blob/master/docs/09-architecture-decisions/ADR-072-directors-cut-one-capture-path-photo-mode-camera-tours-video.md#adr-072-addendum-tour-and-video-reliability-889-890-891-896).
 
 ## Detailed documentation
 
@@ -65,7 +65,7 @@ ground heatmap. Receiver elevation follows the canonical plant base; obstacles a
 sliced above that exact plane. Shared date and document/geometry ownership prevent
 stale measurements; unavailable evaluations are visible information records.
 Mature-canopy groups are geometric only. See
-[ADR-056](https://github.com/cofade/open-garden-planner/blob/master/docs/09-architecture-decisions/README.md#adr-056-runtime-sun-diagnostics-and-document-owned-exposure-314-428)
+[ADR-056](https://github.com/cofade/open-garden-planner/blob/master/docs/09-architecture-decisions/ADR-056-runtime-sun-diagnostics-and-document-owned-exposure.md#adr-056-runtime-sun-diagnostics-and-document-owned-exposure)
 and [sun diagnostics contracts](https://github.com/cofade/open-garden-planner/blob/master/docs/08-crosscutting-concepts/README.md#827-cached-sun-exposure-and-shared-diagnostics).
 
 The permanent Plan & Sun strip shares one simulation date for plant presence, growth and
@@ -96,7 +96,7 @@ follow their own late-winter-to-early-summer window and its scapes go with its f
 crop ripens fruit by fruit; a far crown keeps a sparse patch of its crop beyond 45 m; and
 the cache forges one shape per 2% size bucket and stretches it to the day's exact height
 and spread. See the
-[Plant Forge decision](https://github.com/cofade/open-garden-planner/blob/master/docs/09-architecture-decisions/README.md#adr-064-plant-forge--procedural-3d-species-models-from-the-2d-sprite-recipes-lods-and-phenology-387).
+[Plant Forge decision](https://github.com/cofade/open-garden-planner/blob/master/docs/09-architecture-decisions/ADR-064-plant-forge-procedural-3d-species-models-from-the-2d-sprite.md#adr-064-plant-forge--procedural-3d-species-models-from-the-2d-sprite-recipes-lods-and-phenology).
 
 ## CI coverage scheduling
 
@@ -110,5 +110,5 @@ and [deployment contract](https://github.com/cofade/open-garden-planner/blob/mas
 
 Shared configuration/model leaves, composed canvas/property/agent adapters and measured
 performance workloads define the audit delivery boundaries. See
-[ADR-068](https://github.com/cofade/open-garden-planner/blob/master/docs/09-architecture-decisions/README.md#adr-068-audit-boundaries-responsibility-extraction-and-progressive-agent-context-392)
+[ADR-068](https://github.com/cofade/open-garden-planner/blob/master/docs/09-architecture-decisions/ADR-068-audit-boundaries-responsibility-extraction-and-progressive.md#adr-068-audit-boundaries-responsibility-extraction-and-progressive-agent-context)
 and [per-finding evidence](https://github.com/cofade/open-garden-planner/blob/master/docs/11-risks-and-technical-debt/audits/2026-10/audit-392-remaining.md).

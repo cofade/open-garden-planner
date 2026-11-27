@@ -110,7 +110,10 @@ syncs in a row left one of the two behind (ADR-063 and two v1.30.19 addenda stil
 
 - the **Status line of the feature's ADR or addendum** — for example "Accepted for
   implementation; owner acceptance pending" becomes the shipped version and the
-  acceptance record;
+  acceptance record. The line lives in the ADR's own file
+  (`docs/09-architecture-decisions/ADR-nnn-*.md`, ADR-083); after editing it, run
+  `venv/Scripts/python.exe scripts/generate_doc_indexes.py`, which copies the body's
+  status into the front matter and the index (`--check` fails until you do);
 - the **README "Status" paragraph**, when the release moves the roadmap's next phase
   (for example "L2 is next" becomes "L3 is next").
 

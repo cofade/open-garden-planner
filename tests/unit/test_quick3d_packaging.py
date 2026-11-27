@@ -692,7 +692,9 @@ CONTRACT_LINKERS = (
     PACKAGE / "host.py",
     REPO / "docs" / "05-building-block-view" / "README.md",
     REPO / "docs" / "08-crosscutting-concepts" / "README.md",
-    REPO / "docs" / "09-architecture-decisions" / "README.md",
+    # ADR-048's own file links the contract (one file per ADR since #1035);
+    # every other ADR file is held to "no copy" by the test below.
+    *(REPO / "docs" / "09-architecture-decisions").glob("ADR-048-*.md"),
     REPO / "docs" / "11-risks-and-technical-debt" / "README.md",
     REPO / "docs" / "12-glossary" / "README.md",
     REPO / ".claude" / "skills" / "ogp-3d-renderer" / "SKILL.md",
@@ -731,6 +733,19 @@ def test_the_state_contract_is_written_down_in_one_place() -> None:
         assert not copies, f"{where} carries a copy of the state table: {copies[:3]}"
         for phrase in CONTRACT_PHRASES:
             assert phrase not in text, f"{where} restates the contract: {phrase!r}"
+
+
+def test_no_adr_file_carries_a_copy_of_the_state_contract() -> None:
+    """The decision record was one file until #1035; every ADR file now stays copy-free."""
+    adr_files = sorted((REPO / "docs" / "09-architecture-decisions").glob("ADR-*.md"))
+    assert len(adr_files) > 80 and REPO / "docs" in adr_files[0].parents
+    assert any(path.name.startswith("ADR-048-") for path in CONTRACT_LINKERS)
+    for path in adr_files:
+        text = path.read_text(encoding="utf-8")
+        copies = [match.group(0).strip() for match in STATE_ROW.finditer(text)]
+        assert not copies, f"{path.name} carries a copy of the state table: {copies[:3]}"
+        for phrase in CONTRACT_PHRASES:
+            assert phrase not in text, f"{path.name} restates the contract: {phrase!r}"
 
 
 @pytest.mark.parametrize(("line", "is_row"), [

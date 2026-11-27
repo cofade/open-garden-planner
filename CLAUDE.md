@@ -167,7 +167,7 @@ drift instead of overwriting either agent's native file format.
 | New UI pattern | `docs/08-crosscutting-concepts/` section 8.9 |
 | Changed runtime behavior | `docs/06-runtime-view/` — update sequence diagrams |
 | New user-facing capability | `docs/functional-requirements.md` — add FR-* entry |
-| Architecture decision | `docs/09-architecture-decisions/` — create ADR |
+| Architecture decision | new `docs/09-architecture-decisions/ADR-nnn-<slug>.md`, then `scripts/generate_doc_indexes.py` (ADR-083) |
 | New domain term | `docs/12-glossary/` — add definition |
 
 **Completed work leaves a one-line row, not a narrative.** When a user story or package ships, replace its design and acceptance detail in `docs/roadmap.md` with one status row and delete the rest; the code, tests, ADR/FR, GitHub release and issue are the record. Do not add release history to this file or create archive files.

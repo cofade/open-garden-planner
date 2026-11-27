@@ -45,7 +45,7 @@ volatile fact.
   3. Confirm it survives PyInstaller bundling (it will be *distributed*, which is what
      triggers copyleft obligations).
   4. Note the check in the PR description. Cross-ref `ogp-change-control` for the PR gates.
-- **Assets are licensed too.** Per ADR-006 (`docs/09-architecture-decisions/README.md`),
+- **Assets are licensed too.** Per ADR-006 (`docs/09-architecture-decisions/ADR-006-ai-generated-svg-assets.md`),
   object illustrations are AI-generated then converted to SVG, chosen partly for "no
   licensing issues"; per ADR-007, fill textures are tileable PNGs, "AI-generated or CC0
   sourced". §11.1 keeps **"Texture licensing for fill patterns?"** as an *open question*

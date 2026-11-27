@@ -3,9 +3,11 @@
 Work through this in order; it takes five minutes and has repeatedly saved
 multi-round review cycles.
 
-1. **Read the ADR index** (`docs/09-architecture-decisions/README.md`). Is your
-   problem already decided (possibly with your exact idea listed under
-   *Alternatives considered — rejected*)? Respect the rejection or write a new
+1. **Read the ADR index** (`docs/09-architecture-decisions/README.md`), then
+   `grep -l <topic> docs/09-architecture-decisions/ADR-*.md` and read each hit whole —
+   the index holds titles only; the rejected alternatives and the addenda are in the
+   ADR files (ADR-083). Is your problem already decided (possibly with your exact idea
+   listed under *Alternatives considered — rejected*)? Respect the rejection or write a new
    ADR superseding it — don't relitigate silently.
 2. **Does it touch an invariant above?** Serialization → row 9; anything that
    moves/resizes/rotates → row 2; any mutation → rows 3–5; beds/containers/

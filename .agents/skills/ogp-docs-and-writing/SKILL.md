@@ -33,7 +33,7 @@ For *what evidence counts as validation* see `ogp-validation-and-qa`; for *proce
 sequencing* (branch → review → draft PR → merge) see `ogp-change-control`.
 
 Facts date-stamped **as of 2026-09-05**: app version v1.27.7, arc42 chapters 01–12 each
-a single `README.md`, ADR register runs ADR-001 … ADR-043 (all in one file), FR register
+a single `README.md`, ADR register runs ADR-001 … ADR-043 (then in one file), FR register
 runs through FR-31 / FR-AGENT-16, §8 crosscutting sections run §8.1 … §8.25.
 
 ## When NOT to use this skill
@@ -51,7 +51,8 @@ runs through FR-31 / FR-AGENT-16, §8 crosscutting sections run §8.1 … §8.25
 ## 1. The docs of record — verified map
 
 All paths verified to exist **2026-07-04**. Every arc42 chapter is a directory holding a
-single `README.md` — there are no per-ADR or per-chapter sub-files.
+single `README.md` — there are no per-chapter sub-files. The exception is the ADR record: one file per ADR
+(ADR-083).
 
 | Document | Path | Owns |
 |----------|------|------|
@@ -63,7 +64,7 @@ single `README.md` — there are no per-ADR or per-chapter sub-files.
 | Runtime view | `docs/06-runtime-view/README.md` | Sequence diagrams, runtime behavior |
 | Deployment view | `docs/07-deployment-view/README.md` | CI/CD, installer, release process |
 | Crosscutting concepts | `docs/08-crosscutting-concepts/README.md` | §8.1–§8.25: coordinate system, commands, **i18n (§8.3)**, **QGraphicsView patterns (§8.9)**, **integration-test policy (§8.10)**, **SAST (§8.11)**, **bed-only features (§8.14)**, sidebar accordion (§8.17), retired Smart Symbols (§8.18), agent API (§8.19), icon/sprite/texture pipelines (§8.21–§8.24), stacking order (§8.25) |
-| ADR register | `docs/09-architecture-decisions/README.md` | **All** ADRs (ADR-001…043) in this ONE file — append new ADRs here, never create a separate file |
+| ADR record | `docs/09-architecture-decisions/` | **One file per ADR**, `ADR-nnn-<slug>.md` (ADR-083) — create a new file for a new ADR, append addenda to that ADR's own file. `README.md` there is a **generated index**: never edit it by hand (`scripts/generate_doc_indexes.py`) |
 | Quality requirements | `docs/10-quality-requirements/README.md` | Quality scenarios |
 | Risks & technical debt | `docs/11-risks-and-technical-debt/README.md` | §11.1 open questions, §11.2 risks, §11.3 TD-* debt register (living: Status + Issue columns, ADR-047; dated audit snapshots under `audits/YYYY-MM/`), **§11.4 navigation table to the pitfall area indexes** (`pitfalls/index/NN-*.md`, ADR-061) |
 | Glossary | `docs/12-glossary/README.md` | §12.1 terms, §12.2 keyboard shortcuts, §12.3 references |
@@ -157,9 +158,13 @@ Rules that follow from the layout:
    archive links, the redirect table and the size budgets, and bans legacy numbered citations
    outside the archive. Run it after any change to the catalogue.
 
-### 3.2 ADR format (`docs/09-architecture-decisions/README.md`)
+### 3.2 ADR format (`docs/09-architecture-decisions/ADR-nnn-<slug>.md`, ADR-083)
 
-All ADRs live in the one README, headed `## ADR-NNN: Title`. Two observed generations:
+Every ADR is its own file: YAML front matter, one H1 `# ADR-NNN: Title`, then the record.
+Headings inside an ADR file start at `##` (an addendum is `## Addendum …`). The folder's
+`README.md` is a **generated index** (one table row per ADR) — never edit it by hand;
+`venv/Scripts/python.exe scripts/generate_doc_indexes.py` rewrites it and `--check`
+(run by `tests/unit/test_doc_indexes.py`) fails on a hand edit. Two observed generations:
 
 - **Early ADRs (001–011)**: four terse bold-labelled lines — `**Status**`,
   `**Context**`, `**Decision**`, `**Rationale**`, `**Consequences**` — one sentence or
@@ -170,14 +175,19 @@ All ADRs live in the one README, headed `## ADR-NNN: Title`. Two observed genera
   considered**` bullet list, each with the reason for rejection (including first cuts
   that *shipped and failed manual testing* — see ADR-028's rejected post-correction);
   `**Consequences**` naming added files, format impact ("No `.ogp` format change"), and
-  the pinning tests; and **`**Addendum (PR #NNN)**` paragraphs** appended when later
-  work refines the decision rather than replacing it (ADR-029 has two).
+  the pinning tests; and **`## Addendum (PR #NNN)` sections** appended to the ADR's own
+  file when later work refines the decision rather than replacing it (ADR-029 has two).
 
-Write new ADRs in the modern form. Number = max existing + 1 (grep `^## ADR-` first —
-the file is NOT in strictly ascending order; ADR-013 sits after ADR-015). Re-grep just
-before opening the PR too: a parallel branch can take your number while yours is in
-review (the sim clock's ADR-052 became ADR-053 when #426 merged first, and every
-reference had to move — `git grep -l "ADR-052"` on the branch, not on master). Reference
+Write new ADRs in the modern form, as a **new file**: number = max existing + 1
+(`ls docs/09-architecture-decisions/ADR-*.md | sort -V | tail -1`); slug = the title in
+kebab-case, ASCII, at most 60 characters, without a trailing issue list; front matter,
+then the H1 `# ADR-nnn: <title>`, a `**Status**:` line and the body (template below). Then
+run `venv/Scripts/python.exe scripts/generate_doc_indexes.py` and confirm `--check` passes.
+An addendum goes into that ADR's own file as a `## Addendum …` section; never append to
+`README.md`. Re-check the number just before opening the PR too: a parallel branch can
+take it while yours is in review (the sim clock's ADR-052 became ADR-053 when #426 merged
+first, and every reference had to move — `git grep -l "ADR-052"` on the branch, not on
+master; now also rename the file and fix its `id`, then regenerate the index). Reference
 the ADR from the roadmap completion row and any related
 §8 section or pitfall entry.
 
@@ -223,10 +233,22 @@ actually did, with `file.py` and `function()` names>. Fix: <what changed, where,
 contract any future caller must follow>.
 ```
 
-### ADR (modern form, append to `docs/09-architecture-decisions/README.md`)
+### ADR (modern form, new file `docs/09-architecture-decisions/ADR-0NN-<slug>.md`)
+
+Create the file, then run `venv/Scripts/python.exe scripts/generate_doc_indexes.py` (the
+README is generated; `--check` must pass). Front matter: `title` and `status` are JSON
+strings, `refs` and `superseded_by` are optional JSON lists; `legacy_anchor` exists only on
+ADR-001…082 and new ADRs get none (ADR-083).
 
 ```markdown
-## ADR-0NN: <Title> (US-X.X / issue #NNN)
+---
+id: ADR-0NN
+title: "<Short decision title>"
+status: "Accepted (issue #NNN)"
+refs: ["#NNN"]
+---
+
+# ADR-0NN: <Short decision title>
 
 **Status**: Accepted (issue #NNN)
 
@@ -246,7 +268,8 @@ bump + migration), dependencies, user-visible strings. Tests: `tests/...` (what 
 pin). Cross-refs: FR-*, §8.x, PF-*.>
 ```
 
-(Refinements later: append `**Addendum (PR #NNN)**: …` — do not rewrite the Decision.)
+(Refinements later: append a `## Addendum (PR #NNN)` section to this ADR's own file — do
+not rewrite the Decision, and do not touch `README.md`.)
 
 ### FR entry (append to `docs/functional-requirements.md`)
 
@@ -384,7 +407,7 @@ does not restate them.
 Derived 2026-07-04 from: AGENTS.md (mandatory-update tables reproduced verbatim);
 `docs/11-risks-and-technical-debt/README.md` §11.4 (entries #212, #213/#218/#219, #231,
 US-C4 read as anatomy exemplars); `docs/09-architecture-decisions/README.md` (ADR-001,
-ADR-028, ADR-029 + addenda); `docs/functional-requirements.md` (FR-1, FR-23 heading,
+ADR-028, ADR-029 + addenda; when read it was still one file, since ADR-083 each ADR is its own `ADR-nnn-<slug>.md`); `docs/functional-requirements.md` (FR-1, FR-23 heading,
 FR-AGENT-09); `docs/roadmap.md` (Package B follow-ups + US-C1/C2 sections);
 `.agents/skills/debug-verbose/SKILL.md` (case-study format + growth contract);
 `.agents/skills/ogp-change-control/SKILL.md` (skill house style). Wiki sibling repo
@@ -395,8 +418,9 @@ Re-verify:
 ```bash
 # All arc42 chapters + key docs still exist
 ls docs/{01..12}*/README.md docs/roadmap.md docs/functional-requirements.md docs/TRANSLATING.md
-# ADRs still single-file; current max ADR number
-grep -c "^## ADR-" docs/09-architecture-decisions/README.md && grep "^## ADR-" docs/09-architecture-decisions/README.md | sort -V | tail -1
+# ADRs: one file each; count and current max ADR number; generated index in sync
+ls docs/09-architecture-decisions/ADR-*.md | wc -l && ls docs/09-architecture-decisions/ADR-*.md | sort -V | tail -1
+venv/Scripts/python.exe scripts/generate_doc_indexes.py --check
 # §11.4 still the pitfalls section; §8 section map unchanged
 grep -n "^## 11.4" docs/11-risks-and-technical-debt/README.md; grep -c "^### PF-" docs/11-risks-and-technical-debt/pitfalls/*.md; grep -c "^## 8\." docs/08-crosscutting-concepts/README.md
 # AGENTS.md mandatory tables unchanged

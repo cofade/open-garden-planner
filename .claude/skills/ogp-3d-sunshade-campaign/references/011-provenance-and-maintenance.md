@@ -12,5 +12,5 @@ other facts held). One-line re-verification commands (run from repo root):
 - pyclipper + numpy deps: `grep -nE "pyclipper|numpy" pyproject.toml`.
 - Species height coverage: the python3 one-liner in §0 → `118 / 118` (or more records, same full coverage expected).
 - Cosmetic-shadow collision: `grep -n "KEY_SHOW_SHADOWS" src/open_garden_planner/app/settings.py` → `appearance/show_shadows` is a retained compatibility accessor, ignored by the application (ADR-062).
-- Next ADR number: `grep -oE "^## ADR-[0-9]+" docs/09-architecture-decisions/README.md | sort -V | tail -1` and take max+1 (036 as of 2026-07-19; campaign reserves 037 + 038). (`grep -c` would miscount if numbering ever gains a gap.)
+- Next ADR number: `ls docs/09-architecture-decisions/ADR-*.md | sort -V | tail -1` and take max+1 (036 as of 2026-07-19; campaign reserves 037 + 038). (Counting the files would miscount if numbering ever gains a gap.)
 
