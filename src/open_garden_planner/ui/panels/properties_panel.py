@@ -3016,8 +3016,8 @@ class PropertiesPanel(QWidget):
         self._pending_text_commits.append(on_commit)
 
     @staticmethod
-    def _load_name_editor(edit: QLineEdit, name: str) -> None:
-        edit.setText(PropertiesPanel._editor_value(edit, name))
+    def _load_name_editor(edit: QLineEdit, name: str | None) -> None:
+        edit.setText(PropertiesPanel._editor_value(edit, name or ""))
         edit._ogp_name_start = name  # type: ignore[attr-defined]
         edit._ogp_editor_display = edit.text()  # type: ignore[attr-defined]
 

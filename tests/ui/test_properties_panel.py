@@ -46,6 +46,24 @@ class TestPropertiesPanel:
         # Panel should show properties
         assert panel._form_layout.rowCount() > 0
 
+    def test_selected_legacy_null_name_uses_an_empty_editor(self, qtbot):
+        from PyQt6.QtWidgets import QLineEdit
+
+        from open_garden_planner.core.project import ProjectManager
+
+        panel = PropertiesPanel(command_manager=CommandManager())
+        qtbot.addWidget(panel)
+        item = ProjectManager._deserialize_item({
+            "type": "rectangle", "x": 0, "y": 0, "width": 100, "height": 50, "name": None,
+        })
+        assert item is not None
+        panel.set_selected_items([item])
+        field, = [line for line in panel.findChildren(QLineEdit)
+                  if hasattr(line, "_ogp_name_start")]
+        assert field.text() == "" and not field.isReadOnly()
+        field.editingFinished.emit()
+        assert item.name is None
+
     def test_reference_point_has_one_read_only_editor(self, qtbot):
         """No generic circle marks; one summary and the reference editor (#666)."""
         panel = PropertiesPanel()
