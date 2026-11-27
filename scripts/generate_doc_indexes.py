@@ -261,7 +261,7 @@ STATUS_RE = re.compile(r"^\*\*Status(?:\*\*:|:\*\*|\.\*\*)\s*(.*)$")
 #: is status text, not the next field.
 _FIELD_LINE_RE = re.compile(
     r"^\*\*(?:Context|Date|Decision|Rationale|Consequences|Alternatives(?: considered)?"
-    r"|Problem|Scope)\b[^*]*(?::\*\*|\*\*:)"
+    r"|Problem|Scope)\b[^*]*(?::\*\*|\*\*:|\.\*\*)"
 )
 #: An early one-line record runs on: "**Status**: Accepted | **Context**: …".
 _INLINE_FIELD = " | **"
@@ -284,7 +284,8 @@ def status_from_body(lines: list[str]) -> str:
             continue
         parts = [match.group(1).strip()]
         for line in lines[i + 1 : limit]:
-            if not line.strip() or _FIELD_LINE_RE.match(line) or line.lstrip().startswith("#"):
+            # a real heading only: "#475 (raster lane …)" continues the paragraph (ADR-069)
+            if not line.strip() or _FIELD_LINE_RE.match(line) or HEADING_RE.match(line):
                 break
             parts.append(line.strip())
         return " ".join(part for part in parts if part).split(_INLINE_FIELD, 1)[0].strip()

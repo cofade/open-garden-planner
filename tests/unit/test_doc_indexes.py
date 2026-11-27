@@ -324,9 +324,37 @@ def test_a_superseded_status_without_superseded_by_fails(tmp_path: Path) -> None
     (["# ADR-048: T", "**Status**: **Accepted (GO)** (owner). | **Context**: long"],
      "**Accepted (GO)** (owner)."),
     (["# ADR-064: T", "**Status**: Accepted", "**Date:** 2026-10-25"], "Accepted"),
+    # a line that starts with an issue number continues the paragraph (ADR-069's last line)
+    (["# ADR-001: T", "**Status**: A", "#475 is not covered.", ""], "A #475 is not covered."),
+    (["# ADR-001: T", "**Status**: A", "**Context.** x"], "A"),
 ])
 def test_status_from_body(lines: list[str], status: str) -> None:
     assert gdi.status_from_body(lines) == status
+
+
+def test_no_real_status_loses_a_line_of_its_paragraph() -> None:
+    """Independent of the parser's stop rules: every line up to the first blank line is in
+    the status, until the first line that opens a known field (``**Context**:`` …)."""
+    import re
+
+    label = re.compile(r"^\*\*(Context|Date|Decision|Rationale|Consequences|Alternatives"
+                       r"|Problem|Scope)\b")
+    adrs, errors = gdi.load_adrs(REPO)
+    assert errors == []
+    checked = 0
+    for adr in adrs:
+        lines = adr.body.split("\n")
+        start = next((i for i, line in enumerate(lines) if gdi.STATUS_RE.match(line)), None)
+        if start is None:
+            continue
+        checked += 1
+        for line in lines[start + 1:]:
+            if not line.strip():
+                break
+            if line.strip() not in adr.status:
+                assert label.match(line), f"{adr.id}: status lost {line.strip()[:70]!r}"
+                break
+    assert checked >= 80
 
 
 # --- fences and file names ------------------------------------------------------------------
@@ -380,7 +408,7 @@ Text.
 
 
 def test_the_split_refuses_to_overwrite_an_edited_adr_file(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
 ) -> None:
     """A file that no longer matches the old text is listed, and nothing is written."""
     split = _load("split_adr_record")
@@ -400,6 +428,8 @@ def test_the_split_refuses_to_overwrite_an_edited_adr_file(
     (tmp_path / "docs" / "09-architecture-decisions" / "ADR-001-one.md").rename(renamed)
 
     assert split.main(["--rev", "old"]) == 2
+    err = capsys.readouterr().err
+    assert "refusing to overwrite" in err and "ADR-001" in err and "ADR-002" in err
     assert "Addendum after the split" in edited.read_text(encoding="utf-8")
     assert renamed.exists()
 
@@ -415,7 +445,10 @@ def test_every_link_into_an_adr_file_names_an_existing_anchor() -> None:
             path.read_text(encoding="utf-8"))}
         for path in gdi.adr_paths(REPO)
     }
-    link = re.compile(r"09-architecture-decisions/(ADR-\d{3}-[a-z0-9-]+\.md)#([^\s)\]`'\"<>]+)")
+    # with the folder, or bare as a same-folder link written inside an ADR file
+    link = re.compile(
+        r"(?:09-architecture-decisions/|\]\((?:\./)?)(ADR-\d{3}-[a-z0-9-]+\.md)#([^\s)\]`'\"<>]+)"
+    )
     tracked = subprocess.run(
         ["git", "ls-files", "-z"], cwd=REPO, check=True, capture_output=True
     ).stdout.decode("utf-8").split("\0")
