@@ -224,8 +224,12 @@ def test_main_window_sidebars_bound_long_names_and_notes(qtbot, monkeypatch) -> 
         if getattr(field, "_ogp_name_start", None) == HUGE
     ]
     assert name_field.text() == bound_display_text(HUGE)
+    assert name_field.isReadOnly()
+    qtbot.keyClicks(name_field, "ordinary edit")
     name_field.editingFinished.emit()
     assert bed.name == HUGE
+    name_field._ogp_replace_button.click()
+    assert not name_field.isReadOnly() and not name_field.text()
     name_field.setText("Renamed")
     name_field.editingFinished.emit()
     assert bed.name == "Renamed"
@@ -238,8 +242,12 @@ def test_main_window_sidebars_bound_long_names_and_notes(qtbot, monkeypatch) -> 
     note.setSelected(True)
     content, = window.properties_panel.findChildren(FocusOutTextEdit)
     assert len(content.toPlainText()) < 3_000
+    assert content.isReadOnly()
+    qtbot.keyClicks(content, "ordinary edit")
     content.editing_finished.emit()
     assert note.content == HUGE
+    content._ogp_replace_button.click()
+    assert not content.isReadOnly() and not content.toPlainText()
     content.setPlainText("A short note")
     content.editing_finished.emit()
     assert note.content == "A short note"

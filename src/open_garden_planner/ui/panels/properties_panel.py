@@ -5,7 +5,7 @@ from collections.abc import Callable
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, cast
 
-from PyQt6.QtCore import QCoreApplication, QSize, Qt, QTimer, pyqtSignal
+from PyQt6.QtCore import QCoreApplication, QSignalBlocker, QSize, Qt, QTimer, pyqtSignal
 from PyQt6.QtGui import QColor, QFocusEvent, QIcon
 from PyQt6.QtWidgets import (
     QAbstractSpinBox,
@@ -76,6 +76,7 @@ from open_garden_planner.ui.widgets.unit_spin_box import LengthSpinBox, VolumeSp
 #: so one step always changes the text.
 _TEXT_MAX_FONT_SIZE = 100.0
 _TEXT_SIZE_STEP_CM = 5.0
+_MAX_FULL_EDITOR_CHARS = 32_767
 
 # The raw attribute names (font_family, font_size) make ugly undo labels
 # ("Change text font_family"); these map them to nouns registered under the
@@ -851,6 +852,7 @@ class PropertiesPanel(QWidget):
         # Name/Label
         if hasattr(item, 'name'):
             name_edit = QLineEdit()
+            name_row = self._replaceable_editor_row(name_edit)
             # Live-update the canvas label on every keystroke, but commit a
             # single undo command after a typing pause (debounce) or on
             # focus-out — whichever first (issue #210). The start value is
@@ -865,7 +867,7 @@ class PropertiesPanel(QWidget):
             name_edit.editingFinished.connect(
                 lambda it=item, edit=name_edit: self._on_name_commit(it, edit)
             )
-            self._form_layout.addRow(self.tr("Name:"), name_edit)
+            self._form_layout.addRow(self.tr("Name:"), name_row)
             # Refresh keeps the start marker in sync so a later focus-edit diffs
             # against the displayed value, not a stale one (#206/#210).
             self._register_refresh(
@@ -2120,6 +2122,7 @@ class PropertiesPanel(QWidget):
         # QTextEdit lacks. Start value is captured here (field rebuilt per
         # selection). Enter inserts a newline as usual — it does not commit.
         content_edit = FocusOutTextEdit()
+        content_row = self._replaceable_editor_row(content_edit)
         self._load_content_editor(content_edit, item.content)
         content_edit.setFixedHeight(80)
         self._attach_commit_timer(
@@ -2131,7 +2134,7 @@ class PropertiesPanel(QWidget):
         content_edit.editing_finished.connect(
             lambda it=item, edit=content_edit: self._on_text_content_commit(it, edit)
         )
-        self._form_layout.addRow(self.tr("Content:"), content_edit)
+        self._form_layout.addRow(self.tr("Content:"), content_row)
         # Keep the start marker in sync so a later focus-edit diffs against the
         # displayed value (#206/#210).
         self._register_refresh(
@@ -2210,11 +2213,43 @@ class PropertiesPanel(QWidget):
             color_btn, lambda b=color_btn, it=item: b.set_color(it.text_color)
         )
 
+    def _replaceable_editor_row(self, edit: QLineEdit | QTextEdit) -> QWidget:
+        """A long record stays intact until the user opts into replacing it."""
+        row = QWidget()
+        layout = QVBoxLayout(row)
+        layout.setContentsMargins(0, 0, 0, 0)
+        layout.addWidget(edit)
+        replace = QPushButton(self.tr("Replace full value"))
+        layout.addWidget(replace)
+        edit._ogp_replace_button = replace  # type: ignore[attr-defined]
+
+        def start_replacement() -> None:
+            with QSignalBlocker(edit):
+                edit.clear()
+            edit._ogp_editor_display = ""  # type: ignore[attr-defined]
+            edit.setReadOnly(False)
+            replace.hide()
+            edit.setFocus()
+
+        replace.clicked.connect(start_replacement)
+        return row
+
+    @staticmethod
+    def _editor_value(edit: QLineEdit | QTextEdit, value: str) -> str:
+        oversized = len(value) > _MAX_FULL_EDITOR_CHARS
+        if isinstance(edit, QLineEdit) and not oversized:
+            # Qt's maxLength counts UTF-16 code units, not Python characters.
+            units = len(value.encode("utf-16-le", errors="surrogatepass")) // 2
+            oversized = units > edit.maxLength()
+        edit.setReadOnly(oversized)
+        edit._ogp_replace_button.setVisible(oversized)  # type: ignore[attr-defined]
+        return bound_display_text(value) if oversized else value
+
     @staticmethod
     def _load_content_editor(edit: QTextEdit, content: str) -> None:
-        edit.setPlainText(bound_display_text(content))
+        edit.setPlainText(PropertiesPanel._editor_value(edit, content))
         edit._ogp_content_start = content  # type: ignore[attr-defined]
-        edit._ogp_content_display = edit.toPlainText()  # type: ignore[attr-defined]
+        edit._ogp_editor_display = edit.toPlainText()  # type: ignore[attr-defined]
 
     def _on_text_content_live(self, item: "TextItem", value: str, edit: QTextEdit) -> None:
         """Live-apply text content as the user types (visual only, no command).
@@ -2224,9 +2259,9 @@ class PropertiesPanel(QWidget):
         _updating so the programmatic setPlainText during a rebuild does not
         mutate the item.
         """
-        if self._updating:
+        if self._updating or edit.isReadOnly():
             return
-        if value == getattr(edit, "_ogp_content_display", None):
+        if value == getattr(edit, "_ogp_editor_display", None):
             value = getattr(edit, "_ogp_content_start", value)
         item.content = value
         timer = getattr(edit, '_ogp_commit_timer', None)
@@ -2238,11 +2273,11 @@ class PropertiesPanel(QWidget):
         timer = getattr(edit, '_ogp_commit_timer', None)
         if timer is not None:
             timer.stop()
-        if self._updating or self._command_manager is None:
+        if self._updating or self._command_manager is None or edit.isReadOnly():
             return
         old_content = getattr(edit, '_ogp_content_start', item.content)
         new_content = edit.toPlainText()
-        if new_content == getattr(edit, "_ogp_content_display", None):
+        if new_content == getattr(edit, "_ogp_editor_display", None):
             return
         if new_content == old_content:
             return
@@ -2255,7 +2290,7 @@ class PropertiesPanel(QWidget):
         cmd = ChangePropertyCommand(item, "text content", old_content, new_content, apply_func)
         self._command_manager.register_applied(cmd)
         edit._ogp_content_start = new_content  # type: ignore[attr-defined]
-        edit._ogp_content_display = new_content  # type: ignore[attr-defined]
+        edit._ogp_editor_display = new_content  # type: ignore[attr-defined]
 
     def _on_text_property_changed(self, item: "TextItem", prop: str, value: object) -> None:
         """Handle font property change from properties panel."""
@@ -2987,9 +3022,9 @@ class PropertiesPanel(QWidget):
 
     @staticmethod
     def _load_name_editor(edit: QLineEdit, name: str) -> None:
-        edit.setText(bound_display_text(name))
+        edit.setText(PropertiesPanel._editor_value(edit, name))
         edit._ogp_name_start = name  # type: ignore[attr-defined]
-        edit._ogp_name_display = edit.text()  # type: ignore[attr-defined]
+        edit._ogp_editor_display = edit.text()  # type: ignore[attr-defined]
 
     def _on_name_text_changed(self, item: QGraphicsItem, text: str, edit: QLineEdit) -> None:
         """Live-update the canvas label as the user types the Name field.
@@ -2999,9 +3034,9 @@ class PropertiesPanel(QWidget):
         (debounce) or on focus-out (issue #210). Guarded by _updating so
         programmatic setText during a panel rebuild does not mutate the item.
         """
-        if self._updating:
+        if self._updating or edit.isReadOnly():
             return
-        if text == getattr(edit, "_ogp_name_display", None):
+        if text == getattr(edit, "_ogp_editor_display", None):
             text = getattr(edit, "_ogp_name_start", text)
         item.name = text  # type: ignore[attr-defined]
         if hasattr(item, '_update_label'):
@@ -3021,11 +3056,11 @@ class PropertiesPanel(QWidget):
         timer = getattr(edit, '_ogp_commit_timer', None)
         if timer is not None:
             timer.stop()
-        if self._updating or self._command_manager is None:
+        if self._updating or self._command_manager is None or edit.isReadOnly():
             return
         old_name = getattr(edit, '_ogp_name_start', item.name)
         new_name = edit.text()
-        if new_name == getattr(edit, "_ogp_name_display", None):
+        if new_name == getattr(edit, "_ogp_editor_display", None):
             return
         if new_name == old_name:
             return
@@ -3040,7 +3075,7 @@ class PropertiesPanel(QWidget):
         cmd = ChangePropertyCommand(item, "name", old_name, new_name, apply_name)
         self._command_manager.register_applied(cmd)
         edit._ogp_name_start = new_name  # type: ignore[attr-defined]
-        edit._ogp_name_display = new_name  # type: ignore[attr-defined]
+        edit._ogp_editor_display = new_name  # type: ignore[attr-defined]
 
     def _on_property_changed(self, item: QGraphicsItem, property_name: str, value) -> None:
         return self._property_edits._on_property_changed(item, property_name, value)

@@ -1014,9 +1014,8 @@
             <translation>Bancal elevado</translation>
         </message>
         <message>
-            <location filename="../../ui/canvas/canvas_view.py" line="5930" />
             <source>Rotate the group back to 0° before ungrouping</source>
-            <translation>Gire el grupo de nuevo a 0° antes de desagrupar</translation>
+            <translation type="vanished">Gire el grupo de nuevo a 0° antes de desagrupar</translation>
         </message>
         <message>
             <location filename="../../ui/canvas/canvas_view.py" line="787" />
@@ -12897,6 +12896,11 @@ marcado = proteger siempre, desmarcado = no proteger nunca, indeterminado = usar
             <location filename="../../ui/panels/properties_panel.py" line="2301" />
             <source>── Paths ──</source>
             <translation>── Caminos ──</translation>
+        </message>
+        <message>
+            <location filename="../../ui/panels/properties_panel.py" line="2222" />
+            <source>Replace full value</source>
+            <translation>Reemplazar el contenido completo</translation>
         </message>
     </context>
     <context>

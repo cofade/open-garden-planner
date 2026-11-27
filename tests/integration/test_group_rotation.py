@@ -1009,7 +1009,7 @@ def test_a_rotated_group_ungroups_without_moving_members_on_reload(
             return [item.mapToScene(p) for p in item.anchors + item.handles_in + item.handles_out]
         if isinstance(item, ConstructionLineItem):
             return [item.mapToScene(item.line().p1()), item.mapToScene(item.line().p2())]
-        if isinstance(item, (JournalPinItem, ReferencePointItem)):
+        if isinstance(item, JournalPinItem):
             return [item.mapToScene(QPointF())]
         if isinstance(item, ConstructionCircleItem):
             return [item.mapToScene(item.rect().center())]

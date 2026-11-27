@@ -349,8 +349,8 @@ The first dedupe wrote `<use x="new_x" y="new_y">`; because the defined image al
 
 ### PF-CAN-75
 
-- **Rule:** A Qt item group's rotation is not fully described by its angle and position. Persist the pivot (`transform_origin`) with it, fix that pivot when the group first turns rather than recomputing it from a frame a later member edit can move, and refuse to ungroup while the group is turned: `removeFromGroup` keeps the composed rotation in the member's Qt transform matrix, while the `.ogp` format stores only the member's own `rotation_angle`, so a bake would have to cover every member type (including arcs) and zero-net-angle pairs.
-- **Pinned by:** `tests/integration/test_group_rotation.py::test_a_member_edit_after_a_turn_survives_save_and_reload`; `tests/integration/test_group_rotation.py::test_ungroup_refuses_a_rotated_group_and_keeps_its_geometry`; `tests/integration/test_smart_symbol_removal.py::test_a_legacy_rotated_symbol_keeps_the_old_origin_pivot`
+- **Rule:** Persist a group's fixed pivot with its angle. When ungrouping, convert the composed scene transform into each member's stored position, angle or control points. Undo restores the original local pose.
+- **Pinned by:** `tests/integration/test_group_rotation.py::test_a_member_edit_after_a_turn_survives_save_and_reload`; `tests/integration/test_group_rotation.py::test_a_rotated_group_ungroups_without_moving_members_on_reload`; `tests/integration/test_smart_symbol_removal.py::test_a_legacy_rotated_symbol_keeps_the_old_origin_pivot`
 - **Source:** #1022 review P0s
 - **Status:** standing
 - **Legacy:** none (new entry)
@@ -402,5 +402,3 @@ shadow boundary at 80% zoom through grouping and reselection.
 - **Source:** #873, manual test of PR #1030
 - **Status:** standing
 - **Legacy:** none (new entry)
-
-The crop rotation status label handed the full name to Qt's layout. The properties editors now receive bounded text and keep the full model value for no-op focus changes and Undo.

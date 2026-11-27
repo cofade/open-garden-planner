@@ -114,7 +114,10 @@ class MemberPose:
         if isinstance(item, ConstructionCircleItem):
             centre = item.rect().center()
             return MemberPose(world.map(centre) - centre, QTransform(), QPointF(), 0.0, 0.0)
-        if isinstance(item, (JournalPinItem, ReferencePointItem)):
+        if isinstance(item, JournalPinItem) or (
+            isinstance(item, ReferencePointItem)
+            and bool(item.flags() & QGraphicsItem.GraphicsItemFlag.ItemIgnoresTransformations)
+        ):
             return MemberPose(pos, QTransform(), QPointF(), 0.0, 0.0)
 
         text = isinstance(item, TextItem)

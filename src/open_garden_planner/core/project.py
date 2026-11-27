@@ -2937,7 +2937,7 @@ class ProjectManager(QObject):
             if not label_visible:
                 item.label_visible = False
             # Restore rotation angle
-            if "rotation_angle" in obj and not is_reference_point(metadata):
+            if "rotation_angle" in obj:
                 item._apply_rotation(obj["rotation_angle"])
             # Restore plant category and species
             if "plant_category" in obj:

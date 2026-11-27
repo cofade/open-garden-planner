@@ -994,9 +994,8 @@
             <translation>Carré potager surélevé</translation>
         </message>
         <message>
-            <location filename="../../ui/canvas/canvas_view.py" line="5930" />
             <source>Rotate the group back to 0° before ungrouping</source>
-            <translation>Ramenez le groupe à 0° avant de dissocier</translation>
+            <translation type="vanished">Ramenez le groupe à 0° avant de dissocier</translation>
         </message>
         <message>
             <location filename="../../ui/canvas/canvas_view.py" line="787" />
@@ -12629,6 +12628,11 @@ coché = toujours protéger, décoché = ne jamais protéger, indéterminé = va
             <location filename="../../ui/panels/properties_panel.py" line="2301" />
             <source>── Paths ──</source>
             <translation>── Chemins ──</translation>
+        </message>
+        <message>
+            <location filename="../../ui/panels/properties_panel.py" line="2222" />
+            <source>Replace full value</source>
+            <translation>Remplacer tout le contenu</translation>
         </message>
     </context>
     <context>

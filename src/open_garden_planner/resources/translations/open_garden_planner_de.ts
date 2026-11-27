@@ -1034,9 +1034,8 @@
             <translation>Hochbeet</translation>
         </message>
         <message>
-            <location filename="../../ui/canvas/canvas_view.py" line="5930" />
             <source>Rotate the group back to 0° before ungrouping</source>
-            <translation>Drehen Sie die Gruppe vor dem Aufheben der Gruppierung auf 0° zurück</translation>
+            <translation type="vanished">Drehen Sie die Gruppe vor dem Aufheben der Gruppierung auf 0° zurück</translation>
         </message>
         <message>
             <location filename="../../ui/canvas/canvas_view.py" line="787" />
@@ -13328,6 +13327,11 @@ angehakt = immer schützen, nicht angehakt = nie schützen, unbestimmt = Standar
             <location filename="../../ui/panels/properties_panel.py" line="2301" />
             <source>── Paths ──</source>
             <translation>── Wege ──</translation>
+        </message>
+        <message>
+            <location filename="../../ui/panels/properties_panel.py" line="2222" />
+            <source>Replace full value</source>
+            <translation>Gesamten Inhalt ersetzen</translation>
         </message>
     </context>
     <context>

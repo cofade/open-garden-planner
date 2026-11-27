@@ -1018,9 +1018,8 @@
             <translation>Приподнятая грядка</translation>
         </message>
         <message>
-            <location filename="../../ui/canvas/canvas_view.py" line="5930" />
             <source>Rotate the group back to 0° before ungrouping</source>
-            <translation>Поверните группу обратно на 0°, прежде чем разгруппировать</translation>
+            <translation type="vanished">Поверните группу обратно на 0°, прежде чем разгруппировать</translation>
         </message>
         <message>
             <location filename="../../ui/canvas/canvas_view.py" line="787" />
@@ -13052,6 +13051,11 @@ checked = always protect, unchecked = never protect, indeterminate = use the pla
             <location filename="../../ui/panels/properties_panel.py" line="2301" />
             <source>── Paths ──</source>
             <translation>── Дорожки ──</translation>
+        </message>
+        <message>
+            <location filename="../../ui/panels/properties_panel.py" line="2222" />
+            <source>Replace full value</source>
+            <translation>Заменить содержимое целиком</translation>
         </message>
     </context>
     <context>

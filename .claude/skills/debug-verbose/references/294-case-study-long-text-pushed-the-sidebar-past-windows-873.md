@@ -11,7 +11,7 @@ properties editor. Bed selection in that probe took 5.28 s including the wait.
 
 Clip the name before the word-wrapped status label and load only bounded text
 into the property editors. Keep the complete stored value as the edit baseline.
-Focusing and leaving an untouched preview preserves the record.
+Oversized values have a read-only preview and an explicit replacement action. Focusing and leaving the preview preserves the record.
 In the same probe bed selection took 0.83 s with no oversized geometry warning.
 The main-window sidebar case in `tests/integration/test_plan_label_text_bound.py`
 pins the bounded height, the untouched values and Undo.
