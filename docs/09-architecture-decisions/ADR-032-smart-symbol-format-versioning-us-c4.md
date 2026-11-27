@@ -1,13 +1,15 @@
 ---
 id: ADR-032
 title: "Smart Symbol Format & Versioning (US-C4)"
-status: "Accepted (Phase 13 — Package C, US-C4). **UI retired (#770):** the engine, persistence, properties-panel editing, and DXF export ship and are tested; the **Smart Symbols sidebar panel and the bundled starter set were removed in #770** (the fixed symbols added little over the parametric structure tools, #768/#769). Existing symbols in a loaded `.ogp` regenerate and export normally, and user files in `<app-data>/smart_symbols/` still load. The five former templates are test fixtures (`tests/fixtures/smart_symbols/`)."
+status: "**Superseded / removed (#1009).** The engine, persistence, properties-panel editing and DXF export were retired together; a plan that contains a symbol opens as a plain group with unchanged geometry (see the #1009 addendum). Historical decisions below; the UI was retired in #770."
 legacy_anchor: adr-032-smart-symbol-format--versioning-us-c4
 ---
 
 # ADR-032: Smart Symbol Format & Versioning (US-C4)
 
-**Status**: Accepted (Phase 13 — Package C, US-C4). **UI retired (#770):** the engine, persistence, properties-panel editing, and DXF export ship and are tested; the **Smart Symbols sidebar panel and the bundled starter set were removed in #770** (the fixed symbols added little over the parametric structure tools, #768/#769). Existing symbols in a loaded `.ogp` regenerate and export normally, and user files in `<app-data>/smart_symbols/` still load. The five former templates are test fixtures (`tests/fixtures/smart_symbols/`).
+**Status**: **Superseded / removed (#1009).** The engine, persistence, properties-panel editing and DXF export were retired together; a plan that contains a symbol opens as a plain group with unchanged geometry (see the #1009 addendum). Historical decisions below; the UI was retired in #770.
+
+**Status (historical)**: Accepted (Phase 13 - Package C, US-C4). **UI retired (#770):** the engine, persistence, properties-panel editing, and DXF export ship and are tested; the **Smart Symbols sidebar panel and the bundled starter set were removed in #770** (the fixed symbols added little over the parametric structure tools, #768/#769). Existing symbols in a loaded `.ogp` regenerate and export normally, and user files in `<app-data>/smart_symbols/` still load. The five former templates are test fixtures (`tests/fixtures/smart_symbols/`).
 **Context**: Users want reusable **parametric blocks** ("raised bed L×W with N rows", pergola, fence panel) they can drop and edit by parameter rather than redrawing. The acceptance criteria require: a versioned, **user-extendable** definition format (drop a JSON → new symbol on next launch); the instance stores `symbol_id + version + params`, NOT the expanded geometry (it regenerates on load); a cached-geometry fallback for unknown/changed symbols; DXF export as BLOCK/INSERT; and a CI schema validator. A dropped JSON is untrusted input, so geometry expressions must be evaluated **without** `eval()`.
 **Decision**:
 - **Declarative geometry DSL.** A symbol JSON declares typed `parameters` (number/length/choice) and an `elements` list (`rect`/`line`/`polyline`/`polygon`/`circle`); each coordinate is a number or an arithmetic **expression string** over the parameters, and a `repeat{var,from,to}` block emits an element across an integer range. Bundled *and* user symbols are pure data — authoring a new shape needs no code. (`models/smart_symbol.py`, Qt-free, emits plain `PrimitiveSpec` dataclasses so generation is unit-testable.)
@@ -48,3 +50,15 @@ Smart symbol children previously instantiated exclusively as untyped/generic can
 5. **No `FILE_VERSION` bump.** Existing plans keep their stored smart-symbol children and ridge colours; only new ridges get the aluminium finish, and the `ridge_finish` key is additive (a ridge without it paints brown).
 
 **Consequences**: The fixed-symbol library is no longer a product surface; the parametric tools are. The version contract (FR-SYMBOL-08) still guards user files and existing plans. Tests: `tests/integration/test_parametric_structures.py` (layout, 2D/3D agreement, greenhouse ridge lifecycle), `tests/unit/test_sprite_orientation.py`, the extended `tests/integration/test_smart_symbols.py` (fixture library), and the ridge cases in `tests/integration/test_house_roof_ridge.py`.
+
+## Addendum (issue #1009, 2026-11-25 — Smart Symbols are removed completely)
+
+**Status**: Shipped (2D canvas follow-up package). **Context**: #770 removed only the panel and the bundled set. Since v1.37.9 no user could create a symbol, yet the engine, persistence, Properties-panel editing, DXF block export, the `<app-data>/smart_symbols/` folder contract and their tests were still on `master`.
+
+**Decision**:
+1. **The engine is gone, not hidden.** `models/smart_symbol.py`, `services/smart_symbol_library.py`, `ui/canvas/items/smart_symbol_item.py`, `ChangeSmartSymbolParamCommand`, the DXF BLOCK/INSERT export path, the Properties-panel parameter editor and the Smart-Symbol metadata consumers in the shadow and 3D snapshot paths are deleted. `models/parametric_eval.py` stays as a generic bounded arithmetic evaluator (its own unit test is the only remaining caller).
+2. **Old plans open as plain groups.** The loader ignores a `smart_symbol` key instead of reconstructing a symbol; the serialized children remain the geometry. Typed children (#599) keep their types. The next save writes a group without the key. No `FILE_VERSION` bump, exactly as this ADR designed.
+3. **User data is untouched.** `<app-data>/smart_symbols/` is no longer read and is deliberately not migrated or deleted (the same rule as #767).
+4. **The group rotation key is additive.** A group now stores its own `rotation` (issue #1022), which also preserves the angle a pre-removal symbol could carry. Older apps ignore it.
+
+**Consequences**: the removal is pinned by `tests/integration/test_smart_symbol_removal.py` (an old plan with the key opens as a two-member group with the same types and positions, and a re-save drops the key). The translation gate loses the `SmartSymbolsPanel` context and the "Smart Symbols" menu string in all five locales. The broader trust-boundary lesson from PR #236 stays in the pitfalls file, but its pinned test and model reference are gone.

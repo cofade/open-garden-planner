@@ -227,3 +227,67 @@ scene-wide path. A successful scoped cut returns to Select. The raised-bed
 example exercises the refusal because its soil test and succession plan refer
 to the original bed ID. A freshly drawn raised bed exercises the frame-preserving
 cut.
+
+**Addendum 6 (issue #1022, 2026-11-25) - a selected group turns as one unit.**
+
+**Status:** Shipped in the 2D canvas follow-up package. A group now mixes in the
+same `RotationHandleMixin` as a single item, so it shows one standard handle
+above its own selection frame (#840's `selection_frame_rect`, never
+`boundingRect()`: a badge or a screen-sized handle would move the pivot). The
+gesture is a **group transform**, not a loop over members: children keep their
+local positions and Qt's group transform rotates their scene positions about
+the frame centre together. `GroupItem._apply_rotation` sets the transform
+origin to that centre on the first turn only, and `_on_rotation_end` registers the ordinary
+`RotateItemCommand` through `geometry_apply.register_rotation_command`, so the
+whole gesture is one undo step and the shared constraint-partner recording
+still runs. A drilled-down member keeps its own handle; the group hides its
+own for the duration (`CanvasView.begin_group_drill_down` /
+`_clear_group_drill_down`), which reuses the existing
+`_individual_handles_allowed` rule.
+
+Persistence is additive: a group may carry a `rotation` key (the same key a
+pre-#1009 smart-symbol group used) and a `transform_origin`; a later member edit
+does not re-pivot, and reloading the saved origin is what keeps every member in
+place. The command records both pivot states, so undo restores the previous one
+and a drag that changes nothing fixes none. A nested group saves its compensating
+base transform, so regrouping a turned group does not apply its translation twice.
+That matrix is translation-only; a plan with a rotation or scale there is refused at
+the numeric boundary, and edit surfaces refuse such a group. The boundary composes
+x/y with that translation, every parent offset and every transformed primitive's box
+(including far edges and the group union) through the same Qt-free
+`core/object_bounds` code the Agent API uses; a legacy symbol
+without an origin rotates about (0, 0) in both. One `core/angles` rule decides an
+Agent no-op, saving a group angle, and Ungroup's turned test, canonicalizes a
+sub-tolerance target to 0, and commits a gesture that returns inside the tolerance as
+exactly 0. A committed
+member angle is saved even below 0.01°, so a tiny group turn survives reload.
+Grouped child records carry their own `parent_bed_id` / `child_item_ids`, so a link
+whose endpoints are both members survives save and reload; copy/duplicate remaps
+both fields through one map for the whole tree and drops uncopied endpoints. That
+map is the only author of copied links; paste/duplicate never rebuild them from a
+top-level-only map, and the forest is normalized so each source item appears once.
+The Agent API's group box applies the same base translation; a grouped or turned
+callout saves its local bounds and pivot (text edits do not re-pivot it) and reports
+the scene-space leader tip; a text note saves its reflected footprint. A turned
+standalone callout's region box is its turned footprint.
+Ungrouping a turned group (#1032) captures every member's scene transform before
+reparenting. The command applies the pose the existing serializers write: normal
+member angles, scene-frame geometry for curves and construction lines, and the
+one intrinsic Y reflection of text. Nested groups keep their descendants local.
+Undo reapplies the captured local state, including the original base matrix and
+pivot. Validate the whole group before mutation. A legacy symbol
+without an origin rotated about its local (0, 0); the loader reproduces that
+exact geometry. A grouped bed's linked top-level plants are captured at gesture start and
+carried about the same pivot by `RotateItemCommand`'s follower snapshots. Its membership
+tracker re-decides only the group's own plants whose parent bed did not turn with them; a
+plant that turns with its own bed keeps the link because the two moved rigidly, and the
+carried top-level plants are followers, never re-solved. The move command's
+net-scene-delta rule (PF-CAN-70) handles later moves. A constrained member, a member on a
+locked layer, or a linked plant owned by another group is refused before any geometry
+changes. Roof ridges are re-derived by the existing `update_house_ridges_under` listener.
+
+Pinned by `tests/integration/test_group_rotation.py` (handle visibility,
+drill-down, a real viewport drag, rigid member geometry, one-step undo, Shift
+snapping, a nested group, a grouped bed, a grouped house ridge, DXF ellipse
+orientation, zero-angle pivot, constraint refusal, and save/load after a member
+edit and an ungroup refusal).

@@ -1,12 +1,12 @@
 ---
 id: ADR-076
-title: "Exports paint one picture — a recorded SVG, raster plan pages in the PDF, live SVG text"
+title: "Exports paint one picture - a recorded SVG, raster plan pages in the PDF, live SVG text"
 status: "Accepted (visual-polish package, 2026-11-09); shipped in v1.38.0 (PR #838)"
 refs: ["#787", "#788", "#789"]
-legacy_anchor: adr-076-exports-paint-one-picture--a-recorded-svg-raster-plan-pages-in-the-pdf-live-svg-text-787-788-789
+legacy_anchor: adr-076-exports-paint-one-picture---a-recorded-svg-raster-plan-pages-in-the-pdf-live-svg-text-787-788-789
 ---
 
-# ADR-076: Exports paint one picture — a recorded SVG, raster plan pages in the PDF, live SVG text
+# ADR-076: Exports paint one picture - a recorded SVG, raster plan pages in the PDF, live SVG text
 
 **Status**: Accepted (visual-polish package, 2026-11-09); shipped in v1.38.0 (PR #838)
 
@@ -74,7 +74,7 @@ SVG 1.1 mode, and `QSvgRenderer` ignores `clip-path`.
 **Consequences**: the SVG fidelity test compares the rasterised SVG with the PNG export
 of the same scene (four bundled examples, a parametric roof, a glasshouse, a painter
 nobody taught about SVG) at a stated tolerance; a new painter needs no SVG knowledge.
-An SVG's pictures are embedded once per use, as before, and grow with their resolution.
+An SVG's pictures are embedded once per distinct picture and geometry (since #850, a repeat is a `<use>`) and grow with their resolution.
 The report is three to eight times larger than at 72 dpi.
 
 Cross-refs: PF-CAN-08, PF-CAN-12, PF-CAN-13, PF-CAN-53, PF-CAN-54; §8.36; FR-EXP-01,
@@ -164,5 +164,16 @@ FR-EXP-08, FR-VIS-07, FR-VIS-09; debug-verbose case study 225.
     (#869). Every gallery plant is `ObjectType.PERENNIAL`, so carrots and lettuce
     read "Perennial". `core.plant_cycle_label` is the one translated cycle vocabulary;
     the plant list, Plant Details, custom-plant table and plant search use it.
+20. **A repeated picture is written once and placed with `<use>`** (#850). The
+    recording replay still writes one `<image>` per distinct payload and geometry;
+    `_dedupe_picture_uses` (`services/svg_export.py`) adds an id to the first and
+    writes the rest as `<use>` with only the placement delta. Measured at a 30 cm
+    page on the bundled examples: raised bed 3.67 -> 2.17 MB, balcony 3.28 -> 2.03 MB,
+    food forest 6.90 -> 6.12 MB, family garden 8.62 -> 8.27 MB. The delta is what
+    keeps a <use> on the right pixel: the referenced <image> keeps its own x/y,
+    so the use carries `new - first` (a plain copy of x/y moved the balcony's shade
+    sprites; the fidelity test caught it). `QSvgRenderer` resolves a `<use>` of an
+    `<image>` (measured); Edge does too. Clipped-stroke editability, halo metrics
+    and the badge typeface are deliberately still open (#1029).
 
 Cross-refs: §8.36; FR-EXP-03, FR-EXP-08; PF-CAN-55.
