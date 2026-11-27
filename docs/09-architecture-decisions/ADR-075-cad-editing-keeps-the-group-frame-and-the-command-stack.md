@@ -230,7 +230,7 @@ cut.
 
 **Addendum 6 (issue #1022, 2026-11-25) - a selected group turns as one unit.**
 
-**Status:** Shipped in the 2D canvas follow-up package. A group now mixes in the
+**Status:** Shipped in v1.43.3 (PR #1030, 2026-11-27); owner manual tests passed on 2026-11-27. A group now mixes in the
 same `RotationHandleMixin` as a single item, so it shows one standard handle
 above its own selection frame (#840's `selection_frame_rect`, never
 `boundingRect()`: a badge or a screen-sized handle would move the pivot). The
