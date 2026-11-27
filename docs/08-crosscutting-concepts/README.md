@@ -1850,7 +1850,8 @@ records the rot rate that motivated the gate.
 
 **The decision record is gated as data (#1035, ADR-083).** Each ADR is its own file,
 `docs/09-architecture-decisions/ADR-nnn-<slug>.md`, with front matter. The citation gate
-accepts `ADR-0NN` only when that file exists and opens with `# ADR-0NN:`.
+accepts `ADR-0NN` only when that file exists and holds the heading `# ADR-0NN:`; the
+ADR gate below makes that heading the file's first and only H1.
 `tests/unit/test_doc_indexes.py` runs `scripts/generate_doc_indexes.py --check`. Its
 rules are listed once, in ADR-083. A hand edit of the generated `README.md` index fails
 it, and so does a status that was edited in the body without a run of the generator.

@@ -34,6 +34,7 @@ import subprocess
 import sys
 from dataclasses import dataclass
 from pathlib import Path
+from typing import cast
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 import generate_doc_indexes as gdi
@@ -209,7 +210,7 @@ def verify(text: str, preamble: list[str], sections: list[Section]) -> list[str]
             body_lines.pop()
         restored = demote(body_lines)
         title = str(values["title"])
-        refs = list(values.get("refs", []))  # type: ignore[call-overload]
+        refs = list(cast("list[str]", values.get("refs", [])))
         if refs:
             # the H1 lost exactly its trailing "(... #n ...)" list, and refs carries it
             if not section.raw_title.startswith(title + " ("):
@@ -258,10 +259,13 @@ def main(argv: list[str] | None = None) -> int:
           f"{sum(1 for s in sections if s.refs)} titles cleaned, preamble {len(preamble)} lines")
     mapping = anchor_map(sections)
 
+    folder = ROOT / gdi.ADR_DIR
+    # Every file a write would replace: any ADR-nnn-*.md of an old-record number (a file
+    # renamed after a title edit too), not only the one with today's derived name.
     changed = [
         s.id for s in sections
-        if (ROOT / gdi.ADR_DIR / s.file_name).exists()
-        and (ROOT / gdi.ADR_DIR / s.file_name).read_text(encoding="utf-8") != render_file(s)
+        for path in folder.glob(f"ADR-{s.number:03d}-*.md")
+        if path.name != s.file_name or path.read_text(encoding="utf-8") != render_file(s)
     ]
     if changed and not args.verify_only and not args.replace:
         print(f"refusing to overwrite ADR files that differ from {args.rev}'s old text: "
@@ -272,13 +276,15 @@ def main(argv: list[str] | None = None) -> int:
     if not args.verify_only:
         # Replace only the files of ADRs the old record holds; a newer ADR (ADR-083 on,
         # written as its own file) is left alone on a re-run.
-        for number in numbers:
-            for old in (ROOT / gdi.ADR_DIR).glob(f"ADR-{number:03d}-*.md"):
-                old.unlink()
         for section in sections:
-            (ROOT / gdi.ADR_DIR / section.file_name).write_text(
-                render_file(section), encoding="utf-8", newline="\n"
-            )
+            target = folder / section.file_name
+            for old in folder.glob(f"ADR-{section.number:03d}-*.md"):
+                if old != target:
+                    old.unlink()
+            content = render_file(section)
+            # skip unchanged files: a rewrite would only churn line endings on a CRLF checkout
+            if not target.exists() or target.read_text(encoding="utf-8") != content:
+                target.write_text(content, encoding="utf-8", newline="\n")
         errors = gdi.write(ROOT)
         if errors:
             print("\n".join(errors), file=sys.stderr)

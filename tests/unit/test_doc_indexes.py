@@ -316,6 +316,14 @@ def test_a_superseded_status_without_superseded_by_fails(tmp_path: Path) -> None
     (["# ADR-001: T", "**Status:** Shipped in", "[v1.0](u) (PR #1).", "**Context**: x"],
      "Shipped in [v1.0](u) (PR #1)."),
     (["# ADR-001: T", "", "## Addendum", "", "**Status**: an addendum's own"], ""),
+    # ADR-069's shape: a bold clause inside the paragraph is status, not the next field
+    (["# ADR-069: T", "**Status**: Accepted; WITHDRAWN on 2026-11-01.",
+      "**Superseded on 2026-11-24 (PR #1016):** a regrown part reloads.", "**Context**: x"],
+     "Accepted; WITHDRAWN on 2026-11-01. **Superseded on 2026-11-24 (PR #1016):** a regrown part reloads."),
+    # an early one-line record: the "| **Context**: …" tail is not status
+    (["# ADR-048: T", "**Status**: **Accepted (GO)** (owner). | **Context**: long"],
+     "**Accepted (GO)** (owner)."),
+    (["# ADR-064: T", "**Status**: Accepted", "**Date:** 2026-10-25"], "Accepted"),
 ])
 def test_status_from_body(lines: list[str], status: str) -> None:
     assert gdi.status_from_body(lines) == status
@@ -351,6 +359,77 @@ def test_the_split_refuses_to_run_on_an_already_split_record() -> None:
     """After #1035 the ADR files are the record; re-running would overwrite their edits."""
     split = _load("split_adr_record")
     assert split.main(["--rev", "HEAD", "--verify-only"]) == 2
+
+
+OLD_RECORD = """# 9. Architecture Decisions
+
+Intro.
+
+## ADR-001: One (#11)
+
+**Status**: Accepted
+
+### Addendum
+
+Text.
+
+## ADR-002: Two
+
+**Status**: Accepted
+"""
+
+
+def test_the_split_refuses_to_overwrite_an_edited_adr_file(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """A file that no longer matches the old text is listed, and nothing is written."""
+    split = _load("split_adr_record")
+    monkeypatch.setattr(split, "ROOT", tmp_path)
+    monkeypatch.setattr(split, "read_old", lambda _rev: OLD_RECORD)
+    (tmp_path / "docs" / "09-architecture-decisions").mkdir(parents=True)
+    _, sections = split.split(OLD_RECORD)
+    assert [s.file_name for s in sections] == ["ADR-001-one.md", "ADR-002-two.md"]
+    assert sections[0].refs == ["#11"]
+    for section in sections:
+        (tmp_path / "docs" / "09-architecture-decisions" / section.file_name).write_text(
+            split.render_file(section), encoding="utf-8")
+    edited = tmp_path / "docs" / "09-architecture-decisions" / "ADR-002-two.md"
+    edited.write_text(edited.read_text(encoding="utf-8") + "\n## Addendum after the split\n",
+                      encoding="utf-8")
+    renamed = tmp_path / "docs" / "09-architecture-decisions" / "ADR-001-one-renamed.md"
+    (tmp_path / "docs" / "09-architecture-decisions" / "ADR-001-one.md").rename(renamed)
+
+    assert split.main(["--rev", "old"]) == 2
+    assert "Addendum after the split" in edited.read_text(encoding="utf-8")
+    assert renamed.exists()
+
+
+def test_every_link_into_an_adr_file_names_an_existing_anchor() -> None:
+    """The rewritten addendum links (and any later one) break when a heading is renamed."""
+    import re
+    import subprocess
+    import urllib.parse
+
+    anchors = {
+        path.name: {anchor for *_rest, anchor in gdi.document_anchors(
+            path.read_text(encoding="utf-8"))}
+        for path in gdi.adr_paths(REPO)
+    }
+    link = re.compile(r"09-architecture-decisions/(ADR-\d{3}-[a-z0-9-]+\.md)#([^\s)\]`'\"<>]+)")
+    tracked = subprocess.run(
+        ["git", "ls-files", "-z"], cwd=REPO, check=True, capture_output=True
+    ).stdout.decode("utf-8").split("\0")
+    bad = []
+    for rel in filter(None, tracked):
+        path = REPO / rel
+        if path.suffix.lower() not in {".md", ".py", ".toml", ".txt", ".json", ".yml", ".yaml"}:
+            continue
+        if not path.exists():
+            continue
+        for name, anchor in link.findall(path.read_text(encoding="utf-8")):
+            if urllib.parse.unquote(anchor) not in anchors.get(name, set()):
+                bad.append(f"{rel}: {name}#{anchor}")
+    assert bad == []
 
 
 def test_main_check_exit_codes(tmp_path: Path) -> None:

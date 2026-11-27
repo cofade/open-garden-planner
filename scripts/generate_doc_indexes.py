@@ -53,8 +53,9 @@ ALLOWED_GAPS: dict[int, str] = {}
 ADR_FILE_RE = re.compile(r"^ADR-(\d{3})-([a-z0-9]+(?:-[a-z0-9]+)*)\.md$")
 ADR_ID_RE = re.compile(r"^ADR-(\d{3})$")
 H1_RE = re.compile(r"^# (ADR-\d{3}): (.+)$")
-#: A fenced-code delimiter; indented too, since a fence inside a list item is indented.
-FENCE_RE = re.compile(r"^\s*(`{3,}|~{3,})")
+#: A fenced-code delimiter (CommonMark: at most three spaces of indentation; the record
+#: has fences inside list items at three).
+FENCE_RE = re.compile(r"^ {0,3}(`{3,}|~{3,})")
 HEADING_RE = re.compile(r"^(#{1,6}) +(.*?) *#* *$")
 
 INDEX_PREAMBLE = """\
@@ -255,15 +256,25 @@ class Adr:
 
 
 STATUS_RE = re.compile(r"^\*\*Status(?:\*\*:|:\*\*|\.\*\*)\s*(.*)$")
-_FIELD_LINE_RE = re.compile(r"^\*\*[A-Z]")
+#: The record's field labels that may follow a Status line without a blank line. A closed
+#: list: a bold clause inside the paragraph (ADR-069's "**Superseded on 2026-11-24 …:**")
+#: is status text, not the next field.
+_FIELD_LINE_RE = re.compile(
+    r"^\*\*(?:Context|Date|Decision|Rationale|Consequences|Alternatives(?: considered)?"
+    r"|Problem|Scope)\b[^*]*(?::\*\*|\*\*:)"
+)
+#: An early one-line record runs on: "**Status**: Accepted | **Context**: …".
+_INLINE_FIELD = " | **"
 _ADR_REF_RE = re.compile(r"\bADR-\d{3}\b")
 
 
 def status_from_body(lines: list[str]) -> str:
     """The ADR's own status: its first ``**Status**:`` paragraph before any sub-heading.
 
-    The paragraph's lines are joined with single spaces; the text is otherwise verbatim.
-    A version sync edits this line; the generator copies it into the front matter.
+    The paragraph ends at a blank line, a heading, or the next field label
+    (``_FIELD_LINE_RE``); an early one-line record's ``| **Context**: …`` tail is not status.
+    The lines are joined with single spaces; the text is otherwise verbatim. A version
+    sync edits this line; the generator copies it into the front matter.
     """
     headings = [index for index, _level, _text in iter_headings(lines)]
     limit = headings[1] if len(headings) > 1 else len(lines)
@@ -276,7 +287,7 @@ def status_from_body(lines: list[str]) -> str:
             if not line.strip() or _FIELD_LINE_RE.match(line) or line.lstrip().startswith("#"):
                 break
             parts.append(line.strip())
-        return " ".join(part for part in parts if part)
+        return " ".join(part for part in parts if part).split(_INLINE_FIELD, 1)[0].strip()
     return ""
 
 
@@ -299,11 +310,6 @@ def adr_paths(root: Path = REPO_ROOT) -> list[Path]:
         (path for path in folder.glob("*.md") if path.name.lower().startswith("adr-")),
         key=lambda p: p.name,
     )
-
-
-def adr_record_text(root: Path = REPO_ROOT) -> str:
-    """The whole decision record as one text, in number order (for tests that grep it)."""
-    return "\n".join(path.read_text(encoding="utf-8") for path in adr_paths(root))
 
 
 def load_adrs(root: Path = REPO_ROOT) -> tuple[list[Adr], list[str]]:

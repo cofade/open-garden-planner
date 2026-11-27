@@ -1,7 +1,7 @@
 ---
 id: ADR-037
 title: "Sun/Shade Foundation — Qt-Free Solar Engine + Object-Height Resolver (Phase 14, US-E1+E2)"
-status: "Accepted (2026-07-19) | **Context**: Epic #255, issues #256 + #257, campaign skill `ogp-3d-sunshade-campaign`"
+status: "Accepted (2026-07-19)"
 legacy_anchor: adr-037-sunshade-foundation--qt-free-solar-engine--object-height-resolver-phase-14-us-e1e2
 ---
 

@@ -1,7 +1,7 @@
 ---
 id: ADR-042
 title: "Visual Refresh Package 3 — Generated Object Sprites, Forge Textures, Comprehensive Iconography"
-status: "Accepted (2026-08-17 Package 3a; 2026-08-18 Packages 3b and 3c) | **Context**: epic #284 (Phase 15 Package 3), decisions locked in the 2026-08-17 planning session and logged on the issue; sub-issues #308 (3a), #309 (3b), #310 (3c)"
+status: "Accepted (2026-08-17 Package 3a; 2026-08-18 Packages 3b and 3c)"
 legacy_anchor: adr-042-visual-refresh-package-3--generated-object-sprites-forge-textures-comprehensive-iconography
 ---
 

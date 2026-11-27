@@ -1,7 +1,7 @@
 ---
 id: ADR-038
 title: "3D Engine Choice — GO/NO-GO Spike (Phase 14, US-E5)"
-status: "**Superseded** by ADR-048 (2026-10-05); the code this decision chose was deleted in Phase 17 L1.10 (2026-10-19, ADR-060 addendum \"the default and the removal\", ADR-048's closing addendum). Was: Proposed — GO recommendation, owner sign-off pending on the US-E5 PR (evaluated 2026-07-19/20) | **Context**: Epic #255, issue #260, `docs/11` §11.1 open question (\"Qt6 3D capabilities vs dedicated engine? Prototype with Qt3D, evaluate PyVista\"). Timebox: 5 working days, hard stop."
+status: "**Superseded** by ADR-048 (2026-10-05); the code this decision chose was deleted in Phase 17 L1.10 (2026-10-19, ADR-060 addendum \"the default and the removal\", ADR-048's closing addendum). Was: Proposed — GO recommendation, owner sign-off pending on the US-E5 PR (evaluated 2026-07-19/20)"
 superseded_by: ["ADR-048"]
 legacy_anchor: adr-038-3d-engine-choice--gono-go-spike-phase-14-us-e5
 ---

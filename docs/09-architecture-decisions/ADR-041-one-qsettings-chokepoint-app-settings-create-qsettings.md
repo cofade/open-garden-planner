@@ -1,7 +1,7 @@
 ---
 id: ADR-041
 title: "One QSettings Chokepoint — `app/settings.create_qsettings()`"
-status: "Accepted (2026-07-30) | **Context**: issue #285 (tech debt), follow-up to #283"
+status: "Accepted (2026-07-30)"
 legacy_anchor: adr-041-one-qsettings-chokepoint--appsettingscreate_qsettings
 ---
 

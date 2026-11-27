@@ -1,7 +1,7 @@
 ---
 id: ADR-039
 title: "Visual Refresh — Semantic Theme Tokens + Central Runtime-Tinted Icon Provider"
-status: "Accepted (2026-07-26) | **Context**: issue #279 (visual refresh Package 1: icons + chrome in one PR)"
+status: "Accepted (2026-07-26)"
 legacy_anchor: adr-039-visual-refresh--semantic-theme-tokens--central-runtime-tinted-icon-provider
 ---
 

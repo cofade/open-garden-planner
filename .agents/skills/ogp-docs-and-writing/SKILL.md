@@ -175,8 +175,10 @@ Headings inside an ADR file start at `##` (an addendum is `## Addendum …`). Th
   considered**` bullet list, each with the reason for rejection (including first cuts
   that *shipped and failed manual testing* — see ADR-028's rejected post-correction);
   `**Consequences**` naming added files, format impact ("No `.ogp` format change"), and
-  the pinning tests; and **`## Addendum (PR #NNN)` sections** appended to the ADR's own
-  file when later work refines the decision rather than replacing it (ADR-029 has two).
+  the pinning tests; and **addenda** appended to the ADR's own file when later work
+  refines the decision rather than replacing it. The record holds two forms: older
+  bold-paragraph addenda (`**Addendum (PR #NNN)**: …`, two in ADR-029) and `## Addendum …`
+  sections. New addenda use the `##` section form.
 
 Write new ADRs in the modern form, as a **new file**: number = max existing + 1
 (`ls docs/09-architecture-decisions/ADR-*.md | sort -V | tail -1`); slug = the title in

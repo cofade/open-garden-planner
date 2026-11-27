@@ -1,7 +1,7 @@
 ---
 id: ADR-040
 title: "Plant Sprite Redesign — Procedural \"Lush Sprite\" Generator as Single Source of Truth"
-status: "Accepted (2026-07-27) | **Context**: issue #281 (Visual Refresh Package 2 — the plant-art follow-up ADR-039 deferred)"
+status: "Accepted (2026-07-27)"
 legacy_anchor: adr-040-plant-sprite-redesign--procedural-lush-sprite-generator-as-single-source-of-truth
 ---
 

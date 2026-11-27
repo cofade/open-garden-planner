@@ -1,7 +1,7 @@
 ---
 id: ADR-069
 title: "Native triangulation and off-the-GUI-thread 3D preparation"
-status: "Accepted; shipped in v1.34.11 (PR #676) for #452: native triangulation, the cooperative sliced read and the geometry lane. The decision's #531 half was first built with a NEW geometry object assigned to each live Model; that renders nothing while still picking, and it was WITHDRAWN on 2026-11-01 together with #598's seasonal-parts index."
+status: "Accepted; shipped in v1.34.11 (PR #676) for #452: native triangulation, the cooperative sliced read and the geometry lane. The decision's #531 half was first built with a NEW geometry object assigned to each live Model; that renders nothing while still picking, and it was WITHDRAWN on 2026-11-01 together with #598's seasonal-parts index. **Superseded on 2026-11-24 (shipped in v1.42.1, PR #1016; owner's manual test 2026-11-25):** a regrown part loads new buffers into the geometry object its live Model already has (#531, the addenda below), and the seasonal index is back (#598, ADR-064's addendum \"the seasonal callback's headroom\"). Release counting: #1014."
 refs: ["#452", "#531", "#598"]
 legacy_anchor: adr-069-native-triangulation-and-off-the-gui-thread-3d-preparation-452-531-598
 ---
