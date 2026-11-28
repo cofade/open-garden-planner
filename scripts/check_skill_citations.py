@@ -85,7 +85,9 @@ _DOC_CHAPTER_NUMBERS = tuple(n for n in range(1, 13) if n != 9)
 # One file per ADR (#1035): docs/09-architecture-decisions/ADR-nnn-<slug>.md, whose
 # only H1 is "# ADR-nnn: <title>". The README there is a generated index.
 ADR_DIR_PATH = "docs/09-architecture-decisions"
-FR_INDEX_PATH = "docs/functional-requirements.md"
+# Prefix-keyed topic files (#1036): docs/functional-requirements/*.md and 3d/*.md, each
+# requirement a "- **FR-<PREFIX>-nn**" bullet. The README there is a generated index.
+FR_DIR_PATH = "docs/functional-requirements"
 ISSUE_REGISTRY_PATH = "tests/data/issue_registry.json"
 
 # (source file relative to repo root, citation key) -> reason. The key is the
@@ -112,9 +114,12 @@ _SECTION_REF_RE = re.compile(
 )
 _ADR_REF_RE = re.compile(r"ADR-(\d{3}(?:/\d{3})*)\b")
 _ADR_FILE_RE = re.compile(r"^ADR-(\d{3})-[a-z0-9-]+\.md$")
-_FR_REF_RE = re.compile(r"\bFR-(?:([A-Z]+)-)?(\d+(?:/\d+)*)\b")
-_FR_HEADING_RE = re.compile(r"^#{2,6}\s+FR-([A-Z0-9-]+?)[:\s]", re.MULTILINE)
-_FR_BULLET_RE = re.compile(r"^-\s+\*\*FR-([A-Z0-9-]+?)\*\*", re.MULTILINE)
+# The full ID grammar: FR-AGENT-03, FR-3D-WS-01, FR-ICON-3C-02, FR-AGENT-12a. A bare number
+# (FR-27, a chapter of the retired single file) has no prefix and never resolves.
+_FR_REF_RE = re.compile(r"\bFR-((?:[A-Z0-9]*[A-Z][A-Z0-9]*-)*)(\d+[a-z]?(?:/\d+[a-z]?)*)\b")
+_FR_BULLET_RE = re.compile(
+    r"^- \*\*FR-((?:[A-Z0-9]*[A-Z][A-Z0-9]*-)+\d+[a-z]?)\*\*(?=[: ])", re.MULTILINE
+)
 # The optional trailing symbol must stay on the same line (`[ \t]*`, not
 # `\s*`) — otherwise an unrelated code span starting the next line/paragraph
 # gets bound as this citation's "symbol", and never gets checked as its own
@@ -308,9 +313,11 @@ def check_adr_refs(
 
 
 def build_fr_pool(root: Path) -> set[str]:
-    text = (root / FR_INDEX_PATH).read_text(encoding="utf-8")
-    pool = {m.group(1) for m in _FR_HEADING_RE.finditer(text)}
-    pool |= {m.group(1) for m in _FR_BULLET_RE.finditer(text)}
+    """Every defined requirement ID without its ``FR-`` (``AGENT-03``, ``3D-WS-01``)."""
+    pool: set[str] = set()
+    folder = root / FR_DIR_PATH
+    for path in sorted(folder.rglob("*.md")) if folder.is_dir() else []:
+        pool |= {m.group(1) for m in _FR_BULLET_RE.finditer(path.read_text(encoding="utf-8"))}
     return pool
 
 
@@ -323,14 +330,14 @@ def check_fr_refs(root: Path, corpus_files: list[Path], pool: set[str]) -> list[
             raw = match.group(0)
             if _is_excepted(rel_file, raw):
                 continue
-            namespace = match.group(1)
+            namespace = match.group(1)  # "AGENT-", "3D-WS-", or "" for a bare number
             numbers = match.group(2).split("/")
             for number in numbers:
-                fr_id = f"{namespace}-{number}" if namespace else number
+                fr_id = f"{namespace}{number}"
                 if fr_id not in pool:
                     errors.append(
                         f"{rel_file}:{line}: '{raw}' cites FR-{fr_id}, which "
-                        f"has no entry in {FR_INDEX_PATH}"
+                        f"has no entry in {FR_DIR_PATH}/"
                     )
     return errors
 

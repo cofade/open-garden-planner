@@ -1,9 +1,13 @@
-"""Generate the architecture-decision index from the per-ADR files, or check it.
+"""Generate the ADR and functional-requirements indexes from their files, or check them.
 
 Each decision lives in its own file, ``docs/09-architecture-decisions/ADR-nnn-<slug>.md``
 (#1035, ADR-083). The file starts with a small front-matter block, then one H1
 ``# ADR-nnn: <title>``, then the record. ``docs/09-architecture-decisions/README.md``
 is written by this script from the front matter and must not be edited by hand.
+
+The functional requirements live in prefix-keyed topic files under
+``docs/functional-requirements/`` (#1036, ADR-083 addendum); their ``README.md`` is
+generated the same way (prefix → file, next free ID).
 
 Run from the repository root::
 
@@ -186,8 +190,16 @@ def render_front_matter(values: dict[str, object]) -> str:
     return "\n".join(lines) + "\n"
 
 
-def parse_front_matter(text: str) -> tuple[dict[str, object], str]:
-    """Split ``text`` into its front-matter values and the body after it."""
+def parse_front_matter(
+    text: str,
+    fields: dict[str, bool] = FIELDS,
+    list_fields: frozenset[str] = LIST_FIELDS,
+    bare_fields: frozenset[str] = BARE_FIELDS,
+) -> tuple[dict[str, object], str]:
+    """Split ``text`` into its front-matter values and the body after it.
+
+    The defaults are the ADR keys; a functional-requirements topic file passes its own.
+    """
     if not text.startswith("---\n"):
         raise FrontMatterError("does not start with a '---' front-matter line")
     end = text.find("\n---\n", 3)
@@ -196,11 +208,11 @@ def parse_front_matter(text: str) -> tuple[dict[str, object], str]:
     values: dict[str, object] = {}
     for number, line in enumerate(text[4:end].split("\n"), start=2):
         key, sep, raw = line.partition(": ")
-        if not sep or key not in FIELDS:
+        if not sep or key not in fields:
             raise FrontMatterError(f"line {number}: unknown or malformed field {line!r}")
         if key in values:
             raise FrontMatterError(f"line {number}: duplicate field {key!r}")
-        if key in BARE_FIELDS:
+        if key in bare_fields:
             if not re.fullmatch(r"[\w-]+", raw):
                 raise FrontMatterError(f"line {number}: {key} must be a bare token")
             values[key] = raw
@@ -209,13 +221,13 @@ def parse_front_matter(text: str) -> tuple[dict[str, object], str]:
             value = json.loads(raw)
         except json.JSONDecodeError as exc:
             raise FrontMatterError(f"line {number}: {key} is not a JSON value ({exc})") from exc
-        if key in LIST_FIELDS:
+        if key in list_fields:
             if not (isinstance(value, list) and value and all(isinstance(v, str) for v in value)):
                 raise FrontMatterError(f"line {number}: {key} must be a non-empty list of strings")
         elif not (isinstance(value, str) and value):
             raise FrontMatterError(f"line {number}: {key} must be a non-empty string")
         values[key] = value
-    for key, required in FIELDS.items():
+    for key, required in fields.items():
         if required and key not in values:
             raise FrontMatterError(f"missing required field {key!r}")
     return values, text[end + len("\n---\n"):]
@@ -452,8 +464,8 @@ def render_index(adrs: list[Adr]) -> str:
     return INDEX_PREAMBLE + "\n" + "\n".join(rows) + "\n"
 
 
-def check(root: Path = REPO_ROOT) -> list[str]:
-    """Every gate failure; an empty list means the ADR files and the index agree."""
+def check_adrs(root: Path = REPO_ROOT) -> list[str]:
+    """Every ADR gate failure; an empty list means the ADR files and the index agree."""
     adrs, errors = load_adrs(root)
     if not adrs and not errors:
         return [f"{ADR_DIR.as_posix()}: no ADR-*.md files found"]
@@ -469,7 +481,7 @@ def check(root: Path = REPO_ROOT) -> list[str]:
     return errors
 
 
-def write(root: Path = REPO_ROOT) -> list[str]:
+def write_adrs(root: Path = REPO_ROOT) -> list[str]:
     """Copy each body's status into its front matter, then rewrite the index."""
     adrs, errors = load_adrs(root)
     errors += check_adr_set(adrs)
@@ -484,6 +496,213 @@ def write(root: Path = REPO_ROOT) -> list[str]:
     return []
 
 
+# --- functional requirements (#1036) ---------------------------------------------------------
+#
+# ``docs/functional-requirements/`` holds one topic file per area (``canvas.md``,
+# ``3d/workspace.md``, …). Each file's front matter names its ``title`` and the ID
+# ``prefixes`` it owns. A requirement is one top-level bullet that starts with its ID:
+# ``- **FR-<PREFIX>-nn**: …`` (an inline ref may sit between: ``- **FR-X-01** (#12): …``).
+
+FR_DIR = Path("docs/functional-requirements")
+FR_INDEX = FR_DIR / "README.md"
+FR_FIELDS: dict[str, bool] = {"title": True, "prefixes": True}
+FR_LIST_FIELDS = frozenset({"prefixes"})
+
+_FR_SEGMENT = r"[A-Z0-9]*[A-Z][A-Z0-9]*"
+FR_PREFIX_RE = re.compile(rf"^FR-{_FR_SEGMENT}(?:-{_FR_SEGMENT})*$")
+FR_ID = rf"FR-{_FR_SEGMENT}(?:-{_FR_SEGMENT})*-\d+[a-z]?"
+#: The one definition form: a top-level bullet whose first word is the bold ID.
+FR_DEF_RE = re.compile(rf"^- \*\*({FR_ID})\*\*(?=[: ])")
+#: Forms that look like a definition but are not the one form, so they would escape the gate.
+FR_ODD_DEF_RES = (
+    re.compile(rf"^\s*[-*+] \*\*{FR_ID}:\*\*"),  # the colon inside the bold
+    re.compile(rf"^\s+[-*+] \*\*{FR_ID}\*\*"),  # a definition nested in another bullet
+    re.compile(rf"^#{{1,6}} +\**{FR_ID}\b"),  # a heading as the definition
+    re.compile(rf"^\*\*{FR_ID}\*\*"),  # bold ID without a bullet
+)
+FR_BULLET_RE = re.compile(r"^(?:[-*+]|\d+[.)]) ")
+FR_FILE_RE = re.compile(r"^[a-z0-9]+(?:-[a-z0-9]+)*\.md$")
+
+FR_INDEX_PREAMBLE = """\
+# Functional Requirements
+
+The functional requirements of Open Garden Planner, one topic file per area.
+
+Every requirement has exactly one prefixed ID, `FR-<PREFIX>-nn`, and every prefix belongs
+to exactly one topic file. **This index is generated** by `scripts/generate_doc_indexes.py`
+from each file's front matter; do not edit it by hand. To add a requirement, append
+`- **FR-<PREFIX>-nn**: …` with the prefix's next free number (table below) to the file that
+owns the prefix. A new prefix goes into one file's `prefixes` list. The rules are in the
+ADR-083 addendum; `--check` runs in the test suite.
+"""
+
+
+@dataclass
+class TopicFile:
+    path: Path
+    title: str
+    prefixes: list[str]
+    ids: list[str] = field(default_factory=list)
+
+    def rel(self, root: Path) -> str:
+        return self.path.relative_to(root / FR_DIR).as_posix()
+
+
+def fr_prefix(fid: str) -> str:
+    return re.sub(r"-\d+[a-z]?$", "", fid)
+
+
+def fr_number(fid: str) -> int:
+    match = re.search(r"-(\d+)[a-z]?$", fid)
+    return int(match.group(1)) if match else 0
+
+
+def topic_paths(root: Path = REPO_ROOT) -> list[Path]:
+    folder = root / FR_DIR
+    return sorted(
+        (p for p in folder.rglob("*.md") if p.relative_to(folder).as_posix() != "README.md"),
+        key=lambda p: p.relative_to(folder).as_posix(),
+    )
+
+
+def load_topics(root: Path = REPO_ROOT) -> tuple[list[TopicFile], list[str]]:
+    """Read every topic file; check each one on its own."""
+    topics: list[TopicFile] = []
+    errors: list[str] = []
+    for path in topic_paths(root):
+        rel = path.relative_to(root).as_posix()
+        depth = len(path.relative_to(root / FR_DIR).parts)
+        if not FR_FILE_RE.match(path.name) or depth > 2:
+            errors.append(f"{rel}: a topic file is <kebab-case>.md, at most one folder deep")
+            continue
+        try:
+            values, body = parse_front_matter(
+                path.read_text(encoding="utf-8"), FR_FIELDS, FR_LIST_FIELDS, frozenset()
+            )
+        except FrontMatterError as exc:
+            errors.append(f"{rel}: {exc}")
+            continue
+        title = str(values["title"])
+        prefixes = list(cast("list[str]", values["prefixes"]))
+        for prefix in prefixes:
+            if not FR_PREFIX_RE.match(prefix):
+                errors.append(f"{rel}: {prefix!r} is not an FR prefix (FR-<NAME>[-<NAME>…])")
+        if len(set(prefixes)) != len(prefixes):
+            errors.append(f"{rel}: prefixes lists one prefix twice")
+        lines = body.splitlines()
+        h1s = [text for _, level, text in iter_headings(lines) if level == 1]
+        first = body.lstrip("\n").split("\n", 1)[0]
+        if len(h1s) != 1 or first != f"# {title}":
+            errors.append(f"{rel}: the body must open with the file's only H1, '# {title}'")
+        topic = TopicFile(path, title, prefixes)
+        fence = ""
+        for number, line in enumerate(lines, start=1):
+            match = FENCE_RE.match(line)
+            if fence:
+                if match and match.group(1)[0] == fence[0] and len(match.group(1)) >= len(fence):
+                    fence = ""
+                continue
+            if match:
+                fence = match.group(1)
+                continue
+            definition = FR_DEF_RE.match(line)
+            if definition:
+                fid = definition.group(1)
+                topic.ids.append(fid)
+                if fr_prefix(fid) not in prefixes:
+                    errors.append(f"{rel}: {fid} uses prefix {fr_prefix(fid)}, which this file does not own")
+                continue
+            if any(odd.match(line) for odd in FR_ODD_DEF_RES):
+                errors.append(f"{rel}: body line {number} defines an ID in another form; "
+                              "write '- **FR-<PREFIX>-nn**: …'")
+            elif FR_BULLET_RE.match(line):
+                errors.append(f"{rel}: body line {number} is a requirement bullet without an ID")
+        for prefix in prefixes:
+            if not any(fr_prefix(fid) == prefix for fid in topic.ids):
+                errors.append(f"{rel}: prefix {prefix} has no requirement")
+        topics.append(topic)
+    return topics, errors
+
+
+def check_topic_set(topics: list[TopicFile], root: Path) -> list[str]:
+    errors: list[str] = []
+    owners: dict[str, str] = {}
+    defined: dict[str, str] = {}
+    for topic in topics:
+        rel = topic.rel(root)
+        for prefix in topic.prefixes:
+            if prefix in owners:
+                errors.append(f"prefix {prefix} is owned by both {owners[prefix]} and {rel}")
+            owners.setdefault(prefix, rel)
+        for fid in topic.ids:
+            if fid in defined:
+                where = defined[fid] if defined[fid] == rel else f"{defined[fid]} and {rel}"
+                errors.append(f"{fid} is defined more than once ({where})")
+            defined.setdefault(fid, rel)
+    return errors
+
+
+def render_fr_index(topics: list[TopicFile], root: Path) -> str:
+    files = ["| File | Title | Prefixes | Requirements |", "|---|---|---|---|"]
+    rows: list[tuple[str, str, int, str]] = []
+    for topic in topics:
+        rel = topic.rel(root)
+        files.append(f"| [{rel}]({rel}) | {_cell(topic.title)} | {', '.join(topic.prefixes)} "
+                     f"| {len(topic.ids)} |")
+        for prefix in topic.prefixes:
+            ids = [fid for fid in topic.ids if fr_prefix(fid) == prefix]
+            next_free = f"{prefix}-{max(fr_number(fid) for fid in ids) + 1:02d}"
+            rows.append((prefix, rel, len(ids), next_free))
+    prefixes = ["| Prefix | File | Requirements | Next free ID |", "|---|---|---|---|"]
+    for prefix, rel, count, next_free in sorted(rows):
+        prefixes.append(f"| {prefix} | [{rel}]({rel}) | {count} | {next_free} |")
+    return (FR_INDEX_PREAMBLE + "\n## Topic files\n\n" + "\n".join(files)
+            + "\n\n## Prefixes\n\n" + "\n".join(prefixes) + "\n")
+
+
+def check_frs(root: Path = REPO_ROOT) -> list[str]:
+    """Every functional-requirements gate failure; skipped where the folder does not exist."""
+    if not (root / FR_DIR).is_dir():
+        return []
+    topics, errors = load_topics(root)
+    if not topics and not errors:
+        return [f"{FR_DIR.as_posix()}: no topic files found"]
+    errors += check_topic_set(topics, root)
+    if not errors:
+        index = root / FR_INDEX
+        current = index.read_text(encoding="utf-8") if index.exists() else ""
+        if current != render_fr_index(topics, root):
+            errors.append(
+                f"{FR_INDEX.as_posix()} is stale or was edited by hand: "
+                "run scripts/generate_doc_indexes.py"
+            )
+    return errors
+
+
+def write_frs(root: Path = REPO_ROOT) -> list[str]:
+    if not (root / FR_DIR).is_dir():
+        return []
+    topics, errors = load_topics(root)
+    errors += check_topic_set(topics, root)
+    if errors:
+        return errors
+    (root / FR_INDEX).write_text(render_fr_index(topics, root), encoding="utf-8", newline="\n")
+    return []
+
+
+# --- both indexes ---------------------------------------------------------------------------
+
+
+def check(root: Path = REPO_ROOT) -> list[str]:
+    """Every gate failure of both indexes; an empty list means all files and indexes agree."""
+    return check_adrs(root) + check_frs(root)
+
+
+def write(root: Path = REPO_ROOT) -> list[str]:
+    """Sync the ADR front matter, then rewrite both indexes."""
+    return write_adrs(root) or write_frs(root)
+
+
 def main(argv: list[str] | None = None, root: Path | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__.split("\n\n")[0])
     parser.add_argument("--check", action="store_true", help="fail on drift, write nothing")
@@ -494,6 +713,8 @@ def main(argv: list[str] | None = None, root: Path | None = None) -> int:
         print(f"ERROR: {error}", file=sys.stderr)
     if not errors and not args.check:
         print(f"wrote {ADR_INDEX.as_posix()}")
+        if (root / FR_DIR).is_dir():
+            print(f"wrote {FR_INDEX.as_posix()}")
     return 1 if errors else 0
 
 

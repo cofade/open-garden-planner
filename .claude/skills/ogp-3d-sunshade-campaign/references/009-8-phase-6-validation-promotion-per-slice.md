@@ -34,7 +34,7 @@ localizes instantly to render-vs-math.
   math, overlay non-serialization, aggregation strategy). **ADR-038**: 3D
   engine GO/NO-GO. (ADRs live in `docs/09-architecture-decisions/`, one file each;
   036 is the last used as of 2026-07-19 / v1.24.3.)
-- **FR entries** in `docs/functional-requirements.md` (suggest FR-SUN-01…):
+- **FR entries** in `docs/functional-requirements/sun-shade.md` (suggest FR-SUN-01…):
   height property, shadow overlay, time control, heatmap, empty states, and
   the explicit exclusions (flat-ground assumption; refraction ignored;
   terrain slopes out of scope v2.0).

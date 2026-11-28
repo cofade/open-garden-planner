@@ -252,7 +252,7 @@ Project documentation follows the [arc42](https://arc42.org/) architecture templ
 | Document | Description |
 |----------|-------------|
 | [Introduction & Goals](docs/01-introduction-and-goals/) | Product vision, target users |
-| [Functional Requirements](docs/functional-requirements.md) | Detailed requirements specification |
+| [Functional Requirements](docs/functional-requirements/README.md) | Detailed requirements specification |
 | [Solution Strategy](docs/04-solution-strategy/) | Technology choices and design decisions |
 | [Building Block View](docs/05-building-block-view/) | Architecture and module structure |
 | [Development Roadmap](docs/roadmap.md) | Current work, phase status and delivery index |

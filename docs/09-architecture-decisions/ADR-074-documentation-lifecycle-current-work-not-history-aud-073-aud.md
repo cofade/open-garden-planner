@@ -30,7 +30,7 @@ nothing subtracted.
    deleted and replaced by one row (ID, one-line scope, version/PR, ADR/FR link). A
    completed section is a status table, not a narrative.
 3. **Durable facts have one home.** Decisions live in ADRs, capability in
-   `docs/functional-requirements.md`, lessons in the pitfall catalogue and skills, and
+   `docs/functional-requirements/README.md`, lessons in the pitfall catalogue and skills, and
    delivery evidence in the GitHub release and issue. Git history is the archive; no
    repository history files are created.
 4. **Release close includes a documentation prune.** `finalize-us` replaces the handoff,

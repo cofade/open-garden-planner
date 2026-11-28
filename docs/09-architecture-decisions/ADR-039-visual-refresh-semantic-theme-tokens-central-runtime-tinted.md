@@ -23,7 +23,7 @@ legacy_anchor: adr-039-visual-refresh--semantic-theme-tokens--central-runtime-ti
 
 **Consequences.** A theme switch = publish palette → restyle → clear icon cache → duck-typed refresh walk; new widgets opt in by exposing one of the two hooks — no registration lists. New icons follow the §8.21 checklist (vendor-or-author → normalize → provenance → gates). The emoji/text fallback stays as graceful degrade. Known minor, accepted: modal dialogs read `theme_color()` at build time (their lifetime is shorter than a theme switch). The properties panel re-tints via a deferred full-rebuild `refresh_theme_icons` hook (review round — originally listed here as accepted debt, then closed). Bug fixed en passant: the gallery's Ellipse entry referenced a non-existent `ellipse.svg` and silently fell back to a color circle — the icon now exists (Tabler `oval`).
 
-FR-28 records the user-facing requirements; §8.4 (theme) and §8.21 (icons) hold the how-to detail; §11.4 records the QSvgRenderer-currentColor trap and the Welcome-dialog test-hang trap this work surfaced.
+FR-UI-THEME and FR-UI-ICON record the user-facing requirements; §8.4 (theme) and §8.21 (icons) hold the how-to detail; §11.4 records the QSvgRenderer-currentColor trap and the Welcome-dialog test-hang trap this work surfaced.
 
 ## ADR-039 amendment (2026-08-18, Package 3c #310): coverage becomes comprehensive; Plants/Garden and the View toggles are iconized after all
 

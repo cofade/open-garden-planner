@@ -84,7 +84,7 @@ dangling key is cleared on its next edit. No dependency, `.ogp` format, or 3D ch
 Tests: `tests/unit/test_reference_points.py` and
 `tests/integration/test_reference_points.py` (placement, contour projection, parent
 translation with one undo step, detach, edit, copy, layer, save/reload, legacy circle
-fallback and both size modes). Cross-refs: FR-36 (FR-REF-01..06), §8.9.20, glossary
+fallback and both size modes). Cross-refs: FR-REF (FR-REF-01..06), §8.9.20, glossary
 "Reference point", ADR-017/ADR-031 (bed predicates), ADR-004 (commands), ADR-078
 (measurement display).
 

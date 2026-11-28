@@ -3,7 +3,7 @@
 Primary sources, in order of density: the pitfall entries in
 `docs/11-risks-and-technical-debt/pitfalls/` (the index is §11.4 of the chapter README; the
 narratives are in `archive/`), `.claude/skills/debug-verbose/SKILL.md` case
-studies, the roadmap's completed index, `docs/functional-requirements.md` (FR-20.4),
+studies, the roadmap's completed index, the then single-file FR register (its Paper Space chapter),
 `docs/09-architecture-decisions/` (one file per ADR), `git log --oneline`.
 
 Re-verification one-liners (run from repo root):
@@ -25,7 +25,7 @@ git log --oneline -30
 grep -n "Case study" .claude/skills/debug-verbose/SKILL.md
 
 # US-B7 retirement + paper_layouts ignore still documented:
-grep -n "paper_layouts" docs/functional-requirements.md docs/09-architecture-decisions/ADR-*.md
+grep -n "paper_layouts" docs/09-architecture-decisions/ADR-*.md
 
 # Release-race procedure unchanged:
 grep -n "tag transition\|before_tag\|date matching" .claude/skills/finalize-us/SKILL.md

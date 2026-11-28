@@ -1,4 +1,4 @@
-"""Conformance gate for the texture forge (Package 3b, #309, ADR-042 / FR-30).
+"""Conformance gate for the texture forge (Package 3b, #309, ADR-042 / FR-TEX).
 
 `scripts/generate_asset_forge_textures.py` is the single source of every
 fill-pattern texture. This test pins the contract between the generator, the
