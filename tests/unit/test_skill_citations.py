@@ -226,6 +226,36 @@ def test_family_names_resolve_against_the_prefixes(tmp_path: Path) -> None:
     assert errors == []
 
 
+def test_upper_case_placeholders_are_not_families(tmp_path: Path) -> None:
+    _write_fr_topics(tmp_path)
+    _write_corpus_file(tmp_path, "Template: FR-AGENT-NN, FR-UI-XX, FR-X-nn.\n")
+
+    errors = check_fr_refs(tmp_path, find_corpus_files(tmp_path), build_fr_pool(tmp_path))
+
+    assert errors == []
+
+
+def test_fr_references_are_checked_across_docs_but_not_the_generated_index(
+    tmp_path: Path,
+) -> None:
+    from scripts.check_skill_citations import find_fr_doc_files
+
+    _write_fr_topics(tmp_path)
+    adr_dir = tmp_path / "docs" / "09-architecture-decisions"
+    adr_dir.mkdir(parents=True)
+    (adr_dir / "ADR-001-a.md").write_text("Per FR-AGENT-77 and FR-AGNET.\n", encoding="utf-8")
+    (tmp_path / "docs" / "functional-requirements" / "README.md").write_text(
+        "| FR-AGENT | [agent-api.md](agent-api.md) | 2 | FR-AGENT-13 |\n", encoding="utf-8"
+    )
+
+    files = find_fr_doc_files(tmp_path)
+    errors = check_fr_refs(tmp_path, files, build_fr_pool(tmp_path))
+
+    assert any("ADR-001-a.md:1: 'FR-AGENT-77'" in e for e in errors)
+    assert any("ADR-001-a.md:1: 'FR-AGNET'" in e for e in errors)
+    assert not any("README.md" in e for e in errors)
+
+
 def test_a_misspelt_family_is_reported(tmp_path: Path) -> None:
     _write_fr_topics(tmp_path)
     _write_corpus_file(tmp_path, "See FR-AGNET and FR-2D-* for the contract.\n")

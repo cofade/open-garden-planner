@@ -161,9 +161,13 @@ requirements had no ID or sat in a table, and three definition forms were in use
 - **The migration.** `scripts/split_fr_record.py` is one-off and deterministic. It reads
   the old file from git and places every ID by `LAYOUT`; `RULES` decides each ID-less
   block (drop, acceptance paragraph, or new entry). Its proof: every old ID is in exactly
-  one topic file with the same words, except two cross-references to old chapter numbers
-  that `TEXT_FIXES` names (in FR-SUN-06 and FR-UI-ICON-01); every old non-blank line is an entry, a heading or
-  a block that exactly one rule handled; and the only new IDs are the ones listed above.
+  one topic file with the same words. Three named exceptions: `TEXT_FIXES` replaces two
+  cross-references to old chapter numbers (in FR-SUN-06 and FR-UI-ICON-01), and
+  `HEAD_TITLES` drops the user-story label from FR-SUN-09's title. The definition form is
+  normalised without changing a word (23 `**FR-X-nn:**` colon forms and 8 heading-form
+  entries). Every old non-blank line is an entry, a heading or a block that exactly one
+  rule handled; the only new IDs are the ones listed above; and every topic file equals
+  the migration's output.
   It ran once, on #1036's branch.
 
 **Consequences**:

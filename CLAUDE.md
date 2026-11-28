@@ -166,7 +166,7 @@ drift instead of overwriting either agent's native file format.
 | New component/module | `docs/05-building-block-view/` — add black box description |
 | New UI pattern | `docs/08-crosscutting-concepts/` section 8.9 |
 | Changed runtime behavior | `docs/06-runtime-view/` — update sequence diagrams |
-| New user-facing capability | `docs/functional-requirements/` — add `FR-<PREFIX>-nn` to the prefix's topic file, run `scripts/generate_doc_indexes.py` |
+| New user-facing capability | `docs/functional-requirements/` — add `- **FR-<PREFIX>-nn**:` to the prefix's topic file, run `scripts/generate_doc_indexes.py` |
 | Architecture decision | new `docs/09-architecture-decisions/ADR-nnn-<slug>.md`, then `scripts/generate_doc_indexes.py` (ADR-083) |
 | New domain term | `docs/12-glossary/` — add definition |
 

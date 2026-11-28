@@ -374,6 +374,9 @@ def _check_fr_families(rel_file: str, text: str, pool: set[str]) -> list[str]:
         name = body.rstrip("*").rstrip("-")
         if not _FR_FAMILY_RE.fullmatch(name) or _is_excepted(rel_file, match.group(0)):
             continue
+        if re.search(r"(?:^|-)(?:N+|X+)$", name):
+            continue  # an upper-case placeholder: FR-SNAP-NN, FR-UI-XX, FR-X
+
         known = name in prefixes or (star and any(p.startswith(f"{name}-") for p in prefixes))
         if not known:
             errors.append(
