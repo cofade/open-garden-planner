@@ -95,6 +95,7 @@ def _tracked_text_files() -> list[str]:
 _HISTORY = {
     "tests/data/issue_registry.json",
     "docs/11-risks-and-technical-debt/audits/2026-10/audit-2026-10-metrics.json",
+    "docs/11-risks-and-technical-debt/audits/2026-10/audit-2026-10.md",
     "scripts/split_fr_record.py",
     "scripts/check_skill_citations.py",
     "tests/unit/test_skill_citations.py",
@@ -202,11 +203,20 @@ def test_a_bullet_without_an_id_fails(tmp_path: Path, line: str) -> None:
     "  - **FR-OTHER-02**: nested in another bullet",
     "### FR-OTHER-02: a heading",
     "**FR-OTHER-02**: bold without a bullet",
+    "| **FR-OTHER-02** | a table row |",
+    "> **FR-OTHER-02**: a blockquote",
+    "> - **FR-OTHER-02**: a bullet in a blockquote",
 ])
 def test_another_definition_form_fails(tmp_path: Path, line: str) -> None:
     root = _tree(tmp_path)
     _topic(root, "other.md", "Other", ["FR-OTHER"], f"- **FR-OTHER-01**: Fine.\n\n{line}\n")
     assert any("defines an ID in another form" in e for e in _errors(root))
+
+
+def test_a_one_digit_number_fails(tmp_path: Path) -> None:
+    root = _tree(tmp_path)
+    _topic(root, "other.md", "Other", ["FR-OTHER"], "- **FR-OTHER-1**: Short.\n")
+    assert any("FR-OTHER-1's number needs at least two digits" in e for e in _errors(root))
 
 
 def test_a_cross_reference_in_prose_is_no_definition(tmp_path: Path) -> None:

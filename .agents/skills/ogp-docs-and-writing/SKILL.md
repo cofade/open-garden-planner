@@ -213,7 +213,7 @@ matter names its `title` and the ID `prefixes` it owns; every prefix belongs to 
 file, and the generated `README.md` lists prefix → file and each prefix's next free ID.
 `##` sections group the families. A requirement is one top-level bullet that starts with
 its ID: `- **FR-<PREFIX>-NN**: requirement text` (e.g. `FR-LAYER-09`, `FR-3D-WS-01`); an
-issue ref may sit between ID and colon (`- **FR-SUN-13** (issue #698): …`). Detail goes in
+issue ref may sit between ID and colon (`- **FR-IMG-12** (Issue #659): …`). Detail goes in
 indented sub-bullets or paragraphs of that bullet; a section may end with an
 `Acceptance:` paragraph that names its tests. No bullet without an ID, no chapter numbers,
 no phase or package labels in headings. Requirement text is testable and specific — clamp

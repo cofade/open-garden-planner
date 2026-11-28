@@ -1,7 +1,7 @@
 ## 13. Retired feature: US-B7 Paper Space (dropped in PR #191 review)
 
-Source: the Paper Space requirements (removed in PR #191) and the ADR-022 note (PR #191),
-the Paper Space requirements / ADR-022.
+Source: the [old Paper Space chapter](https://github.com/cofade/open-garden-planner/blob/a0ea633c07e40da9bb4912ec1f9b09b24f57d4a6/docs/functional-requirements.md#L466) and the ADR-023 note (PR #191),
+the ADR-023 note.
 
 - US-B7 added a "Layout" tab (Ctrl+4) with one page / viewport / title block / scale
   bar. Manual testing showed the abstraction added **no user-visible value** over what

@@ -432,7 +432,7 @@ no-tools baseline on the same task.
 ## What we will NOT pursue (settled retirements — do not resurrect)
 
 - **US-B7 Paper Space MVP** — dropped during PR #191 manual-test review
-  (the Paper Space requirements / ADR-022): `pdf_report_service` already covers
+  (the ADR-023 note): `pdf_report_service` already covers
   print-to-PDF at chosen paper sizes; a second-space CAD-style print workflow
   added nothing. The `paper_layouts` key from short-lived draft builds is
   silently ignored on load. A "layout/paper space" idea is not new ambition;

@@ -519,7 +519,11 @@ FR_ODD_DEF_RES = (
     re.compile(rf"^\s+[-*+] \*\*{FR_ID}\*\*"),  # a definition nested in another bullet
     re.compile(rf"^#{{1,6}} +\**{FR_ID}\b"),  # a heading as the definition
     re.compile(rf"^\*\*{FR_ID}\*\*"),  # bold ID without a bullet
+    re.compile(rf"^\|\s*\*\*{FR_ID}\*\*"),  # a table row
+    re.compile(rf"^\s*>\s*(?:[-*+] +)?\*\*{FR_ID}\*\*"),  # a blockquote
 )
+#: An ID's number has at least two digits (FR-SNAP-01, not FR-SNAP-1).
+FR_NUMBER_RE = re.compile(r"-\d{2,}[a-z]?$")
 FR_BULLET_RE = re.compile(r"^(?:[-*+]|\d+[.)]) ")
 FR_FILE_RE = re.compile(r"^[a-z0-9]+(?:-[a-z0-9]+)*\.md$")
 
@@ -609,6 +613,8 @@ def load_topics(root: Path = REPO_ROOT) -> tuple[list[TopicFile], list[str]]:
             if definition:
                 fid = definition.group(1)
                 topic.ids.append(fid)
+                if not FR_NUMBER_RE.search(fid):
+                    errors.append(f"{rel}: {fid}'s number needs at least two digits")
                 if fr_prefix(fid) not in prefixes:
                     errors.append(f"{rel}: {fid} uses prefix {fr_prefix(fid)}, which this file does not own")
                 continue

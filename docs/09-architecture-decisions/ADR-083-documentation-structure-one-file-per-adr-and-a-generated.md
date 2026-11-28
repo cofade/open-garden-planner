@@ -108,8 +108,8 @@ reference graph proposed in #1034, showed the whole record as one node.
 (about 317 KB, 1,584 lines). Its 36 numbered chapters plus FR-EXAMPLE and FR-STATS
 followed the delivery history (phase, package, user story), not the product. One family
 was spread over several chapters: FR-AGENT over four, FR-SNAP over three. Some
-requirements had no ID, and four definition forms were in use: `- **FR-X-nn**:`,
-`- **FR-X-nn:**`, `### FR-SUN-09: …` and table rows.
+requirements had no ID or sat in a table, and three definition forms were in use:
+`- **FR-X-nn**:`, `- **FR-X-nn:**` and `### FR-SUN-09: …`.
 
 **Decision**:
 
@@ -117,18 +117,20 @@ requirements had no ID, and four definition forms were in use: `- **FR-X-nn**:`,
   `3d/<topic>.md` for the 13 `FR-3D-*` families, one file each. The file name is a
   kebab-case topic name, never a number. Every ID prefix belongs to exactly one file. The
   owner approved the map before the move (2026-11-28); the generated index states it.
-- **Front matter.** `title` (a JSON string) and `prefixes` (a JSON list, in section order).
+- **Front matter.** `title` (a JSON string) and `prefixes` (a JSON list).
   The body opens with the only H1, `# <title>`. `##` sections group the families. A
   section may end with an `Acceptance:` paragraph that names its tests.
 - **One definition form.** A requirement is one top-level bullet whose first word is its
-  bold ID: `- **FR-<PREFIX>-nn**: …`. An issue ref may sit between the ID and the colon:
-  `- **FR-SUN-13** (issue #698): …`. Detail goes in that bullet's indented sub-bullets and
+  bold ID: `- **FR-<PREFIX>-nn**: …`, with a number of at least two digits. An issue ref
+  may sit between the ID and the colon: `- **FR-IMG-12** (Issue #659): …`. Detail goes in
+  that bullet's indented sub-bullets and
   paragraphs. #1034's reference graph can therefore read every definition with one rule.
 - **Every requirement has an ID.** The move gave the ID-less ones the next free number of
   their family: FR-OBJ-05 … FR-OBJ-08 (the object catalogue, checked against
   `ObjectType` and `PathFenceStyle`), FR-OBJ-09 (the property object table), FR-PLANT-26
   (the per-plant metadata table) and FR-UI-23 … FR-UI-28 (the object gallery).
-  Smart Symbols (old chapter 25) were never reachable from the UI and were dropped. Chapter
+  Smart Symbols (old chapter 25) were dropped: their UI was retired in #770 and their
+  engine in #1009, so the chapter described nothing a user can reach. Chapter
   history (phase, package and user-story labels, scope notes, the retired Paper Space
   note) was dropped; git history keeps it.
 - **A generated index.** `docs/functional-requirements/README.md` lists each topic file
@@ -142,15 +144,17 @@ requirements had no ID, and four definition forms were in use: `- **FR-X-nn**:`,
   - a prefix is not `FR-<NAME>[-<NAME>…]`, is listed twice, has no requirement, or is
     owned by two files;
   - an ID uses a prefix its file does not own, or is defined twice;
-  - a top-level bullet has no ID, or an ID is defined in another form;
-  - the index differs from the generated output;
-  - a tracked file names the deleted single file or cites a chapter number
-    (`FR-<n>`, `FR-<n>.<m>`), except the issue-title mirror, the 2026-10 audit's metrics
-    snapshot, commit permalinks, the migration and the tests' own fixtures.
+  - a top-level bullet has no ID, an ID's number has one digit, or an ID is defined in
+    another form (colon inside the bold, nested bullet, heading, table row, blockquote,
+    bold without a bullet);
+  - the index differs from the generated output.
 
-  `scripts/check_skill_citations.py` reads the topic files and resolves the full ID
-  grammar (`FR-3D-WS-01`, `FR-ICON-3C-02`, `FR-AGENT-12a`), so a bare chapter number fails
-  there too.
+  The same test file also fails when a tracked file names the deleted single file or
+  cites a chapter number (`FR-<n>`, `FR-<n>.<m>`). Exempt are the issue-title mirror, the
+  2026-10 audit (a dated snapshot), commit permalinks, the migration and the tests' own
+  fixtures. `scripts/check_skill_citations.py` reads the topic files and resolves the full
+  ID grammar (`FR-3D-WS-01`, `FR-ICON-3C-02`, `FR-AGENT-12a`) and every family name
+  (`FR-SNAP`, `FR-3D-*`), so a bare chapter number or a misspelt family fails there too.
 - **How to add one.** Append `- **FR-<PREFIX>-nn**: …` with the prefix's next free number to
   the file that owns it, then run the generator. A new family goes into one file's
   `prefixes`. The `ogp-docs-and-writing` skill carries the template.

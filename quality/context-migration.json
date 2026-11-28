@@ -1228,7 +1228,7 @@
         {
           "path": ".agents/skills/ogp-failure-archaeology/references/014-13-retired-feature-us-b7-paper-space-dropped-in-pr-191-review.md",
           "sha256": "d398dde3fe36e113f724b5d4d8aa5f151b6577d7965263e57a5d9ed2e2aff849",
-          "current_sha256": "63709b79f0e60223fd3ba701cc373ef8c0c0a58ebf840e9b8e09c41a0f4083df"
+          "current_sha256": "be7f762020aaa206a66f01ea3d8b79c75f5d7d11d5215a25c76ab8f57da6419d"
         },
         {
           "path": ".agents/skills/ogp-failure-archaeology/references/015-14-the-export-y-flip-saga-png-pdf-svg-2026-05.md",
@@ -2628,7 +2628,7 @@
         {
           "path": ".claude/skills/ogp-failure-archaeology/references/014-13-retired-feature-us-b7-paper-space-dropped-in-pr-191-review.md",
           "sha256": "d398dde3fe36e113f724b5d4d8aa5f151b6577d7965263e57a5d9ed2e2aff849",
-          "current_sha256": "63709b79f0e60223fd3ba701cc373ef8c0c0a58ebf840e9b8e09c41a0f4083df"
+          "current_sha256": "be7f762020aaa206a66f01ea3d8b79c75f5d7d11d5215a25c76ab8f57da6419d"
         },
         {
           "path": ".claude/skills/ogp-failure-archaeology/references/015-14-the-export-y-flip-saga-png-pdf-svg-2026-05.md",

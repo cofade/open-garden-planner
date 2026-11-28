@@ -213,6 +213,29 @@ def test_detects_nonexistent_fr(tmp_path: Path) -> None:
     assert any("FR-3D-WS-09" in e for e in errors)
 
 
+def test_family_names_resolve_against_the_prefixes(tmp_path: Path) -> None:
+    _write_fr_topics(tmp_path)
+    _write_corpus_file(
+        tmp_path,
+        "Families FR-AGENT, FR-3D-WS, FR-ICON-3C and the group FR-3D-* resolve; "
+        "placeholders FR-<PREFIX>-nn and FR-SUN-xx are skipped.\n",
+    )
+
+    errors = check_fr_refs(tmp_path, find_corpus_files(tmp_path), build_fr_pool(tmp_path))
+
+    assert errors == []
+
+
+def test_a_misspelt_family_is_reported(tmp_path: Path) -> None:
+    _write_fr_topics(tmp_path)
+    _write_corpus_file(tmp_path, "See FR-AGNET and FR-2D-* for the contract.\n")
+
+    errors = check_fr_refs(tmp_path, find_corpus_files(tmp_path), build_fr_pool(tmp_path))
+
+    assert any("'FR-AGNET' names no requirement family" in e for e in errors)
+    assert any("'FR-2D-*' names no requirement family" in e for e in errors)
+
+
 def test_an_old_chapter_number_no_longer_resolves(tmp_path: Path) -> None:
     """``FR-27``/``FR-1`` named chapters of the retired single file (#1036)."""
     _write_fr_topics(tmp_path)

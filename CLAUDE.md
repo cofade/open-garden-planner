@@ -95,7 +95,7 @@ Architecture documentation follows arc42 in `docs/`. This project uses **continu
 | Known pitfalls                       | `docs/11-risks-and-technical-debt/pitfalls/` (index in pitfalls/index/; ADR-061) |
 | Debt register, latest repo audit     | `docs/11-risks-and-technical-debt/` §11.3 + `audits/2026-10/audit-2026-10.md` (ADR-047) |
 | **Bed-only features (menu, badge, …) — READ FIRST before adding any bed feature** | `docs/08-crosscutting-concepts/` § 8.14 + ADR-017     |
-| Functional requirements (FR-*)       | `docs/functional-requirements/` (index: README.md, one topic file per prefix family) |
+| Functional requirements (FR-*)       | `docs/functional-requirements/` (generated index)     |
 | Architecture decisions (ADRs)        | `docs/09-architecture-decisions/`                     |
 | Glossary                             | `docs/12-glossary/README.md`                          |
 | GitHub wiki sources and publication | `docs/wiki/README.md` (sources in `docs/wiki/`; separate checkout `../open-garden-planner.wiki/`) |
@@ -166,7 +166,7 @@ drift instead of overwriting either agent's native file format.
 | New component/module | `docs/05-building-block-view/` — add black box description |
 | New UI pattern | `docs/08-crosscutting-concepts/` section 8.9 |
 | Changed runtime behavior | `docs/06-runtime-view/` — update sequence diagrams |
-| New user-facing capability | the topic file in `docs/functional-requirements/` that owns the prefix — add `- **FR-<PREFIX>-nn**:`, then `scripts/generate_doc_indexes.py` |
+| New user-facing capability | `docs/functional-requirements/` — add `FR-<PREFIX>-nn` to the prefix's topic file, run `scripts/generate_doc_indexes.py` |
 | Architecture decision | new `docs/09-architecture-decisions/ADR-nnn-<slug>.md`, then `scripts/generate_doc_indexes.py` (ADR-083) |
 | New domain term | `docs/12-glossary/` — add definition |
 

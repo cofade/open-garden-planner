@@ -302,7 +302,7 @@ reference. Phase 17 has its own top-level section because the wiki includes it.
 | ✅ | B4 | Nearest-point fallback snap | v1.12.0 |
 | ✅ | B5 | Perpendicular snap from active tool's `last_point` | v1.12.0 |
 | ✅ | B6 | Tangent snap onto circles + arcs from `last_point` | v1.12.0 |
-| ⛔ | B7 | Paper Space MVP — dropped; see the Paper Space requirements (FR-LAYOUT-01…06, removed in PR #191) and the ADR-022 note | — (dropped) |
+| ⛔ | B7 | Paper Space MVP — dropped; see the ADR-023 note and the [old Paper Space chapter](https://github.com/cofade/open-garden-planner/blob/a0ea633c07e40da9bb4912ec1f9b09b24f57d4a6/docs/functional-requirements.md#L466) | — (dropped) |
 
 ### Phase 13: Smart Features — Package C (v1.17.0) ✅ Complete
 

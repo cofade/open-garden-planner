@@ -13,8 +13,12 @@ the same words; every new ID is one of the IDs this migration names; every non-b
 line is an entry line, a heading, or a line of a block that exactly one rule handled; and
 every rule handled exactly one block.
 
-    venv/Scripts/python.exe scripts/split_fr_record.py --rev origin/master
-    venv/Scripts/python.exe scripts/split_fr_record.py --rev origin/master --verify-only
+    venv/Scripts/python.exe scripts/split_fr_record.py --rev a0ea633c
+    venv/Scripts/python.exe scripts/split_fr_record.py --rev a0ea633c --verify-only
+
+``a0ea633c`` is the master commit the move was made from (the old file's last version). Once
+a topic file is edited after the move, ``--verify-only`` reports it as differing: the proof
+holds for the commit that made the move, not for later edits.
 """
 
 from __future__ import annotations
@@ -254,7 +258,8 @@ RULES: list[tuple[str, tuple]] = [
     ("Pins: `tests/unit/test_shape_split.py`", ("after", "FR-SPLIT", None)),
 ]
 
-#: Acceptance paragraphs that cover two families: the second family's file repeats them.
+#: Acceptance paragraphs that cover two families. The paragraph stays in the first family's
+#: file; the second family's file points to it, so the test list exists once (ADR-074).
 ALSO_AFTER = {
     "Acceptance (L1.8): ": "FR-3D-WALK",
     "Acceptance (L6): ": "FR-3D-TOUR",
@@ -437,7 +442,12 @@ def build(old_text: str) -> tuple[dict[str, str], dict]:
             _owner(prefix)[1].after.append(paragraph)
             also = next((p for key, p in ALSO_AFTER.items() if rule.startswith(key)), None)
             if also:
-                _owner(also)[1].after.append(paragraph)
+                home = _owner(prefix)[0]
+                link = Path(home.path).relative_to(Path(_owner(also)[0].path).parent).as_posix()
+                _owner(also)[1].after.append(
+                    [f"Acceptance: shared with [{home.title}]({link}), whose acceptance "
+                     "paragraph names the tests."]
+                )
         elif kind == "entries":
             for fid, text in action[1]:
                 new_entries[fid] = text
@@ -609,6 +619,15 @@ def main(argv: list[str] | None = None, root: Path = REPO_ROOT) -> int:
             path.write_text(text, encoding="utf-8", newline="\n")
         print(f"wrote {len(files)} topic files")
     errors = verify(old_text, root)
+    # the whole of every file, not only its entries: intros, acceptance paragraphs and the
+    # new entries are compared with what build() writes
+    on_disk = {p.relative_to(root / NEW_DIR).as_posix() for p in (root / NEW_DIR).rglob("*.md")}
+    for rel in sorted(on_disk - set(files) - {"README.md"}):
+        errors.append(f"{rel} is not a file this migration writes")
+    for rel, text in files.items():
+        path = root / NEW_DIR / rel
+        if not path.exists() or path.read_text(encoding="utf-8") != text:
+            errors.append(f"{rel} differs from what the migration writes")
     for error in errors:
         print(f"ERROR: {error}", file=sys.stderr)
     if errors:

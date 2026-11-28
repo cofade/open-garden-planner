@@ -79,11 +79,4 @@ prefixes: ["FR-3D-TOUR"]
   `tests/integration/test_directors_cut.py::test_a_part_turn_starts_the_orbit_at_the_view_and_stops_half_way_round`,
   and the three bundled half-turn orbits in `tests/unit/test_example_specs.py`.
 
-Acceptance: `tests/integration/test_directors_cut.py` (§8.10 — photo mode, the click, Save Photo,
-the dialog, a recording end to end, every refusal, the blur/point invariant, the owner's date during
-a tour, the clock-change hold), `test_agent_api_render_3d.py` (the real MCP transport),
-`test_video_writer.py` (a real encode, read back; a kept render survives the next recording), the
-unit suites `test_camera_path.py`, `test_video_yuv.py` and `test_scene3d_photo.py`, the render tier
-`test_directors_cut_render.py` (including the two-week clock-change luma gate, and since #743 the
-preview-against-4K blur parity and the slider's blur 0.05 against 1.0), and `--selftest`, which
-captures and encodes from the bundle.
+Acceptance: shared with [Photo mode](photo.md), whose acceptance paragraph names the tests.

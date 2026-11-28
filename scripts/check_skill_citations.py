@@ -106,6 +106,10 @@ KNOWN_EXCEPTIONS: dict[tuple[str, str], str] = {
         ".agents/skills/debug-verbose/references/060-case-study-the-full-battery-aborts-with-heap-corruption-in-a-plant-sprite-test-an-unp.md",
         "pytestqt/plugin.py:220",
     ): "third-party library (pytest-qt runtime dependency), not part of this repo",
+    (
+        "docs/09-architecture-decisions/ADR-032-smart-symbol-format-versioning-us-c4.md",
+        "FR-SYMBOL-08",
+    ): "a requirement retired with Smart Symbols (#770, #1009); the ADR records that history",
 }
 
 _HEADING_RE = re.compile(r"^#{1,6}\s+(\d+(?:\.\d+){0,2})\b", re.MULTILINE)
@@ -321,6 +325,14 @@ def build_fr_pool(root: Path) -> set[str]:
     return pool
 
 
+def find_fr_doc_files(root: Path = REPO_ROOT) -> list[Path]:
+    """FR references are also checked across ``docs/`` (ADRs, arc42, roadmap), where most of
+    them live. The generated FR index is left out: its "next free ID" column names IDs that
+    do not exist yet, by design."""
+    index = root / FR_DIR_PATH / "README.md"
+    return [path for path in sorted(root.glob("docs/**/*.md")) if path != index]
+
+
 def check_fr_refs(root: Path, corpus_files: list[Path], pool: set[str]) -> list[str]:
     errors: list[str] = []
     for path in corpus_files:
@@ -339,6 +351,35 @@ def check_fr_refs(root: Path, corpus_files: list[Path], pool: set[str]) -> list[
                         f"{rel_file}:{line}: '{raw}' cites FR-{fr_id}, which "
                         f"has no entry in {FR_DIR_PATH}/"
                     )
+        errors += _check_fr_families(rel_file, text, pool)
+    return errors
+
+
+# A family name (FR-SNAP, FR-UI-THEME) or a family group (FR-3D-*). Tokens with a
+# lower-case letter or "<" are placeholders (FR-<PREFIX>-nn, FR-SUN-xx) and are skipped;
+# a token with a trailing number is an ID, which _FR_REF_RE checks.
+_FR_TOKEN_RE = re.compile(r"\bFR-([A-Za-z0-9<>*-]+)")
+_FR_FAMILY_RE = re.compile(r"[A-Z0-9]*[A-Z][A-Z0-9]*(?:-[A-Z0-9]*[A-Z][A-Z0-9]*)*")
+_FR_ID_BODY_RE = re.compile(r"(?:[A-Z0-9]*[A-Z][A-Z0-9]*-)+\d+[a-z]?")
+
+
+def _check_fr_families(rel_file: str, text: str, pool: set[str]) -> list[str]:
+    prefixes = {re.sub(r"-\d+[a-z]?$", "", fr_id) for fr_id in pool}
+    errors: list[str] = []
+    for line, match in _iter_matches(text, _FR_TOKEN_RE):
+        body = match.group(1).rstrip("-")
+        if _FR_ID_BODY_RE.match(body) or re.search(r"[a-z<>]", body):
+            continue
+        star = body.endswith("*")
+        name = body.rstrip("*").rstrip("-")
+        if not _FR_FAMILY_RE.fullmatch(name) or _is_excepted(rel_file, match.group(0)):
+            continue
+        known = name in prefixes or (star and any(p.startswith(f"{name}-") for p in prefixes))
+        if not known:
+            errors.append(
+                f"{rel_file}:{line}: '{match.group(0)}' names no requirement family in "
+                f"{FR_DIR_PATH}/"
+            )
     return errors
 
 
@@ -503,7 +544,7 @@ def check_repo(root: Path = REPO_ROOT) -> list[str]:
     errors: list[str] = []
     errors += check_section_refs(root, corpus_files, build_section_pool(root, corpus_files))
     errors += check_adr_refs(root, corpus_files, build_adr_pool(root))
-    errors += check_fr_refs(root, corpus_files, build_fr_pool(root))
+    errors += check_fr_refs(root, corpus_files + find_fr_doc_files(root), build_fr_pool(root))
     errors += check_file_line_refs(root, corpus_files)
     errors += check_issue_refs(root, corpus_files, load_issue_registry(root))
     errors += check_fact_refs(root, corpus_files)
