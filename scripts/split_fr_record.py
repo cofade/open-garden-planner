@@ -158,6 +158,14 @@ LAYOUT: list[TopicFile] = [
 #: The title of a heading-form entry, with the user-story label of its old heading removed.
 HEAD_TITLES = {"FR-SUN-09": "Cached sun-requirement diagnostics (#314)"}
 
+#: The only edits inside an entry's own text: a cross-reference to an old chapter number,
+#: which no longer exists, becomes the family it meant. The lossless check compares the
+#: words after these replacements, so nothing else may change.
+TEXT_FIXES: dict[str, tuple[str, str]] = {
+    "FR-SUN-06": ("Detail: FR-33.", "Detail: the FR-3D-* requirements in `3d/`."),
+    "FR-UI-ICON-01": ("by FR-30 3c, #310)", "by FR-ICON-3C, #310)"),
+}
+
 # --- the rules for lines without an ID -------------------------------------------------------
 #
 # A rule matches a block (a run of non-blank lines outside an entry) by the start of its first
@@ -344,6 +352,13 @@ def parse(lines: list[str]) -> tuple[list[Entry], list[Block], list[int]]:
                 j += 1
             old_text = "\n".join(lines[s] for s in source)
             old_text = old_text.replace(f"**{fid}:**", f"**{fid}**:", 1)
+            if fid in TEXT_FIXES:
+                old, new = TEXT_FIXES[fid]
+                hits = [k for k, text in enumerate(out) if old in text]
+                if len(hits) != 1 or old_text.count(old) != 1:
+                    raise SystemExit(f"{fid}: TEXT_FIXES text {old!r} is not unique in the entry")
+                out[hits[0]] = out[hits[0]].replace(old, new)
+                old_text = old_text.replace(old, new)
             entries.append(Entry(fid, out, source, _words(old_text)))
             i = j
             continue
@@ -599,6 +614,8 @@ def main(argv: list[str] | None = None, root: Path = REPO_ROOT) -> int:
     if errors:
         return 1
     print(f"{len(report['entries'])} IDs moved, {len(report['new'])} new: {', '.join(report['new'])}")
+    for fid, (old, new) in TEXT_FIXES.items():
+        print(f"text fix in {fid}: {old!r} -> {new!r}")
     print(f"{report['headings']} chapter headings replaced; {report['blocks']} ID-less blocks handled")
     print("dropped:")
     for line, text, reason in report["dropped"]:

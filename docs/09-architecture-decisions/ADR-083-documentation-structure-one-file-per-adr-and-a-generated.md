@@ -157,7 +157,8 @@ requirements had no ID, and four definition forms were in use: `- **FR-X-nn**:`,
 - **The migration.** `scripts/split_fr_record.py` is one-off and deterministic. It reads
   the old file from git and places every ID by `LAYOUT`; `RULES` decides each ID-less
   block (drop, acceptance paragraph, or new entry). Its proof: every old ID is in exactly
-  one topic file with the same words; every old non-blank line is an entry, a heading or
+  one topic file with the same words, except two cross-references to old chapter numbers
+  that `TEXT_FIXES` names (in FR-SUN-06 and FR-UI-ICON-01); every old non-blank line is an entry, a heading or
   a block that exactly one rule handled; and the only new IDs are the ones listed above.
   It ran once, on #1036's branch.
 
