@@ -1,4 +1,4 @@
-# Texture Provenance (US-E9 #264 → Package 3b #309, ADR-042 / FR-30)
+# Texture Provenance (US-E9 #264 → Package 3b #309, ADR-042 / FR-TEX)
 
 Every texture in this folder MUST have an entry here before it merges
 (`ogp-external-positioning`: assets without provenance don't ship). Since

@@ -8595,7 +8595,7 @@ Each row is a test of the NEW view, or a stated difference the owner sees.
 | growth from the planting date, one model, one plan date | the same; dated plants regrow on a date change (at most twice a second while the date keeps changing) | `test_view3d_sync_controller.py::test_a_date_change_regrows_the_dated_plants_and_nothing_else`, `::test_a_date_held_down_regrows_at_once_and_once_more_on_its_last_day` |
 | an explicit height override wins; an unmeasured plant stays mature at every date | the same (the 2D resolver) | `test_scene3d_snapshot.py::TestRecordContent::test_height_is_the_2d_resolver_s`, `TestDiffMatrix::test_the_date_changes_nothing_but_dated_plants` |
 
-FR-SUN-06 / 07 / 08 are rewritten to say what the product does now and point to FR-33.
+FR-SUN-06 / 07 / 08 are rewritten to say what the product does now and point to the FR-3D-* requirements.
 
 #### What the default costs (measured, RTX 4070 / Direct3D 11 and WARP, 2026-10-19)
 
@@ -9985,7 +9985,7 @@ the item classes that do not inherit it):
 | Lock / unlock position | `build_lock_context_menu` / `dispatch_lock_action` | FIXED constraint, FR-EDIT-17 |
 | Arrange | `_build_arrange_menu` / `_dispatch_arrange` | `build_arrange_command`, ADR-043 |
 | Group / Ungroup | `group_menu.build_group_context_menu` / `GroupMenuActions.dispatch` | FR-EDIT-22 |
-| Split along a line | `split_menu.build_split_action` (QAction `triggered`) | §8.35, ADR-075, FR-35; closed shapes only |
+| Split along a line | `split_menu.build_split_action` (QAction `triggered`) | §8.35, ADR-075, FR-SPLIT; closed shapes only |
 
 **Group/Ungroup matrix.** The entries are decided from `scene.selectedItems()`
 at the moment the menu opens, after normalising the selection: a right-click on

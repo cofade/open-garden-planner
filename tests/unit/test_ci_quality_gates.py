@@ -300,7 +300,11 @@ def test_functional_requirement_ids_are_unique() -> None:
     ``- **FR-...**`` LINES are definitions; a cross-reference ("see FR-STACK-08") is not.
     """
     root = Path(__file__).resolve().parents[2]
-    text = (root / "docs/functional-requirements.md").read_text(encoding="utf-8")
+    # one topic file per area since #1036; an ID must be unique across all of them
+    text = "\n".join(
+        path.read_text(encoding="utf-8")
+        for path in sorted((root / "docs/functional-requirements").rglob("*.md"))
+    )
     definitions = re.findall(
         r"^- \*\*(FR-[A-Za-z0-9]+(?:-[A-Za-z0-9]+)*)\*\*", text, re.MULTILINE
     )

@@ -89,8 +89,8 @@ demonstrate.
 
 ### The non-negotiable prerequisite — do not route around it
 
-`docs/roadmap.md` (D2 row) and FR-AGENT-03 (`docs/functional-requirements.md`
-~line 427) are explicit: the server is loopback-only with **no auth today**,
+`docs/roadmap.md` (D2 row) and FR-AGENT-03 (`docs/functional-requirements/agent-api.md`
+~line 12) are explicit: the server is loopback-only with **no auth today**,
 and **token auth must land before ANY write tool**. Any local process can
 reach the port. A write tool without auth is a P0 security regression, full
 stop. If you find yourself prototyping a write tool "just locally first" —
@@ -432,7 +432,7 @@ no-tools baseline on the same task.
 ## What we will NOT pursue (settled retirements — do not resurrect)
 
 - **US-B7 Paper Space MVP** — dropped during PR #191 manual-test review
-  (FR-20.4 / ADR-022): `pdf_report_service` already covers
+  (the ADR-023 note): `pdf_report_service` already covers
   print-to-PDF at chosen paper sizes; a second-space CAD-style print workflow
   added nothing. The `paper_layouts` key from short-lived draft builds is
   silently ignored on load. A "layout/paper space" idea is not new ambition;
@@ -461,7 +461,7 @@ one-liners from repo root; expected hits noted):
 - Solver debt: `grep -n "TD-007\|TD-008" docs/11-risks-and-technical-debt/README.md` (if gone, Frontier 4 milestones may be met — update this file)
 - Qt-free engines: `head -25 src/open_garden_planner/services/task_generator.py`
 - Boolean vs offset kernels: `head -1 src/open_garden_planner/core/shape_boolean.py && grep -rn pyclipper src/open_garden_planner/core/tools/offset_tool.py pyproject.toml`
-- US-B7 stays dead: `grep -n "US-B7\|Paper Space" docs/functional-requirements.md docs/09-architecture-decisions/ADR-*.md`
+- US-B7 stays dead: `grep -n "US-B7\|Paper Space" docs/09-architecture-decisions/ADR-*.md`
 
 When any milestone in (d) is met: mark it here, update `docs/roadmap.md`, and
 only then involve **ogp-external-positioning** for any outward claim.

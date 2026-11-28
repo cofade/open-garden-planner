@@ -881,7 +881,7 @@ view's cost over the old window (§8.29.9) with no lighter default preset.
 - Every main window carries the workspace widget; nothing of the engine is loaded before 3D is
   asked for.
 - The parity of FR-SUN-06 / 07 / 08 is a table of tests and stated differences (§8.29.9); the
-  three FRs are rewritten for the new view and point to FR-33.
+  three FRs are rewritten for the new view and point to the FR-3D-* requirements.
 - What the default costs is measured against the old view (§8.29.9 "What the default costs").
 
 ### Evidence

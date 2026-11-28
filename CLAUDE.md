@@ -95,7 +95,7 @@ Architecture documentation follows arc42 in `docs/`. This project uses **continu
 | Known pitfalls                       | `docs/11-risks-and-technical-debt/pitfalls/` (index in pitfalls/index/; ADR-061) |
 | Debt register, latest repo audit     | `docs/11-risks-and-technical-debt/` §11.3 + `audits/2026-10/audit-2026-10.md` (ADR-047) |
 | **Bed-only features (menu, badge, …) — READ FIRST before adding any bed feature** | `docs/08-crosscutting-concepts/` § 8.14 + ADR-017     |
-| Functional requirements (FR-*)       | `docs/functional-requirements.md`                     |
+| Functional requirements (FR-*)       | `docs/functional-requirements/` (generated index)     |
 | Architecture decisions (ADRs)        | `docs/09-architecture-decisions/`                     |
 | Glossary                             | `docs/12-glossary/README.md`                          |
 | GitHub wiki sources and publication | `docs/wiki/README.md` (sources in `docs/wiki/`; separate checkout `../open-garden-planner.wiki/`) |
@@ -166,7 +166,7 @@ drift instead of overwriting either agent's native file format.
 | New component/module | `docs/05-building-block-view/` — add black box description |
 | New UI pattern | `docs/08-crosscutting-concepts/` section 8.9 |
 | Changed runtime behavior | `docs/06-runtime-view/` — update sequence diagrams |
-| New user-facing capability | `docs/functional-requirements.md` — add FR-* entry |
+| New user-facing capability | `docs/functional-requirements/` — add `- **FR-<PREFIX>-nn**:` to the prefix's topic file, run `scripts/generate_doc_indexes.py` |
 | Architecture decision | new `docs/09-architecture-decisions/ADR-nnn-<slug>.md`, then `scripts/generate_doc_indexes.py` (ADR-083) |
 | New domain term | `docs/12-glossary/` — add definition |
 
@@ -369,7 +369,7 @@ Full how-to (step-by-step, `.ts` format, recompile command): see `docs/08-crossc
     is unchanged and the shade ends where the frame does. The table's reach column
     and `scripts/measure_built_world_shadows.py` carry the numbers.
 - Docs of record: `docs/roadmap.md` (current work and status), the ADRs (decisions),
-  `docs/functional-requirements.md` (capabilities), and the `ogp-architecture-contract`
+  `docs/functional-requirements/` (capabilities), and the `ogp-architecture-contract`
   skill (invariants). If a fact is not there, it does not belong in this file.
 - This section is a handoff, not a changelog. On each release, replace the
   current-release line and the next-work pointer; do not append a narrative. Shipped

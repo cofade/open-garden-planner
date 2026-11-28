@@ -31,7 +31,7 @@
   },
   "1009": {
     "is_pr": false,
-    "state": "OPEN",
+    "state": "CLOSED",
     "title": "Remove Smart Symbols completely (engine, persistence, translations, tests, docs)"
   },
   "1012": {
@@ -66,7 +66,7 @@
   },
   "1022": {
     "is_pr": false,
-    "state": "OPEN",
+    "state": "CLOSED",
     "title": "Group rotation: a selected group has no rotation handle, so a group cannot be rotated as one unit in the UI"
   },
   "1029": {
@@ -76,18 +76,23 @@
   },
   "1030": {
     "is_pr": true,
-    "state": "OPEN",
+    "state": "MERGED",
     "title": "feat: 2D canvas follow-ups - group rotation, Smart Symbol removal, sprite/SVG sharpness (#1009, #1022, #845, #850, #873)"
   },
   "1031": {
     "is_pr": false,
-    "state": "OPEN",
+    "state": "CLOSED",
     "title": "Native crash on first click after reopening a grouped, scaled plan (stale QGraphicsScene index)"
   },
   "1032": {
     "is_pr": false,
-    "state": "OPEN",
+    "state": "CLOSED",
     "title": "Allow ungrouping a turned group by baking the turn into its members"
+  },
+  "1036": {
+    "is_pr": false,
+    "state": "OPEN",
+    "title": "Restructure functional requirements into prefix-keyed topic files (after #1035)"
   },
   "114": {
     "is_pr": true,
@@ -133,11 +138,6 @@
     "is_pr": true,
     "state": "MERGED",
     "title": "fix(#173): refresh soil warnings on reparent + elevate plant z above bed"
-  },
-  "188": {
-    "is_pr": false,
-    "state": "CLOSED",
-    "title": "Package C — Garden Smart Features: harvest log, task reminders, vertical/container gardening, smart symbols"
   },
   "191": {
     "is_pr": true,
@@ -1204,6 +1204,11 @@
     "state": "CLOSED",
     "title": "Beauty Board: a sky-facing dusk probe (the board's dusk camera hid a black sun for three reviews)"
   },
+  "698": {
+    "is_pr": false,
+    "state": "CLOSED",
+    "title": "2D shadow: give open objects (string lights, pergola, swing, hammock, trellis, garden light) a transmittance via #440's hook"
+  },
   "701": {
     "is_pr": false,
     "state": "CLOSED",
@@ -1496,7 +1501,7 @@
   },
   "845": {
     "is_pr": false,
-    "state": "OPEN",
+    "state": "CLOSED",
     "title": "Sprite rasterisation: 0.2-0.5 s hitch the first time a zoom crosses 100, 200 and 400 %; large sprites are redrawn at every zoom step"
   },
   "847": {
@@ -1511,7 +1516,7 @@
   },
   "850": {
     "is_pr": false,
-    "state": "OPEN",
+    "state": "CLOSED",
     "title": "SVG export: pictures embedded once per use (files 2.6-7x larger), clipped strokes lose editability, halo and badge text sized by Qt"
   },
   "852": {
@@ -1561,7 +1566,7 @@
   },
   "873": {
     "is_pr": false,
-    "state": "OPEN",
+    "state": "CLOSED",
     "title": "A huge object name still reaches the inline name editor; a selected text note of a million characters costs 126 ms per repaint"
   },
   "874": {

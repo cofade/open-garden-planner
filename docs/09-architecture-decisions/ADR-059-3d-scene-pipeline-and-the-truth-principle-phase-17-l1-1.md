@@ -1,7 +1,7 @@
 ---
 id: ADR-059
 title: "3D scene pipeline and the truth principle (Phase 17, L1.1)"
-status: "Accepted (2026-10-11, #385 story L1.1, epic #383). This is the scene-pipeline ADR the epic reserved as \"ADR-049\" (that number went to frost dates; ADR-053 announced it for L1.1). It was written as \"ADR-054\", then carried as \"ADR-056\" and as \"ADR-064\", and renumbered each time before it reached master, where Package F and the audit packages had taken those numbers while this package was in work (likewise its concept section, written as 8.26, 8.27 and 8.32 before it became 8.29, and its requirements bucket, written as FR-32, FR-33 and FR-36 before it became FR-33) — an older note or branch that says \"ADR-054\", \"ADR-056\" or \"ADR-064, 3D scene pipeline\" means this record, and \"ADR-065\" in a note older than L4 (#388) means ADR-060 (since L4, ADR-065 is the built world's record). The same renumber moved the test-policy sections 8.10.23–31 to 8.10.5–13 and the pitfall sections, now the PF entries of §11.4. It builds on ADR-048 (Qt Quick 3D, GO) and ADR-053 (one sim clock). Nothing is rendered by this story: it is the Qt-free foundation L1.2–L1.7 build on. **Amended the same day by the independent review of the story** (two interface defects and a list of smaller ones — decisions 1, 3, 8, 9, 10 and 12 and the section \"What the first version got wrong\" below); the text here is the contract as it stands after that round."
+status: "Accepted (2026-10-11, #385 story L1.1, epic #383). This is the scene-pipeline ADR the epic reserved as \"ADR-049\" (that number went to frost dates; ADR-053 announced it for L1.1). It was written as \"ADR-054\", then carried as \"ADR-056\" and as \"ADR-064\", and renumbered each time before it reached master, where Package F and the audit packages had taken those numbers while this package was in work (likewise its concept section, written as 8.26, 8.27 and 8.32 before it became 8.29, and its requirements bucket, written as three separate chapters before it became the FR-3D-* family) — an older note or branch that says \"ADR-054\", \"ADR-056\" or \"ADR-064, 3D scene pipeline\" means this record, and \"ADR-065\" in a note older than L4 (#388) means ADR-060 (since L4, ADR-065 is the built world's record). The same renumber moved the test-policy sections 8.10.23–31 to 8.10.5–13 and the pitfall sections, now the PF entries of §11.4. It builds on ADR-048 (Qt Quick 3D, GO) and ADR-053 (one sim clock). Nothing is rendered by this story: it is the Qt-free foundation L1.2–L1.7 build on. **Amended the same day by the independent review of the story** (two interface defects and a list of smaller ones — decisions 1, 3, 8, 9, 10 and 12 and the section \"What the first version got wrong\" below); the text here is the contract as it stands after that round."
 legacy_anchor: adr-059-3d-scene-pipeline-and-the-truth-principle-phase-17-l11
 ---
 
@@ -12,7 +12,7 @@ epic reserved as "ADR-049" (that number went to frost dates; ADR-053 announced i
 was written as "ADR-054", then carried as "ADR-056" and as "ADR-064", and renumbered each time before it
 reached master, where Package F and the audit packages had taken those numbers while this package was in work
 (likewise its concept section, written as 8.26, 8.27 and 8.32 before it became 8.29, and its requirements
-bucket, written as FR-32, FR-33 and FR-36 before it became FR-33) — an older note or branch that says
+bucket, written as three separate chapters before it became the FR-3D-* family) — an older note or branch that says
 "ADR-054", "ADR-056" or "ADR-064, 3D scene pipeline" means this record, and "ADR-065" in a note older than L4 (#388) means ADR-060 (since L4, ADR-065 is the built world's record). The
 same renumber moved the test-policy sections 8.10.23–31 to 8.10.5–13 and the pitfall sections, now the PF entries of §11.4. It
 builds on ADR-048 (Qt Quick 3D, GO) and ADR-053 (one sim clock). Nothing is rendered by this
@@ -2389,7 +2389,7 @@ fixed the same defect, `master`'s mechanism wins:**
   name) took every test that calls a baker's `bake` for a timing test.
 - The identifiers are the placeholders (`renumber_385_v2.py`, before the merge): this addendum
   belongs to ADR-059; its concept section is §8.29.5, its test patterns §8.10.10, its lessons
-  PF-L3D-03, PF-L3D-04 and PF-CAN-21, its requirements FR-33's `FR-3D-GROUND-*`.
+  PF-L3D-03, PF-L3D-04 and PF-CAN-21, its requirements `FR-3D-GROUND-*`.
 
 ### Part B: the bake wired into the workspace (2026-10-19)
 

@@ -453,7 +453,7 @@ Concrete shape types: `RectangleObject` (house, garage, terrace, driveway), `Pol
 
 ## 5.5 Task Subsystem (US-C2)
 
-Black-box view of the unified Tasks tab. See ADR-029 and FR-21.
+Black-box view of the unified Tasks tab. See ADR-029 and FR-TASK.
 
 | Building block | Responsibility | Interface (in → out) |
 |----------------|----------------|----------------------|
@@ -466,7 +466,7 @@ Black-box view of the unified Tasks tab. See ADR-029 and FR-21.
 
 ## 5.6 Agent API Subsystem (US-D1.1/D1.2/D1.3/D1.4/D1.5/D1.6/D2.0–D2.6/D3.1–D3.4)
 
-Black-box view of the embedded MCP server for AI agents. See ADR-033/034/035/036, FR-26, §8.19. Default-on, loopback-only, toggle to disable; structural/spatial/diagnostics/vision reads plus four file-producing export/save tools (D1.4, no scene mutation except `save_plan`); five read-only resources + two read-analysis prompts (D1.5, no new business logic — reuse the same providers as the tools); an in-app "Connect your AI assistant" onboarding dialog (D1.6, detects Cursor/Claude Code/Claude Desktop and registers the connect URL where each client's own docs support it safely); and the token-gated D2 write surface, including live geometry reads, absolute positioning, vertex edits, and the global GUI/agent `undo`/`redo` bridge.
+Black-box view of the embedded MCP server for AI agents. See ADR-033/034/035/036, FR-AGENT, §8.19. Default-on, loopback-only, toggle to disable; structural/spatial/diagnostics/vision reads plus four file-producing export/save tools (D1.4, no scene mutation except `save_plan`); five read-only resources + two read-analysis prompts (D1.5, no new business logic — reuse the same providers as the tools); an in-app "Connect your AI assistant" onboarding dialog (D1.6, detects Cursor/Claude Code/Claude Desktop and registers the connect URL where each client's own docs support it safely); and the token-gated D2 write surface, including live geometry reads, absolute positioning, vertex edits, and the global GUI/agent `undo`/`redo` bridge.
 
 | Building block | Responsibility | Interface (in → out) |
 |----------------|----------------|----------------------|
@@ -527,7 +527,7 @@ The agent adapters add no second urgency, amendment or soil-health computation.
 
 ## 5.7 Theme, Icon & Plant-Art System (#279/#281, ADR-039/ADR-040)
 
-Black-box view of the visual-refresh subsystem. See §8.4 (theme/tokens), §8.21 (icon system), §8.22 (plant sprites), FR-28, FR-29.
+Black-box view of the visual-refresh subsystem. See §8.4 (theme/tokens), §8.21 (icon system), §8.22 (plant sprites), FR-UI-THEME, FR-UI-ICON, FR-PLANT-ART.
 
 | Building block | Responsibility | Interface (in → out) |
 |----------------|----------------|----------------------|
@@ -571,7 +571,7 @@ Engine facts measured in the spike live in the `ogp-3d-renderer` skill; the art-
 
 ## 5.9 Plant Lists & Favourites Subsystem (US-G4, issue #320)
 
-Black-box view of persistent plant collections, favourites, drag-to-canvas orchestration, and list sharing. See FR-8.
+Black-box view of persistent plant collections, favourites, drag-to-canvas orchestration, and list sharing. See FR-LIB.
 
 | Building block | Responsibility | Interface (in → out) |
 |----------------|----------------|----------------------|

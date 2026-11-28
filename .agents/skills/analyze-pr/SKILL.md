@@ -121,7 +121,7 @@ Carry the wording over verbatim — the author already chose words that make sen
 
 ### 4b. Per-US / per-feature acceptance walkthroughs
 
-For each user story / feature listed in the PR body, derive a tight walkthrough from the **acceptance criteria** in the issue, the roadmap's current-work section while open, or `docs/functional-requirements.md` for FR-* entries. Include:
+For each user story / feature listed in the PR body, derive a tight walkthrough from the **acceptance criteria** in the issue, the roadmap's current-work section while open, or `docs/functional-requirements/README.md` (the index of the topic files) for FR-* entries. Include:
 
 - the **shortcut / menu path** to trigger the feature
 - the **golden path** (do X → see Y)

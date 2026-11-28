@@ -209,3 +209,6 @@ src/open_garden_planner/_version.py
 
 # Chromium/QtWebEngine crash log from a killed helper process
 /debug.log
+
+# Obsidian vault settings (local editor state)
+.obsidian/

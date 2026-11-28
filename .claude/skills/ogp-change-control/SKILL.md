@@ -40,7 +40,7 @@ Facts date-stamped **as of 2026-09-05**: released version **v1.27.7** (matching
 | Term | Meaning here |
 |------|--------------|
 | **US** | User story, numbered `US-X.X` (e.g. `US-12.7`) or per-package (`US-A1`, `US-C3`, `US-D1.2`). Defined with acceptance criteria in the issue or the roadmap's current-work section while open. |
-| **FR** | Functional requirement (`FR-*`) in `docs/functional-requirements.md`; the durable record of a shipped capability. |
+| **FR** | Functional requirement (`FR-*`) in `docs/functional-requirements/README.md` (the index of the topic files); the durable record of a shipped capability. |
 | **ADR** | Architecture Decision Record in `docs/09-architecture-decisions/`. Required for new dependencies, chosen-between approaches, changed patterns, non-obvious constraints. |
 | **Draft PR** | GitHub pull request opened with `--draft`. In this repo it means "code review passed, awaiting the user's manual test". It is the mandatory end state of every coding job. |
 | **Chore commit** | Commit whose message starts with `chore:` or `chore(...)`. The release workflow deliberately skips these — they are how version-sync and doc-only changes land on master without minting a release. |
@@ -63,7 +63,7 @@ will be minted.
 | Chore (version sync, roadmap table, doc-only, CI tweak) | — | branch + reviewed PR, including mechanical post-release version sync | `chore: ...` / `chore(scope): ...` | **No** — release.yml skips it |
 
 Everything user-visible that a change adds must eventually be reflected in
-`docs/functional-requirements.md`, arc42 docs, and possibly an ADR — see
+`docs/functional-requirements/README.md`, arc42 docs, and possibly an ADR — see
 `ogp-docs-and-writing` for the duty matrix (it mirrors the table in `CLAUDE.md`).
 
 ## 2. The non-negotiables

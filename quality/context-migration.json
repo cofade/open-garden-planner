@@ -1013,7 +1013,7 @@
         {
           "path": ".agents/skills/ogp-3d-sunshade-campaign/references/009-8-phase-6-validation-promotion-per-slice.md",
           "sha256": "c8e34501e3cd966de6c07f117e8ac45143ef0c01f21b4bc21c52a599c8a4028a",
-          "current_sha256": "3c5754f36a5aaa2839568a6f7a75d7235c79487fff48363459af78cdc43a940a"
+          "current_sha256": "ff243859de03ce5af6935b46d890ab5f068691d70f3454143c0edf97fbe0eed2"
         },
         {
           "path": ".agents/skills/ogp-3d-sunshade-campaign/references/010-appendix-pinned-reference-numbers-generated-2026-07-04.md",
@@ -1188,7 +1188,7 @@
         {
           "path": ".agents/skills/ogp-failure-archaeology/references/006-5-task-dual-store-convergence-227-228.md",
           "sha256": "5cbbd548a9331105a857558d7c72640936fa598a5bb610e9accd2c1a3e9989b3",
-          "current_sha256": "5385ab2b6b48a5de798bf40728c00031c21ad059650acbcaf0e3a53f74add7d3"
+          "current_sha256": "fc5feefd7a8085c6931e4060503aaba3f631f76bd2b95045b201185201819172"
         },
         {
           "path": ".agents/skills/ogp-failure-archaeology/references/007-6-find-plants-selection-flakiness-two-rounds-212-215.md",
@@ -1198,7 +1198,7 @@
         {
           "path": ".agents/skills/ogp-failure-archaeology/references/008-7-smart-symbol-exception-family-enumeration-the-losing-game-pr-236.md",
           "sha256": "f1c55001c69c76c28576d67a90e68699a72d8ac7da3fab780347f2b440f4fdb7",
-          "current_sha256": "01a5ca48ebb78d01a77cdf1dc4d30830c3974198f8cf09ff5e2d19e1a60c0706"
+          "current_sha256": "45628e848fa4bbc49e90032136bb29393d86f26e7d6928f8c8c93db081a3cf51"
         },
         {
           "path": ".agents/skills/ogp-failure-archaeology/references/009-8-release-workflow-races-chore-race-229-date-matching.md",
@@ -1228,7 +1228,7 @@
         {
           "path": ".agents/skills/ogp-failure-archaeology/references/014-13-retired-feature-us-b7-paper-space-dropped-in-pr-191-review.md",
           "sha256": "d398dde3fe36e113f724b5d4d8aa5f151b6577d7965263e57a5d9ed2e2aff849",
-          "current_sha256": "4bdc1f12e3c77255ae643c230fcc41dd6e6b4987b841c0968df2f6752000c11c"
+          "current_sha256": "be7f762020aaa206a66f01ea3d8b79c75f5d7d11d5215a25c76ab8f57da6419d"
         },
         {
           "path": ".agents/skills/ogp-failure-archaeology/references/015-14-the-export-y-flip-saga-png-pdf-svg-2026-05.md",
@@ -1273,7 +1273,7 @@
         {
           "path": ".agents/skills/ogp-failure-archaeology/references/023-22-25-short-entries.md",
           "sha256": "ae611431963ab34c7ac2204d0578eb2622e40b6f437548d306cd27e26dc2285a",
-          "current_sha256": "c6e74e3390ea836e8fdfd869d9bfd2e7d7d796e203abbbe075e7cea6330d0841"
+          "current_sha256": "e2f5cb2497b0d6d2fdc8fe3c7116f5894b3bec81ccc49d096d347a2503497383"
         },
         {
           "path": ".agents/skills/ogp-failure-archaeology/references/024-still-open-unsettled-as-of-2026-07-03.md",
@@ -1288,7 +1288,7 @@
         {
           "path": ".agents/skills/ogp-failure-archaeology/references/026-provenance-and-maintenance.md",
           "sha256": "3fa44fedef6d0ebc40f721cdb3c642ea13e844d825681eb04db72fa711701a19",
-          "current_sha256": "6e82781e5a515fb04bc2ecf7c4feb4771d75f7763d2007591381df5e3704eef7"
+          "current_sha256": "151b54b99417ffa666da1174cf206ceaa802ec7a2b359ca7f2e72664cc28142d"
         }
       ]
     },
@@ -2413,7 +2413,7 @@
         {
           "path": ".claude/skills/ogp-3d-sunshade-campaign/references/009-8-phase-6-validation-promotion-per-slice.md",
           "sha256": "dee597459964139be74b309e1855a15ee3fbc733a7269bab86058b21c002c9cf",
-          "current_sha256": "78fd916c71a03a50101bb15d66d2443b131704e205850d0ada01dc748af78b65"
+          "current_sha256": "b22c1cc83c0787edbea4ffeb0026d1fa927c7ee02d22356540323a518dc5c9bb"
         },
         {
           "path": ".claude/skills/ogp-3d-sunshade-campaign/references/010-appendix-pinned-reference-numbers-generated-2026-07-04.md",
@@ -2588,7 +2588,7 @@
         {
           "path": ".claude/skills/ogp-failure-archaeology/references/006-5-task-dual-store-convergence-227-228.md",
           "sha256": "5cbbd548a9331105a857558d7c72640936fa598a5bb610e9accd2c1a3e9989b3",
-          "current_sha256": "5385ab2b6b48a5de798bf40728c00031c21ad059650acbcaf0e3a53f74add7d3"
+          "current_sha256": "fc5feefd7a8085c6931e4060503aaba3f631f76bd2b95045b201185201819172"
         },
         {
           "path": ".claude/skills/ogp-failure-archaeology/references/007-6-find-plants-selection-flakiness-two-rounds-212-215.md",
@@ -2598,7 +2598,7 @@
         {
           "path": ".claude/skills/ogp-failure-archaeology/references/008-7-smart-symbol-exception-family-enumeration-the-losing-game-pr-236.md",
           "sha256": "f1c55001c69c76c28576d67a90e68699a72d8ac7da3fab780347f2b440f4fdb7",
-          "current_sha256": "01a5ca48ebb78d01a77cdf1dc4d30830c3974198f8cf09ff5e2d19e1a60c0706"
+          "current_sha256": "45628e848fa4bbc49e90032136bb29393d86f26e7d6928f8c8c93db081a3cf51"
         },
         {
           "path": ".claude/skills/ogp-failure-archaeology/references/009-8-release-workflow-races-chore-race-229-date-matching.md",
@@ -2628,7 +2628,7 @@
         {
           "path": ".claude/skills/ogp-failure-archaeology/references/014-13-retired-feature-us-b7-paper-space-dropped-in-pr-191-review.md",
           "sha256": "d398dde3fe36e113f724b5d4d8aa5f151b6577d7965263e57a5d9ed2e2aff849",
-          "current_sha256": "4bdc1f12e3c77255ae643c230fcc41dd6e6b4987b841c0968df2f6752000c11c"
+          "current_sha256": "be7f762020aaa206a66f01ea3d8b79c75f5d7d11d5215a25c76ab8f57da6419d"
         },
         {
           "path": ".claude/skills/ogp-failure-archaeology/references/015-14-the-export-y-flip-saga-png-pdf-svg-2026-05.md",
@@ -2673,7 +2673,7 @@
         {
           "path": ".claude/skills/ogp-failure-archaeology/references/023-22-25-short-entries.md",
           "sha256": "ae611431963ab34c7ac2204d0578eb2622e40b6f437548d306cd27e26dc2285a",
-          "current_sha256": "c6e74e3390ea836e8fdfd869d9bfd2e7d7d796e203abbbe075e7cea6330d0841"
+          "current_sha256": "e2f5cb2497b0d6d2fdc8fe3c7116f5894b3bec81ccc49d096d347a2503497383"
         },
         {
           "path": ".claude/skills/ogp-failure-archaeology/references/024-still-open-unsettled-as-of-2026-07-03.md",
@@ -2688,7 +2688,7 @@
         {
           "path": ".claude/skills/ogp-failure-archaeology/references/026-provenance-and-maintenance.md",
           "sha256": "3fa44fedef6d0ebc40f721cdb3c642ea13e844d825681eb04db72fa711701a19",
-          "current_sha256": "6e82781e5a515fb04bc2ecf7c4feb4771d75f7763d2007591381df5e3704eef7"
+          "current_sha256": "151b54b99417ffa666da1174cf206ceaa802ec7a2b359ca7f2e72664cc28142d"
         }
       ]
     },

@@ -82,7 +82,7 @@ aggregation tests live in `tests/unit/test_plan_timeline.py`.
 The master merge brings ADR-059/060's Qt Quick 3D workspace. This timeline decision
 is ADR-062: the original ADR-059 collided with the workspace, and the initially
 chosen ADR-061 was taken by the later pitfall-catalogue merge (#546). Its
-requirement bucket remains FR-34.
+requirement bucket remains FR-TIMELINE.
 
 The owner chose one adaptive strip, monthly steps preserving the calendar day,
 current local time at startup, a dated old-map preview during refresh, and exports

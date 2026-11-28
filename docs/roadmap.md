@@ -64,7 +64,7 @@ This table is a pointer, not a tracker. Each issue owns its scope and acceptance
 | ✅ | Recovery and test reliability (#797, #897, #916, #921, #922, #923) | Complete autosaves, bounded selection notifications, portable CPU raster tests, a cheaper full translation gate, and measured Qt guidance | v1.40.5; [PR #932](https://github.com/cofade/open-garden-planner/pull/932); ADR-003 addendum; §8.10.18; PF-CAN-40 |
 | ✅ | Canvas repaint package (#848, #877, #878, #927; partial #847) | Canvas repaint caches and unmeasured sun diagnostics | v1.40.4; [PR #926](https://github.com/cofade/open-garden-planner/pull/926); §8.27, §8.37, ADR-076 addendum |
 | ✅ | Package #768–#776 | Parametric glasshouse and pergola, Smart Symbols retirement, sprite orientation, layers-panel fixes | v1.37.9; [PR #779](https://github.com/cofade/open-garden-planner/pull/779); ADR-032 addendum; FR-3D-BUILT-01a–01c |
-| ✅ | Package #681/#664/#771 | Monthly dependency refresh, scene-wide split along a line, group drill-down | v1.37.10; [PR #783](https://github.com/cofade/open-garden-planner/pull/783); ADR-075; FR-35 |
+| ✅ | Package #681/#664/#771 | Monthly dependency refresh, scene-wide split along a line, group drill-down | v1.37.10; [PR #783](https://github.com/cofade/open-garden-planner/pull/783); ADR-075; FR-SPLIT, FR-DRILL |
 | ✅ | Package 2D visual polish (#698, #782, #784–#796, #836) | Sharp sprites and fills, a cheap repaint with the sun overlay, quiet spacing warnings, legible labels, true exports, theme and locale fixes, examples in a showcase state, a key for the hours-of-sun map | v1.38.0; [PR #838](https://github.com/cofade/open-garden-planner/pull/838); ADR-076, ADR-077; §8.36, §8.37 |
 | ✅ | Package 3D visual polish (#687, #716, #719, #734, #737, #743, #798–#803, #805, #807) | Grass on the meadow, built parts that look like their material, tiled roofs, sharp low-sun shadows in stills, a clean horizon, a steady day lapse with a twilight fill, wind that shows, publishable tour video with an eased orbit, tours kept in the plan | v1.39.0; [PR #882](https://github.com/cofade/open-garden-planner/pull/882); ADR-059 and ADR-072 addenda |
 | ✅ | Example plans and repository showcase (#940, #564) | Thirteen bundled examples, each on its own day with a hint layer and a stored camera tour; five species; flowers before the last frost; a 3D flower meadow; a README with a download button and pictures taken from the shipped plans | v1.40.9; [PR #975](https://github.com/cofade/open-garden-planner/pull/975); ADR-066 addendum; FR-EXAMPLE-01–14; follow-ups #941–#950, #953–#974 |
@@ -302,13 +302,13 @@ reference. Phase 17 has its own top-level section because the wiki includes it.
 | ✅ | B4 | Nearest-point fallback snap | v1.12.0 |
 | ✅ | B5 | Perpendicular snap from active tool's `last_point` | v1.12.0 |
 | ✅ | B6 | Tangent snap onto circles + arcs from `last_point` | v1.12.0 |
-| ⛔ | B7 | Paper Space MVP — dropped; see FR-20.4 and the ADR-022 note | — (dropped) |
+| ⛔ | B7 | Paper Space MVP — dropped; see the ADR-023 note and the [old Paper Space chapter](https://github.com/cofade/open-garden-planner/blob/a0ea633c07e40da9bb4912ec1f9b09b24f57d4a6/docs/functional-requirements.md#L466) | — (dropped) |
 
 ### Phase 13: Smart Features — Package C (v1.17.0) ✅ Complete
 
 | Status | ID | Scope | Version / reference |
 |--------|----|-------|---------------------|
-| ✅ | C1 | Harvest tracking / yield log (#188) — per-plant/bed log + garden-wide dashboard — see FR-23 | v1.17.0 |
+| ✅ | C1 | Harvest tracking / yield log (#188) — per-plant/bed log + garden-wide dashboard — see FR-HARVEST | v1.17.0 |
 | ✅ | C2 | Task management & reminders — unified Tasks tab (#188) — see ADR-029 | v1.17.0 |
 
 ### Phase 13: Agent Integration — Package D (MCP Server) ✅ Complete
@@ -323,7 +323,7 @@ reference. Phase 17 has its own top-level section because the wiki includes it.
 
 | Status | ID | Scope | Version / reference |
 |--------|----|-------|---------------------|
-| ✅ | F1 | Permaculture layers and plant-function tags. | v1.30.0; ADR-054/055; FR-32 |
+| ✅ | F1 | Permaculture layers and plant-function tags. | v1.30.0; ADR-054/055; FR-PLANT, FR-GUILD, FR-LAYER-10 |
 | ✅ | F2 | Plant guilds, templates and diagnostics. | v1.30.0; ADR-054/055 |
 | ✅ | F3 | Sun requirement vs computed hours of sun. | v1.30.1; ADR-056 |
 | ✅ | F4 | Plan timeline and shared date/sun controls. | v1.30.17; ADR-062 |
@@ -358,9 +358,9 @@ No v2.0 release: the phase shipped as patch releases and the major-version frami
 
 | Status | ID | Scope | Version / reference |
 |--------|----|-------|---------------------|
-| ✅ | 1 | Themed iconography and modernized chrome. | ADR-039; FR-28 |
-| ✅ | 2 | Plant illustration redesign (Lush Sprite). | ADR-040; FR-29 |
-| ✅ | 3 | Object sprites, textures and iconography. | ADR-042; FR-30 |
+| ✅ | 1 | Themed iconography and modernized chrome. | ADR-039; FR-UI-THEME, FR-UI-ICON |
+| ✅ | 2 | Plant illustration redesign (Lush Sprite). | ADR-040; FR-PLANT-ART |
+| ✅ | 3 | Object sprites, textures and iconography. | ADR-042; FR-OBJ-ART, FR-TEX, FR-ICON-3C |
 
 ## Phase 17: Living Garden 3D (✅ L0–L7 complete)
 

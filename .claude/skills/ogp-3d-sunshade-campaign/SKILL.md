@@ -44,7 +44,7 @@ Current receiver model (#641): the original F3 ground-level estimate in the
 dated maintenance reference below is historical. Per-plant results now use
 the exact soil elevation from `item_base_cm`, slice external obstacles above
 that plane and preserve holder exclusions. The heatmap remains at ground
-level. See `docs/functional-requirements.md` FR-SUN-09/11 and the ADR-056
+level. See `docs/functional-requirements/sun-shade.md` FR-SUN-09/11 and the ADR-056
 exact soil-plane addendum.
 
 Open frames (FR-SUN-13): a pergola, a trellis, a swing, a hammock and a garden light

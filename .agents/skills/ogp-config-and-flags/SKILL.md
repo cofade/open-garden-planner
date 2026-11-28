@@ -377,7 +377,7 @@ copy that pattern.
    note its rationale: autouse fixtures may override the runtime value, so
    assert the *constant*); add/extend an integration test for the behavior
    (`tests/integration/test_agent_api_default_on.py`).
-7. **Docs**: FR entry if user-facing (`docs/functional-requirements.md`), ADR
+7. **Docs**: FR entry if user-facing (`docs/functional-requirements/README.md`), ADR
    if it's a decision, §11.4 if you hit a pitfall — and **update this skill's
    §1 table**.
 8. Follow `ogp-change-control` for branch/review/draft-PR gates.

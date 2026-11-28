@@ -4,7 +4,7 @@ description: >
   Load when finishing ANY feature or fix in Open Garden Planner and you owe documentation
   updates (you always do — this project practices continuous documentation); when writing
   an ADR, an FR-* entry, a pitfall entry (`pitfalls/`, ADR-061), or a debug-verbose case study; when
-  updating docs/roadmap.md, docs/functional-requirements.md, or the AGENTS.md current handoff;
+  updating docs/roadmap.md, docs/functional-requirements/, or the AGENTS.md current handoff;
   when syncing the GitHub wiki; or whenever you are unsure WHERE a piece of knowledge
   should live in the docs. Contains the verified docs-of-record map, the mandatory
   change-type → doc-target tables, the house style derived from real entries, and
@@ -34,7 +34,7 @@ sequencing* (branch → review → draft PR → merge) see `ogp-change-control`.
 
 Facts date-stamped **as of 2026-09-05**: app version v1.27.7, arc42 chapters 01–12 each
 a single `README.md`, ADR register runs ADR-001 … ADR-043 (then in one file), FR register
-runs through FR-31 / FR-AGENT-16, §8 crosscutting sections run §8.1 … §8.25.
+runs through FR-STACK / FR-AGENT-16, §8 crosscutting sections run §8.1 … §8.25.
 
 ## When NOT to use this skill
 
@@ -69,7 +69,7 @@ single `README.md` — there are no per-chapter sub-files. The exception is the 
 | Risks & technical debt | `docs/11-risks-and-technical-debt/README.md` | §11.1 open questions, §11.2 risks, §11.3 TD-* debt register (living: Status + Issue columns, ADR-047; dated audit snapshots under `audits/YYYY-MM/`), **§11.4 navigation table to the pitfall area indexes** (`pitfalls/index/NN-*.md`, ADR-061) |
 | Glossary | `docs/12-glossary/README.md` | §12.1 terms, §12.2 keyboard shortcuts, §12.3 references |
 | Roadmap | `docs/roadmap.md` | Current work and acceptance criteria; compact phase status and one-line delivery index; links to ADR/FR/issues |
-| FR register | `docs/functional-requirements.md` | Numbered FR-* requirements, the specification of user-visible capability |
+| FR register | `docs/functional-requirements/` (generated `README.md` index, one topic file per prefix family) | Prefixed FR-* requirements, the specification of user-visible capability |
 | Translation guide | `docs/TRANSLATING.md` | How to add a new language (`.ts`/`.qm` pipeline) |
 | AGENTS.md | `AGENTS.md` (repo root) | Quick reference commands, workflow, gates, and the current handoff. **A maintained doc** — its own "Maintaining this file" note requires keeping commands current and replacing the handoff on each release |
 | Debug case-study log | `.claude/skills/debug-verbose/SKILL.md` | Growing list of `## Case study:` entries — one per non-trivial bug fixed |
@@ -89,7 +89,7 @@ synced") assumes they were followed.
 | New component/module | `docs/05-building-block-view/` — add black box description |
 | New UI pattern | `docs/08-crosscutting-concepts/` section 8.9 |
 | Changed runtime behavior | `docs/06-runtime-view/` — update sequence diagrams |
-| New user-facing capability | `docs/functional-requirements.md` — add FR-* entry |
+| New user-facing capability | the topic file in `docs/functional-requirements/` that owns the prefix — add `- **FR-<PREFIX>-nn**:`, then `scripts/generate_doc_indexes.py` |
 | Architecture decision | `docs/09-architecture-decisions/` — create ADR |
 | New domain term | `docs/12-glossary/` — add definition |
 
@@ -196,7 +196,7 @@ the ADR from the roadmap completion row and any related
 ### 3.3 Roadmap style (`docs/roadmap.md`)
 
 - Completed phases use plain `✅` rows in the top phase table; do not mix strikethrough and
-  bold styles. Completed US rows use `| ✅ | C1 | One-line description — see FR-23 / ADR-029 |`.
+  bold styles. Completed US rows use `| ✅ | C1 | One-line description — see FR-HARVEST / ADR-029 |`.
 - While a US is open, keep its description and acceptance criteria in the roadmap's
   "Current work" section. When it ships, replace the whole detail with one status row
   (ID, one-line scope, version/PR or ADR/FR link). Delete the design spec, acceptance
@@ -206,16 +206,24 @@ the ADR from the roadmap completion row and any related
   release-by-release changelog, a shipped-package story or a "what changed" paragraph.
 - Deferred scope gets one line with the tracking issue; do not keep a second backlog.
 
-### 3.4 FR entry format (`docs/functional-requirements.md`)
+### 3.4 FR entry format (`docs/functional-requirements/`)
 
-Top-level sections `## FR-N: Title` — recent ones carry provenance in the heading:
-`## FR-23: Harvest Tracking / Yield Log (Phase 13, Package C, US-C1, issue #188)`.
-Under each, bulleted requirement IDs: `- **FR-<AREA>-NN**: requirement text` (e.g.
-`FR-LAYER-09`, `FR-AGENT-09`). Requirement text is testable and specific — clamp
+One topic file per area (`canvas.md`, `sun-shade.md`, `3d/workspace.md`, …). Its front
+matter names its `title` and the ID `prefixes` it owns; every prefix belongs to exactly one
+file, and the generated `README.md` lists prefix → file and each prefix's next free ID.
+`##` sections group the families. A requirement is one top-level bullet that starts with
+its ID: `- **FR-<PREFIX>-NN**: requirement text` (e.g. `FR-LAYER-09`, `FR-3D-WS-01`); an
+issue ref may sit between ID and colon (`- **FR-IMG-12** (Issue #659): …`). Detail goes in
+indented sub-bullets or paragraphs of that bullet; a section may end with an
+`Acceptance:` paragraph that names its tests. No bullet without an ID, no chapter numbers,
+no phase or package labels in headings. Requirement text is testable and specific — clamp
 ranges, key bindings, behavior on the error path ("unknown names match nothing, not an
 error"), and back-compat guarantees are stated inline. Issue numbers appear in the
 requirement when it originated from one (`(issue #201)`). Never renumber existing IDs;
-append.
+append the prefix's next free number, then run
+`venv/Scripts/python.exe scripts/generate_doc_indexes.py`. Its `--check` (in the suite)
+fails on an ID-less bullet, a duplicate ID, an ID whose prefix the file does not own, or a
+stale index (ADR-083 addendum).
 
 ## 4. Templates (copy-paste, derived from the real formats above)
 
@@ -273,22 +281,23 @@ pin). Cross-refs: FR-*, §8.x, PF-*.>
 (Refinements later: append a `## Addendum (PR #NNN)` section to this ADR's own file — do
 not rewrite the Decision, and do not touch `README.md`.)
 
-### FR entry (append to `docs/functional-requirements.md`)
+### FR entry (append to the topic file in `docs/functional-requirements/` that owns the prefix)
 
 ```markdown
-## FR-NN: <Capability Title> (Phase X, Package Y, US-X.X, issue #NNN)
-
-- **FR-<AREA>-01**: <Testable requirement: exact behavior, bindings, ranges, error-path
-  behavior, back-compat guarantee.>
-- **FR-<AREA>-02**: <…>
+- **FR-<PREFIX>-NN** (issue #NNN): <Testable requirement: exact behavior, bindings, ranges,
+  error-path behavior, back-compat guarantee.>
 ```
+
+A new family: add its prefix to one file's `prefixes` list, or create `<topic>.md` with
+`title` and `prefixes` front matter and a matching `# <title>` H1. Then run
+`venv/Scripts/python.exe scripts/generate_doc_indexes.py`.
 
 ### Roadmap completion (one status row, in `docs/roadmap.md`)
 
 ```markdown
 | Status | US    | Description                                                      |
 | ------ | ----- | ---------------------------------------------------------------- |
-| ✅     | X.X   | <One-line summary> — see FR-NN / ADR-0NN                          |
+| ✅     | X.X   | <One-line summary> — see FR-<PREFIX>-NN / ADR-0NN                 |
 ```
 
 Delete the open US detail: its description, acceptance criteria, acceptance highlights,
@@ -409,8 +418,8 @@ does not restate them.
 Derived 2026-07-04 from: AGENTS.md (mandatory-update tables reproduced verbatim);
 `docs/11-risks-and-technical-debt/README.md` §11.4 (entries #212, #213/#218/#219, #231,
 US-C4 read as anatomy exemplars); `docs/09-architecture-decisions/README.md` (ADR-001,
-ADR-028, ADR-029 + addenda; when read it was still one file, since ADR-083 each ADR is its own `ADR-nnn-<slug>.md`); `docs/functional-requirements.md` (FR-1, FR-23 heading,
-FR-AGENT-09); `docs/roadmap.md` (Package B follow-ups + US-C1/C2 sections);
+ADR-028, ADR-029 + addenda; when read it was still one file, since ADR-083 each ADR is its own `ADR-nnn-<slug>.md`); the then single-file FR register (chapters 1 and 23,
+FR-AGENT-09; since #1036 prefix-keyed topic files in `docs/functional-requirements/`); `docs/roadmap.md` (Package B follow-ups + US-C1/C2 sections);
 `.claude/skills/debug-verbose/SKILL.md` (case-study format + growth contract);
 `.claude/skills/ogp-change-control/SKILL.md` (skill house style). Wiki sibling repo
 verified ABSENT in this checkout.
@@ -419,7 +428,7 @@ Re-verify:
 
 ```bash
 # All arc42 chapters + key docs still exist
-ls docs/{01..12}*/README.md docs/roadmap.md docs/functional-requirements.md docs/TRANSLATING.md
+ls docs/{01..12}*/README.md docs/roadmap.md docs/functional-requirements/README.md docs/TRANSLATING.md
 # ADRs: one file each; count and current max ADR number; generated index in sync
 ls docs/09-architecture-decisions/ADR-*.md | wc -l && ls docs/09-architecture-decisions/ADR-*.md | sort -V | tail -1
 venv/Scripts/python.exe scripts/generate_doc_indexes.py --check

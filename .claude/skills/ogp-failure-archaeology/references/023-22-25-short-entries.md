@@ -63,7 +63,7 @@ the status-bar startup reminder invisible behind the modal Welcome dialog → pe
 `tests/integration/test_tasks.py::TestOverdueReminderBar`); shopping-list price ids must
 encode the display unit (g vs kg) or a price silently multiplies 1000×; trellis gallery
 thumbnails fell through to the round fallback because a SOLID fill has no texture
-(PR #236 manual-test fix, ADR-029 addendum / FR-21).
+(PR #236 manual-test fix, ADR-029 addendum / FR-TASK).
 
 ---
 

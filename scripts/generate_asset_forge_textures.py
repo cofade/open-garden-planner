@@ -1,6 +1,6 @@
 """Procedural texture forge — the single source of every fill-pattern texture.
 
-Package 3b (#309, ADR-042, FR-30) regenerated ALL 24 textures in
+Package 3b (#309, ADR-042, FR-TEX) regenerated ALL 24 textures in
 ``src/open_garden_planner/resources/textures/`` in the "Lush" language of
 the #281 plant sprites and the #308 object sprites: visible material detail,
 radial rim-dark → crown-light shading per element, concentric occlusion

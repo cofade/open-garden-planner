@@ -97,7 +97,7 @@ User-visible strings are covered in EN/DE/ES/RU. Pins:
 `tests/integration/test_group_drill_down.py`, `tests/unit/test_project.py::TestItemReferences`,
 `tests/integration/test_tool_switching.py::TestEscapeReturnsToSelect`,
 `tests/unit/test_object_height.py::TestHeightAcrossATypeChange`.
-Cross-refs: FR-35, §8.35, PF-CAN-46, PF-CAN-48.
+Cross-refs: FR-SPLIT, FR-DRILL, FR-GROUP, §8.35, PF-CAN-46, PF-CAN-48.
 
 **Addendum (2026-11-09) — two-point cuts without a selection, and the Shift+S shortcut.**
 
@@ -132,7 +132,7 @@ plant to the new piece containing its standing point, and undo restores the sour
 links before the source itself comes back.
 
 **Addendum 2 (2026-11-09) — decisions from the owner's manual test of PR #783.**
-Behaviour is specified in FR-35 and the mechanics in §8.35; this records what was
+Behaviour is specified in FR-SPLIT, FR-DRILL and FR-GROUP and the mechanics in §8.35; this records what was
 decided and what was rejected.
 
 1. **A building with a ridge is split like a garage.** The first version refused every

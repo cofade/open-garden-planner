@@ -43,7 +43,7 @@ These are deliberate limits of the product today, not a promise about later vers
 
 3D visualisation and sun/shadow simulation are **not** out of scope: they have shipped
 (Phases 14 and 17). The functional requirements in
-[`docs/functional-requirements.md`](../functional-requirements.md) are the record of what
+[`docs/functional-requirements/README.md`](../functional-requirements/README.md) are the record of what
 the app does.
 
 ## 1.5 Success Metrics
